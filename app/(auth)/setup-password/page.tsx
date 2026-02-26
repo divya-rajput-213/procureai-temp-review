@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,7 +28,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-export default function SetupPasswordPage() {
+function SetupPasswordForm() {
   const router = useRouter()
   const params = useSearchParams()
   const token = params.get('token') || ''
@@ -124,5 +124,26 @@ export default function SetupPasswordPage() {
         )}
       </Card>
     </div>
+  )
+}
+
+export default function SetupPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
+        <Card className="w-full max-w-md shadow-2xl">
+          <CardHeader className="text-center pb-2">
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-white animate-spin" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl font-bold">Loading...</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <SetupPasswordForm />
+    </Suspense>
   )
 }
