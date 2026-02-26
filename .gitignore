@@ -64,4 +64,3 @@ Thumbs.db
 # Vercel
 .vercel
 .next
-package-lock.json
