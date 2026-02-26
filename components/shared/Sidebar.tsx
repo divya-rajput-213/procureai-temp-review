@@ -19,15 +19,15 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth.store'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',          label: 'Dashboard',        icon: LayoutDashboard },
-  { href: '/vendors',            label: 'Vendors',          icon: Building2 },
-  { href: '/budget',             label: 'Budget & Tracking',icon: FileText },
-  { href: '/procurement',        label: 'Procurement',      icon: ShoppingCart },
-  { href: '/procurement/items',  label: 'Items',            icon: Package },
-  { href: '/approvals',          label: 'Approvals',        icon: CheckSquare },
-  { href: '/users',              label: 'Users',            icon: Users },
-  { href: '/reports',            label: 'Reports',          icon: BarChart3 },
-  { href: '/settings',           label: 'Settings',         icon: Settings },
+  { href: '/dashboard',          label: 'Dashboard',        icon: LayoutDashboard, indent: false },
+  { href: '/vendors',            label: 'Vendors',          icon: Building2, indent: false },
+  { href: '/budget',             label: 'Budget & Tracking',icon: FileText, indent: false },
+  { href: '/procurement',        label: 'Procurement',      icon: ShoppingCart, indent: false },
+  { href: '/procurement/items',  label: 'Items',            icon: Package, indent: true },
+  { href: '/approvals',          label: 'Approvals',        icon: CheckSquare, indent: false },
+  { href: '/users',              label: 'Users',            icon: Users, indent: false },
+  { href: '/reports',            label: 'Reports',          icon: BarChart3, indent: false },
+  { href: '/settings',           label: 'Settings',         icon: Settings, indent: false },
 ]
 
 export function Sidebar() {

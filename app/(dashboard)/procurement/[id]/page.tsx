@@ -1045,6 +1045,7 @@ export default function PRDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<'details' | 'approval' | 'bids'>('approval')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
