@@ -317,7 +317,7 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess }: {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total Amount</p>
-                <p className="font-bold text-primary mt-0.5">{formatCurrency(pr.total_amount)}</p>
+                <p className="font-bold text-primary mt-0.5">{formatCurrency(pr.total_amount, pr.currency_code)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Line Items</p>
@@ -724,7 +724,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
 
 // ─── Line Items Table (read-only) ─────────────────────────────────────────────
 
-function LineItemsTable({ items }: { items: any[] }) {
+function LineItemsTable({ items, currencyCode }: { items: any[]; currencyCode?: string }) {
   if (!items?.length) {
     return <p className="text-sm text-muted-foreground italic">No line items.</p>
   }
@@ -761,8 +761,8 @@ function LineItemsTable({ items }: { items: any[] }) {
                 </td>
                 <td className="px-3 py-2.5 text-right">{item.quantity}</td>
                 <td className="px-3 py-2.5 text-muted-foreground">{item.unit_of_measure}</td>
-                <td className="px-3 py-2.5 text-right">{formatCurrency(item.unit_rate)}</td>
-                <td className="px-3 py-2.5 text-right font-medium">{formatCurrency(total)}</td>
+                <td className="px-3 py-2.5 text-right">{formatCurrency(item.unit_rate, currencyCode)}</td>
+                <td className="px-3 py-2.5 text-right font-medium">{formatCurrency(total, currencyCode)}</td>
               </tr>
             )
           })}
@@ -772,7 +772,7 @@ function LineItemsTable({ items }: { items: any[] }) {
             <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">
               Total
             </td>
-            <td className="px-3 py-2 text-right font-bold">{formatCurrency(grandTotal)}</td>
+            <td className="px-3 py-2 text-right font-bold">{formatCurrency(grandTotal, currencyCode)}</td>
           </tr>
         </tfoot>
       </table>
@@ -957,7 +957,7 @@ function BidsTab({ pr }: { pr: any }) {
                   {bid.notes && <p className="text-xs text-muted-foreground">{bid.notes}</p>}
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold">{formatCurrency(bid.bid_amount)}</p>
+                  <p className="text-lg font-bold">{formatCurrency(bid.bid_amount, pr.currency_code)}</p>
                   <p className="text-xs text-muted-foreground">
                     {bid.delivery_days}d delivery · {bid.validity_days}d validity
                   </p>
@@ -1137,7 +1137,7 @@ export default function PRDetailPage() {
             </Button>
           )}
           <div className="text-right">
-            <p className="text-xl font-bold">{formatCurrency(pr.total_amount)}</p>
+            <p className="text-xl font-bold">{formatCurrency(pr.total_amount, pr.currency_code)}</p>
             <p className="text-xs text-muted-foreground">Total Value</p>
           </div>
         </div>
@@ -1254,7 +1254,7 @@ export default function PRDetailPage() {
           <Card>
             <CardHeader><CardTitle className="text-sm">Line Items</CardTitle></CardHeader>
             <CardContent>
-              <LineItemsTable items={pr.line_items ?? []} />
+              <LineItemsTable items={pr.line_items ?? []} currencyCode={pr.currency_code} />
             </CardContent>
           </Card>
 

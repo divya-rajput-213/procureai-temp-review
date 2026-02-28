@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
+import { useSettingsStore } from '@/lib/stores/settings.store'
 import { useToast } from '@/components/ui/use-toast'
 import {
   ArrowLeft, Loader2, CheckCircle, XCircle, Clock, Send, Pencil, X,
@@ -527,6 +528,8 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
   amountOnly?: boolean
   onSubmitApproval?: (matrixId: number | null) => Promise<void>
 }) {
+  const { currencySymbol } = useSettingsStore()
+
   const [title, setTitle] = useState<string>(budget.title ?? '')
   const [description, setDescription] = useState<string>(budget.description ?? '')
   const [requestedAmount, setRequestedAmount] = useState<number>(Number(budget.requested_amount) || 0)
@@ -574,7 +577,7 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
     const clamped = Math.min(val, 100_000_000)
     setRequestedAmount(clamped)
     if (clamped > 0 && clamped < 1000) {
-      setAmountError('Minimum budget is ₹1,000')
+      setAmountError(`Minimum budget is ${currencySymbol}1,000`)
     } else {
       setAmountError('')
     }
@@ -680,7 +683,7 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
       <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            {amountOnly ? 'Update Budget Amount' : 'Estimated Budget (₹)'}
+            {amountOnly ? 'Update Budget Amount' : `Estimated Budget (${currencySymbol})`}
           </CardTitle>
           {amountOnly && (
             <p className="text-xs text-muted-foreground mt-1">You can update the requested amount while the budget is under review.</p>
@@ -695,13 +698,13 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
                     ? 'bg-primary text-white border-primary'
                     : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
                 }`}>
-                {amt >= 100000 ? `₹${amt / 100000}L` : `₹${amt / 1000}K`}
+                {amt >= 100000 ? `${currencySymbol}${amt / 100000}L` : `${currencySymbol}${amt / 1000}K`}
               </button>
             ))}
           </div>
           <div className="max-w-xs space-y-1.5">
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium select-none">₹</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium select-none">{currencySymbol}</span>
               <Input
                 type="number" step="1" min={1000} max={100000000} placeholder="0"
                 className={amountInputCls}
@@ -711,12 +714,12 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
               />
             </div>
             {requestedAmount >= 1000 && !amountError && (
-              <p className="text-xs font-semibold text-emerald-600">{formatCurrency(requestedAmount)}</p>
+              <p className="text-xs font-semibold text-emerald-600">{formatCurrency(requestedAmount, budget.currency_code)}</p>
             )}
             {amountError && (
               <p className="text-xs text-destructive flex items-center gap-1"><span>⚠</span> {amountError}</p>
             )}
-            <p className="text-xs text-muted-foreground">Min ₹1,000 · Max ₹1,00,00,000</p>
+            <p className="text-xs text-muted-foreground">Min {currencySymbol}1,000 · Max {currencySymbol}1,00,00,000</p>
           </div>
         </CardContent>
       </Card>
@@ -987,7 +990,7 @@ export default function BudgetDetailPage() {
                     {[
                       ['Plant', budget.plant_name || '—'],
                       ['Department', budget.department_name || '—'],
-                      ['Requested Amount', formatCurrency(budget.requested_amount)],
+                      ['Requested Amount', formatCurrency(budget.requested_amount, budget.currency_code)],
                       ['Created', formatDate(budget.created_at)],
                       ['Requested By', budget.requested_by_name || '—'],
                     ].map(([label, value]) => (
@@ -1000,7 +1003,7 @@ export default function BudgetDetailPage() {
                       <div className="flex justify-between gap-2 border-t pt-2 mt-1">
                         <span className="text-muted-foreground shrink-0">Remaining</span>
                         <span className={`font-semibold ${Number(budget.remaining_amount) > 0 ? 'text-green-700' : 'text-red-600'}`}>
-                          {formatCurrency(budget.remaining_amount)}
+                          {formatCurrency(budget.remaining_amount, budget.currency_code)}
                         </span>
                       </div>
                     )}

@@ -87,7 +87,7 @@ export default function BudgetPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3">{formatCurrency(t.requested_amount)}</td>
+                      <td className="px-4 py-3">{formatCurrency(t.requested_amount, t.currency_code)}</td>
                       {/* <td className="px-4 py-3">{t.approved_amount ? formatCurrency(t.approved_amount) : '—'}</td>
                       <td className="px-4 py-3">
                         {t.remaining_amount == null && '—'}
