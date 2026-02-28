@@ -34,20 +34,25 @@ const COMPLIANCE_ROWS: Array<{
 
 // ─── Compliance doc row ────────────────────────────────────────────────────────
 
-function ComplianceDocRow({ docType, label, fieldLabel, fieldValue, doc, vendorId, canEdit, onRefresh }: {
+function ComplianceDocRow({ docType, label, fieldLabel, fieldValue, fieldKey, doc, vendorId, canEdit, onRefresh, onFieldUpdate }: {
   docType: string
   label: string
   fieldLabel: string
   fieldValue: string
+  fieldKey: string
   doc: any | null
   vendorId: string | string[]
   canEdit: boolean
   onRefresh: () => void
+  onFieldUpdate?: (key: string, value: string) => Promise<void>
 }) {
   const { toast } = useToast()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [isEditingField, setIsEditingField] = useState(false)
+  const [fieldEditValue, setFieldEditValue] = useState(fieldValue)
+  const [savingField, setSavingField] = useState(false)
 
   const upload = async (file: File) => {
     setUploading(true)
@@ -80,12 +85,69 @@ function ComplianceDocRow({ docType, label, fieldLabel, fieldValue, doc, vendorI
     }
   }
 
+  const saveField = async () => {
+    if (!onFieldUpdate || !fieldKey) return
+    setSavingField(true)
+    try {
+      await onFieldUpdate(fieldKey, fieldEditValue)
+      setIsEditingField(false)
+    } catch {
+      toast({ title: 'Update failed', variant: 'destructive' })
+    } finally {
+      setSavingField(false)
+    }
+  }
+
+  const openFieldEdit = () => {
+    setFieldEditValue(fieldValue)
+    setIsEditingField(true)
+  }
+
   return (
     <div className="flex items-center gap-4 py-3 px-4 border-b last:border-0">
-      {/* Field value */}
+      {/* Field value — editable inline for draft vendors */}
       <div className="w-44 shrink-0">
         <p className="text-xs text-muted-foreground">{fieldLabel}</p>
-        <p className="text-sm font-mono font-medium truncate">{fieldValue || '—'}</p>
+        {isEditingField ? (
+          <div className="flex items-center gap-1 mt-0.5">
+            <input
+              type="text"
+              value={fieldEditValue}
+              onChange={e => setFieldEditValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { saveField() } else if (e.key === 'Escape') { setIsEditingField(false) } }}
+              className="border rounded px-1.5 py-0.5 text-xs font-mono w-full focus:outline-none focus:ring-1 focus:ring-primary"
+              autoFocus
+            />
+            <button
+              onClick={saveField}
+              disabled={savingField}
+              className="shrink-0 text-green-600 hover:text-green-800 disabled:opacity-50"
+              title="Save"
+            >
+              {savingField ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={() => setIsEditingField(false)}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+              title="Cancel"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 group">
+            <p className="text-sm font-mono font-medium truncate">{fieldValue || '—'}</p>
+            {canEdit && fieldKey && onFieldUpdate && (
+              <button
+                onClick={openFieldEdit}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                title={`Edit ${fieldLabel}`}
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
       {/* Doc type label */}
       <p className="text-xs text-muted-foreground w-52 shrink-0">{label}</p>
@@ -702,25 +764,16 @@ export default function VendorDetailPage() {
     },
   })
 
-  const onDocDrop = useCallback(async (files: File[]) => {
+  // ── Other Documents: two-step upload (select file → set title → upload) ──────
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingTitle, setPendingTitle] = useState('')
+
+  const onDocDrop = useCallback((files: File[]) => {
     const file = files[0]
     if (!file) return
-    setUploading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('doc_type', 'other')
-      await apiClient.post(`/vendors/${id}/documents/`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-      toast({ title: 'Document uploaded. AI validation running...' })
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' })
-    } finally {
-      setUploading(false)
-    }
-  }, [id, queryClient, toast])
+    setPendingFile(file)
+    setPendingTitle(file.name.replace(/\.[^/.]+$/, ''))
+  }, [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onDocDrop,
@@ -729,7 +782,31 @@ export default function VendorDetailPage() {
       'application/pdf': ['.pdf'],
       'image/*': ['.jpg', '.jpeg', '.png'],
     },
+    noClick: !!pendingFile,
+    noDrag: !!pendingFile,
   })
+
+  const submitOtherDoc = async () => {
+    if (!pendingFile) return
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', pendingFile)
+      fd.append('doc_type', 'other')
+      fd.append('title', pendingTitle.trim() || pendingFile.name)
+      await apiClient.post(`/vendors/${id}/documents/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      queryClient.invalidateQueries({ queryKey: ['vendor', id] })
+      toast({ title: 'Document uploaded. AI validation running...' })
+      setPendingFile(null)
+      setPendingTitle('')
+    } catch {
+      toast({ title: 'Upload failed', variant: 'destructive' })
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const deleteDocMutation = useMutation({
     mutationFn: async (docId: number) => {
@@ -740,6 +817,12 @@ export default function VendorDetailPage() {
       toast({ title: 'Document deleted.' })
     },
   })
+
+  const handleFieldUpdate = async (key: string, value: string) => {
+    await apiClient.patch(`/vendors/${id}/`, { [key]: value })
+    queryClient.invalidateQueries({ queryKey: ['vendor', id] })
+    toast({ title: 'Field updated.' })
+  }
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
   if (!vendor) return <div className="p-8 text-center text-muted-foreground">Vendor not found.</div>
@@ -887,11 +970,13 @@ export default function VendorDetailPage() {
                   docType={row.docType}
                   label={row.label}
                   fieldLabel={row.fieldLabel}
+                  fieldKey={row.fieldKey}
                   fieldValue={row.fieldKey ? (vendor[row.fieldKey] ?? '') : ''}
                   doc={vendor.documents?.find((d: any) => d.doc_type === row.docType) ?? null}
                   vendorId={id}
                   canEdit={isDraft}
                   onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })}
+                  onFieldUpdate={isDraft ? handleFieldUpdate : undefined}
                 />
               ))}
             </CardContent>
@@ -899,71 +984,106 @@ export default function VendorDetailPage() {
 
           {/* Other Documents */}
           <Card>
-            <CardHeader><CardTitle className="text-sm">Other Documents</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-sm">Other Documents</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Upload any additional supporting documents (e.g. quality certs, trade licences).
+              </p>
+            </CardHeader>
             <CardContent className="space-y-3">
-              {isDraft && (
+              {isDraft && !pendingFile && (
                 <div
                   {...getRootProps()}
                   className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
                     ${isDragActive ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300'}`}
                 >
                   <input {...getInputProps()} />
-                  {uploading && (
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Uploading & running AI validation...</span>
-                    </div>
-                  )}
-                  {!uploading && (
-                    <div>
-                      <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-1" />
-                      <p className="text-sm">Drop PDF or image here, or click to select</p>
-                    </div>
-                  )}
+                  <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-1" />
+                  <p className="text-sm font-medium">Drop a file here, or click to select</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">PDF, JPG, PNG</p>
                 </div>
               )}
-              {vendor.documents?.filter((d: any) => d.doc_type === 'other').length === 0 && (
+              {isDraft && pendingFile && (
+                <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                  <div className="flex items-center gap-2 text-sm">
+                    <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="font-medium truncate">{pendingFile.name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      ({(pendingFile.size / 1024).toFixed(0)} KB)
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Document Title</Label>
+                    <Input
+                      value={pendingTitle}
+                      onChange={e => setPendingTitle(e.target.value)}
+                      placeholder="e.g. ISO 9001 Certificate"
+                      className="h-8 text-sm"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={() => { setPendingFile(null); setPendingTitle('') }}
+                      disabled={uploading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={submitOtherDoc}
+                      disabled={uploading}
+                      className="gap-1.5"
+                    >
+                      {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      Upload
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {(vendor.documents?.filter((d: any) => d.doc_type === 'other').length ?? 0) === 0 && !pendingFile && (
                 <p className="text-sm text-muted-foreground text-center py-2">No other documents uploaded.</p>
               )}
-              {vendor.documents?.filter((d: any) => d.doc_type === 'other').length > 0 && (
+              {(vendor.documents?.filter((d: any) => d.doc_type === 'other').length ?? 0) > 0 && (
                 <div className="space-y-2">
                   {vendor.documents.filter((d: any) => d.doc_type === 'other').map((doc: any) => (
-                    <Card key={doc.id}>
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <FileText className="w-5 h-5 text-muted-foreground shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{doc.original_filename}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <Badge variant="secondary" className="text-xs">{DOC_TYPE_LABELS[doc.doc_type]}</Badge>
-                              <AIValidationBadge status={doc.ai_validation_status} />
-                              <span className="text-xs text-muted-foreground">{formatDate(doc.uploaded_at)}</span>
-                            </div>
-                            {doc.ai_validation_notes && (
-                              <p className="text-xs text-muted-foreground mt-1">{doc.ai_validation_notes}</p>
-                            )}
+                    <div key={doc.id} className="flex items-center justify-between gap-4 border rounded-lg px-4 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{doc.title || doc.original_filename}</p>
+                          {doc.title && (
+                            <p className="text-xs text-muted-foreground truncate">{doc.original_filename}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <AIValidationBadge status={doc.ai_validation_status} />
+                            <span className="text-xs text-muted-foreground">{formatDate(doc.uploaded_at)}</span>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {doc.file_url && (
-                            <a href={doc.file_url} target="_blank" rel="noreferrer">
-                              <Button variant="ghost" size="sm">
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </Button>
-                            </a>
+                          {doc.ai_validation_notes && (
+                            <p className="text-xs text-muted-foreground mt-1">{doc.ai_validation_notes}</p>
                           )}
-                          {isDraft && (
-                            <Button
-                              variant="ghost" size="sm"
-                              onClick={() => deleteDocMutation.mutate(doc.id)}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {doc.file_url && (
+                          <a href={doc.file_url} target="_blank" rel="noreferrer">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                              <ExternalLink className="w-3.5 h-3.5" />
                             </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                          </a>
+                        )}
+                        {isDraft && (
+                          <Button
+                            variant="ghost" size="sm"
+                            onClick={() => deleteDocMutation.mutate(doc.id)}
+                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
