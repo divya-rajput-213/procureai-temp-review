@@ -180,13 +180,13 @@ export function TopBar() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* <div className="flex items-center gap-2">
           {user?.roles?.map((role) => (
             <Badge key={role.id} variant="secondary" className="text-xs hidden sm:inline-flex">
               {role.display_name}
             </Badge>
           ))}
-        </div>
+        </div> */}
       </div>
     </header>
   )

@@ -11,10 +11,12 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
+import { useRouter } from 'next/navigation'
 
 export default function ProcurementPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const router = useRouter()
 
   const { data, isLoading } = useQuery({
     queryKey: ['purchase-requisitions', search, statusFilter],
@@ -72,7 +74,6 @@ export default function ProcurementPage() {
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">PR Number</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tracking ID</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Amount</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plant</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
@@ -82,23 +83,15 @@ export default function ProcurementPage() {
                 </thead>
                 <tbody className="divide-y">
                   {prs.map((pr: any) => (
-                    <tr key={pr.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={pr.id} 
+                    onClick={() => router.push(`/procurement/${pr.id}`)}
+                    className="hover:bg-slate-50 transition-colors cursor-pointer select-none">
                       <td className="px-4 py-3 font-medium">{pr.pr_number}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{pr.tracking_code || '—'}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant={pr.purchase_type === 'CAPEX' ? 'info' : 'secondary'} className="text-xs">
-                          {pr.purchase_type}
-                        </Badge>
-                      </td>
                       <td className="px-4 py-3 font-semibold">{formatCurrency(pr.total_amount, pr.currency_code)}</td>
                       <td className="px-4 py-3">{pr.plant_name}</td>
                       <td className="px-4 py-3"><StatusBadge status={pr.status} /></td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(pr.created_at)}</td>
-                      <td className="px-4 py-3">
-                        <Link href={`/procurement/${pr.id}`}>
-                          <Button variant="ghost" size="sm">View</Button>
-                        </Link>
-                      </td>
                     </tr>
                   ))}
                 </tbody>

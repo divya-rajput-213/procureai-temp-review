@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -19,13 +19,14 @@ import {
 } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import ReactMarkdown from 'react-markdown'
+import { useSettingsStore } from '@/lib/stores/settings.store'
 
 // ─── Approval Timeline ─────────────────────────────────────────────────────────
 
 function stepStyle(action: string) {
   if (action === 'approved') return { dot: 'bg-green-500', badge: 'bg-green-100 text-green-700' }
   if (action === 'rejected') return { dot: 'bg-red-500', badge: 'bg-red-100 text-red-700' }
-  if (action === 'held')     return { dot: 'bg-amber-400', badge: 'bg-amber-100 text-amber-700' }
+  if (action === 'held') return { dot: 'bg-amber-400', badge: 'bg-amber-100 text-amber-700' }
   return { dot: 'bg-slate-300', badge: 'bg-slate-100 text-slate-600' }
 }
 
@@ -38,8 +39,8 @@ function ApprovalTimeline({ actions }: { actions: any[] }) {
         const isLast = idx === actions.length - 1
         const label = a.action === 'approved' ? 'Approved'
           : a.action === 'rejected' ? 'Rejected'
-          : a.action === 'held' ? 'On Hold'
-          : 'Pending'
+            : a.action === 'held' ? 'On Hold'
+              : 'Pending'
         return (
           <div key={a.id} className="flex gap-3">
             <div className="flex flex-col items-center">
@@ -47,8 +48,8 @@ function ApprovalTimeline({ actions }: { actions: any[] }) {
                 {a.action === 'approved'
                   ? <CheckCircle className="w-4 h-4 text-white" />
                   : a.action === 'rejected'
-                  ? <XCircle className="w-4 h-4 text-white" />
-                  : <Clock className="w-4 h-4 text-white" />}
+                    ? <XCircle className="w-4 h-4 text-white" />
+                    : <Clock className="w-4 h-4 text-white" />}
               </div>
               {!isLast && <div className="w-px flex-1 bg-slate-200 my-1 min-h-[16px]" />}
             </div>
@@ -177,24 +178,24 @@ function ApprovalProgressPanel({ prId, onStatusChange }: {
 
   const levelLabel = isLoading ? 'Loading…'
     : reqStatus === 'approved' ? 'Fully Approved'
-    : reqStatus === 'rejected' ? 'Rejected'
-    : approvalRequest ? `In Progress — Level ${approvalRequest.current_level}`
-    : 'No Approval Request'
+      : reqStatus === 'rejected' ? 'Rejected'
+        : approvalRequest ? `In Progress — Level ${approvalRequest.current_level}`
+          : 'No Approval Request'
 
   const headerBg = reqStatus === 'approved' ? 'bg-green-50'
     : reqStatus === 'rejected' ? 'bg-red-50'
-    : 'bg-amber-50'
+      : 'bg-amber-50'
   const headerText = reqStatus === 'approved' ? 'text-green-800'
     : reqStatus === 'rejected' ? 'text-red-800'
-    : 'text-amber-800'
+      : 'text-amber-800'
   const headerSub = reqStatus === 'approved' ? 'text-green-600'
     : reqStatus === 'rejected' ? 'text-red-600'
-    : 'text-amber-600'
+      : 'text-amber-600'
   const StatusIcon = reqStatus === 'approved'
     ? <CheckCircle className="w-4 h-4 text-green-600" />
     : reqStatus === 'rejected'
-    ? <XCircle className="w-4 h-4 text-red-600" />
-    : <Clock className="w-4 h-4 text-amber-600" />
+      ? <XCircle className="w-4 h-4 text-red-600" />
+      : <Clock className="w-4 h-4 text-amber-600" />
 
   return (
     <div className="border rounded-lg overflow-hidden">
@@ -481,6 +482,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
     tracking_id: pr.tracking_id ?? '',
     description: pr.description ?? '',
   })
+
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
 
   // Invited vendors
@@ -511,6 +513,20 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
   const [itemSearch, setItemSearch] = useState<Record<number, string>>({})
   const [showItemDropdown, setShowItemDropdown] = useState<number | null>(null)
   const activeItemSearch = showItemDropdown === null ? '' : (itemSearch[showItemDropdown] ?? '')
+
+  const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
+  const subtotal = lineItems.reduce(
+    (sum, item) =>
+      sum +
+      (Number(item.quantity) || 0) *
+      (Number(item.unit_rate) || 0),
+    0
+  )
+  const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
+  const grandTotal = subtotal + taxTotal
+
+
+
   const { data: itemResults } = useQuery({
     queryKey: ['items-edit', activeItemSearch],
     queryFn: async () => {
@@ -558,7 +574,21 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
       })),
     })
   }
+  useEffect(() => {
+    if (!form.tracking_id) return;
 
+    const selectedTracking = trackingIds.find(
+      (t: any) => t.id === Number(form.tracking_id)
+    );
+
+    if (selectedTracking) {
+      setForm(prev => ({
+        ...prev,
+        plant: selectedTracking.plant ?? '',
+        department: selectedTracking.department ?? '',
+      }));
+    }
+  }, [form.tracking_id, trackingIds]);
   return (
     <div className="space-y-4">
       {/* Tracking ID + Plant + Department */}
@@ -579,7 +609,8 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
         <div className="space-y-1">
           <Label className="text-xs">Plant</Label>
           <select
-            className="w-full h-8 border rounded-md px-3 text-sm bg-background"
+            disabled
+            className="w-full h-8 border rounded-md px-3 text-sm  bg-muted cursor-not-allowed text-muted-foreground"
             value={form.plant}
             onChange={e => set('plant', e.target.value ? Number(e.target.value) : '')}
           >
@@ -590,7 +621,8 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
         <div className="space-y-1">
           <Label className="text-xs">Department</Label>
           <select
-            className="w-full h-8 border rounded-md px-3 text-sm bg-background"
+            disabled
+            className="w-full h-8 border rounded-md px-3 text-sm   bg-muted cursor-not-allowed text-muted-foreground"
             value={form.department}
             onChange={e => set('department', e.target.value ? Number(e.target.value) : '')}
           >
@@ -612,43 +644,117 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
       </div>
 
       {/* Invited Vendors */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         <Label className="text-xs">Invited Vendors</Label>
+
+        {/* Search Input */}
         <div className="relative">
           <Input
-            placeholder="Search approved vendors..."
+            placeholder="Search approved vendors…"
             value={vendorSearch}
-            onChange={e => { setVendorSearch(e.target.value); setShowVendorDropdown(true) }}
+            onChange={e => {
+              setVendorSearch(e.target.value);
+              setShowVendorDropdown(true);
+            }}
             onFocus={() => setShowVendorDropdown(true)}
             onBlur={() => setTimeout(() => setShowVendorDropdown(false), 150)}
-            className="h-8 text-sm"
+            className="h-10"
           />
-          {showVendorDropdown && (
-            <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-md bg-background shadow-md max-h-48 overflow-y-auto divide-y">
-              {(vendorResults || []).filter((v: any) => !invitedVendors.some((s: any) => s.id === v.id)).map((v: any) => (
-                <button key={v.id} type="button" onMouseDown={e => e.preventDefault()}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
-                  onClick={() => addVendor(v)}>
-                  <span className="font-medium">{v.company_name}</span>
-                  <span className="text-xs text-muted-foreground ml-2">{v.category_name}</span>
-                </button>
-              ))}
-              {(vendorResults || []).filter((v: any) => !invitedVendors.some((s: any) => s.id === v.id)).length === 0 && vendorSearch && (
-                <p className="px-3 py-2 text-sm text-muted-foreground">No vendors found.</p>
-              )}
+
+          {showVendorDropdown && vendorSearch && (
+            <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
+              {(vendorResults || [])
+                .filter((v: any) => !invitedVendors.some((s: any) => s.id === v.id))
+                .map((v: any) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => addVendor(v)}
+                    className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{v.company_name}</span>
+                      <span className="text-xs text-emerald-600 font-medium">
+                        {v.status}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
+                      {v.category_name && <span>{v.category_name}</span>}
+                      {v.city && (
+                        <span>
+                          {v.city}
+                          {v.state ? `, ${v.state}` : ""}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+
+              {(vendorResults || []).filter(
+                (v: any) => !invitedVendors.some((s: any) => s.id === v.id)
+              ).length === 0 && (
+                  <p className="px-3 py-2.5 text-sm text-muted-foreground">
+                    No vendors found.
+                  </p>
+                )}
             </div>
           )}
         </div>
+
+        {/* Selected Vendors Table */}
         {invitedVendors.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {invitedVendors.map((v: any) => (
-              <div key={v.id} className="flex items-center gap-1 bg-slate-100 rounded-full px-2.5 py-1 text-xs">
-                <span>{v.company_name}</span>
-                <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-red-500 ml-0.5">
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Vendor
+                  </th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
+                    Category
+                  </th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
+                    Location
+                  </th>
+                  <th className="w-8 px-3 py-2.5" />
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-border">
+                {invitedVendors.map((v: any) => (
+                  <tr
+                    key={v.id}
+                    className="hover:bg-muted/30 transition-colors"
+                  >
+                    <td className="px-3 py-2.5 font-medium">
+                      {v.company_name}
+                    </td>
+
+                    <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
+                      {v.category_name || "—"}
+                    </td>
+
+                    <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
+                      {v.city
+                        ? [v.city, v.state].filter(Boolean).join(", ")
+                        : "—"}
+                    </td>
+
+                    <td className="px-3 py-2.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => removeVendor(v.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -695,7 +801,6 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
                   </div>
                 )}
               </div>
-              <Input placeholder="Description" value={li.description} onChange={e => setLI(idx, 'description', e.target.value)} className="h-8 text-sm" />
               <div className="grid grid-cols-3 gap-2">
                 <Input type="number" placeholder="Qty" value={li.quantity} onChange={e => setLI(idx, 'quantity', e.target.value)} className="h-8 text-sm" />
                 <Input placeholder="UOM" value={li.unit_of_measure} onChange={e => setLI(idx, 'unit_of_measure', e.target.value)} className="h-8 text-sm" />
@@ -708,7 +813,30 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
           )}
         </div>
       </div>
-
+      <div className="border border-border rounded-lg overflow-hidden mt-2">
+        <table className="w-full text-sm">
+          <tbody className="divide-y divide-border">
+            <tr className="bg-muted/30">
+              <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
+              <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
+            </tr>
+            {activeTaxes.map(tax => (
+              <tr key={tax.id}>
+                <td className="px-4 py-2.5 text-muted-foreground">
+                  {tax.name} <span className="text-xs">({tax.rate}%)</span>
+                </td>
+                <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-muted/50 border-t-2 border-border">
+              <td className="px-4 py-3 font-semibold">Grand Total</td>
+              <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
       <div className="flex justify-end gap-3 pt-2 border-t">
         <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
           <X className="w-3.5 h-3.5" /> Cancel
@@ -1116,9 +1244,7 @@ export default function PRDetailPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-start gap-3 flex-wrap">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/procurement')} className="gap-1 shrink-0">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-lg font-semibold truncate">{pr.pr_number}</h1>
@@ -1140,6 +1266,9 @@ export default function PRDetailPage() {
             <p className="text-xl font-bold">{formatCurrency(pr.total_amount, pr.currency_code)}</p>
             <p className="text-xs text-muted-foreground">Total Value</p>
           </div>
+          <Button variant="ghost" size="sm" onClick={() => router.push('/procurement')} className="gap-1 shrink-0">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </Button>
         </div>
       </div>
 
@@ -1150,11 +1279,10 @@ export default function PRDetailPage() {
             key={t.key}
             type="button"
             onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === t.key
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === t.key
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             {t.label}
           </button>

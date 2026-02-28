@@ -86,7 +86,7 @@ function ItemModal({
     if (!form.code.trim()) errs.code = 'Code is required'
     if (!form.description.trim()) errs.description = 'Description is required'
     if (!form.category.trim()) errs.category = 'Category is required'
-    if(!form.unit_rate) errs.unit_rate = 'Unit rate is required'
+    if(!form.unit_rate) errs.unit_rate = 'Unit Rate is required'
     if (!form.unit_of_measure.trim()) errs.unit_of_measure = 'Unit of measure is required'
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -260,12 +260,7 @@ export default function ItemsInventoryPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Items Inventory</h1>
-        <Button onClick={openAdd} className="gap-1">
-          <Plus className="w-4 h-4" /> Add Item
-        </Button>
-      </div>
+
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -287,6 +282,11 @@ export default function ItemsInventoryPage() {
           />
           Show inactive
         </label>
+        <div className="sm:ml-auto">
+        <Button onClick={openAdd} className="gap-1">
+          <Plus className="w-4 h-4" /> Add Item
+        </Button>
+      </div>
       </div>
 
       {/* Table */}
@@ -313,9 +313,8 @@ export default function ItemsInventoryPage() {
                     <th className="px-4 py-3 text-left font-medium">Description</th>
                     <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Unit</th>
                     <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Category</th>
-                    <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">SAP Code</th>
+                    <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Unit Rate</th>
                     <th className="px-4 py-3 text-left font-medium">Status</th>
-                    <th className="px-4 py-3 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
