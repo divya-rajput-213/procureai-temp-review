@@ -3,18 +3,27 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth.store'
+import { useSettingsStore } from '@/lib/stores/settings.store'
 import { Sidebar } from '@/components/shared/Sidebar'
 import { TopBar } from '@/components/shared/TopBar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const fetchSettings = useSettingsStore((s) => s.fetch)
+  const settingsLoaded = useSettingsStore((s) => s.isLoaded)
 
   useEffect(() => {
     if (!isAuthenticated()) {
       router.push('/login')
     }
   }, [isAuthenticated, router])
+
+  useEffect(() => {
+    if (isAuthenticated() && !settingsLoaded) {
+      fetchSettings()
+    }
+  }, [isAuthenticated, fetchSettings, settingsLoaded])
 
   if (!isAuthenticated()) return null
 

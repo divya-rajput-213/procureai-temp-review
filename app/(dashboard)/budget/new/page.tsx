@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
 import { ArrowLeft, Loader2, X, Save, Send, Sparkles, ChevronDown } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { useSettingsStore } from '@/lib/stores/settings.store'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 
@@ -47,6 +48,7 @@ export default function NewBudgetPage() {
   const router = useRouter()
   const { toast } = useToast()
   const submitModeRef = useRef<'draft' | 'approval'>('draft')
+  const { currencySymbol } = useSettingsStore()
 
   const [aiOpen, setAiOpen] = useState(false)
   const [aiInput, setAiInput] = useState('')
@@ -305,7 +307,7 @@ export default function NewBudgetPage() {
 
             {/* Estimated Budget */}
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Estimated Budget (₹) <span className="text-destructive">*</span></Label>
+              <Label className="text-sm font-medium">Estimated Budget ({currencySymbol}) <span className="text-destructive">*</span></Label>
               {/* Quick-select chips */}
               <div className="flex flex-wrap gap-1.5">
                 {[10000, 50000, 100000, 500000, 1000000, 5000000].map(amt => (
@@ -319,13 +321,13 @@ export default function NewBudgetPage() {
                         : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
                     }`}
                   >
-                    {amt >= 100000 ? `₹${amt / 100000}L` : `₹${amt / 1000}K`}
+                    {amt >= 100000 ? `${currencySymbol}${amt / 100000}L` : `${currencySymbol}${amt / 1000}K`}
                   </button>
                 ))}
               </div>
               <div className="max-w-xs space-y-1.5">
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium select-none">₹</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium select-none">{currencySymbol}</span>
                   <Input
                     type="number"
                     step="1"
@@ -352,7 +354,7 @@ export default function NewBudgetPage() {
                     <span>⚠</span> {errors.requested_amount.message}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground">Min ₹1,000 · Max ₹1,00,00,000</p>
+                <p className="text-xs text-muted-foreground">Min {currencySymbol}1,000 · Max {currencySymbol}1,00,00,000</p>
               </div>
             </div>
 
