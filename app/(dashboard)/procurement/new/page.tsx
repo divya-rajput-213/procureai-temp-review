@@ -370,7 +370,7 @@ export default function NewPRPage() {
     },
     enabled: step === 2,
   })
-
+  
   // ─── Form ─────────────────────────────────────────────────────────────
 
   const {
@@ -395,6 +395,23 @@ export default function NewPRPage() {
   const watchedDepartment = watch('department')
   const step0Valid = !!watchedTrackingId && !!watchedPlant && !!watchedDepartment
 
+  const { data: trackingDetail } = useQuery({
+    queryKey: ['tracking-detail', watchedTrackingId],
+    queryFn: async () => {
+      const r = await apiClient.get(
+        `/budget/tracking-ids/${watchedTrackingId}/`
+      )
+      return r.data
+    },
+    enabled: !!watchedTrackingId,
+  })
+  useEffect(() => {
+    if (!trackingDetail) return
+  
+    setValue('plant', trackingDetail.plant_name)
+    setValue('department', trackingDetail.department_name)
+  
+  }, [trackingDetail, setValue])
   // ─── Mutations ────────────────────────────────────────────────────────
 
   const createPRMutation = useMutation({
@@ -514,42 +531,37 @@ export default function NewPRPage() {
                 )}
               </div>
 
-              {/* Plant */}
-              <div className="space-y-2">
-                <Label>Plant <span className="text-destructive">*</span></Label>
-                <select
-                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                  onChange={e => setValue('plant', Number(e.target.value))}
-                  defaultValue=""
-                >
-                  <option value="" disabled>Select plant…</option>
-                  {(plants || []).map((p: any) => (
-                    <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-                  ))}
-                </select>
-                {errors.plant && (
-                  <p className="text-xs text-destructive">{errors.plant.message}</p>
-                )}
-              </div>
+              {watchedTrackingId && trackingDetail && (
+                <>
+                  {/* Plant */}
+                  <div className="space-y-2">
+                    <Label>Plant</Label>
+                    <select
+                      disabled
+                      value={trackingDetail.plant}
+                      className="w-full h-10 border rounded-md px-3 text-sm bg-slate-100 cursor-not-allowed"
+                    >
+                      <option>
+                        {trackingDetail.plant_name}
+                      </option>
+                    </select>
+                  </div>
 
-              {/* Department */}
-              <div className="space-y-2">
-                <Label>Department <span className="text-destructive">*</span></Label>
-                <select
-                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                  onChange={e => setValue('department', Number(e.target.value))}
-                  defaultValue=""
-                >
-                  <option value="" disabled>Select department…</option>
-                  {(departments || []).map((d: any) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-                {errors.department && (
-                  <p className="text-xs text-destructive">{errors.department.message}</p>
-                )}
-              </div>
-
+                  {/* Department */}
+                  <div className="space-y-2">
+                    <Label>Department</Label>
+                    <select
+                      disabled
+                      value={trackingDetail.department}
+                      className="w-full h-10 border rounded-md px-3 text-sm bg-slate-100 cursor-not-allowed"
+                    >
+                      <option>
+                        {trackingDetail.department_name}
+                      </option>
+                    </select>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Description */}
