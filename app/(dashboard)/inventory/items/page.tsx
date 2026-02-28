@@ -17,7 +17,7 @@ interface Item {
   description: string
   unit_of_measure: string
   category: string
-  sap_material_code: string
+  unit_rate: string
   is_active: boolean
 }
 
@@ -26,7 +26,7 @@ interface ItemFormData {
   description: string
   unit_of_measure: string
   category: string
-  sap_material_code: string
+  unit_rate: string
   is_active: boolean
 }
 
@@ -35,7 +35,7 @@ const EMPTY_FORM: ItemFormData = {
   description: '',
   unit_of_measure: 'EA',
   category: '',
-  sap_material_code: '',
+  unit_rate: '',
   is_active: true,
 }
 
@@ -59,7 +59,7 @@ function ItemModal({
           description: item.description,
           unit_of_measure: item.unit_of_measure,
           category: item.category ?? '',
-          sap_material_code: item.sap_material_code ?? '',
+          unit_rate: item.unit_rate ?? '',
           is_active: item.is_active,
         }
       : { ...EMPTY_FORM },
@@ -86,6 +86,7 @@ function ItemModal({
     if (!form.code.trim()) errs.code = 'Code is required'
     if (!form.description.trim()) errs.description = 'Description is required'
     if (!form.category.trim()) errs.category = 'Category is required'
+    if(!form.unit_rate) errs.unit_rate = 'Unit rate is required'
     if (!form.unit_of_measure.trim()) errs.unit_of_measure = 'Unit of measure is required'
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -174,8 +175,10 @@ function ItemModal({
                   step="0.01"
                   min="0.01"
                   placeholder="0.00"
-                  onChange={(e) => set('sap_material_code', e.target.value)}
-                                      />
+                  onChange={(e) => set('unit_rate', e.target.value)}
+                />
+                {errors.unit_rate && <p className="text-xs text-destructive">{errors.unit_rate}</p>}
+
               </div>
 
             </div>
@@ -323,7 +326,7 @@ export default function ItemsInventoryPage() {
                       <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{item.category || '—'}</td>
                       <td className="px-4 py-3 hidden lg:table-cell font-mono text-xs text-muted-foreground">
-                        {item.sap_material_code || '—'}
+                        {item.unit_rate || '—'}
                       </td>
                       <td className="px-4 py-3">
                         <Badge
