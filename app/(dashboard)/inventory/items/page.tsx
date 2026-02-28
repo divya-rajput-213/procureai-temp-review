@@ -85,6 +85,7 @@ function ItemModal({
     const errs: Partial<Record<keyof ItemFormData, string>> = {}
     if (!form.code.trim()) errs.code = 'Code is required'
     if (!form.description.trim()) errs.description = 'Description is required'
+    if (!form.category.trim()) errs.category = 'Category is required'
     if (!form.unit_of_measure.trim()) errs.unit_of_measure = 'Unit of measure is required'
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -156,12 +157,13 @@ function ItemModal({
             <div className="grid grid-cols-2 gap-4">
               {/* Category */}
               <div className="space-y-1">
-                <Label>Category</Label>
+                <Label>Category<span className="text-destructive">*</span></Label>
                 <Input
                   value={form.category}
                   onChange={(e) => set('category', e.target.value)}
                   placeholder="e.g. Fasteners"
                 />
+                  {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}
               </div>
 
               {/* SAP Material Code */}
