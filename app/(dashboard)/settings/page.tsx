@@ -737,7 +737,7 @@ export default function SettingsPage() {
   const accessToken = useAuthStore((s) => s.accessToken)
   const refreshToken = useAuthStore((s) => s.refreshToken)
 
-  const [activeTab, setActiveTab] = useState<'account' | 'matrices' | 'system' | 'platform'>('account')
+  const [activeTab, setActiveTab] = useState<'account' | 'matrices' | 'system'>('account')
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState({
     first_name: user?.first_name ?? '',
@@ -777,7 +777,6 @@ export default function SettingsPage() {
     { key: 'account',  label: 'Account' },
     { key: 'matrices', label: 'Approval Matrices' },
     { key: 'system',   label: 'System' },
-    { key: 'platform', label: 'Platform' },
   ] as const
 
   return (
@@ -889,29 +888,7 @@ export default function SettingsPage() {
       {/* System Tab */}
       {activeTab === 'system' && <SystemSettingsTab />}
 
-      {/* Platform Tab */}
-      {activeTab === 'platform' && (
-        <div className="max-w-2xl">
-          <Card>
-            <CardHeader>
-              <CardTitle>Platform Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {([
-                ['Platform', 'ProcureAI'],
-                ['Version', '1.0.0'],
-                ['AI Model', 'Claude Sonnet 4.6'],
-                ['Environment', process.env.NODE_ENV],
-              ] as [string, string | undefined][]).map(([label, value]) => (
-                <div key={label} className="flex justify-between border-b pb-2 last:border-0">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="font-medium">{value ?? '—'}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      
     </div>
   )
 }
