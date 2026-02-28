@@ -209,7 +209,7 @@ export default function NewPRPage() {
         router.push('/procurement')
       } else {
         toast({ title: `PR ${pr.pr_number} saved as draft.` })
-        router.push(`/procurement/${pr.id}`)
+        router.push(`/procurement`)
       }
     },
     onError: (err: any) => {
@@ -547,7 +547,7 @@ export default function NewPRPage() {
               if (ok) setActiveTab('matrix')
             }}
           >
-            Next: Approval Matrix <ArrowRight className="w-4 h-4" />
+            Next<ArrowRight className="w-4 h-4" />
           </Button>
         </div>
         </>)}
