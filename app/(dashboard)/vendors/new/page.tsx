@@ -16,7 +16,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { ArrowLeft, ArrowRight, Loader2, Sparkles, FileSpreadsheet, CheckCircle, Send, Save, ChevronDown, ChevronRight, Upload, X } from 'lucide-react'
 import apiClient from '@/lib/api/client'
 
-const steps = ['Company Details', 'Compliance & Docs', 'Review & Submit']
+const steps = ['Company Details', 'Compliance & Docs', 'Approver & Submit']
 
 const STEP_FIELDS: (keyof VendorForm)[][] = [
   ['category', 'plant', 'company_name', 'contact_name', 'contact_email', 'contact_phone', 'address', 'city', 'state', 'pincode'],
@@ -150,10 +150,19 @@ export default function NewVendorPage() {
   })
 
   const {
-    register, handleSubmit, setValue, watch,
+    register, handleSubmit, setValue, watch,  trigger,
     formState: { errors },
   } = useForm<VendorForm>({ resolver: zodResolver(schema) })
-
+  const handleNextStep = async () => {
+    const fields = STEP_FIELDS[step]
+  
+    const isValid = await trigger(fields)
+  
+    if (isValid) {
+      setStep(prev => prev + 1)
+    }
+  }
+  
   const watchedCategory = watch('category')
   const watchedPlant = watch('plant')
   const watchedIsMsme = watch('is_msme')
@@ -252,11 +261,19 @@ export default function NewVendorPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/vendors')} className="gap-1">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">
+          Register New Vendor
+        </h1>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push('/vendors')}
+          className="gap-1"
+        >
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
-        <h1 className="text-lg font-semibold">Register New Vendor</h1>
       </div>
 
       {/* Step indicators */}
@@ -311,7 +328,7 @@ export default function NewVendorPage() {
 
             {/* Classification */}
             <div>
-              <SectionTitle>Classification</SectionTitle>
+              <SectionTitle>General Information</SectionTitle>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-xs">Vendor Category *</Label>
@@ -350,7 +367,6 @@ export default function NewVendorPage() {
 
             {/* Basic Profile */}
             <div>
-              <SectionTitle>Basic Profile</SectionTitle>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
                   { name: 'company_name', label: 'Company Name *', placeholder: 'Acme Pvt Ltd' },
@@ -374,22 +390,11 @@ export default function NewVendorPage() {
                     )}
                   </div>
                 ))}
-                <div className="flex items-center gap-4 pt-2 sm:col-span-2 lg:col-span-3">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" {...register('is_msme')} className="rounded" />
-                    <span>MSME Registered</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" {...register('is_sez')} className="rounded" />
-                    <span>SEZ Unit</span>
-                  </label>
-                </div>
               </div>
             </div>
 
             {/* Primary Contact */}
             <div>
-              <SectionTitle>Primary Contact</SectionTitle>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
                   { name: 'contact_name',  label: 'Contact Person *', placeholder: 'John Doe' },
@@ -415,7 +420,7 @@ export default function NewVendorPage() {
             </div>
 
             <div className="flex justify-end">
-              <Button type="button" onClick={() => setStep(1)} className="gap-1">
+              <Button type="button" onClick={handleNextStep} className="gap-1">
                 Next <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
@@ -513,7 +518,16 @@ export default function NewVendorPage() {
                 />
               </div>
             </div>
-
+            <div className="flex items-center gap-4 pt-2 sm:col-span-2 lg:col-span-3">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" {...register('is_msme')} className="rounded" />
+                    <span>MSME Registered</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" {...register('is_sez')} className="rounded" />
+                    <span>SEZ Unit</span>
+                  </label>
+                </div>
             {/* MSME (conditional) */}
             {watchedIsMsme && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start">
@@ -566,11 +580,21 @@ export default function NewVendorPage() {
               </div>
             </div>
 
-            <div className="flex justify-between pt-2">
-              <Button type="button" variant="outline" onClick={() => setStep(0)} className="gap-1">
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(0)}
+                className="gap-1"
+              >
                 <ArrowLeft className="w-4 h-4" /> Back
               </Button>
-              <Button type="button" onClick={() => setStep(2)} className="gap-1">
+
+              <Button
+                type="button"
+                onClick={handleNextStep}               
+                className="gap-1"
+              >
                 Review <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
@@ -578,10 +602,10 @@ export default function NewVendorPage() {
         </Card>
       )}
 
-      {/* ── Step 2: Review & Submit ─────────────────────────────────────────── */}
+      {/* ── Step 2: Approver & Submit ─────────────────────────────────────────── */}
       {step === 2 && (
         <Card>
-          <CardHeader><CardTitle>Review & Submit</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Select Approval Matrix</CardTitle></CardHeader>
           <CardContent className="space-y-6">
             <p className="text-sm text-muted-foreground">
               Save as draft to continue editing later, or select an approval matrix and submit for approval now.
@@ -589,10 +613,6 @@ export default function NewVendorPage() {
 
             {/* Approval Matrix Table */}
             <div>
-              <SectionTitle>Select Approval Matrix</SectionTitle>
-              <p className="text-xs text-muted-foreground mb-3">
-                Click a row to select. Expand to view approval levels.
-              </p>
 
               {matrices === undefined && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
@@ -693,7 +713,7 @@ export default function NewVendorPage() {
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-between gap-3 pt-2">
+            <div className="flex  justify-end gap-3 pt-2 flex-wrap">
               <Button type="button" variant="outline" onClick={() => setStep(1)} className="gap-1">
                 <ArrowLeft className="w-4 h-4" /> Back
               </Button>

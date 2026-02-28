@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Plus, Upload, Search, ExternalLink, Download, FileText,
   ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight,
@@ -17,7 +18,7 @@ import apiClient from '@/lib/api/client'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SortDir = 'asc' | 'desc'
-type SortField = 'company_name' | 'status' | 'performance_score' | 'created_at' | 'category_name'
+type SortField = 'company_name' | 'status' | 'created_at' | 'category_name'
 
 // ─── Sort helpers ─────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ function SortableTh({
 function exportCSV(vendors: any[]) {
   const headers = [
     'Company', 'Vendor Code', 'GST No.', 'PAN No.', 'Category', 'Plant', 'SAP Code',
-    'Status', 'Score', 'Risk Score', 'MSME', 'MSME No.', 'SEZ', 'International',
+    'Status', 'Risk Score', 'MSME', 'MSME No.', 'SEZ', 'International',
     'Contact Name', 'Contact Email', 'Contact Phone',
     'Address', 'City', 'State', 'PIN', 'Country',
     'Bank Name', 'Bank Account', 'Bank IFSC',
@@ -69,7 +70,6 @@ function exportCSV(vendors: any[]) {
     v.plant_name ?? '',
     v.sap_vendor_code ?? '',
     v.status ?? '',
-    v.performance_score?.toFixed(1) ?? '',
     v.risk_score?.toFixed(1) ?? '',
     v.is_msme ? 'Yes' : 'No',
     v.msme_number ?? '',
@@ -119,7 +119,6 @@ function exportPDF(vendors: any[]) {
       <td>${v.plant_name ?? ''}</td>
       <td>${v.sap_vendor_code ?? ''}</td>
       <td>${v.status ?? ''}</td>
-      <td>${v.performance_score?.toFixed(1) ?? '—'}</td>
       <td>${v.risk_score?.toFixed(1) ?? '—'}</td>
       <td>${v.is_msme ? 'Yes' : 'No'}</td>
       <td>${v.is_sez ? 'Yes' : 'No'}</td>
@@ -178,7 +177,7 @@ function exportPDF(vendors: any[]) {
     <thead><tr>
       <th>Company</th><th>Code</th><th>GST No.</th><th>PAN No.</th>
       <th>Category</th><th>Plant</th><th>SAP Code</th>
-      <th>Status</th><th>Score</th><th>Risk</th><th>MSME</th><th>SEZ</th><th>Created</th>
+      <th>Status</th><th>Risk</th><th>MSME</th><th>SEZ</th><th>Created</th>
     </tr></thead>
     <tbody>${infoRows}</tbody>
   </table>
@@ -213,23 +212,6 @@ function exportPDF(vendors: any[]) {
   win.close()
 }
 
-// ─── Score badge ──────────────────────────────────────────────────────────────
-
-function scoreClass(score: number): string {
-  if (score >= 70) return 'text-green-700 bg-green-50 border-green-200'
-  if (score >= 40) return 'text-amber-700 bg-amber-50 border-amber-200'
-  return 'text-red-700 bg-red-50 border-red-200'
-}
-
-function ScoreBadge({ score }: { score: number | null }) {
-  if (score == null) return <span className="text-muted-foreground">—</span>
-  return (
-    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded border ${scoreClass(score)}`}>
-      {score.toFixed(1)}
-    </span>
-  )
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20
@@ -242,6 +224,7 @@ export default function VendorsPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   const ordering = sortDir === 'asc' ? sortField : `-${sortField}`
+  const router = useRouter()
 
   const { data, isLoading } = useQuery({
     queryKey: ['vendors', search, statusFilter, page, ordering],
@@ -380,19 +363,29 @@ export default function VendorsPage() {
                     <SortableTh field="category_name" label="Category" {...sortProps} />
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plant</th>
                     <SortableTh field="status" label="Status" {...sortProps} />
-                    <SortableTh field="performance_score" label="Score" {...sortProps} />
                     <SortableTh field="created_at" label="Created" {...sortProps} />
-                    <th className="px-4 py-3 w-12" />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {vendors.map((v: any) => (
-                    <tr key={v.id} className="hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={v.id}
+                      onClick={() => router.push(`/vendors/${v.id}`)}
+                      className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
+                    >
                       <td className="px-4 py-3">
                         <div>
-                          <p className="font-medium">{v.company_name}</p>
+                          <p
+                            className="font-medium max-w-[220px] truncate"
+                            title={v.company_name}
+                          >
+                            {v.company_name}
+                          </p>
+
                           {v.vendor_code && (
-                            <p className="text-xs text-muted-foreground">{v.vendor_code}</p>
+                            <p className="text-xs text-muted-foreground truncate max-w-[220px]">
+                              {v.vendor_code}
+                            </p>
                           )}
                         </div>
                       </td>
@@ -402,19 +395,16 @@ export default function VendorsPage() {
                       <td className="px-4 py-3">
                         <StatusBadge status={v.status} />
                       </td>
-                      <td className="px-4 py-3">
-                        <ScoreBadge score={v.performance_score} />
-                      </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {formatDate(v.created_at)}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      {/* <td className="px-4 py-3 text-center">
                         <Link href={`/vendors/${v.id}`}>
                           <Button variant="ghost" size="sm">
                             <ExternalLink className="w-3.5 h-3.5" />
                           </Button>
                         </Link>
-                      </td>
+                      </td> */}
                     </tr>
                   ))}
                 </tbody>
