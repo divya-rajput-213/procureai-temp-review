@@ -11,18 +11,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, Loader2, X, ChevronDown, ChevronRight, Save, Send } from 'lucide-react'
+import { ArrowLeft, Loader2, X, Save, Send, Sparkles, ChevronDown } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
+import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 
 const schema = z.object({
   title: z.string().min(3, 'Title is required'),
   priority: z.enum(['low', 'medium', 'high']),
   plant: z.number({ required_error: 'Plant is required' }),
   department: z.number({ required_error: 'Department is required' }),
-  description: z.string().min(5, 'Description is required'),
-  justification: z.string().optional(),
-  requested_amount: z.number().positive('Budget amount is required'),
+  description: z.string().min(10, 'Description must be at least 10 characters').max(500, 'Description cannot exceed 500 characters'),
+  requested_amount: z
+    .number({ invalid_type_error: 'Enter a valid amount' })
+    .min(1000, 'Minimum budget is ₹1,000')
+    .max(100_000_000, 'Maximum budget is ₹10 Crore'),
 })
 
 type FormData = z.infer<typeof schema>
@@ -33,15 +36,26 @@ const PRIORITY_OPTS = [
   { value: 'high', label: 'High', color: 'bg-red-100 text-red-700 border-red-200' },
 ]
 
+function getAmountInputCls(hasError: boolean, amount: number) {
+  if (hasError) return 'h-10 pl-7 border-destructive focus-visible:ring-destructive/30'
+  if (amount >= 1000) return 'h-10 pl-7 border-emerald-400 focus-visible:ring-emerald-300/40'
+  return 'h-10 pl-7'
+}
+
+
 export default function NewBudgetPage() {
   const router = useRouter()
   const { toast } = useToast()
   const submitModeRef = useRef<'draft' | 'approval'>('draft')
 
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiInput, setAiInput] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+
   const [selectedVendors, setSelectedVendors] = useState<any[]>([])
   const [vendorSearch, setVendorSearch] = useState('')
   const [showVendorSearch, setShowVendorSearch] = useState(false)
-  const [showApprovalPanel, setShowApprovalPanel] = useState(false)
+  const [showApprovalPanel, setShowApprovalPanel] = useState(true)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const { data: plants } = useQuery({
@@ -134,54 +148,129 @@ export default function NewBudgetPage() {
     setExpandedMatrix(prev => prev === id ? null : id)
   }
 
+  const handleAiFill = async () => {
+    if (!aiInput.trim()) return
+    setAiLoading(true)
+    try {
+      const { data } = await apiClient.post('/budget/ai-fill/', { description: aiInput })
+      if (data.title) setValue('title', data.title)
+      if (data.priority) setValue('priority', data.priority)
+      if (data.description) setValue('description', data.description)
+      if (data.requested_amount) setValue('requested_amount', data.requested_amount)
+      setAiOpen(false)
+      toast({ title: 'Form filled by AI', description: 'Review and adjust the fields before submitting.' })
+    } catch {
+      toast({ title: 'AI fill failed', description: 'Could not generate form data. Please try again.', variant: 'destructive' })
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const selectCls = 'w-full h-10 border border-input rounded-md px-3 text-sm bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors'
+  const textareaCls = 'w-full border border-input rounded-md p-3 text-sm bg-background text-foreground resize-none h-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors placeholder:text-muted-foreground'
+
+  const amountInputCls = getAmountInputCls(!!errors.requested_amount, watchedAmount)
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/budget')} className="gap-1">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
-        <h1 className="text-lg font-semibold">New Budget Request</h1>
+
+      {/* ── Page Header ─────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">New Budget Request</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Fill in the details below to create a budget request.</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={() => setAiOpen(prev => !prev)}
+            className="gap-1.5 border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300"
+          >
+            <Sparkles className="w-4 h-4" />
+            Create with AI
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${aiOpen ? 'rotate-180' : ''}`} />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => router.push('/budget')} className="gap-1.5">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </Button>
+        </div>
       </div>
 
-      <form className="space-y-6">
+      {/* ── AI Fill Panel ─────────────────────────────────────────────────── */}
+      {aiOpen && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-indigo-600" />
+            <p className="text-sm font-semibold text-indigo-900">Describe your budget need</p>
+          </div>
+          <p className="text-xs text-indigo-700">
+            Write a brief description — AI will auto-fill the title, priority, description, and estimated amount.
+          </p>
+          <textarea
+            value={aiInput}
+            onChange={e => setAiInput(e.target.value)}
+            placeholder="e.g. We need 20 laptops for the new engineering hires joining next month. These are high-performance machines for software development, estimated around ₹1.5L each."
+            className="w-full border border-indigo-200 rounded-lg p-3 text-sm bg-white resize-none h-24 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 placeholder:text-slate-400"
+          />
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => { setAiOpen(false); setAiInput('') }} className="text-slate-500">
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={!aiInput.trim() || aiLoading}
+              onClick={handleAiFill}
+              className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {aiLoading ? 'Generating…' : 'Generate'}
+            </Button>
+          </div>
+        </div>
+      )}
 
-        {/* ── Section 1: Basic Information ────────────────────────────────── */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Basic Information</CardTitle>
+      <form className="space-y-5">
+
+        {/* ── Basic Information ────────────────────────────────────────────── */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Basic Information</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <Label>Title *</Label>
-              <Input {...register('title')} placeholder="e.g. Enterprise Laptop Procurement" />
+          <CardContent className="pt-5 space-y-5">
+
+            {/* Title */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
+              <Input {...register('title')} placeholder="e.g. Enterprise Laptop Procurement" className="h-10" />
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
+            {/* Priority / Plant / Department */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <Label>Priority *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Priority <span className="text-destructive">*</span></Label>
                 <div className="flex gap-2">
                   {PRIORITY_OPTS.map(p => {
                     const isSelected = watchedPriority === p.value
-                    const labelCls = isSelected
-                      ? `${p.color} border-current`
-                      : 'border-slate-200 text-muted-foreground hover:border-slate-300'
+                    const cls = isSelected
+                      ? `${p.color} border-current shadow-sm`
+                      : 'border-input text-muted-foreground hover:border-slate-300 hover:text-foreground'
                     return (
-                    <label key={p.value} className={`flex-1 border rounded-lg px-2 py-2.5 cursor-pointer text-center text-xs font-medium transition-all ${labelCls}`}>
-                      <input type="radio" value={p.value} {...register('priority')} className="sr-only" />
-                      {p.label}
-                    </label>
+                      <label key={p.value} className={`flex-1 border rounded-lg px-2 py-2.5 cursor-pointer text-center text-xs font-semibold transition-all ${cls}`}>
+                        <input type="radio" value={p.value} {...register('priority')} className="sr-only" />
+                        {p.label}
+                      </label>
                     )
                   })}
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <Label>Plant *</Label>
-                <select
-                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                  onChange={e => setValue('plant', Number(e.target.value))}
-                >
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Plant <span className="text-destructive">*</span></Label>
+                <select className={selectCls} onChange={e => setValue('plant', Number(e.target.value))}>
                   <option value="">Select plant...</option>
                   {(plants || []).map((p: any) => (
                     <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
@@ -190,12 +279,9 @@ export default function NewBudgetPage() {
                 {errors.plant && <p className="text-xs text-destructive">{errors.plant.message}</p>}
               </div>
 
-              <div className="space-y-1">
-                <Label>Department *</Label>
-                <select
-                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                  onChange={e => setValue('department', Number(e.target.value))}
-                >
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Department <span className="text-destructive">*</span></Label>
+                <select className={selectCls} onChange={e => setValue('department', Number(e.target.value))}>
                   <option value="">Select department...</option>
                   {(departments || []).map((d: any) => (
                     <option key={d.id} value={d.id}>{d.code} — {d.name}</option>
@@ -204,59 +290,87 @@ export default function NewBudgetPage() {
                 {errors.department && <p className="text-xs text-destructive">{errors.department.message}</p>}
               </div>
             </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Description <span className="text-destructive">*</span></Label>
+              <textarea {...register('description')} className={textareaCls} placeholder="Brief description of what you need..." />
+              <div className="flex items-center justify-between">
+                {errors.description
+                  ? <p className="text-xs text-destructive">{errors.description.message}</p>
+                  : <span />}
+                <p className="text-xs text-muted-foreground">{(watch('description') ?? '').length} / 500</p>
+              </div>
+            </div>
+
+            {/* Estimated Budget */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Estimated Budget (₹) <span className="text-destructive">*</span></Label>
+              {/* Quick-select chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {[10000, 50000, 100000, 500000, 1000000, 5000000].map(amt => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setValue('requested_amount', amt, { shouldValidate: true })}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                      watchedAmount === amt
+                        ? 'bg-primary text-white border-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                    }`}
+                  >
+                    {amt >= 100000 ? `₹${amt / 100000}L` : `₹${amt / 1000}K`}
+                  </button>
+                ))}
+              </div>
+              <div className="max-w-xs space-y-1.5">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium select-none">₹</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    min={1000}
+                    max={100000000}
+                    placeholder="0"
+                    className={amountInputCls}
+                    {...register('requested_amount', {
+                      valueAsNumber: true,
+                      max: { value: 100_000_000, message: 'Maximum budget is ₹10 Crore' },
+                    })}
+                    onInput={e => {
+                      const el = e.currentTarget
+                      if (Number(el.value) > 100_000_000) el.value = '100000000'
+                    }}
+                  />
+                </div>
+                {/* Amount display + tier badge */}
+                {watchedAmount >= 1000 && !errors.requested_amount && (
+                  <p className="text-xs font-semibold text-emerald-600">{formatCurrency(watchedAmount)}</p>
+                )}
+                {errors.requested_amount && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <span>⚠</span> {errors.requested_amount.message}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">Min ₹1,000 · Max ₹1,00,00,000</p>
+              </div>
+            </div>
+
           </CardContent>
         </Card>
 
-        {/* ── Section 2: Requirements ─────────────────────────────────────── */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Requirements</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <Label>Description *</Label>
-              <Input {...register('description')} placeholder="Brief description of what you need..." />
-              {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
+        {/* ── Preferred Vendors ────────────────────────────────────────────── */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Preferred Vendors</CardTitle>
+              <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Optional</span>
             </div>
-
-            <div className="space-y-1">
-              <Label>Detailed Requirements</Label>
-              <textarea
-                {...register('justification')}
-                className="w-full border rounded-md p-3 text-sm resize-none h-28"
-                placeholder="Detailed specifications, technical requirements, business justification..."
-              />
-            </div>
-
-            <div className="space-y-1 max-w-xs">
-              <Label>Estimated Budget (₹) *</Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                {...register('requested_amount', { valueAsNumber: true })}
-              />
-              {watchedAmount > 0 && (
-                <p className="text-xs text-muted-foreground">{formatCurrency(watchedAmount)}</p>
-              )}
-              {errors.requested_amount && <p className="text-xs text-destructive">{errors.requested_amount.message}</p>}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ── Section 3: Preferred Vendors ────────────────────────────────── */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              Preferred Vendors{' '}
-              <span className="text-sm font-normal text-muted-foreground">(Optional)</span>
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-1">
               List vendors you'd prefer to source from. Finance may suggest alternatives during review.
             </p>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {/* Search input with dropdown */}
+          <CardContent className="pt-5 space-y-3">
             <div className="relative">
               <Input
                 placeholder="Search approved vendors..."
@@ -264,21 +378,21 @@ export default function NewBudgetPage() {
                 onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
                 onFocus={() => setShowVendorSearch(true)}
                 onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
-                className="h-9"
+                className="h-10"
               />
               {showVendorSearch && (
-                <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-md bg-background shadow-md max-h-56 overflow-y-auto divide-y">
+                <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
                   {(vendors || []).filter((v: any) => !selectedVendors.some((s: any) => s.id === v.id)).map((v: any) => (
                     <button
                       key={v.id}
                       type="button"
                       onMouseDown={e => e.preventDefault()}
-                      className="w-full text-left px-3 py-2.5 hover:bg-slate-50 text-sm"
+                      className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
                       onClick={() => addVendor(v)}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">{v.company_name}</span>
-                        <span className="text-xs text-muted-foreground">{v.status}</span>
+                        <span className="font-medium text-foreground">{v.company_name}</span>
+                        <span className="text-xs text-emerald-600 font-medium">{v.status}</span>
                       </div>
                       <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
                         {v.category_name && <span>{v.category_name}</span>}
@@ -293,137 +407,82 @@ export default function NewBudgetPage() {
               )}
             </div>
 
-            {/* Selected vendor cards */}
             {selectedVendors.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                {selectedVendors.map((v: any) => (
-                  <div key={v.id} className="relative border rounded-lg p-3 bg-slate-50">
-                    <button
-                      type="button"
-                      onClick={() => removeVendor(v.id)}
-                      className="absolute top-2 right-2 text-muted-foreground hover:text-red-500"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                    <p className="font-medium text-sm pr-5">{v.company_name}</p>
-                    {v.category_name && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{v.category_name}</p>
-                    )}
-                    <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-muted-foreground">
-                      {v.city && <span>{v.city}{v.state ? `, ${v.state}` : ''}</span>}
-                      {v.contact_email && <span>{v.contact_email}</span>}
-                    </div>
-                  </div>
-                ))}
+              <div className="border border-border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 border-b border-border">
+                    <tr>
+                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Email</th>
+                      <th className="w-8 px-3 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {selectedVendors.map((v: any) => {
+                      let location = '—'
+                      if (v.city && v.state) location = `${v.city}, ${v.state}`
+                      else if (v.city) location = v.city
+                      return (
+                      <tr key={v.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-3 py-2.5 font-medium text-foreground">{v.company_name}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
+                          {location}
+                        </td>
+                        <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{v.contact_email || '—'}</td>
+                        <td className="px-3 py-2.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => removeVendor(v.id)}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    )})}
+
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* ── Section 4: Approval Matrix Selector ─────────────────────────── */}
+        {/* ── Approval Matrix ──────────────────────────────────────────────── */}
         {showApprovalPanel && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Select Approval Matrix</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Choose the approval workflow for this budget request.</p>
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4 border-b">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">Choose the approval workflow for this budget request.</p>
             </CardHeader>
-            <CardContent>
-              {(() => {
-                if (matrices && matrices.length > 0) return (
-                <div className="border rounded-md overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 border-b">
-                      <tr>
-                        <th className="w-8 px-3 py-2"></th>
-                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Matrix Name</th>
-                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Plant</th>
-                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Levels</th>
-                        <th className="w-8 px-3 py-2"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {matrices.map((m: any) => (
-                        <>
-                          <tr
-                            key={m.id}
-                            className={`cursor-pointer transition-colors ${selectedMatrix === m.id ? 'bg-primary/5' : 'hover:bg-slate-50'}`}
-                            onClick={() => { setSelectedMatrix(m.id); setExpandedMatrix(m.id) }}
-                          >
-                            <td className="px-3 py-2.5 text-center">
-                              <input
-                                type="radio"
-                                name="approval-matrix"
-                                checked={selectedMatrix === m.id}
-                                onChange={() => { setSelectedMatrix(m.id); setExpandedMatrix(m.id) }}
-                                className="accent-primary"
-                                onClick={e => e.stopPropagation()}
-                              />
-                            </td>
-                            <td className="px-3 py-2.5 font-medium">{m.name}</td>
-                            <td className="px-3 py-2.5 text-muted-foreground">{m.plant_name || 'All Plants'}</td>
-                            <td className="px-3 py-2.5 text-muted-foreground">{m.levels?.length ?? 0} level{(m.levels?.length ?? 0) === 1 ? '' : 's'}</td>
-                            <td className="px-3 py-2.5 text-center">
-                              <button
-                                type="button"
-                                onClick={e => { e.stopPropagation(); toggleMatrixExpand(m.id) }}
-                                className="text-muted-foreground hover:text-foreground"
-                              >
-                                {expandedMatrix === m.id
-                                  ? <ChevronDown className="w-4 h-4" />
-                                  : <ChevronRight className="w-4 h-4" />}
-                              </button>
-                            </td>
-                          </tr>
-                          {expandedMatrix === m.id && m.levels?.length > 0 && (
-                            <tr key={`${m.id}-levels`}>
-                              <td colSpan={5} className="p-0">
-                                <div className="bg-slate-50 border-t px-6 py-3">
-                                  <table className="w-full text-xs">
-                                    <thead>
-                                      <tr className="text-muted-foreground">
-                                        <th className="text-left py-1 pr-4 font-medium">Level #</th>
-                                        <th className="text-left py-1 pr-4 font-medium">Approver</th>
-                                        <th className="text-left py-1 pr-4 font-medium">Role</th>
-                                        <th className="text-left py-1 font-medium">SLA</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200">
-                                      {m.levels.map((lv: any) => (
-                                        <tr key={lv.id}>
-                                          <td className="py-1.5 pr-4 text-muted-foreground">L{lv.level_number}</td>
-                                          <td className="py-1.5 pr-4 font-medium">{lv.user_name ?? '—'}</td>
-                                          <td className="py-1.5 pr-4 text-muted-foreground">{lv.role_name ?? '—'}</td>
-                                          <td className="py-1.5 text-muted-foreground">{lv.sla_hours ? `${lv.sla_hours}h` : '—'}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </>
-                      ))}
-                    </tbody>
-                  </table>
+            <CardContent className="pt-5">
+              {!matrices && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices...
                 </div>
-                )
-                if (matrices && matrices.length === 0) return (
-                  <p className="text-xs text-amber-600">No active budget approval matrices configured.</p>
-                )
-                return (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices...
-                  </div>
-                )
-              })()}
+              )}
+              {matrices && matrices.length === 0 && (
+                <p className="text-xs text-amber-600 font-medium">No active budget approval matrices configured.</p>
+              )}
+              {matrices && matrices.length > 0 && (
+                <MatrixSelectorTable
+                  matrices={matrices}
+                  selectedMatrix={selectedMatrix}
+                  expandedMatrix={expandedMatrix}
+                  onSelect={id => { setSelectedMatrix(id); setExpandedMatrix(id) }}
+                  onToggleExpand={toggleMatrixExpand}
+                />
+              )}
             </CardContent>
           </Card>
         )}
 
-        {/* ── Submit ──────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <Button type="button" variant="outline" onClick={() => router.push('/budget')}>
+        {/* ── Actions ─────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <Button type="button" variant="ghost" onClick={() => router.push('/budget')} className="text-muted-foreground">
             Cancel
           </Button>
           <div className="flex items-center gap-2">
@@ -463,6 +522,7 @@ export default function NewBudgetPage() {
             )}
           </div>
         </div>
+
       </form>
     </div>
   )

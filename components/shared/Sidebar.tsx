@@ -41,12 +41,14 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-64 bg-slate-900 text-white flex flex-col h-full shrink-0">
+    <aside className="w-64 bg-black text-white flex flex-col h-full shrink-0">
       {/* Logo */}
-      <div className="p-5 border-b border-slate-700">
+      <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-white" />
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            {/* <Building2 className="w-5 h-5 text-white" /> */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+            className="lucide lucide-zap h-4 w-4 text-sidebar-primary-foreground"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path></svg>
           </div>
           <div>
             <p className="text-sm font-bold leading-tight">ProcureAI</p>
@@ -70,8 +72,8 @@ export function Sidebar() {
                 'flex items-center gap-3 rounded-lg text-sm font-medium transition-colors',
                 item.indent ? 'px-3 py-2 ml-4' : 'px-3 py-2.5',
                 isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
               )}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -83,21 +85,21 @@ export function Sidebar() {
       </nav>
 
       {/* User info + logout */}
-      <div className="p-3 border-t border-slate-700">
+      <div className="p-3 border-t border-white/10">
         <div className="flex items-center gap-3 px-2 py-2 mb-1">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+          <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
             {user?.first_name?.[0]?.toUpperCase() || 'U'}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-white truncate">
               {user?.first_name} {user?.last_name}
             </p>
-            <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+            <p className="text-xs text-white/50 truncate">{user?.email}</p>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
         >
           <LogOut className="w-4 h-4" />
           Sign out
