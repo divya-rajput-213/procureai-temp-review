@@ -344,7 +344,7 @@ export default function NewPRPage() {
       return pr
     },
     onSuccess: (pr: any) => {
-      setPrId(pr.id)
+      setPrId(pr.tracking_id)
       setStep(2)
     },
     onError: (err: any) => {
