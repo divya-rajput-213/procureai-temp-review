@@ -17,20 +17,31 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth.store'
+import { useState } from 'react'
 
 const NAV_ITEMS = [
   { href: '/dashboard',          label: 'Dashboard',        icon: LayoutDashboard, indent: false },
   { href: '/vendors',            label: 'Vendors',          icon: Building2, indent: false },
   { href: '/budget',             label: 'Budget & Tracking',icon: FileText, indent: false },
   { href: '/procurement',        label: 'Procurement',      icon: ShoppingCart, indent: false },
-  { href: '/procurement/items',  label: 'Items',            icon: Package, indent: true },
   { href: '/approvals',          label: 'Approvals',        icon: CheckSquare, indent: false },
+  {
+    label: 'Inventory',
+    icon: Package,
+    children: [
+      { href: '/inventory/items', label: 'Items' },
+    ],
+  },  
   { href: '/users',              label: 'Users',            icon: Users, indent: false },
   { href: '/reports',            label: 'Reports',          icon: BarChart3, indent: false },
   { href: '/settings',           label: 'Settings',         icon: Settings, indent: false },
 ]
 
 export function Sidebar() {
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
+    Inventory: true, // opened by default
+  })
+  
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuthStore()
@@ -57,32 +68,85 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon
-          // Exact match for /settings so it doesn't highlight when on /settings/matrices
-          const isActive = item.href === '/settings'
-            ? pathname === '/settings'
-            : pathname.startsWith(item.href)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+  {NAV_ITEMS.map((item) => {
+    const Icon = item.icon
+
+    // ---------- Parent with children ----------
+    if (item.children) {
+      const isOpen = openMenus[item.label]
+
+      return (
+        <div key={item.label}>
+          <button
+            onClick={() =>
+              setOpenMenus(prev => ({
+                ...prev,
+                [item.label]: !prev[item.label],
+              }))
+            }
+            className="flex items-center w-full gap-3 px-3 py-2.5 rounded-lg text-sm text-white/70 hover:bg-white/10 hover:text-white"
+          >
+            <Icon className="w-4 h-4" />
+            {item.label}
+            <ChevronRight
               className={cn(
-                'flex items-center gap-3 rounded-lg text-sm font-medium transition-colors',
-                item.indent ? 'px-3 py-2 ml-4' : 'px-3 py-2.5',
-                isActive
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                "w-4 h-4 ml-auto transition-transform",
+                isOpen && "rotate-90"
               )}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              {item.label}
-              {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
-            </Link>
-          )
-        })}
-      </nav>
+            />
+          </button>
+
+          {isOpen && (
+            <div className="ml-6 mt-1 space-y-1">
+              {item.children.map((child) => {
+                const isActive = pathname.startsWith(child.href)
+
+                return (
+                  <Link
+                    key={child.href}
+                    href={child.href}
+                    className={cn(
+                      "flex items-center px-3 py-2 text-sm rounded-lg",
+                      isActive
+                        ? "bg-indigo-600 text-white"
+                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    {child.label}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // ---------- Normal Item ----------
+    const isActive =
+      item.href === '/settings'
+        ? pathname === '/settings'
+        : pathname.startsWith(item.href)
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium",
+          isActive
+            ? "bg-indigo-600 text-white"
+            : "text-white/70 hover:bg-white/10 hover:text-white"
+        )}
+      >
+        <Icon className="w-4 h-4" />
+        {item.label}
+      </Link>
+    )
+  })}
+</nav>
+
 
       {/* User info + logout */}
       <div className="p-3 border-t border-white/10">

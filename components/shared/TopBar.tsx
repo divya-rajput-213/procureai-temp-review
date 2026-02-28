@@ -14,6 +14,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/budget': 'Budget & Tracking IDs',
   '/procurement': 'Purchase Requisitions',
   '/approvals': 'Approvals',
+  '/inventory': "Inventory",
   '/users': 'User Management',
   '/reports': 'Reports',
   '/settings': 'Settings',

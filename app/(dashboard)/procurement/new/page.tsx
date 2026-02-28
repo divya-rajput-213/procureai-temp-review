@@ -19,7 +19,7 @@ import {
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
-const STEPS = ['Requisition Details', 'Vendors & Items', 'Submit for Approval']
+const STEPS = ['Requisition Details', 'Vendors & Items', 'Approver & Submit']
 
 function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => void) {
   useEffect(() => {
@@ -457,13 +457,19 @@ export default function NewPRPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/procurement')} className="gap-1">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">
+        New Purchase Requisition        </h1>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push('/procurement')}          
+          className="gap-1"
+        >
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
-        <h1 className="text-lg font-semibold">New Purchase Requisition</h1>
       </div>
-
       {/* Step indicators */}
       <div className="flex items-center gap-1">
         {STEPS.map((s, i) => {
@@ -703,7 +709,7 @@ export default function NewPRPage() {
             </CardContent>
           </Card>
 
-          <div className="flex justify-between">
+          <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setStep(0)} className="gap-1">
               <ArrowLeft className="w-4 h-4" /> Back
             </Button>
