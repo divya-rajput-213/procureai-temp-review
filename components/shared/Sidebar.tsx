@@ -39,7 +39,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
-    Inventory: true, // opened by default
+    Inventory: false, // opened by default
   })
   
   const pathname = usePathname()
