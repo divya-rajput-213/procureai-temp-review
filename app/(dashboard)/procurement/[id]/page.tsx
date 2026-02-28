@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -558,7 +558,21 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
       })),
     })
   }
-
+  useEffect(() => {
+    if (!form.tracking_id) return;
+  
+    const selectedTracking = trackingIds.find(
+      (t: any) => t.id === Number(form.tracking_id)
+    );
+  
+    if (selectedTracking) {
+      setForm(prev => ({
+        ...prev,
+        plant: selectedTracking.plant ?? '',
+        department: selectedTracking.department ?? '',
+      }));
+    }
+  }, [form.tracking_id, trackingIds]);
   return (
     <div className="space-y-4">
       {/* Tracking ID + Plant + Department */}
@@ -579,7 +593,8 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
         <div className="space-y-1">
           <Label className="text-xs">Plant</Label>
           <select
-            className="w-full h-8 border rounded-md px-3 text-sm bg-background"
+          disabled
+            className="w-full h-8 border rounded-md px-3 text-sm  bg-muted cursor-not-allowed text-muted-foreground"
             value={form.plant}
             onChange={e => set('plant', e.target.value ? Number(e.target.value) : '')}
           >
@@ -590,7 +605,8 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
         <div className="space-y-1">
           <Label className="text-xs">Department</Label>
           <select
-            className="w-full h-8 border rounded-md px-3 text-sm bg-background"
+          disabled
+            className="w-full h-8 border rounded-md px-3 text-sm   bg-muted cursor-not-allowed text-muted-foreground"
             value={form.department}
             onChange={e => set('department', e.target.value ? Number(e.target.value) : '')}
           >
