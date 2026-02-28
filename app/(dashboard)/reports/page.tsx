@@ -67,24 +67,7 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">PR Value by Type</CardTitle>
-            <CardDescription>CAPEX vs OPEX breakdown</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={typeData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₹${(v / 100000).toFixed(0)}L`} />
-                <Tooltip formatter={(v: any) => formatCurrency(v)} />
-                <Bar dataKey="amount" fill="#1e3a5f" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
+       
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">PR Status Distribution</CardTitle>
