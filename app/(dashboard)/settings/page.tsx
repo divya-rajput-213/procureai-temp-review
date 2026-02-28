@@ -737,9 +737,7 @@ export default function SettingsPage() {
   const accessToken = useAuthStore((s) => s.accessToken)
   const refreshToken = useAuthStore((s) => s.refreshToken)
 
-
   const [activeTab, setActiveTab] = useState<'account' | 'matrices' | 'system'>('account')
-
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState({
     first_name: user?.first_name ?? '',
@@ -779,8 +777,6 @@ export default function SettingsPage() {
     { key: 'account',  label: 'Account' },
     { key: 'matrices', label: 'Approval Matrices' },
     { key: 'system',   label: 'System' },
-
-
   ] as const
 
   return (
@@ -889,6 +885,10 @@ export default function SettingsPage() {
       {/* Approval Matrices Tab */}
       {activeTab === 'matrices' && <ApprovalMatricesTab />}
 
+      {/* System Tab */}
+      {activeTab === 'system' && <SystemSettingsTab />}
+
+      
     </div>
   )
 }
