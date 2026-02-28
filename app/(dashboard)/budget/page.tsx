@@ -65,7 +65,7 @@ export default function BudgetPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b">
                   <tr>
-                    {['Code', 'Title', 'Priority', 'Requested', 'Approved', 'Remaining', 'Status', 'Date'].map(h => (
+                    {['Code', 'Title', 'Priority', 'Requested',  'Status', 'Date'].map(h => (
                       <th key={h} className="text-left px-4 py-3 font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -88,7 +88,7 @@ export default function BudgetPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">{formatCurrency(t.requested_amount)}</td>
-                      <td className="px-4 py-3">{t.approved_amount ? formatCurrency(t.approved_amount) : '—'}</td>
+                      {/* <td className="px-4 py-3">{t.approved_amount ? formatCurrency(t.approved_amount) : '—'}</td>
                       <td className="px-4 py-3">
                         {t.remaining_amount == null && '—'}
                         {t.remaining_amount != null && (
@@ -96,7 +96,7 @@ export default function BudgetPage() {
                             {formatCurrency(t.remaining_amount)}
                           </span>
                         )}
-                      </td>
+                      </td> */}
                       <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(t.created_at)}</td>
                     </tr>
