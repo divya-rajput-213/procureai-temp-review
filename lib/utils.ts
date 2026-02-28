@@ -5,11 +5,25 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number | string): string {
+export function formatCurrency(amount: number | string, currencyCode?: string): string {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount
-  return new Intl.NumberFormat('en-IN', {
+  if (Number.isNaN(num)) return '—'
+  // Read from settings store if no override provided (works outside React via getState)
+  let code = currencyCode
+  if (!code) {
+    try {
+      // Dynamic import to avoid circular deps at module load time
+      const { useSettingsStore } = require('@/lib/stores/settings.store')
+      code = useSettingsStore.getState().currencyCode
+    } catch {
+      code = 'INR'
+    }
+  }
+  const safeCode = code || 'INR'
+  const locale = safeCode === 'INR' ? 'en-IN' : 'en-US'
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'INR',
+    currency: safeCode,
     maximumFractionDigits: 2,
   }).format(num)
 }

@@ -10,16 +10,31 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
-import {
-  ArrowLeft, ArrowRight, Plus, Trash2, Loader2, Search, X,
-  ChevronDown, ChevronRight, Send,
-} from 'lucide-react'
+import { ArrowLeft, ArrowRight, Plus, Trash2, Loader2, Search, X, Send, Save } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
+import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
+import { useSettingsStore } from '@/lib/stores/settings.store'
 
-const STEPS = ['Requisition Details', 'Vendors & Items', 'Approver & Submit']
+// ─── Schema ──────────────────────────────────────────────────────────────────
+
+const schema = z.object({
+  tracking_id: z.number({ required_error: 'Tracking ID is required' }),
+  plant: z.number({ required_error: 'Plant is required' }),
+  department: z.number({ required_error: 'Department is required' }),
+  description: z.string().optional(),
+  line_items: z.array(z.object({
+    item_code: z.number({ required_error: 'Item required' }).min(1, 'Item required'),
+    quantity: z.number().positive('Must be > 0').max(99999, 'Max 99,999'),
+    unit_of_measure: z.string().min(1, 'UOM required'),
+    unit_rate: z.number().positive('Must be > 0').max(9999999.99, 'Max 99,99,999.99'),
+  })).min(1, 'At least one line item required'),
+})
+
+type FormData = z.infer<typeof schema>
+
+// ─── Item Code Search ────────────────────────────────────────────────────────
 
 function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => void) {
   useEffect(() => {
@@ -31,39 +46,7 @@ function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => voi
   }, [ref, onOutside])
 }
 
-function stepCircleClass(i: number, current: number): string {
-  if (i === current) return 'bg-primary text-white'
-  if (i < current) return 'bg-green-500 text-white'
-  return 'bg-slate-200 text-slate-500'
-}
-
-// ─── Schema ──────────────────────────────────────────────────────────────────
-
-const schema = z.object({
-  tracking_id: z.number({ required_error: 'Tracking ID is required' }),
-  plant: z.number({ required_error: 'Plant is required' }),
-  department: z.number({ required_error: 'Department is required' }),
-  description: z.string().optional(),
-  line_items: z.array(z.object({
-    item_code: z.number({ required_error: 'Item required' }).min(1, 'Item required'),
-    quantity: z.number().positive('Must be positive'),
-    unit_of_measure: z.string().min(1, 'UOM required'),
-    unit_rate: z.number().positive('Must be positive'),
-  })).min(1, 'At least one line item required'),
-})
-
-type FormData = z.infer<typeof schema>
-
-
-// ─── Item Code Search ────────────────────────────────────────────────────────
-
-function ItemSearch({
-  onSelect,
-  placeholder,
-}: {
-  onSelect: (item: any) => void
-  placeholder?: string
-}) {
+function ItemSearch({ onSelect, placeholder }: { onSelect: (item: any) => void; placeholder?: string }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -124,119 +107,15 @@ function ItemSearch({
   )
 }
 
-// ─── Matrix Selector ─────────────────────────────────────────────────────────
-
-function MatrixSelectorTable({
-  matrices,
-  selectedMatrix,
-  expandedMatrix,
-  onSelect,
-  onToggleExpand,
-}: {
-  matrices: any[]
-  selectedMatrix: number | null
-  expandedMatrix: number | null
-  onSelect: (id: number) => void
-  onToggleExpand: (id: number) => void
-}) {
-  return (
-    <div className="border rounded-md overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-slate-50 border-b">
-          <tr>
-            <th className="w-8 px-3 py-2" />
-            <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs">Matrix Name</th>
-            <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs hidden sm:table-cell">Plant</th>
-            <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs">Levels</th>
-            <th className="w-8 px-3 py-2" />
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {matrices.map((m: any) => {
-            const levelCount = m.levels?.length ?? 0
-            const isSelected = selectedMatrix === m.id
-            const isExpanded = expandedMatrix === m.id
-            return (
-              <>
-                <tr
-                  key={m.id}
-                  className={`cursor-pointer transition-colors ${isSelected ? 'bg-primary/5' : 'hover:bg-slate-50'}`}
-                  onClick={() => onSelect(m.id)}
-                >
-                  <td className="px-3 py-2.5 text-center">
-                    <input
-                      type="radio"
-                      checked={isSelected}
-                      onChange={() => onSelect(m.id)}
-                      className="accent-primary"
-                      onClick={e => e.stopPropagation()}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5 font-medium">{m.name}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                    {m.plant_name || 'All Plants'}
-                  </td>
-                  <td className="px-3 py-2.5 text-muted-foreground">
-                    {levelCount} level{levelCount === 1 ? '' : 's'}
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    <button
-                      type="button"
-                      onClick={e => { e.stopPropagation(); onToggleExpand(m.id) }}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      {isExpanded
-                        ? <ChevronDown className="w-4 h-4" />
-                        : <ChevronRight className="w-4 h-4" />}
-                    </button>
-                  </td>
-                </tr>
-                {isExpanded && levelCount > 0 && (
-                  <tr key={`${m.id}-lvl`}>
-                    <td colSpan={5} className="p-0">
-                      <div className="bg-slate-50 border-t px-6 py-3">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-muted-foreground">
-                              <th className="text-left py-1 pr-4 font-medium">Level</th>
-                              <th className="text-left py-1 pr-4 font-medium">Approver</th>
-                              <th className="text-left py-1 pr-4 font-medium">Role</th>
-                              <th className="text-left py-1 font-medium">SLA</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-200">
-                            {m.levels.map((lv: any) => (
-                              <tr key={lv.id}>
-                                <td className="py-1.5 pr-4 text-muted-foreground">L{lv.level_number}</td>
-                                <td className="py-1.5 pr-4 font-medium">{lv.user_name ?? '—'}</td>
-                                <td className="py-1.5 pr-4 text-muted-foreground">{lv.role_name ?? '—'}</td>
-                                <td className="py-1.5 text-muted-foreground">
-                                  {lv.sla_hours ? `${lv.sla_hours}h` : '—'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function NewPRPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [step, setStep] = useState(0)
-  const [prId, setPrId] = useState<number | null>(null)
+  const submitModeRef = useRef<'draft' | 'approval'>('draft')
+  const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
+
+  const [activeTab, setActiveTab] = useState<'details' | 'matrix'>('details')
   const [selectedVendors, setSelectedVendors] = useState<any[]>([])
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
@@ -245,14 +124,6 @@ export default function NewPRPage() {
 
   // ─── Remote data ──────────────────────────────────────────────────────
 
-  const { data: plants } = useQuery({
-    queryKey: ['plants'],
-    queryFn: async () => { const r = await apiClient.get('/users/plants/'); return r.data.results ?? r.data },
-  })
-  const { data: departments } = useQuery({
-    queryKey: ['departments'],
-    queryFn: async () => { const r = await apiClient.get('/users/departments/'); return r.data.results ?? r.data },
-  })
   const { data: trackingIds } = useQuery({
     queryKey: ['tracking-ids-approved'],
     queryFn: async () => (await apiClient.get('/budget/tracking-ids/?status=approved')).data.results || [],
@@ -265,27 +136,20 @@ export default function NewPRPage() {
       })
       return r.data.results ?? r.data
     },
-    enabled: step === 2,
   })
   const { data: vendors } = useQuery({
     queryKey: ['vendors-approved', vendorSearch],
     queryFn: async () => {
       const r = await apiClient.get('/vendors/', {
-        params: {
-          status: 'approved',
-          search: vendorSearch,
-          page_size: 20,
-        },
+        params: { status: 'approved', search: vendorSearch, page_size: 20 },
       })
       return r.data.results ?? r.data
     },
     enabled: vendorSearch.length >= 1,
   })
-  
+
   const addVendor = (v: any) => {
-    if (!selectedVendors.some(x => x.id === v.id)) {
-      setSelectedVendors(prev => [...prev, v])
-    }
+    if (!selectedVendors.some(x => x.id === v.id)) setSelectedVendors(prev => [...prev, v])
     setShowVendorSearch(false)
     setVendorSearch('')
   }
@@ -294,7 +158,7 @@ export default function NewPRPage() {
   // ─── Form ─────────────────────────────────────────────────────────────
 
   const {
-    register, control, handleSubmit, watch, setValue,
+    register, control, handleSubmit, watch, setValue, trigger,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -305,506 +169,453 @@ export default function NewPRPage() {
 
   const { fields: lineItemFields, append, remove } = useFieldArray({ control, name: 'line_items' })
   const watchedItems = watch('line_items')
-  const totalAmount = (watchedItems ?? []).reduce(
+  const subtotal = (watchedItems ?? []).reduce(
     (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
     0,
   )
+  const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
+  const grandTotal = subtotal + taxTotal
 
   const watchedTrackingId = watch('tracking_id')
-  const watchedPlant = watch('plant')
-  const watchedDepartment = watch('department')
-  const step0Valid = !!watchedTrackingId && !!watchedPlant && !!watchedDepartment
 
   const { data: trackingDetail } = useQuery({
     queryKey: ['tracking-detail', watchedTrackingId],
-    queryFn: async () => {
-      const r = await apiClient.get(
-        `/budget/tracking-ids/${watchedTrackingId}/`
-      )
-      return r.data
-    },
+    queryFn: async () => (await apiClient.get(`/budget/tracking-ids/${watchedTrackingId}/`)).data,
     enabled: !!watchedTrackingId,
   })
   useEffect(() => {
     if (!trackingDetail) return
-
     setValue('plant', trackingDetail.plant)
     setValue('department', trackingDetail.department)
-
   }, [trackingDetail, setValue])
-  // ─── Mutations ────────────────────────────────────────────────────────
 
-  const createPRMutation = useMutation({
+  // ─── Mutation ─────────────────────────────────────────────────────────
+
+  const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const payload = {
-        ...data,
-        invited_vendor_ids: selectedVendors.map(v => v.id),
-      }
+      const mode = submitModeRef.current
+      const payload = { ...data, invited_vendor_ids: selectedVendors.map(v => v.id) }
       const { data: pr } = await apiClient.post('/procurement/', payload)
-      return pr
+      if (mode === 'approval') {
+        const body: Record<string, any> = {}
+        if (selectedMatrix) body.matrix_id = selectedMatrix
+        await apiClient.post(`/procurement/${pr.id}/submit/`, body)
+      }
+      return { pr, mode }
     },
-    onSuccess: (pr: any) => {
-      setPrId(pr.tracking_id)
-      setStep(2)
+    onSuccess: ({ pr, mode }) => {
+      if (mode === 'approval') {
+        toast({ title: `PR ${pr.pr_number} submitted for approval.` })
+        router.push('/procurement')
+      } else {
+        toast({ title: `PR ${pr.pr_number} saved as draft.` })
+        router.push(`/procurement/${pr.id}`)
+      }
     },
     onError: (err: any) => {
       const detail = err?.response?.data
       toast({
-        title: 'Failed to create PR',
+        title: 'Failed to save PR',
         description: typeof detail === 'object' ? JSON.stringify(detail) : String(detail ?? ''),
         variant: 'destructive',
       })
     },
   })
 
-  const submitPRMutation = useMutation({
-    mutationFn: async () => {
-      const body = selectedMatrix ? { matrix_id: selectedMatrix } : {}
-      await apiClient.post(`/procurement/${prId}/submit/`, body)
-    },
-    onSuccess: () => {
-      toast({ title: 'PR submitted for approval!' })
-      router.push('/procurement')
-    },
-    onError: (err: any) => {
-      toast({
-        title: 'Failed to submit PR',
-        description: err?.response?.data?.error,
-        variant: 'destructive',
-      })
-    },
+  const handleDraft = handleSubmit(data => {
+    submitModeRef.current = 'draft'
+    createMutation.mutate(data)
   })
 
-  // ─── Navigation ───────────────────────────────────────────────────────
-
-  const goStep0Next = () => {
-    if (!step0Valid) {
-      toast({ title: 'Please fill all required fields', variant: 'destructive' })
-      return
-    }
-    setStep(1)
-  }
-
-  const onStep1Submit = handleSubmit(data => createPRMutation.mutate(data))
-
-  const canSubmit = !submitPRMutation.isPending
+  const handleApproval = handleSubmit(data => {
+    submitModeRef.current = 'approval'
+    createMutation.mutate(data)
+  })
 
   // ─── Render ───────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">
-          New Purchase Requisition</h1>
+    <div className="space-y-6">
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/procurement')}
-          className="gap-1"
-        >
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">New Purchase Requisition</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Fill in the details below to create a purchase requisition.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => router.push('/procurement')} className="gap-1.5 shrink-0">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
       </div>
-      {/* Step indicators */}
-      <div className="flex items-center gap-1">
-        {STEPS.map((s, i) => {
-          const circleClass = stepCircleClass(i, step)
-          return (
-            <div key={s} className="flex items-center gap-1">
-              <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 ${circleClass}`}>
-                {i < step ? '✓' : i + 1}
-              </div>
-              <span className={`text-xs hidden sm:inline ${i === step ? 'font-medium' : 'text-muted-foreground'}`}>
-                {s}
-              </span>
-              {i < STEPS.length - 1 && <div className="w-4 h-px bg-slate-200 mx-1 shrink-0" />}
-            </div>
-          )
-        })}
+
+      {/* Tabs — visual indicator only, navigation via Next/Back */}
+      <div className="flex border-b">
+        {([['details', 'Requisition Details'], ['matrix', 'Approval Matrix']] as const).map(([key, label], i) => (
+          <div
+            key={key}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 select-none flex items-center gap-2 ${
+              activeTab === key
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground'
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+              activeTab === key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+            }`}>{i + 1}</span>
+            {label}
+          </div>
+        ))}
       </div>
 
-      {/* ── Step 0: Requisition Details ── */}
-      {step === 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Requisition Details</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
+      <form className="space-y-5">
+
+        {/* ── Tab 1: Requisition Details ── */}
+        {activeTab === 'details' && (<>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Requisition Details</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
               {/* Tracking ID */}
-              <div className="space-y-2">
-                <Label>Tracking ID <span className="text-destructive">*</span></Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Tracking ID <span className="text-destructive">*</span></Label>
                 <select
-                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                  className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={watchedTrackingId ?? ''}
                   onChange={e => setValue('tracking_id', Number(e.target.value))}
-                  defaultValue=""
                 >
                   <option value="" disabled>Select approved Tracking ID…</option>
                   {(trackingIds || []).map((t: any) => (
                     <option key={t.id} value={t.id}>
-                      {t.tracking_code} — ₹{t.remaining_amount?.toLocaleString('en-IN') ?? '?'} remaining
+                      {t.tracking_code} — {formatCurrency(t.remaining_amount ?? 0, t.currency_code)} remaining
                     </option>
                   ))}
                 </select>
-                {errors.tracking_id && (
-                  <p className="text-xs text-destructive">{errors.tracking_id.message}</p>
-                )}
+                {errors.tracking_id && <p className="text-xs text-destructive">{errors.tracking_id.message}</p>}
               </div>
 
-              {watchedTrackingId && trackingDetail && (
-                <>
-                  {/* Plant */}
-                  <div className="space-y-2">
-                    <Label>Plant</Label>
-                    <select
-                      disabled
-                      value={trackingDetail.plant}
-                      className="w-full h-10 border rounded-md px-3 text-sm bg-slate-100 cursor-not-allowed"
-                    >
-                      <option>
-                        {trackingDetail.plant_name}
-                      </option>
-                    </select>
-                  </div>
+              {watchedTrackingId && (<>
+              {/* Plant (auto-filled) */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Plant</Label>
+                <select
+                  disabled
+                  value={trackingDetail?.plant ?? ''}
+                  className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
+                >
+                  <option value="">{trackingDetail?.plant_name ?? '…'}</option>
+                </select>
+              </div>
 
-                  {/* Department */}
-                  <div className="space-y-2">
-                    <Label>Department</Label>
-                    <select
-                      disabled
-                      value={trackingDetail.department}
-                      className="w-full h-10 border rounded-md px-3 text-sm bg-slate-100 cursor-not-allowed"
-                    >
-                      <option>
-                        {trackingDetail.department_name}
-                      </option>
-                    </select>
-                  </div>
-                </>
-              )}
+              {/* Department (auto-filled) */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Department</Label>
+                <select
+                  disabled
+                  value={trackingDetail?.department ?? ''}
+                  className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
+                >
+                  <option value="">{trackingDetail?.department_name ?? '…'}</option>
+                </select>
+              </div>
+              </>)}
             </div>
 
-            {/* Description */}
-            <div className="space-y-2">
-              <Label>Description <span className="text-muted-foreground text-xs">(optional)</span></Label>
+            {/* Description — shown only after Tracking ID selected */}
+            {watchedTrackingId && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">
+                Description <span className="text-muted-foreground text-xs font-normal">(optional)</span>
+              </Label>
               <textarea
                 {...register('description')}
                 rows={3}
                 placeholder="Brief description of what is being procured…"
-                className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
               />
             </div>
+            )}
+          </CardContent>
+        </Card>
 
-            <div className="flex justify-end">
-              <Button type="button" onClick={goStep0Next} className="gap-1">
-                Next <ArrowRight className="w-4 h-4" />
+        {/* ── Invited Vendors ── */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Invited Vendors</CardTitle>
+              <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Optional</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Search and add vendors who will be invited to bid on this requisition.</p>
+          </CardHeader>
+          <CardContent className="pt-5 space-y-3">
+            <div className="relative">
+              <Input
+                placeholder="Search approved vendors…"
+                value={vendorSearch}
+                onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
+                onFocus={() => setShowVendorSearch(true)}
+                onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
+                className="h-10"
+              />
+              {showVendorSearch && vendorSearch && (
+                <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
+                  {(vendors || [])
+                    .filter((v: any) => !selectedVendors.some(s => s.id === v.id))
+                    .map((v: any) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => addVendor(v)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{v.company_name}</span>
+                          <span className="text-xs text-emerald-600 font-medium">{v.status}</span>
+                        </div>
+                        <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
+                          {v.category_name && <span>{v.category_name}</span>}
+                          {v.city && <span>{v.city}{v.state ? `, ${v.state}` : ''}</span>}
+                        </div>
+                      </button>
+                    ))}
+                  {(vendors || []).filter((v: any) => !selectedVendors.some(s => s.id === v.id)).length === 0 && (
+                    <p className="px-3 py-2.5 text-sm text-muted-foreground">No vendors found.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {selectedVendors.length > 0 && (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 border-b border-border">
+                    <tr>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
+                      <th className="w-8 px-3 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {selectedVendors.map(v => (
+                      <tr key={v.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-3 py-2.5 font-medium">{v.company_name}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
+                          {v.city ? [v.city, v.state].filter(Boolean).join(', ') : '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── Line Items ── */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Line Items</CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })}
+                className="gap-1 shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Row
               </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-5 space-y-3">
+            {lineItemFields.map((field, idx) => (
+              <div key={field.id} className="border border-border rounded-lg p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item {idx + 1}</span>
+                  {lineItemFields.length > 1 && (
+                    <button type="button" onClick={() => remove(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-12 sm:col-span-5 space-y-1">
+                    <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
+                    <ItemSearch
+                      onSelect={item => {
+                        const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
+                        if (duplicateIdx !== -1) {
+                          remove(duplicateIdx)
+                          const newIdx = duplicateIdx < idx ? idx - 1 : idx
+                          setValue(`line_items.${newIdx}.item_code`, item.id)
+                          setValue(`line_items.${newIdx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+                          return
+                        }
+                        setValue(`line_items.${idx}.item_code`, item.id)
+                        setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+                      }}
+                      placeholder="Search by code or description…"
+                    />
+                    {errors.line_items?.[idx]?.item_code && (
+                      <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
+                    )}
+                  </div>
+                  <div className="col-span-4 sm:col-span-2 space-y-1">
+                    <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
+                    <Input
+                      type="number" step="0.01" min="0.01" placeholder="1"
+                      className={errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}
+                      {...register(`line_items.${idx}.quantity`, { valueAsNumber: true })}
+                    />
+                    {errors.line_items?.[idx]?.quantity && (
+                      <p className="text-xs text-destructive">{errors.line_items[idx]?.quantity?.message}</p>
+                    )}
+                  </div>
+                  <div className="col-span-3 sm:col-span-2 space-y-1">
+                    <Label className="text-xs">UOM <span className="text-destructive">*</span></Label>
+                    <Input placeholder="EA" {...register(`line_items.${idx}.unit_of_measure`)} />
+                  </div>
+                  <div className="col-span-5 sm:col-span-2 space-y-1">
+                    <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
+                    <Input
+                      type="number" step="0.01" min="0.01" placeholder="0.00"
+                      className={errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}
+                      {...register(`line_items.${idx}.unit_rate`, { valueAsNumber: true })}
+                    />
+                    {errors.line_items?.[idx]?.unit_rate && (
+                      <p className="text-xs text-destructive">{errors.line_items[idx]?.unit_rate?.message}</p>
+                    )}
+                  </div>
+                  <div className="col-span-12 sm:col-span-1 space-y-1">
+                    <Label className="text-xs hidden sm:block">Total</Label>
+                    <p className="text-sm font-medium h-10 flex items-center sm:justify-end tabular-nums">
+                      {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {errors.line_items?.root && (
+              <p className="text-xs text-destructive">{errors.line_items.root.message}</p>
+            )}
+
+            {/* Invoice Total */}
+            <div className="border border-border rounded-lg overflow-hidden mt-2">
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-border">
+                  <tr className="bg-muted/30">
+                    <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
+                    <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
+                  </tr>
+                  {activeTaxes.map(tax => (
+                    <tr key={tax.id}>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {tax.name} <span className="text-xs">({tax.rate}%)</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-muted/50 border-t-2 border-border">
+                    <td className="px-4 py-3 font-semibold">Grand Total</td>
+                    <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* ── Step 1: Vendors & Line Items ── */}
-      {step === 1 && (
-        <form onSubmit={onStep1Submit} className="space-y-4">
-          {/* Vendors */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Invited Vendors</CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">
-                Search and add multiple vendors who will be invited to bid.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="relative">
-                <Input
-                  placeholder="Search vendors by name…"
-                  value={vendorSearch}
-                  onChange={e => {
-                    setVendorSearch(e.target.value)
-                    setShowVendorSearch(true)
-                  }}
-                  onFocus={() => setShowVendorSearch(true)}
-                  onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
-                  className="h-10 mb-4"
-                />
-
-                {showVendorSearch && vendorSearch && (
-                  <div className="absolute z-10 top-full mt- left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
-                    {(vendors || [])
-                      .filter((v: any) => !selectedVendors.some(s => s.id === v.id))
-                      .map((v: any) => (
-                        <button
-                          key={v.id}
-                          type="button"
-                          onMouseDown={e => e.preventDefault()}
-                          onClick={() => addVendor(v)}
-                          className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{v.company_name}</span>
-                            <span className="text-xs text-emerald-600 font-medium">
-                              {v.status}
-                            </span>
-                          </div>
-
-                          <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
-                            {v.category_name && <span>{v.category_name}</span>}
-                            {v.city && (
-                              <span>
-                                {v.city}
-                                {v.state ? `, ${v.state}` : ''}
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-
-                    {(vendors || []).length === 0 && (
-                      <p className="px-3 py-2.5 text-sm text-muted-foreground">
-                        No vendors found.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-              </div>
-              {selectedVendors.length > 0 && (
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50 border-b">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs">Vendor</th>
-                        <th className="px-3 py-2 text-left text-xs hidden sm:table-cell">Category</th>
-                        <th className="px-3 py-2 text-left text-xs hidden sm:table-cell">Location</th>
-                        <th className="px-3 py-2 w-8" />
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {selectedVendors.map(v => (
-                        <tr key={v.id} className="hover:bg-muted/30">
-                          <td className="px-3 py-2 font-medium">
-                            {v.company_name}
-                          </td>
-
-                          <td className="px-3 py-2 hidden sm:table-cell">
-                            {v.category_name || '—'}
-                          </td>
-
-                          <td className="px-3 py-2 hidden sm:table-cell">
-                            {v.city
-                              ? `${v.city}${v.state ? `, ${v.state}` : ''}`
-                              : '—'}
-                          </td>
-
-                          <td className="px-3 py-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => removeVendor(v.id)}
-                            >
-                              <X className="w-4 h-4 text-muted-foreground hover:text-destructive" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Line Items */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Line Items</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Total: <span className="font-semibold">{formatCurrency(totalAmount)}</span>
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })}
-                  className="gap-1 shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Row
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {lineItemFields.map((field, idx) => (
-                <div key={field.id} className="border rounded-lg p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
-                    {lineItemFields.length > 1 && (
-                      <Button type="button" variant="ghost" size="sm" onClick={() => remove(idx)} className="h-6 w-6 p-0">
-                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Item code search */}
-                  <div className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-12 sm:col-span-5 space-y-1">
-                      <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
-                      <ItemSearch
-                        onSelect={item => {
-                          setValue(`line_items.${idx}.item_code`, item.id)
-                          setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                        }}
-                        placeholder="Search by code or description…"
-                      />
-                      {errors.line_items?.[idx]?.item_code && (
-                        <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
-                      )}
-                    </div>
-
-                    <div className="col-span-4 sm:col-span-2 space-y-1">
-                      <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        placeholder="1"
-                        {...register(`line_items.${idx}.quantity`, { valueAsNumber: true })}
-                      />
-                    </div>
-
-                    <div className="col-span-3 sm:col-span-2 space-y-1">
-                      <Label className="text-xs">UOM <span className="text-destructive">*</span></Label>
-                      <Input
-                        placeholder="EA"
-                        {...register(`line_items.${idx}.unit_of_measure`)}
-                      />
-                    </div>
-
-                    <div className="col-span-5 sm:col-span-2 space-y-1">
-                      <Label className="text-xs">Unit Rate (₹) <span className="text-destructive">*</span></Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        placeholder="0.00"
-                        {...register(`line_items.${idx}.unit_rate`, { valueAsNumber: true })}
-                      />
-                    </div>
-
-                    <div className="col-span-12 sm:col-span-1 space-y-1">
-                      <Label className="text-xs hidden sm:block">Total</Label>
-                      <p className="text-sm font-medium h-10 flex items-center sm:justify-end tabular-nums">
-                        {formatCurrency(
-                          (watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0)
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {errors.line_items?.root && (
-                <p className="text-xs text-destructive">{errors.line_items.root.message}</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setStep(0)} className="gap-1">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </Button>
-            <Button type="submit" disabled={createPRMutation.isPending} className="gap-2">
-              {createPRMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              Save & Continue <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {/* ── Step 2: Submit for Approval ── */}
-      {step === 2 && !prId && (
-        <div className="flex items-center justify-center h-32 gap-2 text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin" /> Saving PR…
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            className="gap-1.5"
+            onClick={async () => {
+              const ok = await trigger(['tracking_id', 'plant', 'department'])
+              if (ok) setActiveTab('matrix')
+            }}
+          >
+            Next: Approval Matrix <ArrowRight className="w-4 h-4" />
+          </Button>
         </div>
-      )}
-      {step === 2 && prId && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Submit for Approval</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Your PR has been saved as a draft. Select an approval matrix and submit.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {/* Summary */}
-              <div className="bg-slate-50 border rounded-md p-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Amount</span>
-                  <span className="font-bold">{formatCurrency(totalAmount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Line Items</span>
-                  <span>{lineItemFields.length} item{lineItemFields.length === 1 ? '' : 's'}</span>
-                </div>
-                {selectedVendors.length > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Invited Vendors</span>
-                    <span>{selectedVendors.map(v => v.company_name).join(', ')}</span>
-                  </div>
-                )}
-              </div>
+        </>)}
 
-              {/* Approval Matrix */}
-              <div className="space-y-2">
-                <Label>Approval Matrix <span className="text-muted-foreground text-xs">(optional — system auto-matches if not selected)</span></Label>
-                {loadingMatrices && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
-                  </div>
-                )}
-                {!loadingMatrices && (matrices ?? []).length === 0 && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                    No active PR approval matrices found. The system will use the default matrix.
-                  </p>
-                )}
-                {!loadingMatrices && (matrices ?? []).length > 0 && (
-                  <MatrixSelectorTable
-                    matrices={matrices}
-                    selectedMatrix={selectedMatrix}
-                    expandedMatrix={expandedMatrix}
-                    onSelect={id => { setSelectedMatrix(id); setExpandedMatrix(id) }}
-                    onToggleExpand={id => setExpandedMatrix(prev => prev === id ? null : id)}
-                  />
-                )}
+        {/* ── Tab 2: Approval Matrix ── */}
+        {activeTab === 'matrix' && (
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">Choose the approval workflow for this requisition. Leave unselected to use the default matrix.</p>
+          </CardHeader>
+          <CardContent className="pt-5">
+            {loadingMatrices && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
               </div>
-            </CardContent>
-          </Card>
+            )}
+            {!loadingMatrices && (matrices ?? []).length === 0 && (
+              <p className="text-xs text-amber-600 font-medium">No active PR approval matrices configured. The system will use the default matrix.</p>
+            )}
+            {!loadingMatrices && (matrices ?? []).length > 0 && (
+              <MatrixSelectorTable
+                matrices={matrices}
+                selectedMatrix={selectedMatrix}
+                expandedMatrix={expandedMatrix}
+                onSelect={id => { setSelectedMatrix(id); setExpandedMatrix(id) }}
+                onToggleExpand={id => setExpandedMatrix(prev => prev === id ? null : id)}
+              />
+            )}
+          </CardContent>
+        </Card>
+        )}
 
-          <div className="flex justify-between">
+        {/* ── Tab 2 actions ── */}
+        {activeTab === 'matrix' && (
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <Button type="button" variant="outline" onClick={() => setActiveTab('details')} className="gap-1.5">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </Button>
+          <div className="flex items-center gap-2">
             <Button
+              type="button"
               variant="outline"
-              onClick={() => router.push(`/procurement/${prId}`)}
-              className="gap-1"
+              disabled={createMutation.isPending}
+              className="gap-2"
+              onClick={handleDraft}
             >
-              Skip — View PR
+              {createMutation.isPending && submitModeRef.current === 'draft'
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Save className="w-4 h-4" />}
+              Save as Draft
             </Button>
             <Button
-              onClick={() => submitPRMutation.mutate()}
-              disabled={!canSubmit}
+              type="button"
+              disabled={createMutation.isPending}
               className="gap-2"
+              onClick={handleApproval}
             >
-              {submitPRMutation.isPending
+              {createMutation.isPending && submitModeRef.current === 'approval'
                 ? <Loader2 className="w-4 h-4 animate-spin" />
                 : <Send className="w-4 h-4" />}
               Submit for Approval
             </Button>
           </div>
         </div>
-      )}
+        )}
+
+      </form>
     </div>
   )
 }
