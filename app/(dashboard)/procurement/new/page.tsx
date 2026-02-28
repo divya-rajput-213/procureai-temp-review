@@ -46,7 +46,6 @@ const schema = z.object({
   description: z.string().optional(),
   line_items: z.array(z.object({
     item_code: z.number({ required_error: 'Item required' }).min(1, 'Item required'),
-    description: z.string().min(1, 'Description required'),
     quantity: z.number().positive('Must be positive'),
     unit_of_measure: z.string().min(1, 'UOM required'),
     unit_rate: z.number().positive('Must be positive'),
@@ -55,110 +54,6 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-// ─── Vendor Multi-Select ─────────────────────────────────────────────────────
-
-function VendorMultiSelect({
-  selectedVendors,
-  onAdd,
-  onRemove,
-}: {
-  selectedVendors: any[]
-  onAdd: (vendor: any) => void
-  onRemove: (id: number) => void
-}) {
-  const [search, setSearch] = useState('')
-  const [open, setOpen] = useState(false)
-  const wrapperRef = useRef<HTMLDivElement>(null)
-
-  const { data: vendors, isFetching } = useQuery({
-    queryKey: ['vendors-search', search],
-    queryFn: async () => {
-      const r = await apiClient.get('/vendors/', {
-        params: { status: 'approved', search, page_size: 20 },
-      })
-      return r.data.results ?? r.data
-    },
-    enabled: search.length >= 1,
-  })
-
-  useClickOutside(wrapperRef, () => setOpen(false))
-
-  const filteredVendors = (vendors as any[] ?? []).filter(
-    v => !selectedVendors.some(s => s.id === v.id)
-  )
-
-  return (
-    <div ref={wrapperRef} className="space-y-2">
-      {/* Selected tags */}
-      {selectedVendors.length > 0 && (
-        <div className="flex flex-wrap gap-2 p-2 bg-slate-50 border rounded-md">
-          {selectedVendors.map(v => (
-            <span
-              key={v.id}
-              className="inline-flex items-center gap-1.5 bg-white border rounded-md px-2 py-1 text-xs font-medium shadow-sm"
-            >
-              {v.company_name}
-              {v.category_name && (
-                <span className="text-muted-foreground font-normal">({v.category_name})</span>
-              )}
-              <button
-                type="button"
-                onClick={() => onRemove(v.id)}
-                className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-        <Input
-          placeholder="Search vendors by name…"
-          value={search}
-          onChange={e => { setSearch(e.target.value); setOpen(true) }}
-          onFocus={() => search.length >= 1 && setOpen(true)}
-          className="pl-8 text-sm"
-        />
-        {isFetching && (
-          <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />
-        )}
-      </div>
-
-      {/* Dropdown */}
-      {open && search.length >= 1 && (
-        <div className="absolute z-50 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-auto mt-1">
-          {filteredVendors.length === 0 ? (
-            <p className="px-3 py-2.5 text-xs text-muted-foreground">
-              {isFetching ? 'Searching…' : 'No vendors found'}
-            </p>
-          ) : (
-            filteredVendors.map((v: any) => (
-              <button
-                key={v.id}
-                type="button"
-                className="w-full text-left px-3 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-3 border-b last:border-0"
-                onClick={() => { onAdd(v); setSearch(''); setOpen(false) }}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{v.company_name}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {v.category_name || 'No category'}
-                    {v.contact_email ? ` · ${v.contact_email}` : ''}
-                  </p>
-                </div>
-                <Badge variant="secondary" className="text-xs shrink-0">{v.status}</Badge>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─── Item Code Search ────────────────────────────────────────────────────────
 
@@ -345,6 +240,8 @@ export default function NewPRPage() {
   const [selectedVendors, setSelectedVendors] = useState<any[]>([])
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
+  const [vendorSearch, setVendorSearch] = useState('')
+  const [showVendorSearch, setShowVendorSearch] = useState(false)
 
   // ─── Remote data ──────────────────────────────────────────────────────
 
@@ -370,7 +267,30 @@ export default function NewPRPage() {
     },
     enabled: step === 2,
   })
+  const { data: vendors } = useQuery({
+    queryKey: ['vendors-approved', vendorSearch],
+    queryFn: async () => {
+      const r = await apiClient.get('/vendors/', {
+        params: {
+          status: 'approved',
+          search: vendorSearch,
+          page_size: 20,
+        },
+      })
+      return r.data.results ?? r.data
+    },
+    enabled: vendorSearch.length >= 1,
+  })
   
+  const addVendor = (v: any) => {
+    if (!selectedVendors.some(x => x.id === v.id)) {
+      setSelectedVendors(prev => [...prev, v])
+    }
+    setShowVendorSearch(false)
+    setVendorSearch('')
+  }
+  const removeVendor = (id: number) => setSelectedVendors(prev => prev.filter(v => v.id !== id))
+
   // ─── Form ─────────────────────────────────────────────────────────────
 
   const {
@@ -379,7 +299,7 @@ export default function NewPRPage() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      line_items: [{ item_code: 0, description: '', quantity: 1, unit_of_measure: 'EA', unit_rate: 0 }],
+      line_items: [{ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 }],
     },
   })
 
@@ -407,10 +327,10 @@ export default function NewPRPage() {
   })
   useEffect(() => {
     if (!trackingDetail) return
-  
-    setValue('plant', trackingDetail.plant_name)
-    setValue('department', trackingDetail.department_name)
-  
+
+    setValue('plant', trackingDetail.plant)
+    setValue('department', trackingDetail.department)
+
   }, [trackingDetail, setValue])
   // ─── Mutations ────────────────────────────────────────────────────────
 
@@ -476,12 +396,12 @@ export default function NewPRPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">
-        New Purchase Requisition        </h1>
+          New Purchase Requisition</h1>
 
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => router.push('/procurement')}          
+          onClick={() => router.push('/procurement')}
           className="gap-1"
         >
           <ArrowLeft className="w-4 h-4" /> Back
@@ -597,16 +517,100 @@ export default function NewPRPage() {
             </CardHeader>
             <CardContent>
               <div className="relative">
-                <VendorMultiSelect
-                  selectedVendors={selectedVendors}
-                  onAdd={v => setSelectedVendors(prev => [...prev, v])}
-                  onRemove={id => setSelectedVendors(prev => prev.filter(v => v.id !== id))}
+                <Input
+                  placeholder="Search vendors by name…"
+                  value={vendorSearch}
+                  onChange={e => {
+                    setVendorSearch(e.target.value)
+                    setShowVendorSearch(true)
+                  }}
+                  onFocus={() => setShowVendorSearch(true)}
+                  onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
+                  className="h-10 mb-4"
                 />
+
+                {showVendorSearch && vendorSearch && (
+                  <div className="absolute z-10 top-full mt- left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
+                    {(vendors || [])
+                      .filter((v: any) => !selectedVendors.some(s => s.id === v.id))
+                      .map((v: any) => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => addVendor(v)}
+                          className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">{v.company_name}</span>
+                            <span className="text-xs text-emerald-600 font-medium">
+                              {v.status}
+                            </span>
+                          </div>
+
+                          <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
+                            {v.category_name && <span>{v.category_name}</span>}
+                            {v.city && (
+                              <span>
+                                {v.city}
+                                {v.state ? `, ${v.state}` : ''}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+
+                    {(vendors || []).length === 0 && (
+                      <p className="px-3 py-2.5 text-sm text-muted-foreground">
+                        No vendors found.
+                      </p>
+                    )}
+                  </div>
+                )}
+
               </div>
-              {selectedVendors.length === 0 && (
-                <p className="text-xs text-amber-600 mt-2">
-                  No vendors selected. You can add vendors later from the PR detail page.
-                </p>
+              {selectedVendors.length > 0 && (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 border-b">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs">Vendor</th>
+                        <th className="px-3 py-2 text-left text-xs hidden sm:table-cell">Category</th>
+                        <th className="px-3 py-2 text-left text-xs hidden sm:table-cell">Location</th>
+                        <th className="px-3 py-2 w-8" />
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {selectedVendors.map(v => (
+                        <tr key={v.id} className="hover:bg-muted/30">
+                          <td className="px-3 py-2 font-medium">
+                            {v.company_name}
+                          </td>
+
+                          <td className="px-3 py-2 hidden sm:table-cell">
+                            {v.category_name || '—'}
+                          </td>
+
+                          <td className="px-3 py-2 hidden sm:table-cell">
+                            {v.city
+                              ? `${v.city}${v.state ? `, ${v.state}` : ''}`
+                              : '—'}
+                          </td>
+
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => removeVendor(v.id)}
+                            >
+                              <X className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -625,7 +629,7 @@ export default function NewPRPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ item_code: 0, description: '', quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })}
+                  onClick={() => append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })}
                   className="gap-1 shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Row
@@ -645,31 +649,18 @@ export default function NewPRPage() {
                   </div>
 
                   {/* Item code search */}
-                  <div className="space-y-1">
-                    <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
-                    <ItemSearch
-                      onSelect={item => {
-                        setValue(`line_items.${idx}.item_code`, item.id)
-                        setValue(`line_items.${idx}.description`, item.description ?? '')
-                        setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                      }}
-                      placeholder="Search by code or description…"
-                    />
-                    {errors.line_items?.[idx]?.item_code && (
-                      <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
-                    )}
-                  </div>
-
-                  {/* Description + Qty + UOM + Rate */}
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-12 sm:col-span-5 space-y-1">
-                      <Label className="text-xs">Description <span className="text-destructive">*</span></Label>
-                      <Input
-                        placeholder="Item description"
-                        {...register(`line_items.${idx}.description`)}
+                      <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
+                      <ItemSearch
+                        onSelect={item => {
+                          setValue(`line_items.${idx}.item_code`, item.id)
+                          setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+                        }}
+                        placeholder="Search by code or description…"
                       />
-                      {errors.line_items?.[idx]?.description && (
-                        <p className="text-xs text-destructive">{errors.line_items[idx]?.description?.message}</p>
+                      {errors.line_items?.[idx]?.item_code && (
+                        <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
                       )}
                     </div>
 
