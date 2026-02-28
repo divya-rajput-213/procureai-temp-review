@@ -1132,9 +1132,7 @@ export default function PRDetailPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-start gap-3 flex-wrap">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/procurement')} className="gap-1 shrink-0">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-lg font-semibold truncate">{pr.pr_number}</h1>
@@ -1156,6 +1154,9 @@ export default function PRDetailPage() {
             <p className="text-xl font-bold">{formatCurrency(pr.total_amount, pr.currency_code)}</p>
             <p className="text-xs text-muted-foreground">Total Value</p>
           </div>
+          <Button variant="ghost" size="sm" onClick={() => router.push('/procurement')} className="gap-1 shrink-0">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </Button>
         </div>
       </div>
 
