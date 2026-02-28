@@ -69,9 +69,9 @@ function ItemModal({
   const saveMutation = useMutation({
     mutationFn: async (data: ItemFormData) => {
       if (isEdit) {
-        return (await apiClient.patch(`/inventory/items/${item.id}/`, data)).data
+        return (await apiClient.patch(`/procurement/items/${item.id}/`, data)).data
       }
-      return (await apiClient.post('/inventory/items/', data)).data
+      return (await apiClient.post('/procurement/items/', data)).data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items-inventory'] })
@@ -223,14 +223,14 @@ export default function ItemsInventoryPage() {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
       if (showInactive) params.set('is_active', 'false')
-      const r = await apiClient.get(`/inventory/items/?${params.toString()}`)
+      const r = await apiClient.get(`/procurement/items/?${params.toString()}`)
       return r.data.results ?? r.data
     },
   })
 
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: number; is_active: boolean }) => {
-      await apiClient.patch(`/inventory/items/${id}/`, { is_active })
+      await apiClient.patch(`/procurement/items/${id}/`, { is_active })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items-inventory'] })
