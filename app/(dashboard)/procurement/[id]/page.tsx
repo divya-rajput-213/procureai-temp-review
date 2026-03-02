@@ -483,7 +483,6 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
     description: pr.description ?? '',
     title: pr.title ?? ""
   })
-console.log(pr,'form', form)
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
 
   // Invited vendors
@@ -584,7 +583,6 @@ console.log(pr,'form', form)
     const selectedTracking = trackingIds.find(
       (t: any) => t.id === Number(form.tracking_id)
     );
-console.log('selectedTracking', selectedTracking)
     if (selectedTracking) {
       setForm(prev => ({
         ...prev,
