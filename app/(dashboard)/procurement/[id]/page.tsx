@@ -491,6 +491,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
   const [showVendorDropdown, setShowVendorDropdown] = useState(false)
   const [trackingSearch, setTrackingSearch] = useState('')
   const [showTrackingDropdown, setShowTrackingDropdown] = useState(false)
+  const selectedTrackingObj = trackingIds.find((t: any) => t.id === Number(form.tracking_id))
 
   const { data: vendorResults } = useQuery({
     queryKey: ['vendors-pr-edit', vendorSearch],
@@ -588,8 +589,8 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
         ...prev,
         plant: selectedTracking.plant ?? '',
         department: selectedTracking.department ?? '',
-        description:selectedTracking?.description??"",
-        title:selectedTracking?.title??""
+        description: selectedTracking?.description ?? "",
+        title: selectedTracking?.title ?? ""
       }));
     }
   }, [form.tracking_id, trackingIds]);
@@ -602,9 +603,8 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
         <div className="relative">
           <Input
             placeholder="Search tracking ID..."
-            value={
-              trackingIds.find(t => t.id === form.tracking_id)?.tracking_code || ''
-            }
+            value={showTrackingDropdown ? trackingSearch : (selectedTrackingObj?.tracking_code ?? '')}
+
             onChange={(e) => {
               setTrackingSearch(e.target.value)
               setShowTrackingDropdown(true)
@@ -619,6 +619,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
 
               {trackingIds
                 .filter((t: any) =>
+                  !trackingSearch ||   // ← show all when search is empty
                   `${t.tracking_code} ${t.title}`
                     .toLowerCase()
                     .includes(trackingSearch.toLowerCase())
@@ -866,10 +867,11 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <Input type="number" placeholder="Qty" value={li.quantity} onChange={e => setLI(idx, 'quantity', e.target.value)} className="h-8 text-sm" />
-                <Input placeholder="UOM" value={li.unit_of_measure} onChange={e => setLI(idx, 'unit_of_measure', e.target.value)} className="h-8 text-sm" />
-                <Input type="number" placeholder="Unit Rate" value={li.unit_rate} onChange={e => setLI(idx, 'unit_rate', e.target.value)} className="h-8 text-sm" />
+              {/* Displaying quantity, UOM, and unit rate in one line */}
+              <div className="flex gap-2">
+                <Input type="number" placeholder="Qty" value={li.quantity} onChange={e => setLI(idx, 'quantity', e.target.value)} className="h-8 text-sm w-1/3" />
+                <Input placeholder="UOM" value={li.unit_of_measure} onChange={e => setLI(idx, 'unit_of_measure', e.target.value)} className="h-8 text-sm w-1/3" />
+                <Input type="number" placeholder="Unit Rate" value={li.unit_rate} onChange={e => setLI(idx, 'unit_rate', e.target.value)} className="h-8 text-sm w-1/3" />
               </div>
             </div>
           ))}
@@ -878,6 +880,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
           )}
         </div>
       </div>
+
       <div className="border border-border rounded-lg overflow-hidden mt-2">
         <table className="w-full text-sm">
           <tbody className="divide-y divide-border">
@@ -1322,7 +1325,7 @@ export default function PRDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {pr.status === 'draft' && !isEditing && activeTab==="details"&& (
+          {pr.status === 'draft' && !isEditing && activeTab === "details" && (
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1.5">
               <Pencil className="w-3.5 h-3.5" /> Edit
             </Button>
