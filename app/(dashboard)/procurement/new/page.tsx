@@ -278,12 +278,11 @@ export default function NewPRPage() {
     mutationFn: async (data: FormData) => {
       const mode = submitModeRef.current
       const payload = { ...data, invited_vendor_ids: selectedVendors.map(v => v.id) }
-      const { data: pr } = await apiClient.post('/procurement/', payload)
-      if (mode === 'approval') {
-        const body: Record<string, any> = {}
-        if (selectedMatrix) body.matrix_id = selectedMatrix
-        await apiClient.post(`/procurement/${pr.id}/submit/`, body)
-      }
+      const body: Record<string, any> = {}
+      if (selectedMatrix) body.matrix_id = selectedMatrix
+
+      const { data: pr } = await apiClient.post('/procurement/', payload,body)
+
       return { pr, mode }
     },
     onSuccess: ({ pr, mode }) => {
