@@ -107,7 +107,7 @@ export default function NewBudgetPage() {
         status: 'draft',
       }
       const { data: budget } = await apiClient.post('/budget/tracking-ids/', payload)
-      if (mode === 'approval' && budget?.id) {
+      if (mode === 'approval') {
         const body: Record<string, any> = {}
         if (selectedMatrix) body.matrix_id = selectedMatrix
         await apiClient.post(`/budget/tracking-ids/submit-for-approval/`, body)

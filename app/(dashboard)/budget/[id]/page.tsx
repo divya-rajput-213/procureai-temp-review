@@ -628,7 +628,7 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
 
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
-            <Input disabled value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Enterprise Laptop Procurement" className="h-10" />
+            <Input  value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Enterprise Laptop Procurement" className="h-10" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Description <span className="text-destructive">*</span></Label>
