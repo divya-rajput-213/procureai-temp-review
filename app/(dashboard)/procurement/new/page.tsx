@@ -24,6 +24,7 @@ const schema = z.object({
   plant: z.number({ required_error: 'Plant is required' }),
   department: z.number({ required_error: 'Department is required' }),
   description: z.string().optional(),
+  title: z.string().optional(),
   line_items: z.array(z.object({
     item_code: z.number({ required_error: 'Item required' }).min(1, 'Item required'),
     quantity: z.number().positive('Must be > 0').max(99999, 'Max 99,999'),
@@ -44,6 +45,54 @@ function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => voi
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [ref, onOutside])
+}
+function TrackingIdSearch({
+  trackingIds,
+  onSelect,
+}: {
+  trackingIds: any[]
+  onSelect: (tracking: any) => void
+}) {
+  const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const filtered = trackingIds.filter(t =>
+    t.tracking_code.toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div className="relative">
+      <Input
+        placeholder="Search Tracking ID..."
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value)
+          setOpen(true)
+        }}
+      />
+
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow max-h-60 overflow-auto">
+          {filtered.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              className="w-full text-left px-3 py-2 hover:bg-muted"
+              onClick={() => {
+                onSelect(t)
+
+                // ✅ clear ONLY UI
+                setSearch('')
+                setOpen(false)
+              }}
+            >
+              {t.tracking_code}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function ItemSearch({ onSelect, placeholder }: { onSelect: (item: any) => void; placeholder?: string }) {
@@ -184,10 +233,26 @@ export default function NewPRPage() {
     enabled: !!watchedTrackingId,
   })
   useEffect(() => {
-    if (!trackingDetail) return
-    setValue('plant', trackingDetail.plant)
-    setValue('department', trackingDetail.department)
-  }, [trackingDetail, setValue])
+    if (!trackingDetail) return;
+
+    // auto fill fields
+    setValue('plant', trackingDetail.plant);
+    setValue('department', trackingDetail.department);
+    setValue('description',trackingDetail?.description)
+    setValue('title', trackingDetail.title ?? '');
+    // Handle vendors safely
+    if (
+      Array.isArray(trackingDetail.preferred_vendors) &&
+      trackingDetail.preferred_vendors.length > 0
+    ) {
+      setSelectedVendors(trackingDetail.preferred_vendors);
+    } else {
+      // clear vendors if none exist
+      setSelectedVendors([]);
+    }
+
+  }, [trackingDetail, setValue]);
+
 
   // ─── Mutation ─────────────────────────────────────────────────────────
 
@@ -253,15 +318,13 @@ export default function NewPRPage() {
         {([['details', 'Requisition Details'], ['matrix', 'Approval Matrix']] as const).map(([key, label], i) => (
           <div
             key={key}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 select-none flex items-center gap-2 ${
-              activeTab === key
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground'
-            }`}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 select-none flex items-center gap-2 ${activeTab === key
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground'
+              }`}
           >
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-              activeTab === key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
-            }`}>{i + 1}</span>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${activeTab === key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+              }`}>{i + 1}</span>
             {label}
           </div>
         ))}
@@ -271,348 +334,352 @@ export default function NewPRPage() {
 
         {/* ── Tab 1: Requisition Details ── */}
         {activeTab === 'details' && (<>
-        <Card className="shadow-sm">
-          <CardHeader className="pb-4 border-b">
-            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Requisition Details</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-5 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4 border-b">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Requisition Details</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-4">
               {/* Tracking ID */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Tracking ID <span className="text-destructive">*</span></Label>
-                <select
-                  className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  value={watchedTrackingId ?? ''}
-                  onChange={e => setValue('tracking_id', Number(e.target.value))}
-                >
-                  <option value="" disabled>Select approved Tracking ID…</option>
-                  {(trackingIds || []).map((t: any) => (
-                    <option key={t.id} value={t.id}>
-                      {t.tracking_code} — {formatCurrency(t.remaining_amount ?? 0, t.currency_code)} remaining
-                    </option>
-                  ))}
-                </select>
+
+                <TrackingIdSearch
+                  trackingIds={trackingIds}
+                  onSelect={(tracking) => {
+
+                    // ✅ save for payload
+                    setValue('tracking_id', tracking.id, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+
+                    // ✅ autofill title
+                    setValue('title', tracking.title)
+                  }}
+                />
+
+
                 {errors.tracking_id && <p className="text-xs text-destructive">{errors.tracking_id.message}</p>}
               </div>
-
-              {watchedTrackingId && (<>
-              {/* Plant (auto-filled) */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Plant</Label>
-                <select
-                  disabled
-                  value={trackingDetail?.plant ?? ''}
-                  className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
-                >
-                  <option value="">{trackingDetail?.plant_name ?? '…'}</option>
-                </select>
-              </div>
-
-              {/* Department (auto-filled) */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Department</Label>
-                <select
-                  disabled
-                  value={trackingDetail?.department ?? ''}
-                  className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
-                >
-                  <option value="">{trackingDetail?.department_name ?? '…'}</option>
-                </select>
-              </div>
-              </>)}
-            </div>
-
-            {/* Description — shown only after Tracking ID selected */}
-            {watchedTrackingId && (
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">
-                Description <span className="text-muted-foreground text-xs font-normal">(optional)</span>
-              </Label>
-              <textarea
-                {...register('description')}
-                rows={3}
-                placeholder="Brief description of what is being procured…"
-                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
-              />
-            </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ── Invited Vendors ── */}
-        <Card className="shadow-sm">
-          <CardHeader className="pb-4 border-b">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Invited Vendors</CardTitle>
-              <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Optional</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Search and add vendors who will be invited to bid on this requisition.</p>
-          </CardHeader>
-          <CardContent className="pt-5 space-y-3">
-            <div className="relative">
-              <Input
-                placeholder="Search approved vendors…"
-                value={vendorSearch}
-                onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
-                onFocus={() => setShowVendorSearch(true)}
-                onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
-                className="h-10"
-              />
-              {showVendorSearch && vendorSearch && (
-                <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
-                  {(vendors || [])
-                    .filter((v: any) => !selectedVendors.some(s => s.id === v.id))
-                    .map((v: any) => (
-                      <button
-                        key={v.id}
-                        type="button"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => addVendor(v)}
-                        className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
+              {watchedTrackingId &&
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
+                    <Input disabled {...register('title')} placeholder="e.g. Enterprise Laptop Procurement" className="h-10 bg-muted cursor-not-allowed text-muted-foreground" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">
+                      Description <span className="text-muted-foreground text-xs font-normal">(optional)</span>
+                    </Label>
+                    <textarea
+                      {...register('description')}
+                      rows={3}
+                      placeholder="Brief description of what is being procured…"
+                      className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Department</Label>
+                      <select
+                        disabled
+                        value={trackingDetail?.department ?? ''}
+                        className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{v.company_name}</span>
-                          <span className="text-xs text-emerald-600 font-medium">{v.status}</span>
-                        </div>
-                        <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
-                          {v.category_name && <span>{v.category_name}</span>}
-                          {v.city && <span>{v.city}{v.state ? `, ${v.state}` : ''}</span>}
-                        </div>
-                      </button>
-                    ))}
-                  {(vendors || []).filter((v: any) => !selectedVendors.some(s => s.id === v.id)).length === 0 && (
-                    <p className="px-3 py-2.5 text-sm text-muted-foreground">No vendors found.</p>
-                  )}
+                        <option value="">{trackingDetail?.department_name ?? '…'}</option>
+                      </select>
+                    </div>
+                    {/* Plant (auto-filled) */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Plant</Label>
+                      <select
+                        disabled
+                        value={trackingDetail?.plant ?? ''}
+                        className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
+                      >
+                        <option value="">{trackingDetail?.plant_name ?? '…'}</option>
+                      </select>
+                    </div>
+
+                  </div>
+                </>
+              }
+            </CardContent>
+          </Card>
+
+          {/* ── Invited Vendors ── */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Invited Vendors</CardTitle>
+                <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Optional</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Search and add vendors who will be invited to bid on this requisition.</p>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-3">
+              <div className="relative">
+                <Input
+                  placeholder="Search approved vendors…"
+                  value={vendorSearch}
+                  onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
+                  onFocus={() => setShowVendorSearch(true)}
+                  onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
+                  className="h-10"
+                />
+                {showVendorSearch && vendorSearch && (
+                  <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
+                    {(vendors || [])
+                      .filter((v: any) => !selectedVendors.some(s => s.id === v.id))
+                      .map((v: any) => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => addVendor(v)}
+                          className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">{v.company_name}</span>
+                            <span className="text-xs text-emerald-600 font-medium">{v.status}</span>
+                          </div>
+                          <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
+                            {v.category_name && <span>{v.category_name}</span>}
+                            {v.city && <span>{v.city}{v.state ? `, ${v.state}` : ''}</span>}
+                          </div>
+                        </button>
+                      ))}
+                    {(vendors || []).filter((v: any) => !selectedVendors.some(s => s.id === v.id)).length === 0 && (
+                      <p className="px-3 py-2.5 text-sm text-muted-foreground">No vendors found.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {selectedVendors.length > 0 && (
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 border-b border-border">
+                      <tr>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
+                        <th className="w-8 px-3 py-2.5" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {selectedVendors.map(v => (
+                        <tr key={v.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-3 py-2.5 font-medium">{v.company_name}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
+                            {v.city ? [v.city, v.state].filter(Boolean).join(', ') : '—'}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-            </div>
+            </CardContent>
+          </Card>
 
-            {selectedVendors.length > 0 && (
-              <div className="border border-border rounded-lg overflow-hidden">
+          {/* ── Line Items ── */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Line Items</CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })}
+                  className="gap-1 shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Row
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-3">
+              {lineItemFields.map((field, idx) => (
+                <div key={field.id} className="border border-border rounded-lg p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item {idx + 1}</span>
+                    {lineItemFields.length > 1 && (
+                      <button type="button" onClick={() => remove(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-12 sm:col-span-5 space-y-1">
+                      <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
+                      <ItemSearch
+                        onSelect={item => {
+                          const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
+                          if (duplicateIdx !== -1) {
+                            remove(duplicateIdx)
+                            const newIdx = duplicateIdx < idx ? idx - 1 : idx
+                            setValue(`line_items.${newIdx}.item_code`, item.id)
+                            setValue(`line_items.${newIdx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+                            return
+                          }
+                          setValue(`line_items.${idx}.item_code`, item.id)
+                          setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+                        }}
+                        placeholder="Search by code or description…"
+                      />
+                      {errors.line_items?.[idx]?.item_code && (
+                        <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
+                      )}
+                    </div>
+                    <div className="col-span-4 sm:col-span-2 space-y-1">
+                      <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
+                      <Input
+                        type="number" step="0.01" min="0.01" placeholder="1"
+                        className={errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}
+                        {...register(`line_items.${idx}.quantity`, { valueAsNumber: true })}
+                      />
+                      {errors.line_items?.[idx]?.quantity && (
+                        <p className="text-xs text-destructive">{errors.line_items[idx]?.quantity?.message}</p>
+                      )}
+                    </div>
+                    <div className="col-span-3 sm:col-span-2 space-y-1">
+                      <Label className="text-xs">UOM <span className="text-destructive">*</span></Label>
+                      <Input placeholder="EA" {...register(`line_items.${idx}.unit_of_measure`)} />
+                    </div>
+                    <div className="col-span-5 sm:col-span-2 space-y-1">
+                      <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
+                      <Input
+                        type="number" step="0.01" min="0.01" placeholder="0.00"
+                        className={errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}
+                        {...register(`line_items.${idx}.unit_rate`, { valueAsNumber: true })}
+                      />
+                      {errors.line_items?.[idx]?.unit_rate && (
+                        <p className="text-xs text-destructive">{errors.line_items[idx]?.unit_rate?.message}</p>
+                      )}
+                    </div>
+                    <div className="col-span-12 sm:col-span-1 space-y-1">
+                      <Label className="text-xs hidden sm:block">Total</Label>
+                      <p className="text-sm font-medium h-10 flex items-center sm:justify-end tabular-nums">
+                        {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {errors.line_items?.root && (
+                <p className="text-xs text-destructive">{errors.line_items.root.message}</p>
+              )}
+
+              {/* Invoice Total */}
+              <div className="border border-border rounded-lg overflow-hidden mt-2">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b border-border">
-                    <tr>
-                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
-                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
-                      <th className="w-8 px-3 py-2.5" />
-                    </tr>
-                  </thead>
                   <tbody className="divide-y divide-border">
-                    {selectedVendors.map(v => (
-                      <tr key={v.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-3 py-2.5 font-medium">{v.company_name}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                          {v.city ? [v.city, v.state].filter(Boolean).join(', ') : '—'}
+                    <tr className="bg-muted/30">
+                      <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
+                      <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
+                    </tr>
+                    {activeTaxes.map(tax => (
+                      <tr key={tax.id}>
+                        <td className="px-4 py-2.5 text-muted-foreground">
+                          {tax.name} <span className="text-xs">({tax.rate}%)</span>
                         </td>
-                        <td className="px-3 py-2.5 text-center">
-                          <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
+                        <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr className="bg-muted/50 border-t-2 border-border">
+                      <td className="px-4 py-3 font-semibold">Grand Total</td>
+                      <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* ── Line Items ── */}
-        <Card className="shadow-sm">
-          <CardHeader className="pb-4 border-b">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Line Items</CardTitle>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })}
-                className="gap-1 shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Row
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-5 space-y-3">
-            {lineItemFields.map((field, idx) => (
-              <div key={field.id} className="border border-border rounded-lg p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item {idx + 1}</span>
-                  {lineItemFields.length > 1 && (
-                    <button type="button" onClick={() => remove(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-12 sm:col-span-5 space-y-1">
-                    <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
-                    <ItemSearch
-                      onSelect={item => {
-                        const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
-                        if (duplicateIdx !== -1) {
-                          remove(duplicateIdx)
-                          const newIdx = duplicateIdx < idx ? idx - 1 : idx
-                          setValue(`line_items.${newIdx}.item_code`, item.id)
-                          setValue(`line_items.${newIdx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                          return
-                        }
-                        setValue(`line_items.${idx}.item_code`, item.id)
-                        setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                      }}
-                      placeholder="Search by code or description…"
-                    />
-                    {errors.line_items?.[idx]?.item_code && (
-                      <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
-                    )}
-                  </div>
-                  <div className="col-span-4 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
-                    <Input
-                      type="number" step="0.01" min="0.01" placeholder="1"
-                      className={errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}
-                      {...register(`line_items.${idx}.quantity`, { valueAsNumber: true })}
-                    />
-                    {errors.line_items?.[idx]?.quantity && (
-                      <p className="text-xs text-destructive">{errors.line_items[idx]?.quantity?.message}</p>
-                    )}
-                  </div>
-                  <div className="col-span-3 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">UOM <span className="text-destructive">*</span></Label>
-                    <Input placeholder="EA" {...register(`line_items.${idx}.unit_of_measure`)} />
-                  </div>
-                  <div className="col-span-5 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
-                    <Input
-                      type="number" step="0.01" min="0.01" placeholder="0.00"
-                      className={errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}
-                      {...register(`line_items.${idx}.unit_rate`, { valueAsNumber: true })}
-                    />
-                    {errors.line_items?.[idx]?.unit_rate && (
-                      <p className="text-xs text-destructive">{errors.line_items[idx]?.unit_rate?.message}</p>
-                    )}
-                  </div>
-                  <div className="col-span-12 sm:col-span-1 space-y-1">
-                    <Label className="text-xs hidden sm:block">Total</Label>
-                    <p className="text-sm font-medium h-10 flex items-center sm:justify-end tabular-nums">
-                      {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {errors.line_items?.root && (
-              <p className="text-xs text-destructive">{errors.line_items.root.message}</p>
-            )}
-
-            {/* Invoice Total */}
-            <div className="border border-border rounded-lg overflow-hidden mt-2">
-              <table className="w-full text-sm">
-                <tbody className="divide-y divide-border">
-                  <tr className="bg-muted/30">
-                    <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
-                    <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
-                  </tr>
-                  {activeTaxes.map(tax => (
-                    <tr key={tax.id}>
-                      <td className="px-4 py-2.5 text-muted-foreground">
-                        {tax.name} <span className="text-xs">({tax.rate}%)</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-muted/50 border-t-2 border-border">
-                    <td className="px-4 py-3 font-semibold">Grand Total</td>
-                    <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            className="gap-1.5"
-            onClick={async () => {
-              const ok = await trigger(['tracking_id', 'plant', 'department'])
-              if (ok) setActiveTab('matrix')
-            }}
-          >
-            Next<ArrowRight className="w-4 h-4" />
-          </Button>
-        </div>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              className="gap-1.5"
+              onClick={async () => {
+                const ok = await trigger(['tracking_id', 'plant', 'department'])
+                if (ok) setActiveTab('matrix')
+              }}
+            >
+              Next<ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
         </>)}
 
         {/* ── Tab 2: Approval Matrix ── */}
         {activeTab === 'matrix' && (
-        <Card className="shadow-sm">
-          <CardHeader className="pb-4 border-b">
-            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">Choose the approval workflow for this requisition. Leave unselected to use the default matrix.</p>
-          </CardHeader>
-          <CardContent className="pt-5">
-            {loadingMatrices && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
-              </div>
-            )}
-            {!loadingMatrices && (matrices ?? []).length === 0 && (
-              <p className="text-xs text-amber-600 font-medium">No active PR approval matrices configured. The system will use the default matrix.</p>
-            )}
-            {!loadingMatrices && (matrices ?? []).length > 0 && (
-              <MatrixSelectorTable
-                matrices={matrices}
-                selectedMatrix={selectedMatrix}
-                expandedMatrix={expandedMatrix}
-                onSelect={id => { setSelectedMatrix(id); setExpandedMatrix(id) }}
-                onToggleExpand={id => setExpandedMatrix(prev => prev === id ? null : id)}
-              />
-            )}
-          </CardContent>
-        </Card>
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4 border-b">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">Choose the approval workflow for this requisition. Leave unselected to use the default matrix.</p>
+            </CardHeader>
+            <CardContent className="pt-5">
+              {loadingMatrices && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
+                </div>
+              )}
+              {!loadingMatrices && (matrices ?? []).length === 0 && (
+                <p className="text-xs text-amber-600 font-medium">No active PR approval matrices configured. The system will use the default matrix.</p>
+              )}
+              {!loadingMatrices && (matrices ?? []).length > 0 && (
+                <MatrixSelectorTable
+                  matrices={matrices}
+                  selectedMatrix={selectedMatrix}
+                  expandedMatrix={expandedMatrix}
+                  onSelect={id => { setSelectedMatrix(id); setExpandedMatrix(id) }}
+                  onToggleExpand={id => setExpandedMatrix(prev => prev === id ? null : id)}
+                />
+              )}
+            </CardContent>
+          </Card>
         )}
 
         {/* ── Tab 2 actions ── */}
         {activeTab === 'matrix' && (
-        <div className="flex items-center justify-between gap-3 pt-1">
-          <Button type="button" variant="outline" onClick={() => setActiveTab('details')} className="gap-1.5">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </Button>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={createMutation.isPending}
-              className="gap-2"
-              onClick={handleDraft}
-            >
-              {createMutation.isPending && submitModeRef.current === 'draft'
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <Save className="w-4 h-4" />}
-              Save as Draft
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <Button type="button" variant="outline" onClick={() => setActiveTab('details')} className="gap-1.5">
+              <ArrowLeft className="w-4 h-4" /> Back
             </Button>
-            <Button
-              type="button"
-              disabled={createMutation.isPending}
-              className="gap-2"
-              onClick={handleApproval}
-            >
-              {createMutation.isPending && submitModeRef.current === 'approval'
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <Send className="w-4 h-4" />}
-              Submit for Approval
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={createMutation.isPending}
+                className="gap-2"
+                onClick={handleDraft}
+              >
+                {createMutation.isPending && submitModeRef.current === 'draft'
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Save className="w-4 h-4" />}
+                Save as Draft
+              </Button>
+              <Button
+                type="button"
+                disabled={createMutation.isPending}
+                className="gap-2"
+                onClick={handleApproval}
+              >
+                {createMutation.isPending && submitModeRef.current === 'approval'
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Send className="w-4 h-4" />}
+                Submit for Approval
+              </Button>
+            </div>
           </div>
-        </div>
         )}
 
       </form>
