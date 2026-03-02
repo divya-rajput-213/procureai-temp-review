@@ -25,12 +25,30 @@ const schema = z.object({
   department: z.number({ required_error: 'Department is required' }),
   description: z.string().optional(),
   title: z.string().optional(),
-  line_items: z.array(z.object({
-    item_code: z.number({ required_error: 'Item required' }).min(1, 'Item required'),
-    quantity: z.number().positive('Must be > 0').max(99999, 'Max 99,999'),
-    unit_of_measure: z.string().min(1, 'UOM required'),
-    unit_rate: z.number().positive('Must be > 0').max(9999999.99, 'Max 99,99,999.99'),
-  })).min(1, 'At least one line item required'),
+  line_items: z.array(
+    z.object({
+      item_code: z.number({ required_error: 'Item required' }).min(1),
+
+      quantity: z
+        .number({ required_error: 'Quantity required' })
+        .positive('Must be > 0')
+        .max(99999, 'Maximum Quantity limit: 99,999')
+        .refine(v => Number.isFinite(v), 'Invalid quantity'),
+
+      unit_rate: z
+        .number({ required_error: 'Unit rate required' })
+        .positive('Must be > 0')
+        .max(9999999.99, 'Maximum Unit Rate limit: 99,99,999.99')
+        .refine(v => /^\d+(\.\d{1,2})?$/.test(String(v)), {
+          message: 'Maximum 2 decimal places allowed',
+        }),
+
+
+      unit_of_measure: z.string().min(1, 'UOM required'),
+    })
+  )
+    .min(1, 'At least one line item required')
+
 })
 
 type FormData = z.infer<typeof schema>
@@ -207,7 +225,7 @@ export default function NewPRPage() {
   // ─── Form ─────────────────────────────────────────────────────────────
 
   const {
-    register, control, handleSubmit, watch, setValue, trigger,
+    register, control, handleSubmit, watch, setValue, trigger, clearErrors,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -238,7 +256,7 @@ export default function NewPRPage() {
     // auto fill fields
     setValue('plant', trackingDetail.plant);
     setValue('department', trackingDetail.department);
-    setValue('description',trackingDetail?.description)
+    setValue('description', trackingDetail?.description)
     setValue('title', trackingDetail.title ?? '');
     // Handle vendors safely
     if (
@@ -518,19 +536,32 @@ export default function NewPRPage() {
                       <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
                       <ItemSearch
                         onSelect={item => {
-                          const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
+                          const duplicateIdx = (watchedItems ?? [])
+                            .findIndex((li, i) => i !== idx && li.item_code === item.id)
+
+                          const targetIdx =
+                            duplicateIdx !== -1
+                              ? (duplicateIdx < idx ? idx - 1 : idx)
+                              : idx
+
                           if (duplicateIdx !== -1) {
                             remove(duplicateIdx)
-                            const newIdx = duplicateIdx < idx ? idx - 1 : idx
-                            setValue(`line_items.${newIdx}.item_code`, item.id)
-                            setValue(`line_items.${newIdx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                            return
                           }
-                          setValue(`line_items.${idx}.item_code`, item.id)
-                          setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+
+                          setValue(`line_items.${targetIdx}.item_code`, item.id, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
+
+                          setValue(
+                            `line_items.${targetIdx}.unit_of_measure`,
+                            item.unit_of_measure ?? 'EA'
+                          )
+
+                          clearErrors(`line_items.${targetIdx}.item_code`)
                         }}
-                        placeholder="Search by code or description…"
                       />
+
                       {errors.line_items?.[idx]?.item_code && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
                       )}
@@ -538,10 +569,27 @@ export default function NewPRPage() {
                     <div className="col-span-4 sm:col-span-2 space-y-1">
                       <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
                       <Input
-                        type="number" step="0.01" min="0.01" placeholder="1"
+                        type="number"
+                        min="0.01"
+                        max="99999"
+                        step="0.01"
+                        placeholder="1"
                         className={errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}
-                        {...register(`line_items.${idx}.quantity`, { valueAsNumber: true })}
+                        {...register(`line_items.${idx}.quantity`, {
+                          valueAsNumber: true,
+                          onChange: e => {
+                            let value = Number(e.target.value)
+
+                            if (value > 99999) {
+                              value = 99999
+                              setValue(`line_items.${idx}.quantity`, value)
+                            }
+
+                            clearErrors(`line_items.${idx}.quantity`)
+                          },
+                        })}
                       />
+
                       {errors.line_items?.[idx]?.quantity && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.quantity?.message}</p>
                       )}
@@ -553,20 +601,47 @@ export default function NewPRPage() {
                     <div className="col-span-5 sm:col-span-2 space-y-1">
                       <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
                       <Input
-                        type="number" step="0.01" min="0.01" placeholder="0.00"
+                        type="number"
+                        min="0.01"
+                        max="9999999.99"
+                        step="0.01"
+                        placeholder="0.00"
                         className={errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}
-                        {...register(`line_items.${idx}.unit_rate`, { valueAsNumber: true })}
+                        {...register(`line_items.${idx}.unit_rate`, {
+                          valueAsNumber: true,
+                          onChange: e => {
+                            let value = Number(e.target.value)
+
+                            if (value > 9999999.99) {
+                              value = 9999999.99
+                            }
+
+                            value = Number(value.toFixed(2))
+
+                            setValue(`line_items.${idx}.unit_rate`, value)
+
+                            clearErrors(`line_items.${idx}.unit_rate`)
+                          },
+                        })}
                       />
+
                       {errors.line_items?.[idx]?.unit_rate && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.unit_rate?.message}</p>
                       )}
                     </div>
                     <div className="col-span-12 sm:col-span-1 space-y-1">
                       <Label className="text-xs hidden sm:block">Total</Label>
-                      <p className="text-sm font-medium h-10 flex items-center sm:justify-end tabular-nums">
-                        {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
-                      </p>
+
+                      <Input
+                        disabled
+                        value={formatCurrency(
+                          (watchedItems?.[idx]?.quantity || 0) *
+                          (watchedItems?.[idx]?.unit_rate || 0)
+                        )}
+                        className="text-right font-medium bg-muted cursor-not-allowed"
+                      />
                     </div>
+
                   </div>
                 </div>
               ))}
@@ -600,143 +675,6 @@ export default function NewPRPage() {
                   </tfoot>
                 </table>
               </div>
-<<<<<<< HEAD
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ── Line Items ── */}
-        <Card className="shadow-sm">
-          <CardHeader className="pb-4 border-b">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Line Items</CardTitle>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })}
-                className="gap-1 shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Row
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-5 space-y-3">
-            {lineItemFields.map((field, idx) => (
-              <div key={field.id} className="border border-border rounded-lg p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item {idx + 1}</span>
-                  {lineItemFields.length > 1 && (
-                    <button type="button" onClick={() => remove(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-12 sm:col-span-5 space-y-1">
-                    <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
-                    <ItemSearch
-                      onSelect={item => {
-                        const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
-                        if (duplicateIdx !== -1) {
-                          remove(duplicateIdx)
-                          const newIdx = duplicateIdx < idx ? idx - 1 : idx
-                          setValue(`line_items.${newIdx}.item_code`, item.id)
-                          setValue(`line_items.${newIdx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                          if (item.unit_rate) setValue(`line_items.${newIdx}.unit_rate`, Number(item.unit_rate))
-                          return
-                        }
-                        setValue(`line_items.${idx}.item_code`, item.id)
-                        setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                        if (item.unit_rate) setValue(`line_items.${idx}.unit_rate`, Number(item.unit_rate))
-                      }}
-                      placeholder="Search by code or description…"
-                    />
-                    {errors.line_items?.[idx]?.item_code && (
-                      <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
-                    )}
-                  </div>
-                  <div className="col-span-4 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
-                    <Input
-                      type="number" step="0.01" min="0.01" placeholder="1"
-                      className={errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}
-                      {...register(`line_items.${idx}.quantity`, { valueAsNumber: true })}
-                    />
-                    {errors.line_items?.[idx]?.quantity && (
-                      <p className="text-xs text-destructive">{errors.line_items[idx]?.quantity?.message}</p>
-                    )}
-                  </div>
-                  <div className="col-span-3 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">UOM <span className="text-destructive">*</span></Label>
-                    <Input placeholder="EA" {...register(`line_items.${idx}.unit_of_measure`)} />
-                  </div>
-                  <div className="col-span-5 sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
-                    <Input
-                      type="number" step="0.01" min="0.01" placeholder="0.00"
-                      className={errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}
-                      {...register(`line_items.${idx}.unit_rate`, { valueAsNumber: true })}
-                    />
-                    {errors.line_items?.[idx]?.unit_rate && (
-                      <p className="text-xs text-destructive">{errors.line_items[idx]?.unit_rate?.message}</p>
-                    )}
-                  </div>
-                  <div className="col-span-12 sm:col-span-1 space-y-1">
-                    <Label className="text-xs hidden sm:block">Total</Label>
-                    <p className="text-sm font-medium h-10 flex items-center sm:justify-end tabular-nums">
-                      {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {errors.line_items?.root && (
-              <p className="text-xs text-destructive">{errors.line_items.root.message}</p>
-            )}
-
-            {/* Invoice Total */}
-            <div className="border border-border rounded-lg overflow-hidden mt-2">
-              <table className="w-full text-sm">
-                <tbody className="divide-y divide-border">
-                  <tr className="bg-muted/30">
-                    <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
-                    <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
-                  </tr>
-                  {activeTaxes.map(tax => (
-                    <tr key={tax.id}>
-                      <td className="px-4 py-2.5 text-muted-foreground">
-                        {tax.name} <span className="text-xs">({tax.rate}%)</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-muted/50 border-t-2 border-border">
-                    <td className="px-4 py-3 font-semibold">Grand Total</td>
-                    <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            className="gap-1.5"
-            onClick={async () => {
-              const ok = await trigger(['tracking_id', 'plant', 'department'])
-              if (ok) setActiveTab('matrix')
-            }}
-          >
-            Next<ArrowRight className="w-4 h-4" />
-          </Button>
-        </div>
-=======
             </CardContent>
           </Card>
 
@@ -745,14 +683,24 @@ export default function NewPRPage() {
               type="button"
               className="gap-1.5"
               onClick={async () => {
-                const ok = await trigger(['tracking_id', 'plant', 'department'])
-                if (ok) setActiveTab('matrix')
+                const isValid = await trigger()
+
+                if (!isValid) {
+                  toast({
+                    title: 'Please complete required fields',
+                    description: 'Fill all mandatory requisition details before proceeding.',
+                    variant: 'destructive',
+                  })
+                  return
+                }
+
+                setActiveTab('matrix')
               }}
+
             >
               Next<ArrowRight className="w-4 h-4" />
             </Button>
           </div>
->>>>>>> a841215e6be3ddf15936fd95e3071666a80f8a26
         </>)}
 
         {/* ── Tab 2: Approval Matrix ── */}
