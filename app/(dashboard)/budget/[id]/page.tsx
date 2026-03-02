@@ -26,9 +26,9 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 const PRIORITY_OPTS = [
-  { value: 'low',    label: 'Low',    color: 'bg-slate-100 text-slate-600 border-slate-200' },
+  { value: 'low', label: 'Low', color: 'bg-slate-100 text-slate-600 border-slate-200' },
   { value: 'medium', label: 'Medium', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  { value: 'high',   label: 'High',   color: 'bg-red-100 text-red-700 border-red-200' },
+  { value: 'high', label: 'High', color: 'bg-red-100 text-red-700 border-red-200' },
 ]
 
 function getAmountInputCls(hasError: boolean, amount: number) {
@@ -235,7 +235,7 @@ function LineItemsEditor({ items, onChange }: {
 function actionStepClass(action: string) {
   if (action === 'approved') return 'bg-green-50 border-green-200 text-green-700'
   if (action === 'rejected') return 'bg-red-50 border-red-200 text-red-700'
-  if (action === 'held')     return 'bg-amber-50 border-amber-200 text-amber-700'
+  if (action === 'held') return 'bg-amber-50 border-amber-200 text-amber-700'
   return 'bg-slate-50 border-slate-200 text-slate-500'
 }
 
@@ -248,8 +248,8 @@ function ActionStepIcon({ action }: { action: string }) {
 function levelBubbleCls(action: string, isCurrent: boolean): string {
   if (action === 'approved') return 'bg-green-100 text-green-700'
   if (action === 'rejected') return 'bg-red-100 text-red-700'
-  if (action === 'held')     return 'bg-amber-100 text-amber-700'
-  if (isCurrent)             return 'bg-amber-200 text-amber-800'
+  if (action === 'held') return 'bg-amber-100 text-amber-700'
+  if (isCurrent) return 'bg-amber-200 text-amber-800'
   return 'bg-slate-100 text-slate-500'
 }
 
@@ -529,7 +529,7 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
   onSubmitApproval?: (matrixId: number | null) => Promise<void>
 }) {
   const { currencySymbol } = useSettingsStore()
-
+console.log('isDraft', isDraft)
   const [title, setTitle] = useState<string>(budget.title ?? '')
   const [description, setDescription] = useState<string>(budget.description ?? '')
   const [requestedAmount, setRequestedAmount] = useState<number>(Number(budget.requested_amount) || 0)
@@ -615,22 +615,40 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
   const selectCls = 'w-full h-10 border border-input rounded-md px-3 text-sm bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors'
   const textareaCls = 'w-full border border-input rounded-md p-3 text-sm bg-background text-foreground resize-none h-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors placeholder:text-muted-foreground'
   const amountInputCls = getAmountInputCls(!!amountError, requestedAmount)
+  const disabledCls = !isDraft
+  ? 'bg-muted cursor-not-allowed text-muted-foreground'
+  : ''
 
   return (
     <div className="space-y-5">
 
       {/* ── Basic Information (hidden in amount-only mode) ─────────────────── */}
-      {!amountOnly && <Card className="shadow-sm">
+      { <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Basic Information</CardTitle>
         </CardHeader>
         <CardContent className="pt-5 space-y-5">
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Enterprise Laptop Procurement" className="h-10" />
+            <Label className={`text-sm font-medium `}>Title <span className="text-destructive">*</span></Label>
+            <Input disabled={!isDraft} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Enterprise Laptop Procurement" className={`h-10 ${disabledCls}`} />
           </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">
+                Description <span className="text-destructive">*</span>
+              </Label>
 
+              <div className="flex items-center justify-between">
+                {description.length > 0 && description.length < 10
+                  ? <p className="text-xs text-destructive">Minimum 10 characters</p>
+                  : <span />}
+                <p className="text-xs text-muted-foreground">{description.length} / 500</p>
+              </div>
+            </div>
+            <textarea disabled={!isDraft} value={description} onChange={e => setDescription(e.target.value)} className={`${textareaCls} ${disabledCls}`} placeholder="Brief description of what you need..." maxLength={500} />
+
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Priority <span className="text-destructive">*</span></Label>
@@ -641,8 +659,8 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
                     ? `${p.color} border-current shadow-sm`
                     : 'border-input text-muted-foreground hover:border-slate-300 hover:text-foreground'
                   return (
-                    <label key={p.value} className={`flex-1 border rounded-lg px-2 py-2.5 cursor-pointer text-center text-xs font-semibold transition-all ${cls}`}>
-                      <input type="radio" value={p.value} checked={priority === p.value} onChange={() => setPriority(p.value)} className="sr-only" />
+                    <label key={p.value} className={`flex-1 border rounded-lg px-2 py-2.5 cursor-pointer text-center text-xs font-semibold transition-all ${cls} ${disabledCls}`}>
+                      <input disabled={!isDraft} type="radio" value={p.value} checked={priority === p.value} onChange={() => setPriority(p.value)} className="sr-only" />
                       {p.label}
                     </label>
                   )
@@ -650,29 +668,18 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Plant</Label>
-              <select className={selectCls} value={plant} onChange={e => setPlant(e.target.value ? Number(e.target.value) : '')}>
+              <Label className={`text-sm font-medium `}>Plant</Label>
+              <select disabled={!isDraft} className={`${selectCls} ${disabledCls}`} value={plant} onChange={e => setPlant(e.target.value ? Number(e.target.value) : '')} >
                 <option value="">Select plant...</option>
                 {plants.map((p: any) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Department</Label>
-              <select className={selectCls} value={department} onChange={e => setDepartment(e.target.value ? Number(e.target.value) : '')}>
+              <select disabled={!isDraft} className={`${selectCls} ${disabledCls}`} value={department} onChange={e => setDepartment(e.target.value ? Number(e.target.value) : '')}>
                 <option value="">Select department...</option>
                 {departments.map((d: any) => <option key={d.id} value={d.id}>{d.code} — {d.name}</option>)}
               </select>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Description <span className="text-destructive">*</span></Label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} className={textareaCls} placeholder="Brief description of what you need..." maxLength={500} />
-            <div className="flex items-center justify-between">
-              {description.length > 0 && description.length < 10
-                ? <p className="text-xs text-destructive">Minimum 10 characters</p>
-                : <span />}
-              <p className="text-xs text-muted-foreground">{description.length} / 500</p>
             </div>
           </div>
 
@@ -683,21 +690,20 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
       <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            {amountOnly ? 'Update Budget Amount' : `Estimated Budget (${currencySymbol})`}
+            { `Estimated Budget (${currencySymbol})`}
           </CardTitle>
-          {amountOnly && (
+          {/* {amountOnly && (
             <p className="text-xs text-muted-foreground mt-1">You can update the requested amount while the budget is under review.</p>
-          )}
+          )} */}
         </CardHeader>
         <CardContent className="pt-5 space-y-3">
           <div className="flex flex-wrap gap-1.5">
             {[10000, 50000, 100000, 500000, 1000000, 5000000].map(amt => (
               <button key={amt} type="button" onClick={() => handleAmountChange(amt)}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                  requestedAmount === amt
-                    ? 'bg-primary text-white border-primary'
-                    : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
-                }`}>
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${requestedAmount === amt
+                  ? 'bg-primary text-white border-primary'
+                  : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                  }`}>
                 {amt >= 100000 ? `${currencySymbol}${amt / 100000}L` : `${currencySymbol}${amt / 1000}K`}
               </button>
             ))}
@@ -713,9 +719,9 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
                 onInput={e => { const el = e.currentTarget; if (Number(el.value) > 100_000_000) el.value = '100000000' }}
               />
             </div>
-            {requestedAmount >= 1000 && !amountError && (
+            {/* {requestedAmount >= 1000 && !amountError && (
               <p className="text-xs font-semibold text-emerald-600">{formatCurrency(requestedAmount, budget.currency_code)}</p>
-            )}
+            )} */}
             {amountError && (
               <p className="text-xs text-destructive flex items-center gap-1"><span>⚠</span> {amountError}</p>
             )}
@@ -725,7 +731,7 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
       </Card>
 
       {/* ── Preferred Vendors (hidden in amount-only mode) ─────────────────── */}
-      {!amountOnly && <Card className="shadow-sm">
+      { <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Preferred Vendors</CardTitle>
@@ -940,11 +946,20 @@ export default function BudgetDetailPage() {
               </span>
             )}
           </div>
-          <h1 className="text-xl font-bold mt-0.5">{budget.title || budget.description}</h1>
+          <div className="group relative max-w-[600px]">
+            <h1 className="text-xl font-bold truncate">
+              {budget.title || budget.description}
+            </h1>
+
+            <div className="absolute left-0 top-full mt-1 hidden group-hover:block
+                  bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap z-50">
+              {budget.title || budget.description}
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {canEdit && !isEditing && (
+          {canEdit && !isEditing && activeTab === "details" && (
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1.5">
               <Pencil className="w-3.5 h-3.5" /> Edit
             </Button>

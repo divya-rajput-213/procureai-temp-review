@@ -29,6 +29,7 @@ const NAV_ITEMS = [
     label: 'Inventory',
     icon: Package,
     children: [
+      { href: '/inventory/categories', label: 'Categories' },
       { href: '/inventory/items', label: 'Items' },
     ],
   },

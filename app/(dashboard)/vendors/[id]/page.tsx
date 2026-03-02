@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
-import { useDropzone } from 'react-dropzone'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { formatDate, formatDateTime, getSLAPercentage, getSLAColor } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
@@ -212,14 +211,34 @@ function ComplianceDocRow({ docType, label, fieldLabel, fieldValue, fieldKey, do
 }
 
 const DOC_TYPE_LABELS: Record<string, string> = {
-  gst_certificate: 'GST Certificate',
-  pan_card: 'PAN Card',
-  bank_details: 'Bank Details',
-  msme_certificate: 'MSME Certificate',
-  sez_certificate: 'SEZ Certificate',
-  incorporation: 'Incorporation Certificate',
-  other: 'Other',
+  gst_certificate:    'GST Certificate',
+  pan_card:           'PAN Card',
+  bank_details:       'Bank Details',
+  msme_certificate:   'MSME Certificate',
+  sez_certificate:    'SEZ Certificate',
+  incorporation:      'Incorporation Certificate',
+  quality_certificate:'Quality Certificate',
+  iso_certificate:    'ISO Certificate',
+  trade_license:      'Trade License',
+  insurance:          'Insurance Document',
+  nda:                'NDA / Agreement',
+  warranty:           'Warranty Document',
+  other:              'Other',
 }
+
+// Doc types available in the "Other Documents" upload panel
+const OTHER_DOC_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'quality_certificate', label: 'Quality Certificate' },
+  { value: 'iso_certificate',     label: 'ISO Certificate' },
+  { value: 'trade_license',       label: 'Trade License' },
+  { value: 'insurance',           label: 'Insurance Document' },
+  { value: 'nda',                 label: 'NDA / Agreement' },
+  { value: 'warranty',            label: 'Warranty Document' },
+  { value: 'other',               label: 'Other' },
+]
+
+// Doc types that belong to the "other" bucket (not in COMPLIANCE_ROWS)
+const OTHER_DOC_TYPES = new Set(OTHER_DOC_TYPE_OPTIONS.map(o => o.value))
 
 function AIValidationBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -577,7 +596,154 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
   )
 }
 
-// ─── Inline Edit Form ─────────────────────────────────────────────────────────
+// ─── Compliance field input — editable (draft) or read-only ─────────────────
+function ComplianceFieldInput({ value, placeholder, canEdit, onSave }: {
+  value: string
+  placeholder?: string
+  canEdit: boolean
+  onSave: (v: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+
+  const commit = () => {
+    if (draft !== value) onSave(draft)
+    setEditing(false)
+  }
+
+  if (!canEdit) {
+    return <p className="text-sm font-medium h-10 flex items-center font-mono">{value || '—'}</p>
+  }
+
+  return editing ? (
+    <div className="flex items-center gap-1">
+      <Input
+        autoFocus
+        value={draft}
+        placeholder={placeholder}
+        onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { commit() } else if (e.key === 'Escape') { setDraft(value); setEditing(false) } }}
+        className="h-10 text-sm flex-1 font-mono"
+      />
+      <button
+        type="button"
+        onClick={commit}
+        title="Save"
+        className="shrink-0 text-green-600 hover:text-green-800 transition-colors"
+      >
+        <CheckCircle className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => { setDraft(value); setEditing(false) }}
+        title="Cancel"
+        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  ) : (
+    <button
+      type="button"
+      onClick={() => { setDraft(value); setEditing(true) }}
+      className="w-full h-10 flex items-center border rounded-md px-3 text-sm text-left hover:border-primary/60 transition-colors font-mono"
+    >
+      <span className={value ? 'text-foreground' : 'text-muted-foreground/60'}>{value || placeholder || 'Click to edit…'}</span>
+    </button>
+  )
+}
+
+// ─── Inline doc upload widget ─────────────────────────────────────────────────
+function DocUploadInline({ vendorId, docType, doc, onRefresh }: {
+  vendorId: string | string[]
+  docType: string
+  doc: any | null
+  onRefresh: () => void
+}) {
+  const { toast } = useToast()
+  const [uploading, setUploading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const upload = async (file: File) => {
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('doc_type', docType)
+      await apiClient.post(`/vendors/${vendorId}/documents/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      onRefresh()
+      toast({ title: 'Document uploaded. AI validation running...' })
+    } catch {
+      toast({ title: 'Upload failed', variant: 'destructive' })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const remove = async () => {
+    if (!doc) return
+    setDeleting(true)
+    try {
+      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.id}/`)
+      onRefresh()
+      toast({ title: 'Document removed.' })
+    } catch {
+      toast({ title: 'Delete failed', variant: 'destructive' })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  if (doc) {
+    return (
+      <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[38px]">
+        <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <span className="text-xs truncate flex-1 min-w-0">{doc.original_filename}</span>
+        <AIValidationBadge status={doc.ai_validation_status} />
+        {doc.file_url && (
+          <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0">
+            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
+          </a>
+        )}
+        <button
+          type="button"
+          onClick={remove}
+          disabled={deleting}
+          className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-50"
+          title="Remove"
+        >
+          {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[38px]">
+      <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">No file chosen</span>
+      <label className="cursor-pointer shrink-0">
+        <span className="inline-flex items-center gap-1 text-xs border rounded px-2 py-1 hover:bg-slate-50 transition-colors">
+          {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+          Choose
+        </span>
+        <input
+          type="file"
+          className="hidden"
+          accept=".pdf,.jpg,.jpeg,.png"
+          onChange={e => {
+            const file = e.target.files?.[0]
+            if (file) upload(file)
+            e.target.value = ''
+          }}
+        />
+      </label>
+    </div>
+  )
+}
+
+// ─── Edit form — company details only (compliance is in Documents tab) ───────
 function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving }: {
   vendor: any
   categories: any[]
@@ -586,10 +752,9 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
   onCancel: () => void
   saving: boolean
 }) {
+  // ── Field state ───────────────────────────────────────────────────────────
   const [form, setForm] = useState({
     company_name:  vendor.company_name  ?? '',
-    gst_number:    vendor.gst_number    ?? '',
-    pan_number:    vendor.pan_number    ?? '',
     address:       vendor.address       ?? '',
     city:          vendor.city          ?? '',
     state:         vendor.state         ?? '',
@@ -597,116 +762,340 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
     contact_name:  vendor.contact_name  ?? '',
     contact_email: vendor.contact_email ?? '',
     contact_phone: vendor.contact_phone ?? '',
-    bank_account:  vendor.bank_account  ?? '',
-    bank_ifsc:     vendor.bank_ifsc     ?? '',
-    bank_name:     vendor.bank_name     ?? '',
     category:      vendor.category      ?? '',
     plant:         vendor.plant         ?? '',
-    is_msme:       vendor.is_msme       ?? false,
-    is_sez:        vendor.is_sez        ?? false,
   })
 
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
 
-  const textField = (key: string, label: string, placeholder?: string) => (
+  const tf = (key: string, label: string, placeholder?: string) => (
     <div className="space-y-1" key={key}>
       <Label className="text-xs">{label}</Label>
       <Input
         value={form[key as keyof typeof form] as string}
         onChange={e => set(key, e.target.value)}
         placeholder={placeholder}
-        className="h-8 text-sm"
+        className="h-10 text-sm"
       />
     </div>
   )
 
   return (
-    <div className="space-y-5">
-      {/* Classification */}
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Classification</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <Label className="text-xs">Vendor Category</Label>
-            <select
-              className="w-full h-8 border rounded-md px-3 text-sm bg-background"
-              value={form.category}
-              onChange={e => set('category', e.target.value ? Number(e.target.value) : '')}
-            >
-              <option value="">— none —</option>
-              {categories.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>
-              ))}
-            </select>
+    <>
+      {/* ── Card 1: Company Details (same as Add form Step 0) ── */}
+      <Card>
+        <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
+        <CardContent className="space-y-5">
+
+          {/* General Information — category + plant (same label as Add form) */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 mt-1">General Information</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-xs">Vendor Category *</Label>
+                <select
+                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                  value={form.category}
+                  onChange={e => set('category', e.target.value ? Number(e.target.value) : '')}
+                >
+                  <option value="">Select category</option>
+                  {categories.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Plant *</Label>
+                <select
+                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                  value={form.plant}
+                  onChange={e => set('plant', e.target.value ? Number(e.target.value) : '')}
+                >
+                  <option value="">Select plant</option>
+                  {plants.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Plant</Label>
-            <select
-              className="w-full h-8 border rounded-md px-3 text-sm bg-background"
-              value={form.plant}
-              onChange={e => set('plant', e.target.value ? Number(e.target.value) : '')}
-            >
-              <option value="">— none —</option>
-              {plants.map((p: any) => (
-                <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-              ))}
-            </select>
+
+          {/* Company fields — no section label, same as Add form */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tf('company_name', 'Company Name *', 'Acme Pvt Ltd')}
+            {tf('address',      'Address *',      '123, Industrial Area')}
+            {tf('city',         'City *',         'Mumbai')}
+            {tf('state',        'State *',        'Maharashtra')}
+            {tf('pincode',      'PIN Code *',     '400001')}
           </div>
-        </div>
-      </div>
 
-      {/* Basic Profile */}
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Basic Profile</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {textField('company_name', 'Company Name')}
-          {textField('gst_number', 'GST Number')}
-          {textField('pan_number', 'PAN Number')}
-          {textField('address', 'Address')}
-          {textField('city', 'City')}
-          {textField('state', 'State')}
-          {textField('pincode', 'PIN Code')}
-          <div className="flex items-center gap-4 pt-1 sm:col-span-2 lg:col-span-3">
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={form.is_msme} onChange={e => set('is_msme', e.target.checked)} className="rounded" />
-              <span>MSME Registered</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={form.is_sez} onChange={e => set('is_sez', e.target.checked)} className="rounded" />
-              <span>SEZ Unit</span>
-            </label>
+          {/* Contact fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tf('contact_name',  'Contact Person *', 'John Doe')}
+            {tf('contact_email', 'Contact Email *',  'john@acme.com')}
+            {tf('contact_phone', 'Contact Phone *',  '+91 98765 43210')}
           </div>
-        </div>
-      </div>
 
-      {/* Contact */}
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Primary Contact</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {textField('contact_name', 'Contact Person')}
-          {textField('contact_email', 'Contact Email')}
-          {textField('contact_phone', 'Contact Phone')}
-        </div>
-      </div>
+          <p className="text-xs text-muted-foreground pt-1">
+            Compliance fields (GST, PAN, bank details, documents) are managed from the <strong>Documents</strong> tab.
+          </p>
 
-      {/* Bank */}
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Bank Details</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {textField('bank_account', 'Bank Account No')}
-          {textField('bank_ifsc', 'Bank IFSC')}
-          {textField('bank_name', 'Bank Name')}
-        </div>
-      </div>
+          <div className="flex justify-end gap-3 pt-2 border-t">
+            <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
+              <X className="w-3.5 h-3.5" /> Cancel
+            </Button>
+            <Button size="sm" onClick={() => onSave(form)} disabled={saving} className="gap-1">
+              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  )
+}
 
-      <div className="flex justify-end gap-3 pt-2 border-t">
-        <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
-          <X className="w-3.5 h-3.5" /> Cancel
+// ─── Other Documents edit panel (shown in Details tab when editing) ──────────
+function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh }: {
+  vendorId: string | string[]
+  existingDocs: any[]
+  onRefresh: () => void
+}) {
+  const { toast } = useToast()
+
+  // ── Inline title editing for existing docs ────────────────────────────────
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [savingTitle, setSavingTitle] = useState(false)
+
+  const startEdit = (doc: any) => {
+    setEditingId(doc.id)
+    setEditTitle(doc.title || doc.original_filename)
+  }
+
+  const saveTitle = async (docId: number) => {
+    setSavingTitle(true)
+    try {
+      await apiClient.patch(`/vendors/${vendorId}/documents/${docId}/`, { title: editTitle })
+      onRefresh()
+      setEditingId(null)
+      toast({ title: 'Title updated.' })
+    } catch {
+      toast({ title: 'Update failed', variant: 'destructive' })
+    } finally {
+      setSavingTitle(false)
+    }
+  }
+
+  // ── Add new rows ──────────────────────────────────────────────────────────
+  const [rows, setRows] = useState<{ id: number; doc_type: string; title: string; file: File | null; uploading: boolean }[]>([])
+
+  const addRow = () =>
+    setRows(prev => [...prev, { id: Date.now(), doc_type: 'other', title: '', file: null, uploading: false }])
+
+  const updateRow = (id: number, patch: Partial<{ doc_type: string; title: string; file: File | null }>) =>
+    setRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
+
+  const removeRow = (id: number) =>
+    setRows(prev => prev.filter(r => r.id !== id))
+
+  const uploadRow = async (row: typeof rows[0]) => {
+    if (!row.file) return
+    setRows(prev => prev.map(r => r.id === row.id ? { ...r, uploading: true } : r))
+    try {
+      const fd = new FormData()
+      fd.append('file', row.file)
+      fd.append('doc_type', row.doc_type)
+      fd.append('title', row.title.trim() || row.file.name)
+      await apiClient.post(`/vendors/${vendorId}/documents/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      onRefresh()
+      removeRow(row.id)
+      toast({ title: 'Document uploaded. AI validation running...' })
+    } catch {
+      toast({ title: 'Upload failed', variant: 'destructive' })
+      setRows(prev => prev.map(r => r.id === row.id ? { ...r, uploading: false } : r))
+    }
+  }
+
+  // ── Delete existing ───────────────────────────────────────────────────────
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const deleteDoc = async (docId: number) => {
+    setDeletingId(docId)
+    try {
+      await apiClient.delete(`/vendors/${vendorId}/documents/${docId}/`)
+      onRefresh()
+      toast({ title: 'Document removed.' })
+    } catch {
+      toast({ title: 'Delete failed', variant: 'destructive' })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-sm font-medium">Other Documents</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Quality certs, trade licences, NDAs, insurance, etc.
+          </p>
+        </div>
+        <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={addRow}>
+          <Plus className="w-3.5 h-3.5" /> Add Document
         </Button>
-        <Button size="sm" onClick={() => onSave(form)} disabled={saving} className="gap-1">
-          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          Save Changes
-        </Button>
+      </div>
+      <div className="space-y-2">
+        {/* Existing docs with inline title edit */}
+        {existingDocs.map(doc => (
+          <div key={doc.id} className="flex items-start gap-3 border rounded-lg px-3 py-2.5">
+            <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0 space-y-1">
+              {/* Title row — editable */}
+              {editingId === doc.id ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveTitle(doc.id)
+                      else if (e.key === 'Escape') setEditingId(null)
+                    }}
+                    className="flex-1 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => saveTitle(doc.id)}
+                    disabled={savingTitle}
+                    className="text-green-600 hover:text-green-800 disabled:opacity-50 shrink-0"
+                    title="Save"
+                  >
+                    {savingTitle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                  </button>
+                  <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground shrink-0" title="Cancel">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <span className="text-sm font-medium group inline-flex items-center gap-1">
+                  {doc.title || doc.original_filename}
+                  <button
+                    onClick={() => startEdit(doc)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                    title="Edit title"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {/* Meta row — type chip + AI badge + date */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
+                  {DOC_TYPE_LABELS[doc.doc_type] ?? doc.doc_type}
+                </span>
+                <AIValidationBadge status={doc.ai_validation_status} />
+                <span className="text-xs text-muted-foreground">{formatDate(doc.uploaded_at)}</span>
+              </div>
+              {doc.ai_validation_notes && (
+                <p className="text-xs text-muted-foreground">{doc.ai_validation_notes}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {doc.file_url && (
+                <a href={doc.file_url} target="_blank" rel="noreferrer">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Button>
+                </a>
+              )}
+              <Button
+                variant="ghost" size="sm"
+                className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                onClick={() => deleteDoc(doc.id)}
+                disabled={deletingId === doc.id}
+              >
+                {deletingId === doc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              </Button>
+            </div>
+          </div>
+        ))}
+
+        {existingDocs.length === 0 && rows.length === 0 && (
+          <p className="text-xs text-muted-foreground italic text-center py-1">No other documents. Click "Add Document" to attach one.</p>
+        )}
+
+        {/* Add new rows */}
+        {rows.map(row => (
+          <div key={row.id} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end border rounded-lg p-3 bg-slate-50/60">
+            <div className="space-y-1">
+              <Label className="text-xs">Document Type</Label>
+              <select
+                value={row.doc_type}
+                onChange={e => updateRow(row.id, { doc_type: e.target.value })}
+                className="w-full h-9 border rounded-md px-2 text-sm bg-background"
+              >
+                {OTHER_DOC_TYPE_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Title</Label>
+              <Input
+                value={row.title}
+                onChange={e => updateRow(row.id, { title: e.target.value })}
+                placeholder="e.g. ISO 9001 — 2024"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">File</Label>
+              <div className="flex items-center gap-1 border rounded-md px-2 py-1.5 bg-background min-h-[36px]">
+                <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+                  {row.file?.name ?? 'No file chosen'}
+                </span>
+                <label className="cursor-pointer shrink-0">
+                  <span className="inline-flex items-center gap-1 text-xs border rounded px-2 py-1 hover:bg-slate-50">
+                    <Upload className="w-3 h-3" /> Choose
+                  </span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => {
+                      const f = e.target.files?.[0]
+                      if (f) updateRow(row.id, { file: f })
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <Button
+                type="button" size="sm"
+                className="h-9 gap-1 text-xs px-2.5"
+                disabled={!row.file || row.uploading}
+                onClick={() => uploadRow(row)}
+              >
+                {row.uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                {row.uploading ? '' : 'Upload'}
+              </Button>
+              <button
+                type="button"
+                onClick={() => removeRow(row.id)}
+                disabled={row.uploading}
+                className="h-9 w-9 flex items-center justify-center text-red-400 hover:text-red-600 border rounded-md hover:bg-red-50 transition-colors"
+                title="Remove row"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -718,7 +1107,7 @@ export default function VendorDetailPage() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('details')
-  const [uploading, setUploading] = useState(false)
+  const [docSubTab, setDocSubTab] = useState<'compliance' | 'other'>('compliance')
   const [isEditing, setIsEditing] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
 
@@ -764,61 +1153,7 @@ export default function VendorDetailPage() {
     },
   })
 
-  // ── Other Documents: two-step upload (select file → set title → upload) ──────
-  const [pendingFile, setPendingFile] = useState<File | null>(null)
-  const [pendingTitle, setPendingTitle] = useState('')
-
-  const onDocDrop = useCallback((files: File[]) => {
-    const file = files[0]
-    if (!file) return
-    setPendingFile(file)
-    setPendingTitle(file.name.replace(/\.[^/.]+$/, ''))
-  }, [])
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: onDocDrop,
-    maxFiles: 1,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/*': ['.jpg', '.jpeg', '.png'],
-    },
-    noClick: !!pendingFile,
-    noDrag: !!pendingFile,
-  })
-
-  const submitOtherDoc = async () => {
-    if (!pendingFile) return
-    setUploading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', pendingFile)
-      fd.append('doc_type', 'other')
-      fd.append('title', pendingTitle.trim() || pendingFile.name)
-      await apiClient.post(`/vendors/${id}/documents/`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-      toast({ title: 'Document uploaded. AI validation running...' })
-      setPendingFile(null)
-      setPendingTitle('')
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' })
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const deleteDocMutation = useMutation({
-    mutationFn: async (docId: number) => {
-      await apiClient.delete(`/vendors/${id}/documents/${docId}/`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-      toast({ title: 'Document deleted.' })
-    },
-  })
-
-  const handleFieldUpdate = async (key: string, value: string) => {
+  const handleFieldUpdate = async (key: string, value: string | boolean) => {
     await apiClient.patch(`/vendors/${id}/`, { [key]: value })
     queryClient.invalidateQueries({ queryKey: ['vendor', id] })
     toast({ title: 'Field updated.' })
@@ -871,23 +1206,16 @@ export default function VendorDetailPage() {
 
       {/* Details Tab */}
       {activeTab === 'details' && (
-        <div>
+        <div className="space-y-4">
           {isEditing ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Edit Company Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <EditDetailsForm
-                  vendor={vendor}
-                  categories={categories ?? []}
-                  plants={plants ?? []}
-                  onSave={data => editMutation.mutate(data)}
-                  onCancel={() => setIsEditing(false)}
-                  saving={editMutation.isPending}
-                />
-              </CardContent>
-            </Card>
+            <EditDetailsForm
+              vendor={vendor}
+              categories={categories ?? []}
+              plants={plants ?? []}
+              onSave={data => editMutation.mutate(data)}
+              onCancel={() => setIsEditing(false)}
+              saving={editMutation.isPending}
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
@@ -954,142 +1282,191 @@ export default function VendorDetailPage() {
 
       {/* Documents Tab */}
       {activeTab === 'documents' && (
-        <div className="space-y-6">
-          {/* Compliance Documents */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Compliance Documents</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Upload supporting documents for each regulatory field. One document per type.
-              </p>
-            </CardHeader>
-            <CardContent className="p-0">
-              {COMPLIANCE_ROWS.filter(r => r.show(vendor)).map(row => (
-                <ComplianceDocRow
-                  key={row.docType}
-                  docType={row.docType}
-                  label={row.label}
-                  fieldLabel={row.fieldLabel}
-                  fieldKey={row.fieldKey}
-                  fieldValue={row.fieldKey ? (vendor[row.fieldKey] ?? '') : ''}
-                  doc={vendor.documents?.find((d: any) => d.doc_type === row.docType) ?? null}
-                  vendorId={id}
-                  canEdit={isDraft}
-                  onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })}
-                  onFieldUpdate={isDraft ? handleFieldUpdate : undefined}
-                />
-              ))}
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Compliance &amp; Documents</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Enter regulatory numbers and upload supporting documents alongside each field.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
 
-          {/* Other Documents */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Other Documents</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Upload any additional supporting documents (e.g. quality certs, trade licences).
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isDraft && !pendingFile && (
-                <div
-                  {...getRootProps()}
-                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-                    ${isDragActive ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300'}`}
+            {/* Sub-tabs */}
+            <div className="flex gap-1 border-b">
+              {(['compliance', 'other'] as const).map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setDocSubTab(tab)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    docSubTab === tab
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <input {...getInputProps()} />
-                  <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-1" />
-                  <p className="text-sm font-medium">Drop a file here, or click to select</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">PDF, JPG, PNG</p>
+                  {tab === 'compliance' ? 'Compliance' : 'Other Documents'}
+                </button>
+              ))}
+            </div>
+
+            {docSubTab === 'compliance' && (() => {
+              const docOf = (type: string) => vendor.documents?.find((d: any) => d.doc_type === type) ?? null
+              const blockCls = (hasField: boolean, hasDoc: boolean) =>
+                `grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start${isDraft && (!hasField || !hasDoc) ? ' border-amber-300' : ''}`
+              return <>
+
+              {/* GST */}
+              <div className={blockCls(!!vendor.gst_number, !!docOf('gst_certificate'))}>
+                <div className="space-y-1">
+                  <Label className="text-xs">GST Number <span className="text-destructive">*</span></Label>
+                  <ComplianceFieldInput
+                    value={vendor.gst_number ?? ''}
+                    placeholder="27AAAAA0000A1Z5"
+                    canEdit={isDraft}
+                    onSave={v => handleFieldUpdate('gst_number', v)}
+                  />
                 </div>
-              )}
-              {isDraft && pendingFile && (
-                <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
-                  <div className="flex items-center gap-2 text-sm">
-                    <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <span className="font-medium truncate">{pendingFile.name}</span>
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      ({(pendingFile.size / 1024).toFixed(0)} KB)
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Document Title</Label>
-                    <Input
-                      value={pendingTitle}
-                      onChange={e => setPendingTitle(e.target.value)}
-                      placeholder="e.g. ISO 9001 Certificate"
-                      className="h-8 text-sm"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <Button
-                      variant="outline" size="sm"
-                      onClick={() => { setPendingFile(null); setPendingTitle('') }}
-                      disabled={uploading}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={submitOtherDoc}
-                      disabled={uploading}
-                      className="gap-1.5"
-                    >
-                      {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                      Upload
-                    </Button>
-                  </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">GST Certificate <span className="text-destructive">*</span></Label>
+                  <DocUploadInline vendorId={id} docType="gst_certificate"
+                    doc={docOf('gst_certificate')}
+                    onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                 </div>
-              )}
-              {(vendor.documents?.filter((d: any) => d.doc_type === 'other').length ?? 0) === 0 && !pendingFile && (
-                <p className="text-sm text-muted-foreground text-center py-2">No other documents uploaded.</p>
-              )}
-              {(vendor.documents?.filter((d: any) => d.doc_type === 'other').length ?? 0) > 0 && (
+              </div>
+
+              {/* PAN */}
+              <div className={blockCls(!!vendor.pan_number, !!docOf('pan_card'))}>
+                <div className="space-y-1">
+                  <Label className="text-xs">PAN Number <span className="text-destructive">*</span></Label>
+                  <ComplianceFieldInput
+                    value={vendor.pan_number ?? ''}
+                    placeholder="AAAAA9999A"
+                    canEdit={isDraft}
+                    onSave={v => handleFieldUpdate('pan_number', v)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">PAN Card <span className="text-destructive">*</span></Label>
+                  <DocUploadInline vendorId={id} docType="pan_card"
+                    doc={docOf('pan_card')}
+                    onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                </div>
+              </div>
+
+              {/* Bank Details */}
+              <div className={blockCls(!!(vendor.bank_account || vendor.bank_ifsc || vendor.bank_name), !!docOf('bank_details'))}>
                 <div className="space-y-2">
-                  {vendor.documents.filter((d: any) => d.doc_type === 'other').map((doc: any) => (
-                    <div key={doc.id} className="flex items-center justify-between gap-4 border rounded-lg px-4 py-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{doc.title || doc.original_filename}</p>
-                          {doc.title && (
-                            <p className="text-xs text-muted-foreground truncate">{doc.original_filename}</p>
-                          )}
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <AIValidationBadge status={doc.ai_validation_status} />
-                            <span className="text-xs text-muted-foreground">{formatDate(doc.uploaded_at)}</span>
-                          </div>
-                          {doc.ai_validation_notes && (
-                            <p className="text-xs text-muted-foreground mt-1">{doc.ai_validation_notes}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {doc.file_url && (
-                          <a href={doc.file_url} target="_blank" rel="noreferrer">
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </Button>
-                          </a>
-                        )}
-                        {isDraft && (
-                          <Button
-                            variant="ghost" size="sm"
-                            onClick={() => deleteDocMutation.mutate(doc.id)}
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
+                  {[
+                    { key: 'bank_account', label: 'Bank Account No', placeholder: '12345678901234' },
+                    { key: 'bank_ifsc',    label: 'Bank IFSC',       placeholder: 'HDFC0001234' },
+                    { key: 'bank_name',    label: 'Bank Name',       placeholder: 'HDFC Bank' },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} className="space-y-1">
+                      <Label className="text-xs">{label} <span className="text-destructive">*</span></Label>
+                      <ComplianceFieldInput
+                        value={vendor[key] ?? ''}
+                        placeholder={placeholder}
+                        canEdit={isDraft}
+                        onSave={v => handleFieldUpdate(key, v)}
+                      />
                     </div>
                   ))}
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
+                  <DocUploadInline vendorId={id} docType="bank_details"
+                    doc={docOf('bank_details')}
+                    onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                </div>
+              </div>
+
+              {/* MSME / SEZ toggles */}
+              <div className="flex items-center gap-4 pt-2">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!vendor.is_msme}
+                    disabled={!isDraft}
+                    onChange={async e => handleFieldUpdate('is_msme', e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>MSME Registered</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!vendor.is_sez}
+                    disabled={!isDraft}
+                    onChange={async e => handleFieldUpdate('is_sez', e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>SEZ Unit</span>
+                </label>
+              </div>
+
+              {/* MSME (conditional) */}
+              {vendor.is_msme && (
+                <div className={blockCls(!!vendor.msme_number, !!docOf('msme_certificate'))}>
+                  <div className="space-y-1">
+                    <Label className="text-xs">MSME Number <span className="text-destructive">*</span></Label>
+                    <ComplianceFieldInput
+                      value={vendor.msme_number ?? ''}
+                      placeholder="UDYAM-MH-00-0000000"
+                      canEdit={isDraft}
+                      onSave={v => handleFieldUpdate('msme_number', v)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">MSME Certificate <span className="text-destructive">*</span></Label>
+                    <DocUploadInline vendorId={id} docType="msme_certificate"
+                      doc={docOf('msme_certificate')}
+                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                  </div>
+                </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+
+              {/* SEZ (conditional) */}
+              {vendor.is_sez && (
+                <div className={blockCls(true, !!docOf('sez_certificate'))}>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">SEZ Unit</Label>
+                    <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">SEZ Certificate <span className="text-destructive">*</span></Label>
+                    <DocUploadInline vendorId={id} docType="sez_certificate"
+                      doc={docOf('sez_certificate')}
+                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                  </div>
+                </div>
+              )}
+
+              {/* Incorporation */}
+              <div className={blockCls(true, !!docOf('incorporation'))}>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Incorporation Certificate</p>
+                  <p className="text-sm">Company registration / MOA documents</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Incorporation Certificate <span className="text-destructive">*</span></Label>
+                  <DocUploadInline vendorId={id} docType="incorporation"
+                    doc={docOf('incorporation')}
+                    onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                </div>
+              </div>
+
+            </>})()}
+
+            {docSubTab === 'other' && (
+              <OtherDocsEditPanel
+                vendorId={id}
+                existingDocs={(vendor.documents ?? []).filter((d: any) => OTHER_DOC_TYPES.has(d.doc_type))}
+                onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })}
+              />
+            )}
+
+          </CardContent>
+        </Card>
       )}
 
       {/* Submit for Approval Modal */}
