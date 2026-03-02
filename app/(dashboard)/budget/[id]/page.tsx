@@ -742,11 +742,12 @@ console.log('isDraft', isDraft)
           <div className="relative">
             <Input
               placeholder="Search approved vendors..."
+              disabled={!isDraft}
               value={vendorSearch}
               onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
               onFocus={() => setShowVendorSearch(true)}
               onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
-              className="h-10"
+              className={`h-10 ${disabledCls}`}
             />
             {showVendorSearch && (
               <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">

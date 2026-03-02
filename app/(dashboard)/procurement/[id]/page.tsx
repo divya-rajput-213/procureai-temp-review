@@ -481,14 +481,18 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
     department: pr.department ?? '',
     tracking_id: pr.tracking_id ?? '',
     description: pr.description ?? '',
+    title: pr.title ?? ""
   })
-
+console.log(pr,'form', form)
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
 
   // Invited vendors
   const [invitedVendors, setInvitedVendors] = useState<any[]>(pr.invited_vendors_detail ?? [])
   const [vendorSearch, setVendorSearch] = useState('')
   const [showVendorDropdown, setShowVendorDropdown] = useState(false)
+  const [trackingSearch, setTrackingSearch] = useState('')
+  const [showTrackingDropdown, setShowTrackingDropdown] = useState(false)
+
   const { data: vendorResults } = useQuery({
     queryKey: ['vendors-pr-edit', vendorSearch],
     queryFn: async () => {
@@ -580,32 +584,104 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
     const selectedTracking = trackingIds.find(
       (t: any) => t.id === Number(form.tracking_id)
     );
-
+console.log('selectedTracking', selectedTracking)
     if (selectedTracking) {
       setForm(prev => ({
         ...prev,
         plant: selectedTracking.plant ?? '',
         department: selectedTracking.department ?? '',
+        description:selectedTracking?.description??"",
+        title:selectedTracking?.title??""
       }));
     }
   }, [form.tracking_id, trackingIds]);
   return (
     <div className="space-y-4">
       {/* Tracking ID + Plant + Department */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Budget / Tracking ID</Label>
-          <select
-            className="w-full h-8 border rounded-md px-3 text-sm bg-background"
-            value={form.tracking_id}
-            onChange={e => set('tracking_id', e.target.value ? Number(e.target.value) : '')}
-          >
-            <option value="">— none —</option>
-            {trackingIds.map((t: any) => (
-              <option key={t.id} value={t.id}>{t.tracking_code} — {t.title}</option>
-            ))}
-          </select>
+      <div className="space-y-1">
+        <Label className="text-xs">Budget / Tracking ID</Label>
+
+        <div className="relative">
+          <Input
+            placeholder="Search tracking ID..."
+            value={
+              trackingIds.find(t => t.id === form.tracking_id)?.tracking_code || ''
+            }
+            onChange={(e) => {
+              setTrackingSearch(e.target.value)
+              setShowTrackingDropdown(true)
+            }}
+            onFocus={() => setShowTrackingDropdown(true)}
+            onBlur={() => setTimeout(() => setShowTrackingDropdown(false), 150)}
+            className="h-8"
+          />
+
+          {showTrackingDropdown && trackingSearch && (
+            <div className="absolute z-20 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
+
+              {trackingIds
+                .filter((t: any) =>
+                  `${t.tracking_code} ${t.title}`
+                    .toLowerCase()
+                    .includes(trackingSearch.toLowerCase())
+                )
+                .map((t: any) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      set('tracking_id', t.id)
+                      setTrackingSearch('')
+                      setShowTrackingDropdown(false)
+                    }}
+                    className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm"
+                  >
+                    <div className="font-medium">
+                      {t.tracking_code}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      {t.title}
+                    </div>
+                  </button>
+                ))}
+
+              {trackingIds.filter((t: any) =>
+                `${t.tracking_code} ${t.title}`
+                  .toLowerCase()
+                  .includes(trackingSearch.toLowerCase())
+              ).length === 0 && (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">
+                    No tracking IDs found
+                  </p>
+                )}
+            </div>
+          )}
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
+        <Input
+          value={form.title}
+          disabled
+          readOnly
+          placeholder="e.g. Enterprise Laptop Procurement"
+          className="h-10 bg-muted cursor-not-allowed text-muted-foreground"
+        />
+      </div>
+      {/* Description */}
+      <div className="space-y-1">
+        <Label className="text-xs">Description</Label>
+        <textarea
+          className="w-full border rounded-md px-3 py-2 text-sm resize-none h-20"
+          value={form.description}
+          onChange={e => set('description', e.target.value)}
+          placeholder="Brief description of what is being procured…"
+        />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
         <div className="space-y-1">
           <Label className="text-xs">Plant</Label>
           <select
@@ -632,16 +708,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
         </div>
       </div>
 
-      {/* Description */}
-      <div className="space-y-1">
-        <Label className="text-xs">Description</Label>
-        <textarea
-          className="w-full border rounded-md px-3 py-2 text-sm resize-none h-20"
-          value={form.description}
-          onChange={e => set('description', e.target.value)}
-          placeholder="Brief description of what is being procured…"
-        />
-      </div>
+
 
       {/* Invited Vendors */}
       <div className="space-y-3">
@@ -1257,7 +1324,7 @@ export default function PRDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {pr.status === 'draft' && !isEditing && (
+          {pr.status === 'draft' && !isEditing && activeTab==="details"&& (
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1.5">
               <Pencil className="w-3.5 h-3.5" /> Edit
             </Button>
@@ -1280,8 +1347,8 @@ export default function PRDetailPage() {
             type="button"
             onClick={() => setActiveTab(t.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === t.key
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             {t.label}
