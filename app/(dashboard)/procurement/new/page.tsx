@@ -56,7 +56,7 @@ function TrackingIdSearch({
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
 
-  const filtered = trackingIds.filter(t =>
+  const filtered = trackingIds?.filter(t =>
     t.tracking_code.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -347,18 +347,16 @@ export default function NewPRPage() {
                   trackingIds={trackingIds}
                   onSelect={(tracking) => {
 
-                    // ✅ save for payload
+                    // save for payload
                     setValue('tracking_id', tracking.id, {
                       shouldDirty: true,
                       shouldValidate: true,
                     })
 
-                    // ✅ autofill title
+                    // autofill title
                     setValue('title', tracking.title)
                   }}
                 />
-
-
                 {errors.tracking_id && <p className="text-xs text-destructive">{errors.tracking_id.message}</p>}
               </div>
               {watchedTrackingId &&
