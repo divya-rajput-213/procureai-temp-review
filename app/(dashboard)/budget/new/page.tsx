@@ -101,32 +101,51 @@ export default function NewBudgetPage() {
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const mode = submitModeRef.current
-      const payload = {
+  
+      const payload: Record<string, any> = {
         ...data,
         preferred_vendor_ids: selectedVendors.map(v => v.id),
-        status: 'draft',
+        status: mode === 'approval' ? 'approval' : 'draft',
       }
-      const { data: budget } = await apiClient.post('/budget/tracking-ids/', payload)
-      if (mode === 'approval') {
-        const body: Record<string, any> = {}
-        if (selectedMatrix) body.matrix_id = selectedMatrix
-        await apiClient.post(`/budget/tracking-ids/submit-for-approval/`, body)
+  
+      //  send matrix only in approval mode
+      if (mode === 'approval' && selectedMatrix) {
+        payload.matrix_id = selectedMatrix
       }
+  
+      const response = await apiClient.post(
+        '/budget/tracking-ids/',
+        payload
+      )
+  
+      const budget =
+        response.data?.data ?? response.data
+  
       return { budget, mode }
     },
+  
     onSuccess: ({ budget, mode }) => {
-      if (mode === 'approval') {
-        toast({ title: `Budget submitted for approval.` })
-      } else {
-        toast({ title: `Budget saved as draft.` })
-      }
+      toast({
+        title:
+          mode === 'approval'
+            ? `Budget submitted for approval.`
+            : `Budget  saved as draft.`,
+      })
+  
       router.push('/budget')
     },
+  
     onError: (err: any) => {
-      toast({ title: 'Submission failed', description: JSON.stringify(err?.response?.data), variant: 'destructive' })
+      toast({
+        title: 'Submission failed',
+        description:
+          err?.response?.data?.message ||
+          'Something went wrong',
+        variant: 'destructive',
+      })
     },
   })
-
+  
   const addVendor = (v: any) => {
     if (!selectedVendors.some(x => x.id === v.id)) {
       setSelectedVendors(prev => [...prev, v])
@@ -252,19 +271,27 @@ export default function NewBudgetPage() {
 
             {/* Description */}
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Description <span className="text-destructive">*</span></Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">
+                  Description <span className="text-destructive">*</span>
+                </Label>
+
+                <p className="text-xs text-muted-foreground">
+                  {(watch('description') ?? '').length} / 500
+                </p>
+              </div>
+
               <textarea {...register('description')} className={textareaCls} placeholder="Brief description of what you need..." />
               <div className="flex items-center justify-between">
                 {errors.description
                   ? <p className="text-xs text-destructive">{errors.description.message}</p>
                   : <span />}
-                <p className="text-xs text-muted-foreground">{(watch('description') ?? '').length} / 500</p>
               </div>
             </div>
 
             {/* Priority / Plant / Department */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
+              <div className="space-y-0">
                 <Label className="text-sm font-medium">Priority <span className="text-destructive">*</span></Label>
                 <div className="flex gap-2">
                   {PRIORITY_OPTS.map(p => {
@@ -282,7 +309,7 @@ export default function NewBudgetPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-0">
                 <Label className="text-sm font-medium">Plant <span className="text-destructive">*</span></Label>
                 <select className={selectCls} onChange={e =>
                   setValue('plant', Number(e.target.value), {
@@ -298,7 +325,7 @@ export default function NewBudgetPage() {
                 {errors.plant && <p className="text-xs text-destructive">{errors.plant.message}</p>}
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-0">
                 <Label className="text-sm font-medium">Department <span className="text-destructive">*</span></Label>
                 <select className={selectCls} onChange={e =>
                   setValue('department', Number(e.target.value), {
