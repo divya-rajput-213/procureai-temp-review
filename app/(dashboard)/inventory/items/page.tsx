@@ -112,7 +112,7 @@ function ItemModal({
     if (validate()) saveMutation.mutate(form)
   }
 
-  function set(field: keyof ItemFormData, value: string | boolean) {
+  function set(field: keyof ItemFormData, value: string | boolean | number | null) {
     setForm((prev) => ({ ...prev, [field]: value }))
     setErrors((prev) => ({ ...prev, [field]: undefined }))
   }
@@ -183,7 +183,7 @@ function ItemModal({
                 <select
                   className="w-full h-10 border rounded-md px-3 text-sm bg-background"
                   value={form.category}
-                  onChange={(e) => set('category', e.target.value ? Number(e.target.value) : '')}
+                  onChange={(e) => set('category', e.target.value ? Number(e.target.value) : null)}
                 >
                   <option value="">Select category…</option>
                   {categories.map((cat) => (
