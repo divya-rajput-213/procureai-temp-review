@@ -600,7 +600,7 @@ export default function NewPRPage() {
                   </tfoot>
                 </table>
               </div>
-            )}
+           
           </CardContent>
         </Card>
 
