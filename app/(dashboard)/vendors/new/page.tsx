@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useForm, FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useDropzone } from 'react-dropzone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -13,8 +12,37 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, ArrowRight, Loader2, Sparkles, FileSpreadsheet, CheckCircle, Send, Save, ChevronDown, ChevronRight, Upload, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2, Sparkles, CheckCircle, Send, Save, ChevronDown, ChevronRight, Upload, X, Plus, FileText } from 'lucide-react'
 import apiClient from '@/lib/api/client'
+
+const SRF_FIELD_LABELS: Record<string, string> = {
+  company_name:  'Company Name',
+  address:       'Address',
+  city:          'City',
+  state:         'State',
+  pincode:       'PIN Code',
+  contact_name:  'Contact Person',
+  contact_email: 'Contact Email',
+  contact_phone: 'Contact Phone',
+  gst_number:    'GST Number',
+  pan_number:    'PAN Number',
+  bank_account:  'Bank Account No',
+  bank_ifsc:     'Bank IFSC',
+  bank_name:     'Bank Name',
+  msme_number:   'MSME Number',
+}
+
+type SrfMatchRow = { field: string; label: string; value: string; confidence: number; include: boolean }
+
+const OTHER_DOC_TYPE_OPTIONS = [
+  { value: 'quality_certificate', label: 'Quality Certificate' },
+  { value: 'iso_certificate',     label: 'ISO Certificate' },
+  { value: 'trade_license',       label: 'Trade License' },
+  { value: 'insurance',           label: 'Insurance Document' },
+  { value: 'nda',                 label: 'NDA / Agreement' },
+  { value: 'warranty',            label: 'Warranty Document' },
+  { value: 'other',               label: 'Other' },
+]
 
 const steps = ['Company Details', 'Compliance & Docs', 'Approver & Submit']
 
@@ -42,13 +70,14 @@ function inputClass(hasError: boolean, isExtracted: boolean): string {
   return ''
 }
 
-function DocFileInput({ chosen, onSelect, onClear }: {
+function DocFileInput({ chosen, onSelect, onClear, hasError }: {
   chosen: File | null
   onSelect: (file: File) => void
   onClear: () => void
+  hasError?: boolean
 }) {
   return (
-    <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[36px]">
+    <div className={`flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[36px] ${hasError ? 'border-destructive' : ''}`}>
       <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
         {chosen?.name ?? 'No file chosen'}
       </span>
@@ -111,7 +140,11 @@ export default function NewVendorPage() {
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const submitModeRef = useRef<'draft' | 'approval'>('draft')
-  const [pendingDocs, setPendingDocs] = useState<{ doc_type: string; file: File }[]>([])
+  const srfInputRef = useRef<HTMLInputElement>(null)
+  const [pendingDocs, setPendingDocs] = useState<{ doc_type: string; file: File; title?: string }[]>([])
+  const [otherDocRows, setOtherDocRows] = useState<{ id: number; doc_type: string; title: string; file: File | null }[]>([])
+  const [complianceTab, setComplianceTab] = useState<'compliance' | 'other'>('compliance')
+  const [docErrors, setDocErrors] = useState<Record<string, string>>({})
 
   const setDocFile = (doc_type: string, file: File | null) => {
     if (file) {
@@ -119,10 +152,20 @@ export default function NewVendorPage() {
         ...prev.filter(d => d.doc_type !== doc_type),
         { doc_type, file }
       ])
+      setDocErrors(prev => Object.fromEntries(Object.entries(prev).filter(([k]) => k !== doc_type)))
     } else {
       setPendingDocs(prev => prev.filter(d => d.doc_type !== doc_type))
     }
   }
+
+  const addOtherDocRow = () =>
+    setOtherDocRows(prev => [...prev, { id: Date.now(), doc_type: 'other', title: '', file: null }])
+
+  const updateOtherDocRow = (id: number, patch: Partial<{ doc_type: string; title: string; file: File | null }>) =>
+    setOtherDocRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
+
+  const removeOtherDocRow = (id: number) =>
+    setOtherDocRows(prev => prev.filter(r => r.id !== id))
 
   const { data: categories } = useQuery({
     queryKey: ['vendor-categories'],
@@ -150,17 +193,37 @@ export default function NewVendorPage() {
   })
 
   const {
-    register, handleSubmit, setValue, watch,  trigger,
+    register, handleSubmit, setValue, watch, trigger, getValues,
     formState: { errors },
   } = useForm<VendorForm>({ resolver: zodResolver(schema) })
+
+  const hasDoc = (docType: string) => pendingDocs.some(d => d.doc_type === docType)
+
+  const validateComplianceDocs = (): Record<string, string> => {
+    const vals = getValues()
+    const errs: Record<string, string> = {}
+    if (vals.gst_number && !hasDoc('gst_certificate'))
+      errs.gst_certificate = 'Please upload the GST Certificate'
+    if (vals.pan_number && !hasDoc('pan_card'))
+      errs.pan_card = 'Please upload the PAN Card'
+    if ((vals.bank_account || vals.bank_ifsc || vals.bank_name) && !hasDoc('bank_details'))
+      errs.bank_details = 'Please upload bank document / cancelled cheque'
+    if (watchedIsMsme && vals.msme_number && !hasDoc('msme_certificate'))
+      errs.msme_certificate = 'Please upload the MSME Certificate'
+    return errs
+  }
+
   const handleNextStep = async () => {
-    const fields = STEP_FIELDS[step]
-  
-    const isValid = await trigger(fields)
-  
-    if (isValid) {
-      setStep(prev => prev + 1)
+    const isValid = await trigger(STEP_FIELDS[step])
+    if (step === 1 && isValid) {
+      const dErrors = validateComplianceDocs()
+      setDocErrors(dErrors)
+      if (Object.keys(dErrors).length > 0) {
+        setComplianceTab('compliance')
+        return
+      }
     }
+    if (isValid) setStep(prev => prev + 1)
   }
   
   const watchedCategory = watch('category')
@@ -181,10 +244,24 @@ export default function NewVendorPage() {
     mutationFn: async (data: VendorForm) => {
       const mode = submitModeRef.current
       const { data: vendor } = await apiClient.post('/vendors/', data)
+      // Upload compliance docs
       for (const doc of pendingDocs) {
         const fd = new FormData()
         fd.append('file', doc.file)
         fd.append('doc_type', doc.doc_type)
+        if (doc.title) fd.append('title', doc.title)
+        try {
+          await apiClient.post(`/vendors/${vendor.id}/documents/`, fd, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+        } catch { /* non-fatal */ }
+      }
+      // Upload other docs (those with a file selected)
+      for (const row of otherDocRows.filter(r => r.file)) {
+        const fd = new FormData()
+        fd.append('file', row.file as File)
+        fd.append('doc_type', row.doc_type)
+        fd.append('title', row.title.trim() || (row.file as File).name)
         try {
           await apiClient.post(`/vendors/${vendor.id}/documents/`, fd, {
             headers: { 'Content-Type': 'multipart/form-data' }
@@ -223,9 +300,10 @@ export default function NewVendorPage() {
     handleSubmit((data) => createMutation.mutate(data), onValidationError)()
   }
 
-  const onSRFDrop = useCallback(async (files: File[]) => {
-    const file = files[0]
-    if (!file) return
+  const [srfMatchRows, setSrfMatchRows] = useState<SrfMatchRow[]>([])
+  const [showSrfMatch, setShowSrfMatch] = useState(false)
+
+  const handleSrfFile = async (file: File) => {
     setSrfExtracting(true)
     try {
       const fd = new FormData()
@@ -233,25 +311,46 @@ export default function NewVendorPage() {
       const { data } = await apiClient.post('/vendors/extract-srf/', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
-      setExtractedFields(data)
-      Object.entries(data).forEach(([key, fieldData]: [string, any]) => {
-        if (fieldData?.value && key in schema.shape) {
-          setValue(key as any, fieldData.value)
-        }
-      })
-      toast({ title: 'AI extracted vendor details', description: 'Review and edit as needed.' })
+      const rows: SrfMatchRow[] = Object.entries(data)
+        .filter(([key, fieldData]: [string, any]) => fieldData?.value && key in SRF_FIELD_LABELS)
+        .map(([key, fieldData]: [string, any]) => ({
+          field: key,
+          label: SRF_FIELD_LABELS[key],
+          value: fieldData.value,
+          confidence: fieldData.confidence ?? 0,
+          include: true,
+        }))
+      setSrfMatchRows(rows)
+      setShowSrfMatch(true)
     } catch {
       toast({ title: 'SRF extraction failed', variant: 'destructive' })
     } finally {
       setSrfExtracting(false)
     }
-  }, [setValue, toast])
+  }
 
-  const { getRootProps: getSRFRootProps, getInputProps: getSRFInputProps } = useDropzone({
-    onDrop: onSRFDrop,
-    accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] },
-    maxFiles: 1,
-  })
+  const applySrfMatches = () => {
+    const applied: Record<string, { value: string; confidence: number }> = {}
+    srfMatchRows.filter(r => r.include).forEach(r => {
+      setValue(r.field as any, r.value)
+      applied[r.field] = { value: r.value, confidence: r.confidence }
+    })
+    setExtractedFields(applied)
+    setShowSrfMatch(false)
+    toast({ title: 'Fields applied', description: 'Review highlighted fields below.' })
+  }
+
+  const updateSrfRowInclude = (i: number, checked: boolean) =>
+    setSrfMatchRows(prev => prev.map((r, j) => j === i ? { ...r, include: checked } : r))
+
+  const updateSrfRowValue = (i: number, value: string) =>
+    setSrfMatchRows(prev => prev.map((r, j) => j === i ? { ...r, value } : r))
+
+  const srfConfidenceBadge = (confidence: number) => {
+    if (confidence >= 0.8) return <Badge variant="success" className="text-xs">High</Badge>
+    if (confidence >= 0.5) return <Badge variant="warning" className="text-xs">Check</Badge>
+    return <Badge variant="secondary" className="text-xs">Low</Badge>
+  }
 
   const getConfidenceBadge = (confidence: number) => {
     if (confidence >= 0.8) return <Badge variant="success" className="text-xs ml-1">High</Badge>
@@ -261,19 +360,56 @@ export default function NewVendorPage() {
 
   return (
     <div className="space-y-4">
+      {srfExtracting && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
+          <Loader2 className="w-10 h-10 animate-spin text-purple-500 mb-3" />
+          <p className="text-sm font-medium text-foreground">Extracting with AI…</p>
+          <p className="text-xs text-muted-foreground mt-1">Analysing SRF Excel file</p>
+        </div>
+      )}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">
-          Register New Vendor
-        </h1>
+        <h1 className="text-lg font-semibold">Register New Vendor</h1>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/vendors')}
-          className="gap-1"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
+        <div className="flex items-center gap-2">
+          {step === 0 && (
+            <>
+              {extractedFields && !showSrfMatch && (
+                <span className="text-xs text-green-700 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" /> Fields applied
+                </span>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={srfExtracting}
+                onClick={() => srfInputRef.current?.click()}
+              >
+                {srfExtracting
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" />
+                  : <Sparkles className="w-3.5 h-3.5 text-purple-500" />}
+                {srfExtracting ? 'Extracting…' : 'Upload SRF for AI Fill'}
+              </Button>
+              <input
+                ref={srfInputRef}
+                type="file"
+                className="hidden"
+                accept=".xlsx"
+                disabled={srfExtracting}
+                onChange={e => { const f = e.target.files?.[0]; if (f) { handleSrfFile(f) } e.target.value = '' }}
+              />
+            </>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/vendors')}
+            className="gap-1"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back
+          </Button>
+        </div>
       </div>
 
       {/* Step indicators */}
@@ -292,39 +428,63 @@ export default function NewVendorPage() {
       {/* ── Step 0: Company Details ──────────────────────────────────────────── */}
       {step === 0 && (
         <Card>
-          <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-5 pt-6">
 
-            {/* SRF Upload */}
-            <div className="border rounded-lg p-4 bg-slate-50">
-              <p className="text-sm font-medium mb-2">
-                <Sparkles className="w-4 h-4 inline mr-1 text-purple-500" />
-                Upload SRF Excel (Optional — AI will pre-fill details)
-              </p>
-              <div
-                {...getSRFRootProps()}
-                className="border-2 border-dashed rounded-md p-4 text-center cursor-pointer hover:border-purple-400 transition-colors"
-              >
-                <input {...getSRFInputProps()} />
-                {srfExtracting ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
-                    <span className="text-sm">Extracting with AI...</span>
+            {/* SRF Matching Table */}
+            {showSrfMatch && srfMatchRows.length > 0 && (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-slate-50 px-4 py-2.5 flex items-center justify-between border-b">
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                    AI Extracted Fields — Review &amp; Apply
+                  </p>
+                  <button type="button" onClick={() => setShowSrfMatch(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="divide-y max-h-72 overflow-y-auto">
+                  {/* Header row */}
+                  <div className="grid grid-cols-[auto_1fr_2fr_auto] gap-3 px-4 py-2 bg-slate-50/60 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    <span className="w-4" />
+                    <span>Field</span>
+                    <span>Extracted Value</span>
+                    <span className="w-16 text-right">Confidence</span>
                   </div>
-                ) : (
-                  <div>
-                    <FileSpreadsheet className="w-6 h-6 mx-auto text-muted-foreground mb-1" />
-                    <p className="text-xs text-muted-foreground">Drop SRF .xlsx here</p>
+                  {srfMatchRows.map((row, i) => (
+                    <div key={row.field} className="grid grid-cols-[auto_1fr_2fr_auto] gap-3 px-4 py-2 items-center">
+                      <input
+                        type="checkbox"
+                        checked={row.include}
+                        onChange={e => updateSrfRowInclude(i, e.target.checked)}
+                        className="accent-primary w-4 h-4"
+                      />
+                      <span className="text-sm text-muted-foreground">{row.label}</span>
+                      <Input
+                        value={row.value}
+                        onChange={e => updateSrfRowValue(i, e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                      <div className="w-16 flex justify-end">
+                        {srfConfidenceBadge(row.confidence)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-4 py-3 bg-slate-50 border-t flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {srfMatchRows.filter(r => r.include).length} of {srfMatchRows.length} fields selected
+                  </p>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => setShowSrfMatch(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="button" size="sm" className="gap-1.5" onClick={applySrfMatches}>
+                      <CheckCircle className="w-3.5 h-3.5" /> Apply to Form
+                    </Button>
                   </div>
-                )}
+                </div>
               </div>
-              {extractedFields && (
-                <p className="text-xs text-green-700 mt-2">
-                  <CheckCircle className="w-3 h-3 inline mr-1" />
-                  AI extracted vendor details — review fields below
-                </p>
-              )}
-            </div>
+            )}
 
             {/* Classification */}
             <div>
@@ -440,6 +600,26 @@ export default function NewVendorPage() {
           </CardHeader>
           <CardContent className="space-y-4">
 
+            {/* Tabs */}
+            <div className="flex gap-1 border-b">
+              {(['compliance', 'other'] as const).map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setComplianceTab(tab)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    complianceTab === tab
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab === 'compliance' ? 'Compliance' : 'Other Documents'}
+                </button>
+              ))}
+            </div>
+
+            {complianceTab === 'compliance' && <>
+
             {/* GST */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start">
               <div className="space-y-1">
@@ -454,12 +634,14 @@ export default function NewVendorPage() {
                 {errors.gst_number && <p className="text-xs text-destructive">{errors.gst_number.message}</p>}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">GST Certificate</Label>
+                <Label className="text-xs">GST Certificate <span className="text-destructive">*</span></Label>
                 <DocFileInput
                   chosen={pendingDocs.find(d => d.doc_type === 'gst_certificate')?.file ?? null}
                   onSelect={f => setDocFile('gst_certificate', f)}
                   onClear={() => setDocFile('gst_certificate', null)}
+                  hasError={!!docErrors.gst_certificate}
                 />
+                {docErrors.gst_certificate && <p className="text-xs text-destructive">{docErrors.gst_certificate}</p>}
               </div>
             </div>
 
@@ -477,12 +659,14 @@ export default function NewVendorPage() {
                 {errors.pan_number && <p className="text-xs text-destructive">{errors.pan_number.message}</p>}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">PAN Card</Label>
+                <Label className="text-xs">PAN Card <span className="text-destructive">*</span></Label>
                 <DocFileInput
                   chosen={pendingDocs.find(d => d.doc_type === 'pan_card')?.file ?? null}
                   onSelect={f => setDocFile('pan_card', f)}
                   onClear={() => setDocFile('pan_card', null)}
+                  hasError={!!docErrors.pan_card}
                 />
+                {docErrors.pan_card && <p className="text-xs text-destructive">{docErrors.pan_card}</p>}
               </div>
             </div>
 
@@ -510,12 +694,14 @@ export default function NewVendorPage() {
                 ))}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Bank Details / Cancelled Cheque</Label>
+                <Label className="text-xs">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
                 <DocFileInput
                   chosen={pendingDocs.find(d => d.doc_type === 'bank_details')?.file ?? null}
                   onSelect={f => setDocFile('bank_details', f)}
                   onClear={() => setDocFile('bank_details', null)}
+                  hasError={!!docErrors.bank_details}
                 />
+                {docErrors.bank_details && <p className="text-xs text-destructive">{docErrors.bank_details}</p>}
               </div>
             </div>
             <div className="flex items-center gap-4 pt-2 sm:col-span-2 lg:col-span-3">
@@ -536,12 +722,14 @@ export default function NewVendorPage() {
                   <Input placeholder="UDYAM-MH-00-0000000" {...register('msme_number')} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">MSME Certificate</Label>
+                  <Label className="text-xs">MSME Certificate <span className="text-destructive">*</span></Label>
                   <DocFileInput
                     chosen={pendingDocs.find(d => d.doc_type === 'msme_certificate')?.file ?? null}
                     onSelect={f => setDocFile('msme_certificate', f)}
                     onClear={() => setDocFile('msme_certificate', null)}
+                    hasError={!!docErrors.msme_certificate}
                   />
+                  {docErrors.msme_certificate && <p className="text-xs text-destructive">{docErrors.msme_certificate}</p>}
                 </div>
               </div>
             )}
@@ -554,7 +742,7 @@ export default function NewVendorPage() {
                   <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">SEZ Certificate</Label>
+                  <Label className="text-xs">SEZ Certificate <span className="text-destructive">*</span></Label>
                   <DocFileInput
                     chosen={pendingDocs.find(d => d.doc_type === 'sez_certificate')?.file ?? null}
                     onSelect={f => setDocFile('sez_certificate', f)}
@@ -571,7 +759,7 @@ export default function NewVendorPage() {
                 <p className="text-sm">Company registration / MOA documents</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Incorporation Certificate</Label>
+                <Label className="text-xs">Incorporation Certificate <span className="text-destructive">*</span></Label>
                 <DocFileInput
                   chosen={pendingDocs.find(d => d.doc_type === 'incorporation')?.file ?? null}
                   onSelect={f => setDocFile('incorporation', f)}
@@ -579,6 +767,76 @@ export default function NewVendorPage() {
                 />
               </div>
             </div>
+
+            </>}
+
+            {complianceTab === 'other' && <>
+            {/* Other Documents */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Other Documents</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Quality certs, trade licences, NDAs, insurance, etc.
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={addOtherDocRow}>
+                  <Plus className="w-3.5 h-3.5" /> Add Document
+                </Button>
+              </div>
+              {otherDocRows.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">No additional documents added.</p>
+              )}
+              {otherDocRows.map(row => (
+                <div key={row.id} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end border rounded-md p-3 bg-slate-50/60">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Document Type</Label>
+                    <select
+                      value={row.doc_type}
+                      onChange={e => updateOtherDocRow(row.id, { doc_type: e.target.value })}
+                      className="w-full h-9 border rounded-md px-2 text-sm bg-background"
+                    >
+                      {OTHER_DOC_TYPE_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Title</Label>
+                    <Input
+                      value={row.title}
+                      onChange={e => updateOtherDocRow(row.id, { title: e.target.value })}
+                      placeholder="e.g. ISO 9001 — 2024"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">File</Label>
+                    <DocFileInput
+                      chosen={row.file}
+                      onSelect={f => updateOtherDocRow(row.id, { file: f })}
+                      onClear={() => updateOtherDocRow(row.id, { file: null })}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeOtherDocRow(row.id)}
+                    className="h-9 w-9 flex items-center justify-center text-red-400 hover:text-red-600 border rounded-md hover:bg-red-50 transition-colors shrink-0"
+                    title="Remove"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {otherDocRows.some(r => !r.file) && (
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <FileText className="w-3 h-3" />
+                  Rows without a file selected will be skipped on save.
+                </p>
+              )}
+            </div>
+
+            </>}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button
@@ -592,10 +850,10 @@ export default function NewVendorPage() {
 
               <Button
                 type="button"
-                onClick={handleNextStep}               
+                onClick={handleNextStep}
                 className="gap-1"
               >
-                Review <ArrowRight className="w-4 h-4" />
+                <Save className="w-4 h-4" /> Save Changes
               </Button>
             </div>
           </CardContent>

@@ -11,12 +11,19 @@ import { useToast } from '@/components/ui/use-toast'
 import { Plus, Search, Pencil, Loader2, X } from 'lucide-react'
 import apiClient from '@/lib/api/client'
 
+interface Category {
+  id: number
+  name: string
+  is_active: boolean
+}
+
 interface Item {
   id: number
   code: string
   description: string
   unit_of_measure: string
-  category: string
+  category: number | null
+  category_name: string
   unit_rate: string
   is_active: boolean
 }
@@ -25,7 +32,7 @@ interface ItemFormData {
   code: string
   description: string
   unit_of_measure: string
-  category: string
+  category: number | ''
   unit_rate: string
   is_active: boolean
 }
@@ -51,6 +58,14 @@ function ItemModal({
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const isEdit = item !== null
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['item-categories-active'],
+    queryFn: async () => {
+      const r = await apiClient.get('/procurement/categories/?active_only=true')
+      return r.data.results ?? r.data
+    },
+  })
 
   const [form, setForm] = useState<ItemFormData>(
     isEdit
@@ -85,7 +100,7 @@ function ItemModal({
     const errs: Partial<Record<keyof ItemFormData, string>> = {}
     if (!form.code.trim()) errs.code = 'Code is required'
     if (!form.description.trim()) errs.description = 'Description is required'
-    if (!form.category.trim()) errs.category = 'Category is required'
+    if (!form.category) errs.category = 'Category is required'
     if(!form.unit_rate) errs.unit_rate = 'Unit Rate is required'
     if (!form.unit_of_measure.trim()) errs.unit_of_measure = 'Unit of measure is required'
     setErrors(errs)
@@ -116,6 +131,21 @@ function ItemModal({
         {/* Form */}
         <form onSubmit={handleSubmit}>
           <div className="px-6 py-4 space-y-4">
+
+            <div className="grid grid-cols-1 gap-4">
+                  {/* Description */}
+              <div className="space-y-1">
+                <Label>Description <span className="text-destructive">*</span></Label>
+                <Input
+                  value={form.description}
+                  onChange={(e) => set('description', e.target.value)}
+                  placeholder="Full item description"
+                />
+                {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
+              </div>
+          </div>
+
+
             <div className="grid grid-cols-2 gap-4">
               {/* Code */}
               <div className="space-y-1">
@@ -143,28 +173,24 @@ function ItemModal({
                 {errors.unit_of_measure && <p className="text-xs text-destructive">{errors.unit_of_measure}</p>}
               </div>
             </div>
-
-            {/* Description */}
-            <div className="space-y-1">
-              <Label>Description <span className="text-destructive">*</span></Label>
-              <Input
-                value={form.description}
-                onChange={(e) => set('description', e.target.value)}
-                placeholder="Full item description"
-              />
-              {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
-            </div>
+        
+            
 
             <div className="grid grid-cols-2 gap-4">
               {/* Category */}
               <div className="space-y-1">
-                <Label>Category<span className="text-destructive">*</span></Label>
-                <Input
+                <Label>Category <span className="text-destructive">*</span></Label>
+                <select
+                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
                   value={form.category}
-                  onChange={(e) => set('category', e.target.value)}
-                  placeholder="e.g. Fasteners"
-                />
-                  {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}
+                  onChange={(e) => set('category', e.target.value ? Number(e.target.value) : '')}
+                >
+                  <option value="">Select category…</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+                {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}
               </div>
 
               {/* SAP Material Code */}
@@ -323,7 +349,7 @@ export default function ItemsInventoryPage() {
                       <td className="px-4 py-3 font-mono text-xs">{item.code}</td>
                       <td className="px-4 py-3 max-w-xs truncate">{item.description}</td>
                       <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">{item.unit_of_measure}</td>
-                      <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{item.category || '—'}</td>
+                      <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{item.category_name || '—'}</td>
                       <td className="px-4 py-3 hidden lg:table-cell font-mono text-xs text-muted-foreground">
                         {item.unit_rate || '—'}
                       </td>
