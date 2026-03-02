@@ -690,11 +690,11 @@ console.log('isDraft', isDraft)
       <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            {amountOnly ? 'Update Budget Amount' : `Estimated Budget (${currencySymbol})`}
+            { `Estimated Budget (${currencySymbol})`}
           </CardTitle>
-          {amountOnly && (
+          {/* {amountOnly && (
             <p className="text-xs text-muted-foreground mt-1">You can update the requested amount while the budget is under review.</p>
-          )}
+          )} */}
         </CardHeader>
         <CardContent className="pt-5 space-y-3">
           <div className="flex flex-wrap gap-1.5">
