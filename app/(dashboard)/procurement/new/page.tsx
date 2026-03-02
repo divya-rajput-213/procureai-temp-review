@@ -289,7 +289,7 @@ export default function NewPRPage() {
                   <option value="" disabled>Select approved Tracking ID…</option>
                   {(trackingIds || []).map((t: any) => (
                     <option key={t.id} value={t.id}>
-                      {t.tracking_code} — {formatCurrency(t.remaining_amount ?? 0, t.currency_code)} remaining
+                      {t.tracking_code}
                     </option>
                   ))}
                 </select>
