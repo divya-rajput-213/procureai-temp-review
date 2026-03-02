@@ -483,7 +483,6 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
     description: pr.description ?? '',
     title: pr.title ?? ""
   })
-console.log(pr,'form', form)
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
 
   // Invited vendors
@@ -492,6 +491,7 @@ console.log(pr,'form', form)
   const [showVendorDropdown, setShowVendorDropdown] = useState(false)
   const [trackingSearch, setTrackingSearch] = useState('')
   const [showTrackingDropdown, setShowTrackingDropdown] = useState(false)
+  const selectedTrackingObj = trackingIds.find((t: any) => t.id === Number(form.tracking_id))
 
   const { data: vendorResults } = useQuery({
     queryKey: ['vendors-pr-edit', vendorSearch],
@@ -584,14 +584,13 @@ console.log(pr,'form', form)
     const selectedTracking = trackingIds.find(
       (t: any) => t.id === Number(form.tracking_id)
     );
-console.log('selectedTracking', selectedTracking)
     if (selectedTracking) {
       setForm(prev => ({
         ...prev,
         plant: selectedTracking.plant ?? '',
         department: selectedTracking.department ?? '',
-        description:selectedTracking?.description??"",
-        title:selectedTracking?.title??""
+        description: selectedTracking?.description ?? "",
+        title: selectedTracking?.title ?? ""
       }));
     }
   }, [form.tracking_id, trackingIds]);
@@ -604,9 +603,8 @@ console.log('selectedTracking', selectedTracking)
         <div className="relative">
           <Input
             placeholder="Search tracking ID..."
-            value={
-              trackingIds.find(t => t.id === form.tracking_id)?.tracking_code || ''
-            }
+            value={showTrackingDropdown ? trackingSearch : (selectedTrackingObj?.tracking_code ?? '')}
+
             onChange={(e) => {
               setTrackingSearch(e.target.value)
               setShowTrackingDropdown(true)
@@ -621,6 +619,7 @@ console.log('selectedTracking', selectedTracking)
 
               {trackingIds
                 .filter((t: any) =>
+                  !trackingSearch ||   // ← show all when search is empty
                   `${t.tracking_code} ${t.title}`
                     .toLowerCase()
                     .includes(trackingSearch.toLowerCase())
@@ -827,6 +826,7 @@ console.log('selectedTracking', selectedTracking)
       </div>
 
       {/* Line Items */}
+      {/* Line Items */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-xs font-semibold">Line Items</Label>
@@ -834,75 +834,128 @@ console.log('selectedTracking', selectedTracking)
             <Plus className="w-3 h-3" /> Add
           </Button>
         </div>
+
         <div className="space-y-2">
           {lineItems.map((li, idx) => (
-            <div key={li._key} className="border rounded-lg p-3 space-y-2">
+            <div key={li._key} className="border border-border rounded-lg p-3 space-y-3">
+              {/* Row header */}
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
-                <button type="button" onClick={() => removeLineItem(idx)} className="text-muted-foreground hover:text-red-500">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item {idx + 1}</span>
+                <button type="button" onClick={() => removeLineItem(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <div className="relative">
-                <Input
-                  placeholder="Search item code..."
-                  value={itemSearch[idx] ?? (li.item_code ? String(li.item_code) : '')}
-                  onChange={e => { setItemSearch(prev => ({ ...prev, [idx]: e.target.value })); setShowItemDropdown(idx) }}
-                  onFocus={() => setShowItemDropdown(idx)}
-                  onBlur={() => setTimeout(() => setShowItemDropdown(null), 150)}
-                  className="h-8 text-sm"
-                />
-                {showItemDropdown === idx && (
-                  <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-md bg-background shadow-md max-h-40 overflow-y-auto divide-y">
-                    {(itemResults || []).map((item: any) => (
-                      <button key={item.id} type="button" onMouseDown={e => e.preventDefault()}
-                        className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
-                        onClick={() => selectItem(idx, item)}>
-                        <span className="font-medium">{item.code}</span>
-                        <span className="text-xs text-muted-foreground ml-2">{item.description}</span>
-                      </button>
-                    ))}
-                    {(itemResults || []).length === 0 && (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">No items found.</p>
+
+              {/* Fields grid — same as doc 4 */}
+              <div className="grid grid-cols-12 gap-2 items-end">
+
+                {/* Item Code */}
+                <div className="col-span-12 sm:col-span-5 space-y-1">
+                  <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Search item code..."
+                      value={itemSearch[idx] ?? (li.item_code ? String(li.item_code) : '')}
+                      onChange={e => { setItemSearch(prev => ({ ...prev, [idx]: e.target.value })); setShowItemDropdown(idx) }}
+                      onFocus={() => setShowItemDropdown(idx)}
+                      onBlur={() => setTimeout(() => setShowItemDropdown(null), 150)}
+                      className="h-10 text-sm"
+                    />
+                    {showItemDropdown === idx && (
+                      <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-md bg-background shadow-md max-h-40 overflow-y-auto divide-y">
+                        {(itemResults || []).map((item: any) => (
+                          <button key={item.id} type="button" onMouseDown={e => e.preventDefault()}
+                            className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm flex items-center gap-2"
+                            onClick={() => selectItem(idx, item)}>
+                            <span className="font-mono text-xs bg-slate-100 px-1 rounded">{item.code}</span>
+                            <span className="truncate">{item.description}</span>
+                            <span className="ml-auto text-xs text-muted-foreground shrink-0">{item.unit_of_measure}</span>
+                          </button>
+                        ))}
+                        {(itemResults || []).length === 0 && (
+                          <p className="px-3 py-2 text-sm text-muted-foreground">No items found.</p>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <Input type="number" placeholder="Qty" value={li.quantity} onChange={e => setLI(idx, 'quantity', e.target.value)} className="h-8 text-sm" />
-                <Input placeholder="UOM" value={li.unit_of_measure} onChange={e => setLI(idx, 'unit_of_measure', e.target.value)} className="h-8 text-sm" />
-                <Input type="number" placeholder="Unit Rate" value={li.unit_rate} onChange={e => setLI(idx, 'unit_rate', e.target.value)} className="h-8 text-sm" />
+                </div>
+
+                {/* Qty */}
+                <div className="col-span-4 sm:col-span-2 space-y-1">
+                  <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
+                  <Input
+                    type="number" placeholder="1" value={li.quantity}
+                    onChange={e => setLI(idx, 'quantity', e.target.value)}
+                    className="h-10 text-sm"
+                  />
+                </div>
+
+                {/* UOM */}
+                <div className="col-span-3 sm:col-span-2 space-y-1">
+                  <Label className="text-xs">UOM <span className="text-destructive">*</span></Label>
+                  <Input
+                    placeholder="EA" value={li.unit_of_measure}
+                    onChange={e => setLI(idx, 'unit_of_measure', e.target.value)}
+                    className="h-10 text-sm"
+                  />
+                </div>
+
+                {/* Unit Rate */}
+                <div className="col-span-5 sm:col-span-2 space-y-1">
+                  <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
+                  <Input
+                    type="number" placeholder="0.00" value={li.unit_rate}
+                    onChange={e => setLI(idx, 'unit_rate', e.target.value)}
+                    className="h-10 text-sm"
+                  />
+                </div>
+
+                {/* Total */}
+                <div className="col-span-12 sm:col-span-1 space-y-1">
+                  <Label className="text-xs hidden sm:block">Total</Label>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    value={(Number(li.quantity) || 0) * (Number(li.unit_rate) || 0)}  // Raw numeric value
+                    disabled
+                    className="h-10 text-sm"
+                  />
+                </div>
+
               </div>
             </div>
           ))}
+
           {lineItems.length === 0 && (
             <p className="text-xs text-muted-foreground italic py-1">No line items. Click Add to add one.</p>
           )}
         </div>
-      </div>
-      <div className="border border-border rounded-lg overflow-hidden mt-2">
-        <table className="w-full text-sm">
-          <tbody className="divide-y divide-border">
-            <tr className="bg-muted/30">
-              <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
-              <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
-            </tr>
-            {activeTaxes.map(tax => (
-              <tr key={tax.id}>
-                <td className="px-4 py-2.5 text-muted-foreground">
-                  {tax.name} <span className="text-xs">({tax.rate}%)</span>
-                </td>
-                <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
+
+        {/* Totals table */}
+        <div className="border border-border rounded-lg overflow-hidden mt-2">
+          <table className="w-full text-sm">
+            <tbody className="divide-y divide-border">
+              <tr className="bg-muted/30">
+                <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
+                <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="bg-muted/50 border-t-2 border-border">
-              <td className="px-4 py-3 font-semibold">Grand Total</td>
-              <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
-            </tr>
-          </tfoot>
-        </table>
+              {activeTaxes.map(tax => (
+                <tr key={tax.id}>
+                  <td className="px-4 py-2.5 text-muted-foreground">
+                    {tax.name} <span className="text-xs">({tax.rate}%)</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-muted/50 border-t-2 border-border">
+                <td className="px-4 py-3 font-semibold">Grand Total</td>
+                <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
       <div className="flex justify-end gap-3 pt-2 border-t">
         <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
@@ -1324,7 +1377,7 @@ export default function PRDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {pr.status === 'draft' && !isEditing && activeTab==="details"&& (
+          {pr.status === 'draft' && !isEditing && activeTab === "details" && (
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1.5">
               <Pencil className="w-3.5 h-3.5" /> Edit
             </Button>
