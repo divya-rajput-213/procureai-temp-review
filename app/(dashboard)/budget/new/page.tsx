@@ -105,7 +105,7 @@ export default function NewBudgetPage() {
       const payload: Record<string, any> = {
         ...data,
         preferred_vendor_ids: selectedVendors.map(v => v.id),
-        status: mode === 'approval' ? 'approval' : 'draft',
+        status: mode === 'approval' ? 'pending_approval' : 'draft',
       }
   
       //  send matrix only in approval mode
