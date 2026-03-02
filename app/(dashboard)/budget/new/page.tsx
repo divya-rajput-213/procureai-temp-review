@@ -107,18 +107,18 @@ export default function NewBudgetPage() {
         status: 'draft',
       }
       const { data: budget } = await apiClient.post('/budget/tracking-ids/', payload)
-      if (mode === 'approval') {
+      if (mode === 'approval' && budget?.id) {
         const body: Record<string, any> = {}
         if (selectedMatrix) body.matrix_id = selectedMatrix
-        await apiClient.post(`/budget/tracking-ids/${budget.id}/submit-for-approval/`, body)
+        await apiClient.post(`/budget/tracking-ids/submit-for-approval/`, body)
       }
       return { budget, mode }
     },
     onSuccess: ({ budget, mode }) => {
       if (mode === 'approval') {
-        toast({ title: `Budget ${budget.tracking_code} submitted for approval.` })
+        toast({ title: `Budget submitted for approval.` })
       } else {
-        toast({ title: `Budget ${budget.tracking_code} saved as draft.` })
+        toast({ title: `Budget saved as draft.` })
       }
       router.push('/budget')
     },
