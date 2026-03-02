@@ -25,7 +25,7 @@ const schema = z.object({
   department: z.number({ required_error: 'Department is required' }),
   description: z.string().optional(),
   title: z.string().optional(),
-  matrix_id:z.number().optional(),
+  matrix_id: z.number().optional(),
   line_items: z.array(
     z.object({
       item_code: z.number({ required_error: 'Item required' }).min(1),
@@ -68,9 +68,13 @@ function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => voi
 function TrackingIdSearch({
   trackingIds,
   onSelect,
+  value,        // ← add
+  onChange,     // ← add
 }: {
   trackingIds: any[]
   onSelect: (tracking: any) => void
+  value: any | null
+  onChange: (t: any | null) => void
 }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
@@ -83,18 +87,16 @@ function TrackingIdSearch({
     <div className="relative">
       <Input
         placeholder="Search Tracking ID..."
-        value={search}
+        value={value ? value.tracking_code : search}
         onChange={(e) => {
           setSearch(e.target.value)
+          onChange(null)   // ← clear parent selection
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
       />
-
-      {open && (
+      {open && !value && (
         <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow max-h-60 overflow-auto">
-
-          {/* ✅ Results */}
           {filtered?.length > 0 ? (
             filtered.map(t => (
               <button
@@ -102,30 +104,26 @@ function TrackingIdSearch({
                 type="button"
                 className="w-full text-left px-3 py-2 hover:bg-muted"
                 onClick={() => {
-                  onSelect(t)
+                  onChange(t)
                   setSearch('')
                   setOpen(false)
+                  onSelect(t)
                 }}
               >
                 {t.tracking_code}
               </button>
             ))
           ) : (
-            /* ✅ No Result */
-            <div className="px-3 py-2 text-sm text-muted-foreground">
-              No results found
-            </div>
+            <div className="px-3 py-2 text-sm text-muted-foreground">No results found</div>
           )}
-
         </div>
       )}
     </div>
   )
 }
 
-
-function ItemSearch({ onSelect, placeholder }: { onSelect: (item: any) => void; placeholder?: string }) {
-  const [search, setSearch] = useState('')
+function ItemSearch({ onSelect, placeholder,displayValue }: { onSelect: (item: any) => void; placeholder?: string,displayValue?:string }) {
+  const [search, setSearch] = useState(displayValue ?? '')
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
@@ -199,6 +197,8 @@ export default function NewPRPage() {
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const [vendorSearch, setVendorSearch] = useState('')
   const [showVendorSearch, setShowVendorSearch] = useState(false)
+  const [selectedTracking, setSelectedTracking] = useState<any>(null)
+  const [itemLabels, setItemLabels] = useState<Record<number, string>>({})
   // ─── Remote data ──────────────────────────────────────────────────────
 
   const { data: trackingIds } = useQuery({
@@ -260,6 +260,7 @@ export default function NewPRPage() {
     queryFn: async () => (await apiClient.get(`/budget/tracking-ids/${watchedTrackingId}/`)).data,
     enabled: !!watchedTrackingId,
   })
+  console.log('trackingDetail', trackingDetail)
   useEffect(() => {
     if (!trackingDetail) return;
 
@@ -287,14 +288,15 @@ export default function NewPRPage() {
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const mode = submitModeRef.current
-      const payload = { ...data, invited_vendor_ids: selectedVendors.map(v => v.id),        
+      const payload = {
+        ...data, invited_vendor_ids: selectedVendors.map(v => v.id),
         status: mode === 'approval' ? 'pending_approval' : 'draft',
       }
 
       if (mode === 'approval' && selectedMatrix) {
         payload.matrix_id = selectedMatrix
       }
-  
+
       const { data: pr } = await apiClient.post('/procurement/', payload)
 
       return { pr, mode }
@@ -376,15 +378,10 @@ export default function NewPRPage() {
 
                 <TrackingIdSearch
                   trackingIds={trackingIds}
+                  value={selectedTracking}           // ← add
+                  onChange={setSelectedTracking}     // ← add
                   onSelect={(tracking) => {
-
-                    // save for payload
-                    setValue('tracking_id', tracking.id, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-
-                    // autofill title
+                    setValue('tracking_id', tracking.id, { shouldDirty: true, shouldValidate: true })
                     setValue('title', tracking.title)
                   }}
                 />
@@ -548,6 +545,7 @@ export default function NewPRPage() {
                     <div className="col-span-12 sm:col-span-5 space-y-1">
                       <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
                       <ItemSearch
+                      displayValue={itemLabels[idx]} 
                         onSelect={item => {
                           const duplicateIdx = (watchedItems ?? [])
                             .findIndex((li, i) => i !== idx && li.item_code === item.id)
@@ -572,6 +570,8 @@ export default function NewPRPage() {
                           )
 
                           clearErrors(`line_items.${targetIdx}.item_code`)
+                          setItemLabels(prev => ({ ...prev, [targetIdx]: `${item.code} — ${item.description}` }))
+
                         }}
                       />
 
@@ -766,7 +766,7 @@ export default function NewPRPage() {
               </Button>
               <Button
                 type="button"
-                disabled={createMutation.isPending}
+                disabled={createMutation.isPending || !selectedMatrix}
                 className="gap-2"
                 onClick={handleApproval}
               >
