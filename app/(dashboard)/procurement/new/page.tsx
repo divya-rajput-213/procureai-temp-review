@@ -207,7 +207,7 @@ export default function NewPRPage() {
   // ─── Form ─────────────────────────────────────────────────────────────
 
   const {
-    register, control, handleSubmit, watch, setValue, trigger,
+    register, control, handleSubmit, watch, setValue, trigger, clearErrors,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -238,7 +238,7 @@ export default function NewPRPage() {
     // auto fill fields
     setValue('plant', trackingDetail.plant);
     setValue('department', trackingDetail.department);
-    setValue('description',trackingDetail?.description)
+    setValue('description', trackingDetail?.description)
     setValue('title', trackingDetail.title ?? '');
     // Handle vendors safely
     if (
@@ -518,19 +518,32 @@ export default function NewPRPage() {
                       <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
                       <ItemSearch
                         onSelect={item => {
-                          const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
+                          const duplicateIdx = (watchedItems ?? [])
+                            .findIndex((li, i) => i !== idx && li.item_code === item.id)
+
+                          const targetIdx =
+                            duplicateIdx !== -1
+                              ? (duplicateIdx < idx ? idx - 1 : idx)
+                              : idx
+
                           if (duplicateIdx !== -1) {
                             remove(duplicateIdx)
-                            const newIdx = duplicateIdx < idx ? idx - 1 : idx
-                            setValue(`line_items.${newIdx}.item_code`, item.id)
-                            setValue(`line_items.${newIdx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                            return
                           }
-                          setValue(`line_items.${idx}.item_code`, item.id)
-                          setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+
+                          setValue(`line_items.${targetIdx}.item_code`, item.id, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
+
+                          setValue(
+                            `line_items.${targetIdx}.unit_of_measure`,
+                            item.unit_of_measure ?? 'EA'
+                          )
+
+                          clearErrors(`line_items.${targetIdx}.item_code`)
                         }}
-                        placeholder="Search by code or description…"
                       />
+
                       {errors.line_items?.[idx]?.item_code && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
                       )}
@@ -555,18 +568,29 @@ export default function NewPRPage() {
                       <Input
                         type="number" step="0.01" min="0.01" placeholder="0.00"
                         className={errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}
-                        {...register(`line_items.${idx}.unit_rate`, { valueAsNumber: true })}
-                      />
+                        {...register(`line_items.${idx}.unit_rate`, {
+                          valueAsNumber: true,
+                          onChange: () => {
+                            clearErrors(`line_items.${idx}.unit_rate`)
+                          },
+                        })} />
                       {errors.line_items?.[idx]?.unit_rate && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.unit_rate?.message}</p>
                       )}
                     </div>
                     <div className="col-span-12 sm:col-span-1 space-y-1">
                       <Label className="text-xs hidden sm:block">Total</Label>
-                      <p className="text-sm font-medium h-10 flex items-center sm:justify-end tabular-nums">
-                        {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
-                      </p>
+
+                      <Input
+                        disabled
+                        value={formatCurrency(
+                          (watchedItems?.[idx]?.quantity || 0) *
+                          (watchedItems?.[idx]?.unit_rate || 0)
+                        )}
+                        className="text-right font-medium bg-muted cursor-not-allowed"
+                      />
                     </div>
+
                   </div>
                 </div>
               ))}
@@ -608,9 +632,20 @@ export default function NewPRPage() {
               type="button"
               className="gap-1.5"
               onClick={async () => {
-                const ok = await trigger(['tracking_id', 'plant', 'department'])
-                if (ok) setActiveTab('matrix')
+                const isValid = await trigger()
+
+                if (!isValid) {
+                  toast({
+                    title: 'Please complete required fields',
+                    description: 'Fill all mandatory requisition details before proceeding.',
+                    variant: 'destructive',
+                  })
+                  return
+                }
+
+                setActiveTab('matrix')
               }}
+
             >
               Next<ArrowRight className="w-4 h-4" />
             </Button>
