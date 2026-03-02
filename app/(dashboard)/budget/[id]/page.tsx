@@ -628,9 +628,18 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
 
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Enterprise Laptop Procurement" className="h-10" />
+            <Input disabled value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Enterprise Laptop Procurement" className="h-10" />
           </div>
-
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Description <span className="text-destructive">*</span></Label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} className={textareaCls} placeholder="Brief description of what you need..." maxLength={500} />
+            <div className="flex items-center justify-between">
+              {description.length > 0 && description.length < 10
+                ? <p className="text-xs text-destructive">Minimum 10 characters</p>
+                : <span />}
+              <p className="text-xs text-muted-foreground">{description.length} / 500</p>
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Priority <span className="text-destructive">*</span></Label>
@@ -662,17 +671,6 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
                 <option value="">Select department...</option>
                 {departments.map((d: any) => <option key={d.id} value={d.id}>{d.code} — {d.name}</option>)}
               </select>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Description <span className="text-destructive">*</span></Label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} className={textareaCls} placeholder="Brief description of what you need..." maxLength={500} />
-            <div className="flex items-center justify-between">
-              {description.length > 0 && description.length < 10
-                ? <p className="text-xs text-destructive">Minimum 10 characters</p>
-                : <span />}
-              <p className="text-xs text-muted-foreground">{description.length} / 500</p>
             </div>
           </div>
 
@@ -713,9 +711,9 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
                 onInput={e => { const el = e.currentTarget; if (Number(el.value) > 100_000_000) el.value = '100000000' }}
               />
             </div>
-            {requestedAmount >= 1000 && !amountError && (
+            {/* {requestedAmount >= 1000 && !amountError && (
               <p className="text-xs font-semibold text-emerald-600">{formatCurrency(requestedAmount, budget.currency_code)}</p>
-            )}
+            )} */}
             {amountError && (
               <p className="text-xs text-destructive flex items-center gap-1"><span>⚠</span> {amountError}</p>
             )}
@@ -940,7 +938,16 @@ export default function BudgetDetailPage() {
               </span>
             )}
           </div>
-          <h1 className="text-xl font-bold mt-0.5">{budget.title || budget.description}</h1>
+          <div className="group relative max-w-[600px]">
+            <h1 className="text-xl font-bold truncate">
+              {budget.title || budget.description}
+            </h1>
+
+            <div className="absolute left-0 top-full mt-1 hidden group-hover:block
+                  bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap z-50">
+              {budget.title || budget.description}
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">

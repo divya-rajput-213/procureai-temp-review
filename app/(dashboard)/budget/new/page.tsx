@@ -250,6 +250,18 @@ export default function NewBudgetPage() {
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Description <span className="text-destructive">*</span></Label>
+              <textarea {...register('description')} className={textareaCls} placeholder="Brief description of what you need..." />
+              <div className="flex items-center justify-between">
+                {errors.description
+                  ? <p className="text-xs text-destructive">{errors.description.message}</p>
+                  : <span />}
+                <p className="text-xs text-muted-foreground">{(watch('description') ?? '').length} / 500</p>
+              </div>
+            </div>
+
             {/* Priority / Plant / Department */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
@@ -272,7 +284,12 @@ export default function NewBudgetPage() {
 
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Plant <span className="text-destructive">*</span></Label>
-                <select className={selectCls} onChange={e => setValue('plant', Number(e.target.value))}>
+                <select className={selectCls} onChange={e =>
+                  setValue('plant', Number(e.target.value), {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }>
                   <option value="">Select plant...</option>
                   {(plants || []).map((p: any) => (
                     <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
@@ -283,25 +300,18 @@ export default function NewBudgetPage() {
 
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Department <span className="text-destructive">*</span></Label>
-                <select className={selectCls} onChange={e => setValue('department', Number(e.target.value))}>
+                <select className={selectCls} onChange={e =>
+                  setValue('department', Number(e.target.value), {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }>
                   <option value="">Select department...</option>
                   {(departments || []).map((d: any) => (
                     <option key={d.id} value={d.id}>{d.code} — {d.name}</option>
                   ))}
                 </select>
                 {errors.department && <p className="text-xs text-destructive">{errors.department.message}</p>}
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Description <span className="text-destructive">*</span></Label>
-              <textarea {...register('description')} className={textareaCls} placeholder="Brief description of what you need..." />
-              <div className="flex items-center justify-between">
-                {errors.description
-                  ? <p className="text-xs text-destructive">{errors.description.message}</p>
-                  : <span />}
-                <p className="text-xs text-muted-foreground">{(watch('description') ?? '').length} / 500</p>
               </div>
             </div>
 
@@ -345,10 +355,6 @@ export default function NewBudgetPage() {
                     }}
                   />
                 </div>
-                {/* Amount display + tier badge */}
-                {watchedAmount >= 1000 && !errors.requested_amount && (
-                  <p className="text-xs font-semibold text-emerald-600">{formatCurrency(watchedAmount)}</p>
-                )}
                 {errors.requested_amount && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <span>⚠</span> {errors.requested_amount.message}
