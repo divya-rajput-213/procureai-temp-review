@@ -25,6 +25,7 @@ const schema = z.object({
   department: z.number({ required_error: 'Department is required' }),
   description: z.string().optional(),
   title: z.string().optional(),
+  matrix_id:z.number().optional(),
   line_items: z.array(
     z.object({
       item_code: z.number({ required_error: 'Item required' }).min(1),
@@ -87,31 +88,41 @@ function TrackingIdSearch({
           setSearch(e.target.value)
           setOpen(true)
         }}
+        onFocus={() => setOpen(true)}
       />
 
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow max-h-60 overflow-auto">
-          {filtered.map(t => (
-            <button
-              key={t.id}
-              type="button"
-              className="w-full text-left px-3 py-2 hover:bg-muted"
-              onClick={() => {
-                onSelect(t)
 
-                // ✅ clear ONLY UI
-                setSearch('')
-                setOpen(false)
-              }}
-            >
-              {t.tracking_code}
-            </button>
-          ))}
+          {/* ✅ Results */}
+          {filtered?.length > 0 ? (
+            filtered.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                className="w-full text-left px-3 py-2 hover:bg-muted"
+                onClick={() => {
+                  onSelect(t)
+                  setSearch('')
+                  setOpen(false)
+                }}
+              >
+                {t.tracking_code}
+              </button>
+            ))
+          ) : (
+            /* ✅ No Result */
+            <div className="px-3 py-2 text-sm text-muted-foreground">
+              No results found
+            </div>
+          )}
+
         </div>
       )}
     </div>
   )
 }
+
 
 function ItemSearch({ onSelect, placeholder }: { onSelect: (item: any) => void; placeholder?: string }) {
   const [search, setSearch] = useState('')
@@ -188,7 +199,6 @@ export default function NewPRPage() {
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const [vendorSearch, setVendorSearch] = useState('')
   const [showVendorSearch, setShowVendorSearch] = useState(false)
-
   // ─── Remote data ──────────────────────────────────────────────────────
 
   const { data: trackingIds } = useQuery({
@@ -277,20 +287,24 @@ export default function NewPRPage() {
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const mode = submitModeRef.current
-      const payload = { ...data, invited_vendor_ids: selectedVendors.map(v => v.id) }
-      const body: Record<string, any> = {}
-      if (selectedMatrix) body.matrix_id = selectedMatrix
+      const payload = { ...data, invited_vendor_ids: selectedVendors.map(v => v.id),        
+        status: mode === 'approval' ? 'pending_approval' : 'draft',
+      }
 
-      const { data: pr } = await apiClient.post('/procurement/', payload,body)
+      if (mode === 'approval' && selectedMatrix) {
+        payload.matrix_id = selectedMatrix
+      }
+  
+      const { data: pr } = await apiClient.post('/procurement/', payload)
 
       return { pr, mode }
     },
     onSuccess: ({ pr, mode }) => {
       if (mode === 'approval') {
-        toast({ title: `PR ${pr.pr_number} submitted for approval.` })
+        toast({ title: `PR submitted for approval.` })
         router.push('/procurement')
       } else {
-        toast({ title: `PR ${pr.pr_number} saved as draft.` })
+        toast({ title: `PR saved as draft.` })
         router.push(`/procurement`)
       }
     },

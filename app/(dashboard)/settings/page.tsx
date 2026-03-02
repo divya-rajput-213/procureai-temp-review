@@ -303,15 +303,11 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
           </select>
         </div>
         <div className="space-y-1">
-          <Label>Plant (blank = all plants)</Label>
+          <Label>Plant </Label>
           <select className="w-full h-10 border rounded-md px-3 text-sm bg-background" value={form.plant} onChange={e => set('plant', e.target.value)}>
             <option value="">All Plants</option>
             {(plants || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-        </div>
-        <div className="flex items-center gap-2 pt-6">
-          <input type="checkbox" id="is_active" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="h-4 w-4" />
-          <Label htmlFor="is_active">Active</Label>
         </div>
       </div>
 
@@ -348,7 +344,7 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button onClick={() => onSave(form)} disabled={saving || !form.name || form.levels.some(l => !l.user || !l.role)}>
+        <Button onClick={() => onSave(form)} >
           {saving && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />} Save Matrix
         </Button>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
@@ -868,7 +864,7 @@ export default function SettingsPage() {
   ] as const
 
   return (
-    <div className="space-y-4 max-w-4xl">
+    <div className="space-y-4">
       {/* Tab bar */}
       <div className="border-b flex gap-1">
         {TABS.map(t => (
