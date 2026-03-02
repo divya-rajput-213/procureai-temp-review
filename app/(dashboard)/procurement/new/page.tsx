@@ -459,10 +459,12 @@ export default function NewPRPage() {
                           const newIdx = duplicateIdx < idx ? idx - 1 : idx
                           setValue(`line_items.${newIdx}.item_code`, item.id)
                           setValue(`line_items.${newIdx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+                          if (item.unit_rate) setValue(`line_items.${newIdx}.unit_rate`, Number(item.unit_rate))
                           return
                         }
                         setValue(`line_items.${idx}.item_code`, item.id)
                         setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+                        if (item.unit_rate) setValue(`line_items.${idx}.unit_rate`, Number(item.unit_rate))
                       }}
                       placeholder="Search by code or description…"
                     />
