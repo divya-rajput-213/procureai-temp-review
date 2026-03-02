@@ -122,7 +122,7 @@ function TrackingIdSearch({
   )
 }
 
-function ItemSearch({ onSelect, placeholder,displayValue }: { onSelect: (item: any) => void; placeholder?: string,displayValue?:string }) {
+function ItemSearch({ onSelect, placeholder, displayValue }: { onSelect: (item: any) => void; placeholder?: string, displayValue?: string }) {
   const [search, setSearch] = useState(displayValue ?? '')
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -235,7 +235,7 @@ export default function NewPRPage() {
   // ─── Form ─────────────────────────────────────────────────────────────
 
   const {
-    register, control, handleSubmit, watch, setValue, trigger,clearErrors,
+    register, control, handleSubmit, watch, setValue, trigger, clearErrors,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -267,7 +267,7 @@ export default function NewPRPage() {
     // auto fill fields
     setValue('plant', trackingDetail.plant);
     setValue('department', trackingDetail.department);
-    setValue('description',trackingDetail?.description)
+    setValue('description', trackingDetail?.description)
     setValue('title', trackingDetail.title ?? '');
     // Handle vendors safely
     if (
@@ -545,7 +545,7 @@ export default function NewPRPage() {
                     <div className="col-span-12 sm:col-span-5 space-y-1">
                       <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
                       <ItemSearch
-                      displayValue={itemLabels[idx]} 
+                        displayValue={itemLabels[idx]}
                         onSelect={item => {
                           const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
                           if (duplicateIdx !== -1) {
@@ -594,9 +594,16 @@ export default function NewPRPage() {
                     </div>
                     <div className="col-span-12 sm:col-span-1 space-y-1">
                       <Label className="text-xs hidden sm:block">Total</Label>
-                      <p className="text-sm font-medium h-10 flex items-center sm:justify-end tabular-nums">
-                        {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
-                      </p>
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        value={(watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0)}  // Raw numeric value
+                        disabled
+                        className="h-10 text-sm"
+                      />
+
+    
+
                     </div>
                   </div>
                 </div>
@@ -631,22 +638,22 @@ export default function NewPRPage() {
                   </tfoot>
                 </table>
               </div>
-           
-          </CardContent>
-        </Card>
 
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            className="gap-1.5"
-            onClick={async () => {
-              const ok = await trigger(['tracking_id', 'plant', 'department'])
-              if (ok) setActiveTab('matrix')
-            }}
-          >
-            Next<ArrowRight className="w-4 h-4" />
-          </Button>
-        </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              className="gap-1.5"
+              onClick={async () => {
+                const ok = await trigger(['tracking_id', 'plant', 'department'])
+                if (ok) setActiveTab('matrix')
+              }}
+            >
+              Next<ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
         </>)}
 
         {/* ── Tab 2: Approval Matrix ── */}
