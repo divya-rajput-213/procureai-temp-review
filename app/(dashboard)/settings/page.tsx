@@ -33,143 +33,6 @@ type MatrixForm = {
   is_active: boolean
   levels: MatrixLevel[]
 }
-
-const MATRIX_TYPES = [
-  { value: 'vendor_onboarding', label: 'Vendor Onboarding' },
-  { value: 'budget_approval', label: 'Budget Approval' },
-  { value: 'purchase_requisition', label: 'Purchase Requisition' },
-]
-
-function emptyForm(): MatrixForm {
-  return {
-    name: '',
-    matrix_type: 'budget_approval',
-    plant: '',
-    is_active: true,
-    levels: [{ level_number: 1, user: '', role: '', sla_hours: 72 }],
-  }
-}
-
-// ─── Matrix Form Panel ────────────────────────────────────────────────────────
-
-function MatrixFormPanel({ initial, plants, users, roles, onSave, onCancel, saving }: {
-  initial: MatrixForm
-  plants: any[]
-  users: any[]
-  roles: any[]
-  onSave: (data: MatrixForm) => void
-  onCancel: () => void
-  saving: boolean
-}) {
-  const [form, setForm] = useState<MatrixForm>(initial)
-  const set = (k: keyof MatrixForm, v: any) => setForm(prev => ({ ...prev, [k]: v }))
-
-  const addLevel = () => {
-    const next = form.levels.length + 1
-    setForm(prev => ({
-      ...prev,
-      levels: [...prev.levels, { level_number: next, user: '', role: '', sla_hours: 72 }],
-    }))
-  }
-
-  const removeLevel = (idx: number) => {
-    setForm(prev => ({
-      ...prev,
-      levels: prev.levels
-        .filter((_, i) => i !== idx)
-        .map((lv, i) => ({ ...lv, level_number: i + 1 })),
-    }))
-  }
-
-  const setLevel = (idx: number, k: keyof MatrixLevel, v: any) => {
-    setForm(prev => ({
-      ...prev,
-      levels: prev.levels.map((lv, i) => i === idx ? { ...lv, [k]: v } : lv),
-    }))
-  }
-
-  const uniqueUsers = Array.from(new Map(users.map((u: any) => [u.id, u])).values())
-
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1 sm:col-span-2">
-          <Label className="text-xs">Matrix Name <span className="text-destructive">*</span></Label>
-          <Input value={form.name} onChange={e => set('name', e.target.value)} className="h-8 text-sm" placeholder="e.g. Standard Budget Approval" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Matrix Type <span className="text-destructive">*</span></Label>
-          <select className="w-full h-8 border rounded-md px-3 text-sm bg-background" value={form.matrix_type} onChange={e => set('matrix_type', e.target.value)}>
-            {MATRIX_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Plant (optional)</Label>
-          <select className="w-full h-8 border rounded-md px-3 text-sm bg-background" value={form.plant} onChange={e => set('plant', e.target.value ? Number(e.target.value) : '')}>
-            <option value="">All Plants</option>
-            {plants.map((p: any) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-2 pt-1">
-          <input type="checkbox" id="matrix-active" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
-          <label htmlFor="matrix-active" className="text-sm cursor-pointer">Active (visible for selection)</label>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs font-semibold">Approval Levels</Label>
-          <Button type="button" variant="outline" size="sm" onClick={addLevel} className="h-7 text-xs gap-1">
-            <Plus className="w-3 h-3" /> Add Level
-          </Button>
-        </div>
-        {form.levels.map((lv, idx) => (
-          <div key={lv.level_number} className="border rounded-lg p-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">Level {lv.level_number}</span>
-              {form.levels.length > 1 && (
-                <button type="button" onClick={() => removeLevel(idx)} className="text-muted-foreground hover:text-red-600">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Approver <span className="text-destructive">*</span></Label>
-                <select className="w-full h-8 border rounded-md px-3 text-sm bg-background" value={lv.user} onChange={e => setLevel(idx, 'user', e.target.value ? Number(e.target.value) : '')}>
-                  <option value="">Select user…</option>
-                  {uniqueUsers.map((u: any) => (
-                    <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Role <span className="text-destructive">*</span></Label>
-                <select className="w-full h-8 border rounded-md px-3 text-sm bg-background" value={lv.role} onChange={e => setLevel(idx, 'role', e.target.value ? Number(e.target.value) : '')}>
-                  <option value="">Select role…</option>
-                  {roles.map((r: any) => <option key={r.id} value={r.id}>{r.display_name}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">SLA (hours)</Label>
-                <Input type="number" min="1" value={lv.sla_hours} onChange={e => setLevel(idx, 'sla_hours', Number(e.target.value) || 72)} className="h-8 text-sm" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex justify-end gap-3 pt-2 border-t">
-        <Button variant="outline" size="sm" onClick={onCancel} className="gap-1"><X className="w-3.5 h-3.5" /> Cancel</Button>
-        <Button size="sm" onClick={() => onSave(form)} disabled={saving || !form.name} className="gap-1">
-          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-          Save Matrix
-        </Button>
-      </div>
-    </div>
-  )
-}
-
 // ─── Matrix Row ───────────────────────────────────────────────────────────────
 
 function MatrixRow({ matrix, onEdit, onDelete, onToggle }: {
@@ -254,11 +117,13 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
   initial?: MatrixDraft; onSave: (d: MatrixDraft) => void; onCancel: () => void; saving: boolean
 }) {
   const [form, setForm] = useState<MatrixDraft>(initial ?? EMPTY_DRAFT)
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
   const { data: plants } = useQuery({
     queryKey: ['plants'],
     queryFn: async () => { const r = await apiClient.get('/users/plants/'); return r.data.results ?? r.data },
   })
+
   const { data: users } = useQuery({
     queryKey: ['users-active'],
     queryFn: async () => {
@@ -289,22 +154,62 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
   const removeLevel = (i: number) =>
     setForm(f => ({ ...f, levels: f.levels.filter((_, idx) => idx !== i).map((l, idx) => ({ ...l, level_number: idx + 1 })) }))
 
+  const validate = () => {
+    let formErrors: { [key: string]: string } = {}
+    if (!form.name) formErrors.name = 'Matrix name is required.'
+    if (!form.matrix_type) formErrors.matrix_type = 'Matrix type is required.'
+    if (form.levels.length === 0) formErrors.levels = 'At least one approval level is required.'
+
+    // Validate each level
+    form.levels.forEach((level, idx) => {
+      if (!level.user || !level.role) {
+        formErrors[`level_${idx}`] = 'Both user and role are required for this level.'
+      }
+      if (level.sla_hours <= 0) {
+        formErrors[`sla_${idx}`] = 'SLA hours must be greater than 0.'
+      }
+    })
+
+    setErrors(formErrors)
+    return Object.keys(formErrors).length === 0
+  }
+
+  const handleSave = () => {
+    if (validate()) {
+      onSave(form)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="sm:col-span-3 space-y-1">
           <Label>Matrix Name *</Label>
-          <Input value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. PR Approval — Standard" />
+          <Input
+            value={form.name}
+            onChange={e => set('name', e.target.value)}
+            placeholder="e.g. PR Approval — Standard"
+          />
+          {errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
         </div>
         <div className="space-y-1">
           <Label>Type *</Label>
-          <select className="w-full h-10 border rounded-md px-3 text-sm bg-background" value={form.matrix_type} onChange={e => set('matrix_type', e.target.value)}>
+          <select
+            className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+            value={form.matrix_type}
+            onChange={e => set('matrix_type', e.target.value)}
+          >
             {MATRIX_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+          {errors.matrix_type && <p className="text-red-500 text-xs">{errors.matrix_type}</p>}
         </div>
         <div className="space-y-1">
-          <Label>Plant </Label>
-          <select className="w-full h-10 border rounded-md px-3 text-sm bg-background" value={form.plant} onChange={e => set('plant', e.target.value)}>
+          <Label>Plant</Label>
+          <select
+            className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+            value={form.plant}
+            onChange={e => set('plant', e.target.value)}
+          >
             <option value="">All Plants</option>
             {(plants || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -319,32 +224,43 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
           </Button>
         </div>
         {form.levels.map((level, idx) => (
-          <div key={level.level_number} className="flex items-center gap-2 border rounded-lg p-3 bg-slate-50">
-            <span className="text-xs font-bold text-muted-foreground w-6 shrink-0">L{level.level_number}</span>
-            <select
-              className="flex-1 h-9 border rounded-md px-2 text-sm bg-background"
-              value={level.user && level.role ? `${level.user}:${level.role}` : ''}
-              onChange={e => setLevelApprover(idx, e.target.value)}
-            >
-              <option value="">Select approver…</option>
-              {approverOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-            <div className="flex items-center gap-1 shrink-0">
-              <Input type="number" className="w-20 h-9 text-sm" value={level.sla_hours}
-                onChange={e => setLevelSla(idx, Number(e.target.value))} />
-              <span className="text-xs text-muted-foreground">hrs</span>
+          <>
+            <div key={level.level_number} className="flex items-center gap-2 border rounded-lg p-3 bg-slate-50">
+              <span className="text-xs font-bold text-muted-foreground w-6 shrink-0">L{level.level_number}</span>
+              <select
+                className="flex-1 h-9 border rounded-md px-2 text-sm bg-background"
+                value={level.user && level.role ? `${level.user}:${level.role}` : ''}
+                onChange={e => setLevelApprover(idx, e.target.value)}
+              >
+                <option value="">Select approver…</option>
+                {approverOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <div className="flex items-center gap-1 shrink-0">
+                <Input
+                  type="number"
+                  className="w-20 h-9 text-sm"
+                  value={level.sla_hours}
+                  onChange={e => setLevelSla(idx, Number(e.target.value))}
+                />
+                <span className="text-xs text-muted-foreground">hrs</span>
+              </div>
+              {errors[`sla_${idx}`] && <p className="text-red-500 text-xs">{errors[`sla_${idx}`]}</p>}
+              {form.levels.length > 1 && (
+                <button type="button" onClick={() => removeLevel(idx)} className="text-red-400 hover:text-red-600 ml-1">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
-            {form.levels.length > 1 && (
-              <button type="button" onClick={() => removeLevel(idx)} className="text-red-400 hover:text-red-600 ml-1">
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+            {errors[`level_${idx}`] && <p className="text-red-500 text-xs">{errors[`level_${idx}`]}</p>}
+          </>
+
+
         ))}
+
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button onClick={() => onSave(form)} >
+        <Button onClick={handleSave}>
           {saving && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />} Save Matrix
         </Button>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
@@ -352,6 +268,7 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
     </div>
   )
 }
+
 
 function MatrixConfigTab() {
   const { toast } = useToast()
