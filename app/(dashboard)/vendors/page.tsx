@@ -346,14 +346,14 @@ export default function VendorsPage() {
           <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5">
             <Download className="w-3.5 h-3.5" /> CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-1.5">
+          {/* <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-1.5">
             <FileText className="w-3.5 h-3.5" /> PDF
           </Button>
           <Link href="/vendors/import">
             <Button variant="outline" className="gap-2">
               <Upload className="w-4 h-4" /> Import
             </Button>
-          </Link>
+          </Link> */}
           <Link href="/vendors/new">
             <Button className="gap-2">
               <Plus className="w-4 h-4" /> Add Vendor
