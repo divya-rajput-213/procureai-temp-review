@@ -1428,70 +1428,86 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
 // ─── Main Page ────────────────────────────────────────────────────────────────
 // ─── Vendor PDF Export ────────────────────────────────────────────────────────
 
-function exportVendorPDF(vendor: any) {
+async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
   const addr = [vendor.address, vendor.city, vendor.state, vendor.pincode].filter(Boolean).join(', ')
-  const badgeCls: Record<string, string> = {
-    approved: 'background:#dcfce7;color:#166534',
-    draft: 'background:#f1f5f9;color:#475569',
-    rejected: 'background:#fee2e2;color:#991b1b',
-    pending_approval: 'background:#fef3c7;color:#92400e',
-    blocked: 'background:#fee2e2;color:#991b1b',
+
+  // Fetch bids from dashboard endpoint
+  let activeBids: any[] = []
+  try {
+    const dash = await apiClient.get(`/vendors/${vendorId}/dashboard/`)
+    activeBids = dash.data.active_bids ?? []
+  } catch { /* silently skip if unavailable */ }
+
+  const statusColors: Record<string, string> = {
+    approved:         'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
+    draft:            'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0',
+    rejected:         'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
+    pending_approval: 'background:#fef3c7;color:#92400e;border:1px solid #fde68a',
+    blocked:          'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
   }
-  const statusStyle = badgeCls[vendor.status] ?? 'background:#f1f5f9;color:#475569'
+  const statusStyle = statusColors[vendor.status] ?? statusColors.draft
 
-  const tag = (label: string, color: string) =>
-    `<span style="display:inline-block;padding:1px 7px;border-radius:9999px;font-size:9px;font-weight:700;background:${color};margin-right:4px;">${label}</span>`
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
-  const row = (label: string, value: string) =>
-    `<tr><td style="padding:5px 8px;color:#64748b;font-size:10px;width:45%">${label}</td><td style="padding:5px 8px;font-size:10px;font-weight:500">${value || '—'}</td></tr>`
+  const badge = (label: string, bg: string, fg: string, border: string) =>
+    `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:9px;font-weight:700;background:${bg};color:${fg};border:1px solid ${border};letter-spacing:0.03em">${label}</span>`
 
-  const sectionHtml = (title: string, rows: string) =>
-    `<div style="margin-bottom:16px">
-      <div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:6px">${title}</div>
-      <table style="width:100%;border-collapse:collapse">${rows}</table>
+  // Field row for a key-value table (label left, value right)
+  const frow = (label: string, value: string | undefined | null) =>
+    `<tr>
+      <td style="padding:5px 10px;color:#64748b;font-size:9.5px;width:42%;border-bottom:1px solid #f1f5f9;white-space:nowrap">${label}</td>
+      <td style="padding:5px 10px;font-size:9.5px;font-weight:500;border-bottom:1px solid #f1f5f9">${value || '—'}</td>
+    </tr>`
+
+  // Section block — title + table rows, used inside a <td> of the 2-col outer table
+  const section = (title: string, rows: string) =>
+    `<div style="margin-bottom:14px">
+      <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">${title}</div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">${rows}</table>
     </div>`
 
-  const infoRows = [
-    row('GST Number', vendor.gst_number),
-    row('PAN Number', vendor.pan_number),
-    row('Category', vendor.category_name),
-    row('Plant', vendor.plant_name),
-    row('SAP Vendor Code', vendor.sap_vendor_code),
-    row('Country', vendor.country),
-    row('MSME Number', vendor.is_msme ? (vendor.msme_number || 'Yes') : 'No'),
-    row('SEZ Unit', vendor.is_sez ? 'Yes' : 'No'),
-    row('International', vendor.is_international ? 'Yes' : 'No'),
+  // ── Data rows ──────────────────────────────────────────────────────────────
+
+  const identityRows = [
+    frow('GST Number',     vendor.gst_number),
+    frow('PAN Number',     vendor.pan_number),
+    frow('Category',       vendor.category_name),
+    frow('Plant',          vendor.plant_name),
+    frow('SAP Code',       vendor.sap_vendor_code),
+    frow('Country',        vendor.country),
+    frow('MSME',           vendor.is_msme ? (vendor.msme_number ? `Yes — ${vendor.msme_number}` : 'Yes') : 'No'),
+    frow('SEZ',            vendor.is_sez ? 'Yes' : 'No'),
+    frow('International',  vendor.is_international ? 'Yes' : 'No'),
   ].join('')
 
   const contactRows = [
-    row('Contact Person', vendor.contact_name),
-    row('Email', vendor.contact_email),
-    row('Phone', vendor.contact_phone),
-    row('Address', addr),
+    frow('Contact Person', vendor.contact_name),
+    frow('Email',          vendor.contact_email),
+    frow('Phone',          vendor.contact_phone),
+    frow('Address',        addr),
   ].join('')
 
   const bankRows = [
-    row('Bank Name', vendor.bank_name),
-    row('Account Number', vendor.bank_account),
-    row('IFSC Code', vendor.bank_ifsc),
+    frow('Bank Name',      vendor.bank_name),
+    frow('Account No.',    vendor.bank_account),
+    frow('IFSC Code',      vendor.bank_ifsc),
   ].join('')
 
   const commercialRows = [
-    row('Pricing Model', vendor.pricing_model),
-    row('Payment Terms', vendor.payment_terms),
-    row('Currency', vendor.currency),
-    row('Incoterms', vendor.incoterms),
-    row('Std Lead Time', vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : ''),
-    row('Rush Lead Time', vendor.rush_lead_time_days ? `${vendor.rush_lead_time_days} days` : ''),
-    row('Min Order Qty', vendor.min_order_quantity),
+    frow('Pricing Model',  vendor.pricing_model),
+    frow('Payment Terms',  vendor.payment_terms),
+    frow('Currency',       vendor.currency),
+    frow('Incoterms',      vendor.incoterms),
+    frow('Std Lead Time',  vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : null),
+    frow('Rush Lead Time', vendor.rush_lead_time_days ? `${vendor.rush_lead_time_days} days` : null),
+    frow('Min Order Qty',  vendor.min_order_quantity != null ? String(vendor.min_order_quantity) : null),
   ].join('')
 
-  const perfRows = [
-    row('Performance Score', vendor.performance_score != null ? `${Number(vendor.performance_score).toFixed(1)} / 100` : ''),
-    row('Risk Score', vendor.risk_score != null ? `${Number(vendor.risk_score).toFixed(1)} / 100` : ''),
-    row('Created By', vendor.created_by_name),
-    row('Created At', vendor.created_at ? new Date(vendor.created_at).toLocaleDateString() : ''),
-  ].join('')
+  const perfScore  = vendor.performance_score != null ? `${Number(vendor.performance_score).toFixed(1)} / 100` : null
+  const riskScore  = vendor.risk_score != null ? `${Number(vendor.risk_score).toFixed(1)} / 100` : null
+  const createdAt  = vendor.created_at ? new Date(vendor.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null
+
+  // ── HTML ───────────────────────────────────────────────────────────────────
 
   const html = `<!DOCTYPE html>
 <html>
@@ -1499,51 +1515,142 @@ function exportVendorPDF(vendor: any) {
   <meta charset="utf-8"/>
   <title>Vendor Profile — ${vendor.company_name}</title>
   <style>
-    @page { size: A4; margin: 14mm 16mm; }
-    body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; color: #1e293b; }
-    h1 { font-size: 18px; margin: 0 0 4px; color: #1e3a5f; }
-    .meta { font-size: 10px; color: #64748b; margin-bottom: 14px; }
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
-    table tr:nth-child(even) td { background: #f8fafc; }
-    .footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #94a3b8; display: flex; justify-content: space-between; }
+    @page { size: A4 portrait; margin: 14mm 15mm 12mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; margin: 0; color: #1e293b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    a { color: inherit; text-decoration: none; }
   </style>
 </head>
 <body>
-  <h1>${vendor.company_name}
-    <span style="display:inline-block;padding:2px 9px;border-radius:9999px;font-size:10px;font-weight:600;${statusStyle};margin-left:6px">${(vendor.status ?? '').replace(/_/g, ' ')}</span>
-    ${vendor.is_msme ? tag('MSME', '#dbeafe') : ''}
-    ${vendor.is_sez ? tag('SEZ', '#f3e8ff') : ''}
-    ${vendor.is_international ? tag('International', '#fce7f3') : ''}
-  </h1>
-  <div class="meta">
-    Vendor Code: <strong>${vendor.vendor_code || '—'}</strong>
-    &nbsp;·&nbsp; Category: <strong>${vendor.category_name || '—'}</strong>
-    &nbsp;·&nbsp; Plant: <strong>${vendor.plant_name || '—'}</strong>
-  </div>
 
-  <div class="grid2">
-    ${sectionHtml('Business Identity', infoRows)}
-    ${sectionHtml('Contact Information', contactRows)}
-  </div>
-  <div class="grid2">
-    ${sectionHtml('Bank Details', bankRows)}
-    ${sectionHtml('Commercial Terms', commercialRows)}
-  </div>
-  ${sectionHtml('Performance & Audit', perfRows)}
+  <!-- ═══ HEADER ═══ -->
+  <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #1e3a5f;padding-bottom:10px;margin-bottom:12px">
+    <tr>
+      <td style="vertical-align:top">
+        <div style="font-size:20px;font-weight:700;color:#1e3a5f;line-height:1.1">${vendor.company_name}</div>
+        <div style="margin-top:5px">
+          <span style="display:inline-block;padding:2px 10px;border-radius:9999px;font-size:9px;font-weight:700;${statusStyle}">${(vendor.status ?? '').replace(/_/g, ' ').toUpperCase()}</span>
+          ${vendor.is_msme ? '&nbsp;' + badge('MSME', '#dbeafe', '#1e40af', '#bfdbfe') : ''}
+          ${vendor.is_sez ? '&nbsp;' + badge('SEZ', '#f3e8ff', '#7e22ce', '#e9d5ff') : ''}
+          ${vendor.is_international ? '&nbsp;' + badge('International', '#fce7f3', '#9d174d', '#fbcfe8') : ''}
+        </div>
+      </td>
+      <td style="text-align:right;vertical-align:top;white-space:nowrap">
+        <div style="font-size:9px;color:#64748b;line-height:1.8">
+          <div><strong style="color:#1e293b">Vendor Code:</strong> ${vendor.vendor_code || '—'}</div>
+          <div><strong style="color:#1e293b">SAP Code:</strong> ${vendor.sap_vendor_code || '—'}</div>
+          <div><strong style="color:#1e293b">Generated:</strong> ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+        </div>
+      </td>
+    </tr>
+  </table>
 
-  <div class="footer">
-    <span>Lumax Procurement — Vendor Profile Report</span>
-    <span>Generated: ${new Date().toLocaleString()}</span>
-  </div>
+  <!-- ═══ ROW 1: Business Identity | Contact ═══ -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:2px">
+    <tr>
+      <td style="width:50%;padding-right:8px;vertical-align:top">${section('Business Identity', identityRows)}</td>
+      <td style="width:50%;padding-left:8px;vertical-align:top">${section('Contact Information', contactRows)}</td>
+    </tr>
+  </table>
+
+  <!-- ═══ ROW 2: Bank | Commercial Terms ═══ -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:2px">
+    <tr>
+      <td style="width:50%;padding-right:8px;vertical-align:top">${section('Bank Details', bankRows)}</td>
+      <td style="width:50%;padding-left:8px;vertical-align:top">${section('Commercial Terms', commercialRows)}</td>
+    </tr>
+  </table>
+
+  <!-- ═══ ROW 3: Performance ═══ -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+    <tr>
+      <td style="vertical-align:top">
+        <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Performance &amp; Audit</div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">
+          <tr>
+            <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
+              <div style="font-size:8.5px;color:#64748b">Performance Score</div>
+              <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-top:2px">${perfScore ?? '—'}</div>
+            </td>
+            <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
+              <div style="font-size:8.5px;color:#64748b">Risk Score</div>
+              <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-top:2px">${riskScore ?? '—'}</div>
+            </td>
+            <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
+              <div style="font-size:8.5px;color:#64748b">Created By</div>
+              <div style="font-size:11px;font-weight:600;color:#1e293b;margin-top:2px">${vendor.created_by_name || '—'}</div>
+            </td>
+            <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
+              <div style="font-size:8.5px;color:#64748b">Created On</div>
+              <div style="font-size:11px;font-weight:600;color:#1e293b;margin-top:2px">${createdAt ?? '—'}</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  ${activeBids.length > 0 ? `
+  <!-- ═══ ACTIVE BIDS ═══ -->
+  <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Active &amp; Recent Bids</div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+    <thead>
+      <tr style="background:#f1f5f9">
+        <th style="padding:5px 8px;text-align:left;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:90px">PR Number</th>
+        <th style="padding:5px 8px;text-align:left;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b">Title / Description</th>
+        <th style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:80px">Status</th>
+        <th style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:100px">Bid Amount</th>
+        <th style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:80px">Submitted</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${activeBids.map((bid: any, idx: number) => {
+        const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
+        const statusClr: Record<string, string> = {
+          pending:      'background:#fef3c7;color:#92400e',
+          shortlisted:  'background:#dbeafe;color:#1e40af',
+          accepted:     'background:#dcfce7;color:#166534',
+          rejected:     'background:#fee2e2;color:#991b1b',
+        }
+        const sStyle = statusClr[bid.status] ?? 'background:#f1f5f9;color:#475569'
+        const amtStr = bid.bid_amount != null
+          ? Number(bid.bid_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+          : '—'
+        return `<tr style="${bg}">
+          <td style="padding:5px 8px;font-family:Courier New,monospace;font-size:9px;border:1px solid #e2e8f0">${bid.pr_number}</td>
+          <td style="padding:5px 8px;font-size:9.5px;border:1px solid #e2e8f0">${bid.title || '—'}</td>
+          <td style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0">
+            <span style="display:inline-block;padding:1px 6px;border-radius:9999px;font-size:8px;font-weight:700;${sStyle}">${(bid.status ?? '').replace(/_/g, ' ')}</span>
+          </td>
+          <td style="padding:5px 8px;text-align:right;font-weight:600;border:1px solid #e2e8f0;font-size:9.5px">${amtStr}</td>
+          <td style="padding:5px 8px;text-align:center;color:#64748b;border:1px solid #e2e8f0;font-size:9px">${bid.submitted_at || '—'}</td>
+        </tr>`
+      }).join('')}
+    </tbody>
+  </table>` : ''}
+
+  <!-- ═══ FOOTER ═══ -->
+  <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;padding-top:6px;margin-top:4px">
+    <tr>
+      <td style="font-size:8.5px;color:#94a3b8">Lumax Procurement — Vendor Profile Report</td>
+      <td style="font-size:8.5px;color:#94a3b8;text-align:right">This is a system-generated document. Please verify before use.</td>
+    </tr>
+  </table>
+
 </body>
 </html>`
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
-  const win = window.open(url, '_blank')
-  if (!win) { URL.revokeObjectURL(url); return }
-  win.addEventListener('load', () => { win.focus(); win.print() })
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none'
+  document.body.appendChild(iframe)
+  iframe.src = url
+  iframe.addEventListener('load', () => {
+    iframe.contentWindow?.focus()
+    iframe.contentWindow?.print()
+    setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url) }, 60_000)
+  })
 }
 
 export default function VendorDetailPage() {
@@ -1654,7 +1761,7 @@ export default function VendorDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => exportVendorPDF(vendor)} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => { void exportVendorPDF(vendor, id) }} className="gap-1.5">
             <Download className="w-3.5 h-3.5" /> Download PDF
           </Button>
           {isDraft && !isEditing && (
