@@ -484,7 +484,6 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
     title: pr.title ?? ""
   })
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
-console.log('pr', pr)
   // Invited vendors
   const [invitedVendors, setInvitedVendors] = useState<any[]>(pr.invited_vendors_detail ?? [])
   const [vendorSearch, setVendorSearch] = useState('')
@@ -550,7 +549,6 @@ console.log('pr', pr)
     setLineItems(prev => prev.map((li, i) => i === idx ? { ...li, [k]: v } : li))
 
   const selectItem = (idx: number, item: any) => {
-    console.log('first', item.description)
     setLI(idx, 'item_code', item.id)
     setLI(idx, 'description', item.description)
     setItemSearch(prev => ({ ...prev, [idx]: `${item.code} - ${item.description}` }))

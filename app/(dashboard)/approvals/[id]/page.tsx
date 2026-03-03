@@ -285,13 +285,11 @@ export default function ApprovalDetailPage() {
   const hasEntityDetail = request.entity_detail && Object.keys(request.entity_detail).length > 0
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4 ">
 
       {/* ── Header ── */}
       <div className="flex items-center gap-3 flex-wrap">
-        <Button variant="ghost" size="sm" onClick={() => router.back()} className="gap-1 shrink-0">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
+ 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <EntityTypeIcon type={request.entity_type} />
@@ -305,6 +303,9 @@ export default function ApprovalDetailPage() {
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${requestStatusClass(request.status)}`}>
           {request.status}
         </span>
+        <Button variant="ghost" size="sm" onClick={() => router.back()} className="gap-1 shrink-0">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </Button>
       </div>
 
       {/* ── Entity Detail Card ── */}
@@ -452,22 +453,6 @@ export default function ApprovalDetailPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* ── Summary cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {[
-          { label: 'Current Level', value: `L${request.current_level}` },
-          { label: 'Matrix', value: request.matrix_name },
-          { label: 'Status', value: request.status },
-          { label: 'Submitted', value: formatDateTime(request.created_at) },
-          { label: 'Completed', value: request.completed_at ? formatDateTime(request.completed_at) : 'Pending' },
-        ].map(({ label, value }) => (
-          <div key={label} className="border rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="text-sm font-medium mt-0.5 capitalize">{value}</p>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

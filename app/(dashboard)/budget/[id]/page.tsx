@@ -529,7 +529,6 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
   onSubmitApproval?: (matrixId: number | null) => Promise<void>
 }) {
   const { currencySymbol } = useSettingsStore()
-console.log('isDraft', isDraft)
   const [title, setTitle] = useState<string>(budget.title ?? '')
   const [description, setDescription] = useState<string>(budget.description ?? '')
   const [requestedAmount, setRequestedAmount] = useState<number>(Number(budget.requested_amount) || 0)
