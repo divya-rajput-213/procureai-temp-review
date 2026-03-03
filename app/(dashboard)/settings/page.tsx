@@ -109,8 +109,9 @@ const EMPTY_DRAFT: MatrixDraft = {
 
 const MATRIX_TYPE_OPTIONS = [
   { value: 'purchase_requisition', label: 'Purchase Requisition' },
-  { value: 'budget_approval', label: 'Budget Approval' },
-  { value: 'vendor_onboarding', label: 'Vendor Onboarding' },
+  { value: 'budget_approval',      label: 'Budget Approval' },
+  { value: 'vendor_onboarding',    label: 'Vendor Onboarding' },
+  { value: 'vendor_bid',           label: 'Vendor Bid Approval' },
 ]
 
 function MatrixForm({ initial, onSave, onCancel, saving }: {
@@ -776,7 +777,7 @@ export default function SettingsPage() {
 
   const TABS = [
     { key: 'account', label: 'Account' },
-    { key: 'matrices', label: 'Matrix Config' },
+    { key: 'matrices', label: 'Matrix Config'},
     { key: 'system', label: 'System' },
   ] as const
 

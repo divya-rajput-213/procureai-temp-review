@@ -12,8 +12,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import {
   Loader2, Clock, CheckCircle, XCircle, PauseCircle,
-  Plus, Trash2, Pencil, X, Settings, ChevronDown, ChevronUp,
-  Building2, Package, Users, ExternalLink, FileText,
+  X, Building2, Package, Users, ExternalLink, FileText, Search,
 } from 'lucide-react'
 import { formatDateTime, formatCurrency, getSLAPercentage, getSLAColor } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
@@ -342,12 +341,33 @@ function PendingCard({
   )
 }
 
-// ─── History Status Badge ─────────────────────────────────────────────────────
+// ─── History filter bar ───────────────────────────────────────────────────────
 
-function statusBadgeClass(status: string): string {
-  if (status === 'approved') return 'bg-green-100 text-green-700'
-  if (status === 'rejected') return 'bg-red-100 text-red-700'
-  return 'bg-amber-100 text-amber-700'
+const ENTITY_TYPE_OPTIONS = [
+  { value: '', label: 'All Types' },
+  { value: 'purchaserequisition', label: 'Purchase Requisition' },
+  { value: 'trackingid', label: 'Budget / Tracking ID' },
+  { value: 'vendor', label: 'Vendor Onboarding' },
+]
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'All Statuses' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'held', label: 'Held' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
+
+function historyStatusBadge(status: string) {
+  const map: Record<string, string> = {
+    approved: 'bg-green-100 text-green-700',
+    rejected: 'bg-red-100 text-red-700',
+    held:     'bg-amber-100 text-amber-700',
+    cancelled:'bg-slate-100 text-slate-500',
+    pending:  'bg-blue-100 text-blue-700',
+  }
+  return map[status] ?? 'bg-slate-100 text-slate-600'
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -360,14 +380,26 @@ export default function ApprovalsPage() {
   const [selectedActionId, setSelectedActionId] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // All History filters
+  const [histSearch, setHistSearch] = useState('')
+  const [histStatus, setHistStatus] = useState('')
+  const [histEntityType, setHistEntityType] = useState('')
+
   const { data: pendingMine, isLoading: loadingMine } = useQuery({
     queryKey: ['pending-mine'],
     queryFn: async () => (await apiClient.get('/approvals/requests/pending-mine/')).data,
     refetchInterval: 60000,
   })
+
   const { data: allRequests, isLoading: loadingAll } = useQuery({
-    queryKey: ['all-approval-requests'],
-    queryFn: async () => (await apiClient.get('/approvals/requests/')).data.results || [],
+    queryKey: ['all-approval-requests', histStatus, histEntityType],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (histStatus) params.set('status', histStatus)
+      if (histEntityType) params.set('entity_type', histEntityType)
+      const r = await apiClient.get(`/approvals/requests/?${params.toString()}`)
+      return r.data.results ?? r.data ?? []
+    },
     enabled: activeTab === 'all',
   })
 
@@ -381,11 +413,20 @@ export default function ApprovalsPage() {
     } catch (err: any) {
       toast({ title: 'Action failed', description: err?.response?.data?.error, variant: 'destructive' })
     } finally {
-      setSubmitting(false) }
+      setSubmitting(false)
+    }
   }
 
   const pending: any[] = pendingMine || []
-  const all: any[] = allRequests || []
+  const allRaw: any[] = allRequests || []
+
+  // Client-side text search on entity label + matrix name
+  const all = histSearch.trim()
+    ? allRaw.filter(r =>
+        r.entity_label?.toLowerCase().includes(histSearch.toLowerCase()) ||
+        r.matrix_name?.toLowerCase().includes(histSearch.toLowerCase())
+      )
+    : allRaw
 
   const TABS: Array<['mine' | 'all', string]> = [
     ['mine', pending.length > 0 ? `Pending My Action (${pending.length})` : 'Pending My Action'],
@@ -436,63 +477,125 @@ export default function ApprovalsPage() {
 
       {/* ── All History ── */}
       {activeTab === 'all' && (
-        <Card>
-          <CardContent className="p-0">
-            {loadingAll && (
-              <div className="p-8 text-center">
-                <Loader2 className="w-4 h-4 animate-spin mx-auto text-muted-foreground" />
-              </div>
+        <div className="space-y-3">
+          {/* Filter bar */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search entity or matrix…"
+                value={histSearch}
+                onChange={e => setHistSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <select
+              className="h-10 border rounded-md px-3 text-sm bg-background min-w-[160px]"
+              value={histEntityType}
+              onChange={e => setHistEntityType(e.target.value)}
+            >
+              {ENTITY_TYPE_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <select
+              className="h-10 border rounded-md px-3 text-sm bg-background min-w-[140px]"
+              value={histStatus}
+              onChange={e => setHistStatus(e.target.value)}
+            >
+              {STATUS_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            {(histSearch || histStatus || histEntityType) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground gap-1"
+                onClick={() => { setHistSearch(''); setHistStatus(''); setHistEntityType('') }}
+              >
+                <X className="w-3.5 h-3.5" /> Clear
+              </Button>
             )}
-            {!loadingAll && all.length === 0 && (
-              <div className="p-8 text-center text-muted-foreground">No approval history yet.</div>
-            )}
-            {!loadingAll && all.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b">
-                    <tr>
-                      {['Entity', 'Matrix', 'Level', 'Status', 'Submitted', 'Completed'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {all.map((req: any) => (
-                      <tr
-                        key={req.id}
-                        className="hover:bg-slate-50 cursor-pointer"
-                        onClick={() => router.push(`/approvals/${req.id}`)}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <EntityTypeIcon type={req.entity_type} />
-                            <div>
-                              <span className="font-medium">{req.entity_label}</span>
-                              <Badge variant="secondary" className="text-xs ml-2 capitalize">
-                                {entityTypeLabel(req.entity_type)}
-                              </Badge>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{req.matrix_name}</td>
-                        <td className="px-4 py-3">L{req.current_level}</td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${statusBadgeClass(req.status)}`}>
-                            {req.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{formatDateTime(req.created_at)}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {req.completed_at ? formatDateTime(req.completed_at) : '—'}
-                        </td>
+          </div>
+
+          {/* Table */}
+          <Card>
+            <CardContent className="p-0">
+              {loadingAll && (
+                <div className="p-8 text-center">
+                  <Loader2 className="w-4 h-4 animate-spin mx-auto text-muted-foreground" />
+                </div>
+              )}
+              {!loadingAll && all.length === 0 && (
+                <div className="p-10 text-center text-muted-foreground text-sm">
+                  {histSearch || histStatus || histEntityType
+                    ? 'No results match your filters.'
+                    : 'No approval history yet.'}
+                </div>
+              )}
+              {!loadingAll && all.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-b">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Entity</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Type</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Matrix</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Submitted</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Completed</th>
+                        <th className="px-4 py-3 w-8" />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </thead>
+                    <tbody className="divide-y">
+                      {all.map((req: any) => (
+                        <tr
+                          key={req.id}
+                          className="hover:bg-slate-50 cursor-pointer transition-colors"
+                          onClick={() => router.push(`/approvals/${req.id}`)}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <EntityTypeIcon type={req.entity_type} />
+                              <span className="font-medium truncate max-w-[180px]">{req.entity_label}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            <span className="text-xs text-muted-foreground">{entityTypeLabel(req.entity_type)}</span>
+                          </td>
+                          <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground text-xs">
+                            {req.matrix_name}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${historyStatusBadge(req.status)}`}>
+                              {req.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
+                            {formatDateTime(req.created_at)}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
+                            {req.completed_at ? formatDateTime(req.completed_at) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="px-4 py-3 border-t text-xs text-muted-foreground">
+                    {all.length} record{all.length === 1 ? '' : 's'}
+                    {(histSearch || histStatus || histEntityType) && allRaw.length !== all.length
+                      ? ` (filtered from ${allRaw.length})`
+                      : ''}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   )

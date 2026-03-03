@@ -5,24 +5,24 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Upload, Search, ExternalLink, Download, FileText,
+  Plus, Upload, Search, Download, FileText,
   ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SortDir = 'asc' | 'desc'
-type SortField = 'company_name' | 'status' | 'created_at' | 'category_name'
+type SortField = 'company_name' | 'status' | 'created_at' | 'category_name' | 'performance_score' | 'total_spend'
 
 // ─── Sort helpers ─────────────────────────────────────────────────────────────
 
-function SortIcon({ field, current, dir }: { field: SortField; current: SortField; dir: SortDir }) {
+function SortIcon({ field, current, dir }: Readonly<{ field: SortField; current: SortField; dir: SortDir }>) {
   if (field !== current) return <ChevronsUpDown className="w-3.5 h-3.5 text-muted-foreground/50" />
   return dir === 'asc'
     ? <ChevronUp className="w-3.5 h-3.5 text-primary" />
@@ -31,10 +31,10 @@ function SortIcon({ field, current, dir }: { field: SortField; current: SortFiel
 
 function SortableTh({
   field, label, current, dir, onSort,
-}: {
+}: Readonly<{
   field: SortField; label: string; current: SortField; dir: SortDir
   onSort: (f: SortField) => void
-}) {
+}>) {
   return (
     <th className="text-left px-4 py-3 font-medium text-muted-foreground">
       <button
@@ -203,13 +203,39 @@ function exportPDF(vendors: any[]) {
 </body>
 </html>`
 
-  const win = window.open('', '_blank')
-  if (!win) return
-  win.document.write(html)
-  win.document.close()
-  win.focus()
-  win.print()
-  win.close()
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url, '_blank')
+  if (!win) { URL.revokeObjectURL(url); return }
+  win.addEventListener('load', () => { win.focus(); win.print() })
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
+}
+
+function StarRating({ score }: Readonly<{ score: number }>) {
+  const filled = Math.round(score / 20)   // 0-100 → 0-5
+  return (
+    <div className="flex items-center gap-0.5" title={`${score.toFixed(0)} / 100`}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <span key={i} className={`text-base leading-none ${i < filled ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
+      ))}
+      <span className="text-xs text-muted-foreground ml-1 tabular-nums">{score.toFixed(0)}</span>
+    </div>
+  )
+}
+
+function riskLevel(score: number): { cls: string; label: string } {
+  if (score <= 30) return { cls: 'bg-green-100 text-green-700', label: 'Low' }
+  if (score <= 60) return { cls: 'bg-amber-100 text-amber-700', label: 'Medium' }
+  return { cls: 'bg-red-100 text-red-700', label: 'High' }
+}
+
+function RiskBadge({ score }: Readonly<{ score: number }>) {
+  const { cls, label } = riskLevel(score)
+  return (
+    <span className={`text-xs font-medium px-2 py-0.5 rounded-full tabular-nums ${cls}`}>
+      {label} ({score.toFixed(0)})
+    </span>
+  )
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -359,11 +385,14 @@ export default function VendorsPage() {
                 <thead className="bg-slate-50 border-b">
                   <tr>
                     <SortableTh field="company_name" label="Company" {...sortProps} />
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">GST No.</th>
                     <SortableTh field="category_name" label="Category" {...sortProps} />
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plant</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">GST No.</th>
+                    <SortableTh field="performance_score" label="Rating" {...sortProps} />
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Risk</th>
+                    <SortableTh field="total_spend" label="Total Spend" {...sortProps} />
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Contracts</th>
                     <SortableTh field="status" label="Status" {...sortProps} />
-                    <SortableTh field="created_at" label="Created" {...sortProps} />
+                    <SortableTh field="created_at" label="Since" {...sortProps} />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -373,38 +402,79 @@ export default function VendorsPage() {
                       onClick={() => router.push(`/vendors/${v.id}`)}
                       className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
                     >
+                      {/* Company */}
                       <td className="px-4 py-3">
-                        <div>
-                          <p
-                            className="font-medium max-w-[220px] truncate"
-                            title={v.company_name}
-                          >
-                            {v.company_name}
-                          </p>
-
-                          {v.vendor_code && (
-                            <p className="text-xs text-muted-foreground truncate max-w-[220px]">
-                              {v.vendor_code}
-                            </p>
-                          )}
-                        </div>
+                        <p className="font-semibold max-w-[200px] truncate leading-snug" title={v.company_name}>
+                          {v.company_name}
+                        </p>
+                        {v.vendor_code && (
+                          <p className="text-xs text-muted-foreground font-mono">{v.vendor_code}</p>
+                        )}
+                        {v.city && (
+                          <p className="text-xs text-muted-foreground">{[v.city, v.state].filter(Boolean).join(', ')}</p>
+                        )}
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{v.gst_number || '—'}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{v.category_name || '—'}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{v.plant_name || '—'}</td>
+
+                      {/* Category */}
+                      <td className="px-4 py-3">
+                        <span className="text-sm">{v.category_name || <span className="text-muted-foreground">—</span>}</span>
+                        {v.plant_name && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{v.plant_name}</p>
+                        )}
+                      </td>
+
+                      {/* GST */}
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden md:table-cell">
+                        {v.gst_number || '—'}
+                      </td>
+
+                      {/* Rating */}
+                      <td className="px-4 py-3">
+                        {v.performance_score == null ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          <StarRating score={v.performance_score} />
+                        )}
+                      </td>
+
+                      {/* Risk */}
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {v.risk_score == null ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          <RiskBadge score={v.risk_score} />
+                        )}
+                      </td>
+
+                      {/* Total Spend */}
+                      <td className="px-4 py-3">
+                        {v.total_spend ? (
+                          <span className="text-sm font-semibold tabular-nums">{formatCurrency(v.total_spend)}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+
+                      {/* Contracts */}
+                      <td className="px-4 py-3 text-center">
+                        {v.contracts_count > 0 ? (
+                          <span className="inline-flex items-center justify-center min-w-[1.75rem] h-6 px-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                            {v.contracts_count}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+
+                      {/* Status */}
                       <td className="px-4 py-3">
                         <StatusBadge status={v.status} />
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
+
+                      {/* Since */}
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                         {formatDate(v.created_at)}
                       </td>
-                      {/* <td className="px-4 py-3 text-center">
-                        <Link href={`/vendors/${v.id}`}>
-                          <Button variant="ghost" size="sm">
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </Button>
-                        </Link>
-                      </td> */}
                     </tr>
                   ))}
                 </tbody>

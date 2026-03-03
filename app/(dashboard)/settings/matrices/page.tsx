@@ -29,9 +29,10 @@ type MatrixForm = {
 }
 
 const MATRIX_TYPES = [
-  { value: 'vendor_onboarding',   label: 'Vendor Onboarding' },
-  { value: 'budget_approval',     label: 'Budget Approval' },
+  { value: 'vendor_onboarding',    label: 'Vendor Onboarding' },
+  { value: 'budget_approval',      label: 'Budget Approval' },
   { value: 'purchase_requisition', label: 'Purchase Requisition' },
+  { value: 'vendor_bid',           label: 'Vendor Bid Approval' },
 ]
 
 function emptyForm(): MatrixForm {

@@ -413,79 +413,126 @@ export default function NewVendorPage() {
         </div>
       </div>
 
-      {/* Step indicators */}
-      <div className="flex items-center gap-1 flex-wrap">
-        {steps.map((s, i) => (
-          <div key={s} className="flex items-center gap-1">
-            <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${stepCircleClass(i, step)}`}>
-              {i < step ? '✓' : i + 1}
+      {/* ── SRF Review (replaces form while reviewing) ───────────────────── */}
+      {showSrfMatch && srfMatchRows.length > 0 && (() => {
+        const selected = srfMatchRows.filter(r => r.include).length
+        return (
+          <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
+                  <span className="text-sm font-medium">AI Extracted Fields</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">{selected}</span> of {srfMatchRows.length} selected
+                </span>
+                <div className="flex items-center gap-2 text-xs">
+                  <button type="button" className="text-purple-600 hover:underline"
+                    onClick={() => setSrfMatchRows(rows => rows.map(r => ({ ...r, include: true })))}>
+                    Select all
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button type="button" className="text-slate-500 hover:underline"
+                    onClick={() => setSrfMatchRows(rows => rows.map(r => ({ ...r, include: false })))}>
+                    Deselect all
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-green-300 inline-block" /> High</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-300 inline-block" /> Review</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-red-200 inline-block" /> Low</span>
+                </div>
+                <button type="button" onClick={() => setShowSrfMatch(false)}
+                  className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-slate-200 transition-colors ml-2">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <span className={`text-xs hidden sm:inline ${i === step ? 'font-medium' : 'text-muted-foreground'}`}>{s}</span>
-            {i < steps.length - 1 && <div className="w-4 h-px bg-slate-200 mx-1" />}
-          </div>
-        ))}
-      </div>
 
+            {/* Table */}
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50/80 border-b">
+                  <th className="w-10 px-4 py-3 text-left">
+                    <input type="checkbox" className="accent-purple-600 w-4 h-4"
+                      checked={srfMatchRows.every(r => r.include)}
+                      onChange={e => setSrfMatchRows(rows => rows.map(r => ({ ...r, include: e.target.checked })))} />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-52">Field</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Extracted Value</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide w-28">Confidence</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {srfMatchRows.map((row, i) => (
+                  <tr key={row.field} className={`transition-colors ${
+                    !row.include          ? 'opacity-40 bg-slate-50' :
+                    row.confidence >= 0.8 ? 'bg-green-50/50' :
+                    row.confidence >= 0.5 ? 'bg-amber-50/50' : 'bg-red-50/40'
+                  }`}>
+                    <td className="px-4 py-2.5">
+                      <input type="checkbox" className="accent-purple-600 w-4 h-4"
+                        checked={row.include} onChange={e => updateSrfRowInclude(i, e.target.checked)} />
+                    </td>
+                    <td className="px-4 py-2.5 font-medium text-slate-700">{row.label}</td>
+                    <td className="px-4 py-2.5">
+                      <Input value={row.value} onChange={e => updateSrfRowValue(i, e.target.value)}
+                        disabled={!row.include} className="h-8 text-sm" />
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        {srfConfidenceBadge(row.confidence)}
+                        <span className="text-[11px] text-muted-foreground">{Math.round(row.confidence * 100)}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Footer */}
+            <div className="border-t px-5 py-3 bg-slate-50 flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">{selected}</span>{' '}
+                field{selected !== 1 ? 's' : ''} will be applied to the vendor form
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowSrfMatch(false)}>Cancel</Button>
+                <Button size="sm" className="gap-1.5 bg-purple-600 hover:bg-purple-700 min-w-[140px]"
+                  onClick={applySrfMatches} disabled={selected === 0}>
+                  <CheckCircle className="w-3.5 h-3.5" /> Apply to Form
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Step indicators */}
+      {!showSrfMatch && (
+        <div className="flex items-center gap-1 flex-wrap">
+          {steps.map((s, i) => (
+            <div key={s} className="flex items-center gap-1">
+              <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${stepCircleClass(i, step)}`}>
+                {i < step ? '✓' : i + 1}
+              </div>
+              <span className={`text-xs hidden sm:inline ${i === step ? 'font-medium' : 'text-muted-foreground'}`}>{s}</span>
+              {i < steps.length - 1 && <div className="w-4 h-px bg-slate-200 mx-1" />}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Form Steps (hidden while SRF review is open) ─────────────────── */}
       {/* ── Step 0: Company Details ──────────────────────────────────────────── */}
-      {step === 0 && (
+      {!showSrfMatch && step === 0 && (
         <Card>
           <CardContent className="space-y-5 pt-6">
 
-            {/* SRF Matching Table */}
-            {showSrfMatch && srfMatchRows.length > 0 && (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-slate-50 px-4 py-2.5 flex items-center justify-between border-b">
-                  <p className="text-sm font-medium flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-                    AI Extracted Fields — Review &amp; Apply
-                  </p>
-                  <button type="button" onClick={() => setShowSrfMatch(false)} className="text-muted-foreground hover:text-foreground">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="divide-y max-h-72 overflow-y-auto">
-                  {/* Header row */}
-                  <div className="grid grid-cols-[auto_1fr_2fr_auto] gap-3 px-4 py-2 bg-slate-50/60 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    <span className="w-4" />
-                    <span>Field</span>
-                    <span>Extracted Value</span>
-                    <span className="w-16 text-right">Confidence</span>
-                  </div>
-                  {srfMatchRows.map((row, i) => (
-                    <div key={row.field} className="grid grid-cols-[auto_1fr_2fr_auto] gap-3 px-4 py-2 items-center">
-                      <input
-                        type="checkbox"
-                        checked={row.include}
-                        onChange={e => updateSrfRowInclude(i, e.target.checked)}
-                        className="accent-primary w-4 h-4"
-                      />
-                      <span className="text-sm text-muted-foreground">{row.label}</span>
-                      <Input
-                        value={row.value}
-                        onChange={e => updateSrfRowValue(i, e.target.value)}
-                        className="h-8 text-sm"
-                      />
-                      <div className="w-16 flex justify-end">
-                        {srfConfidenceBadge(row.confidence)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="px-4 py-3 bg-slate-50 border-t flex items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    {srfMatchRows.filter(r => r.include).length} of {srfMatchRows.length} fields selected
-                  </p>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => setShowSrfMatch(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="button" size="sm" className="gap-1.5" onClick={applySrfMatches}>
-                      <CheckCircle className="w-3.5 h-3.5" /> Apply to Form
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Classification */}
             <div>
@@ -590,7 +637,7 @@ export default function NewVendorPage() {
       )}
 
       {/* ── Step 1: Compliance & Documents ──────────────────────────────────── */}
-      {step === 1 && (
+      {!showSrfMatch && step === 1 && (
         <Card>
           <CardHeader>
             <CardTitle>Compliance &amp; Documents</CardTitle>
@@ -855,7 +902,7 @@ export default function NewVendorPage() {
       )}
 
       {/* ── Step 2: Approver & Submit ─────────────────────────────────────────── */}
-      {step === 2 && (
+      {!showSrfMatch && step === 2 && (
         <Card>
           <CardHeader><CardTitle>Select Approval Matrix</CardTitle></CardHeader>
           <CardContent className="space-y-6">
