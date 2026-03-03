@@ -257,7 +257,6 @@ export default function NewPRPage() {
     queryFn: async () => (await apiClient.get(`/budget/tracking-ids/${watchedTrackingId}/`)).data,
     enabled: !!watchedTrackingId,
   })
-  console.log('trackingDetail', trackingDetail)
   useEffect(() => {
     if (!trackingDetail) return;
 
