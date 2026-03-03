@@ -30,53 +30,86 @@ function stepStyle(action: string) {
   return { dot: 'bg-slate-300', badge: 'bg-slate-100 text-slate-600' }
 }
 
-function ApprovalTimeline({ actions }: { actions: any[] }) {
-  if (!actions?.length) return <p className="text-sm text-muted-foreground">No actions yet.</p>
-  return (
-    <div>
-      {actions.map((a: any, idx: number) => {
-        const s = stepStyle(a.action)
-        const isLast = idx === actions.length - 1
-        const label = a.action === 'approved' ? 'Approved'
-          : a.action === 'rejected' ? 'Rejected'
-            : a.action === 'held' ? 'On Hold'
-              : 'Pending'
-        return (
-          <div key={a.id} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${s.dot}`}>
-                {a.action === 'approved'
-                  ? <CheckCircle className="w-4 h-4 text-white" />
-                  : a.action === 'rejected'
-                    ? <XCircle className="w-4 h-4 text-white" />
-                    : <Clock className="w-4 h-4 text-white" />}
-              </div>
-              {!isLast && <div className="w-px flex-1 bg-slate-200 my-1 min-h-[16px]" />}
-            </div>
-            <div className={`flex-1 ${isLast ? 'pb-1' : 'pb-4'}`}>
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div>
-                  <span className="text-sm font-semibold">{a.approver_name ?? 'Unknown'}</span>
-                  {a.role_name && (
-                    <span className="text-xs text-muted-foreground ml-1.5">({a.role_name})</span>
-                  )}
-                  <span className="text-xs text-muted-foreground ml-2">· Level {a.level_number}</span>
-                  {a.is_delegated && <span className="text-xs text-blue-500 ml-1">(delegated)</span>}
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.badge}`}>{label}</span>
-              </div>
-              {a.acted_at && <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(a.acted_at)}</p>}
-              {a.action === 'pending' && a.sla_deadline && (
-                <p className="text-xs text-amber-600 mt-0.5">Due: {formatDateTime(a.sla_deadline)}</p>
-              )}
-              {a.comments && <p className="text-xs text-slate-500 mt-1 italic">"{a.comments}"</p>}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
+function actionStepClass(action: string) {
+  if (action === 'approved') return 'bg-green-50 border-green-200 text-green-700'
+  if (action === 'rejected') return 'bg-red-50 border-red-200 text-red-700'
+  if (action === 'held') return 'bg-amber-50 border-amber-200 text-amber-700'
+  return 'bg-slate-50 border-slate-200 text-slate-500'
 }
+function levelBubbleCls(action: string, isCurrent: boolean): string {
+  if (action === 'approved') return 'bg-green-100 text-green-700'
+  if (action === 'rejected') return 'bg-red-100 text-red-700'
+  if (action === 'held') return 'bg-amber-100 text-amber-700'
+  if (isCurrent) return 'bg-amber-200 text-amber-800'
+  return 'bg-slate-100 text-slate-500'
+}
+function ActionStepIcon({ action }: { action: string }) {
+  if (action === 'approved') return <CheckCircle className="w-3 h-3" />
+  if (action === 'rejected') return <XCircle className="w-3 h-3" />
+  return <Clock className="w-3 h-3" />
+}
+function ApprovalTimeline({ actions, currentLevel }: { actions: any[]; currentLevel: number }) {
+  if (!actions?.length) return <p className="text-sm text-muted-foreground">No actions yet.</p>;
+
+  return (
+    <div className="px-4 py-3 bg-white border-b">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Approval Timeline</p>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-muted-foreground border-b">
+            <th className="text-left py-1.5 font-medium w-12">Level</th>
+            <th className="text-left py-1.5 font-medium">Approver</th>
+            <th className="text-left py-1.5 font-medium w-28">Status</th>
+            <th className="text-left py-1.5 font-medium">Comments</th>
+            <th className="text-right py-1.5 font-medium whitespace-nowrap">Date / Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {actions.map((a: any, idx: number) => {
+            const s = stepStyle(a.action);
+            const isPending = !a.action || a.action === 'pending';
+            const isCurrent = isPending && a.level_number === currentLevel;
+            const effectiveAction = a.action ?? 'pending';
+            let actionLabel = 'Pending';
+            if (effectiveAction === 'approved') actionLabel = 'Approved';
+            else if (effectiveAction === 'rejected') actionLabel = 'Rejected';
+            else if (effectiveAction === 'held') actionLabel = 'On Hold';
+
+            return (
+              <tr key={a.id} className={`border-t ${isCurrent ? 'bg-amber-50' : ''}`}>
+                <td className="py-2">
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full font-bold ${levelBubbleCls(effectiveAction, isCurrent)}`}>
+                    {a.level_number}
+                  </span>
+                </td>
+                <td className="py-2 font-medium text-slate-700">
+                  {a.approver_name ?? '—'}
+                  {a.is_delegated && <span className="ml-1.5 text-xs font-normal text-blue-500">(delegated)</span>}
+                  {isCurrent && (
+                    <span className="ml-1.5 text-xs font-normal text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">awaiting</span>
+                  )}
+                </td>
+                <td className="py-2">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${actionStepClass(effectiveAction)}`}>
+                    <ActionStepIcon action={effectiveAction} />
+                    {actionLabel}
+                  </span>
+                </td>
+                <td className="py-2 text-muted-foreground italic">
+                  {a.comments ? `"${a.comments}"` : '—'}
+                </td>
+                <td className="py-2 text-right text-muted-foreground whitespace-nowrap">
+                  {a.acted_at ? formatDateTime(a.acted_at) : '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 
 // ─── My Action Panel ───────────────────────────────────────────────────────────
 
@@ -219,8 +252,8 @@ function ApprovalProgressPanel({ prId, onStatusChange }: {
         </div>
       )}
       {!isLoading && approvalRequest && (
-        <div className="px-4 py-4">
-          <ApprovalTimeline actions={approvalRequest.actions ?? []} />
+        <div className="">
+          <ApprovalTimeline actions={approvalRequest.actions ?? []} currentLevel={approvalRequest.current_level} />
           {myPendingAction && (
             <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} />
           )}
@@ -502,11 +535,11 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
   })
 
   // Line items
-  type LineItem = { _key: string; code:string;item_code: number | ''; description: string; quantity: string; unit_of_measure: string; unit_rate: string }
+  type LineItem = { _key: string; code: string; item_code: number | ''; description: string; quantity: string; unit_of_measure: string; unit_rate: string }
   const [lineItems, setLineItems] = useState<LineItem[]>(
     (pr.line_items ?? []).map((li: any) => ({
       _key: String(li.id),
-      code:li.item_code_detail?.code,
+      code: li.item_code_detail?.code,
       item_code: li.item_code,
       description: li.item_code_detail?.description,
       quantity: String(li.quantity),
@@ -542,7 +575,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
 
   const addLineItem = () => setLineItems(prev => [
     ...prev,
-    { _key: crypto.randomUUID(),code:"", item_code: '', description: '', quantity: '1', unit_of_measure: 'Nos', unit_rate: '0' },
+    { _key: crypto.randomUUID(), code: "", item_code: '', description: '', quantity: '1', unit_of_measure: 'Nos', unit_rate: '0' },
   ])
   const removeLineItem = (idx: number) => setLineItems(prev => prev.filter((_, i) => i !== idx))
   const setLI = (idx: number, k: keyof LineItem, v: any) =>
