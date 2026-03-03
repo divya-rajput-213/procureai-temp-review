@@ -747,10 +747,6 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
             {tf('contact_phone', 'Contact Phone *', '+91 98765 43210')}
           </div>
 
-          <p className="text-xs text-muted-foreground pt-1">
-            Compliance fields (GST, PAN, bank details, documents) are managed from the <strong>Documents</strong> tab.
-          </p>
-
           <div className="flex justify-end gap-3 pt-2 border-t">
             <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
               <X className="w-3.5 h-3.5" /> Cancel

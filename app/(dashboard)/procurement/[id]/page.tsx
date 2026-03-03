@@ -2331,10 +2331,6 @@ export default function PRDetailPage() {
           <Button variant="outline" size="sm" onClick={() => exportPRPDF(pr)} className="gap-1.5">
             <Download className="w-3.5 h-3.5" /> PDF
           </Button>
-          <div className="text-right">
-            <p className="text-xl font-bold">{formatCurrency(pr.total_amount, pr.currency_code)}</p>
-            <p className="text-xs text-muted-foreground">Total Value</p>
-          </div>
           <Button variant="ghost" size="sm" onClick={() => router.push('/procurement')} className="gap-1 shrink-0">
             <ArrowLeft className="w-4 h-4" /> Back
           </Button>
@@ -2444,14 +2440,6 @@ export default function PRDetailPage() {
                 <div>
                   <dt className="text-xs text-muted-foreground">Department</dt>
                   <dd className="font-medium mt-0.5">{pr.department_name || '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Purchase Type</dt>
-                  <dd className="font-medium mt-0.5">{pr.purchase_type || '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Created By</dt>
-                  <dd className="font-medium mt-0.5">{pr.created_by_name || '—'}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Created On</dt>
