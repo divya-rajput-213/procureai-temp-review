@@ -28,20 +28,21 @@ const schema = z.object({
   matrix_id: z.number().optional(),
   line_items: z.array(
     z.object({
-      item_code: z.number({ required_error: 'Item required' }).min(1),
+      item_code: z.number({ required_error: 'Item required' }).positive('Item code is required '),
       quantity: z
         .number({ required_error: 'Quantity required' })
-        .positive('Must be > 0')
+        .positive('Quantity must be greater than zero')
         .max(99999, 'Maximum Quantity limit: 99,999')
         .refine(v => Number.isFinite(v), 'Invalid quantity'),
 
       unit_rate: z
         .number({ required_error: 'Unit rate required' })
-        .positive('Must be > 0')
+        .positive('Unit rate must be greater than zero')
         .max(9999999.99, 'Maximum Unit Rate limit: 99,99,999.99')
         .refine(v => /^\d+(\.\d{1,2})?$/.test(String(v)), {
           message: 'Maximum 2 decimal places allowed',
         }),
+
       unit_of_measure: z.string().min(1, 'UOM required'),
     })
   )
@@ -119,7 +120,7 @@ function TrackingIdSearch({
   )
 }
 
-function ItemSearch({ onSelect, placeholder, displayValue }: { onSelect: (item: any) => void; placeholder?: string, displayValue?: string }) {
+function ItemSearch({ onSelect, placeholder, displayValue,hasError }: { onSelect: (item: any) => void; placeholder?: string, displayValue?: string,hasError:any }) {
   const [search, setSearch] = useState(displayValue ?? '')
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -144,7 +145,7 @@ function ItemSearch({ onSelect, placeholder, displayValue }: { onSelect: (item: 
           value={search}
           onChange={e => { setSearch(e.target.value); setOpen(true) }}
           onFocus={() => search.length > 0 && setOpen(true)}
-          className="pl-8 text-sm"
+          className={`pl-8 text-sm ${hasError}?'border-destructive' : ''`}
         />
         {isFetching && (
           <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />
@@ -430,7 +431,7 @@ export default function NewPRPage() {
           </Card>
 
           {/* ── Invited Vendors ── */}
-          <Card className="shadow-sm">
+          {watchedTrackingId && <Card className="shadow-sm">
             <CardHeader className="pb-4 border-b">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Invited Vendors</CardTitle>
@@ -508,10 +509,10 @@ export default function NewPRPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* ── Line Items ── */}
-          <Card className="shadow-sm">
+          {watchedTrackingId && <Card className="shadow-sm">
             <CardHeader className="pb-4 border-b">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Line Items</CardTitle>
@@ -519,7 +520,10 @@ export default function NewPRPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })}
+                  onClick={handleSubmit(() => {
+                    // Proceed with adding a new row only if validation passes
+                    append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })
+                  })}
                   className="gap-1 shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Row
@@ -532,12 +536,17 @@ export default function NewPRPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item {idx + 1}</span>
                     {lineItemFields.length > 1 && (
-                      <button type="button" onClick={() => remove(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => remove(idx)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                   <div className="grid grid-cols-12 gap-2 items-end">
+                    {/* Item Code */}
                     <div className="col-span-12 sm:col-span-5 space-y-1">
                       <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
                       <ItemSearch
@@ -557,11 +566,13 @@ export default function NewPRPage() {
                           setItemLabels(prev => ({ ...prev, [idx]: `${item.code} — ${item.description}` }))
                         }}
                         placeholder="Search by code or description…"
+                        hasError={errors.line_items?.[idx]?.item_code && errors.line_items[idx]?.item_code?.message}
                       />
                       {errors.line_items?.[idx]?.item_code && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
                       )}
                     </div>
+                    {/* Qty */}
                     <div className="col-span-4 sm:col-span-2 space-y-1">
                       <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
                       <Input
@@ -585,15 +596,16 @@ export default function NewPRPage() {
                           },
                         })}
                       />
-
                       {errors.line_items?.[idx]?.quantity && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.quantity?.message}</p>
                       )}
                     </div>
+                    {/* Unit of Measure */}
                     <div className="col-span-3 sm:col-span-2 space-y-1">
                       <Label className="text-xs">UOM <span className="text-destructive">*</span></Label>
                       <Input placeholder="EA" {...register(`line_items.${idx}.unit_of_measure`)} />
                     </div>
+                    {/* Unit Rate */}
                     <div className="col-span-5 sm:col-span-2 space-y-1">
                       <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
                       <Input
@@ -620,11 +632,11 @@ export default function NewPRPage() {
                           },
                         })}
                       />
-
                       {errors.line_items?.[idx]?.unit_rate && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.unit_rate?.message}</p>
                       )}
                     </div>
+                    {/* Total */}
                     <div className="col-span-12 sm:col-span-1 space-y-1">
                       <Label className="text-xs hidden sm:block">Total</Label>
                       <Input
@@ -634,9 +646,6 @@ export default function NewPRPage() {
                         disabled
                         className="h-10 text-sm"
                       />
-
-
-
                     </div>
                   </div>
                 </div>
@@ -671,17 +680,26 @@ export default function NewPRPage() {
                   </tfoot>
                 </table>
               </div>
-
             </CardContent>
           </Card>
-
+          }
           <div className="flex justify-end">
             <Button
               type="button"
               className="gap-1.5"
               onClick={async () => {
-                const ok = await trigger(['tracking_id', 'plant', 'department'])
-                if (ok) setActiveTab('matrix')
+                // Conditionally trigger validation based on watchedTrackingId
+                const isValid = watchedTrackingId
+                  ? await trigger(['line_items', 'tracking_id'])  // Validate both when tracking ID is available
+                  : await trigger('tracking_id');  // If no tracking ID, only validate the tracking_id field
+          
+                if (isValid) {
+                  // If validation passes, proceed with changing the tab
+                  setActiveTab('matrix');
+                } else {
+                  // Optionally handle the case when validation fails
+                  console.log('Validation failed');
+                }
               }}
             >
               Next<ArrowRight className="w-4 h-4" />
