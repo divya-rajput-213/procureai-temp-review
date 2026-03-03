@@ -217,7 +217,6 @@ export default function UsersPage() {
           ['users', 'All Users'],
           ['azure', 'Azure AD Sync'],
           ['import', 'Bulk Import'],
-          ['roles', 'Roles'],
         ] as const).map(([tab, label]) => (
           <button
             key={tab}
@@ -525,113 +524,6 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* Roles Tab */}
-      {activeTab === 'roles' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Click a role to view and manage its users.
-            </p>
-            {selectedRole && (
-              <Button size="sm" className="gap-1.5" onClick={() => setShowAssignModal(true)}>
-                <Plus className="w-3.5 h-3.5" /> Assign User to {selectedRole.display_name}
-              </Button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {(roles || []).map((role: any) => (
-              <button
-                key={role.id}
-                type="button"
-                onClick={() => setSelectedRole(selectedRole?.id === role.id ? null : role)}
-                className={`text-left border-2 rounded-lg p-4 transition-all
-                  ${selectedRole?.id === role.id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'}`}
-              >
-                <div className="flex items-start gap-2">
-                  <Shield className={`w-4 h-4 mt-0.5 shrink-0 ${selectedRole?.id === role.id ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{role.display_name}</p>
-                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{role.name}</p>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {selectedRole && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  {selectedRole.display_name} — Users
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {roleUsersLoading && (
-                  <div className="p-6 text-center text-muted-foreground flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Loading...
-                  </div>
-                )}
-                {!roleUsersLoading && (roleUsers || []).length === 0 && (
-                  <div className="p-6 text-center text-muted-foreground text-sm">
-                    No users assigned to this role.
-                  </div>
-                )}
-                {!roleUsersLoading && (roleUsers || []).length > 0 && (
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 border-b">
-                      <tr>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plant</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                        <th className="px-4 py-3" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {(roleUsers || []).map((u: any) => (
-                        <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-xs text-white font-bold shrink-0">
-                                {(u.first_name || u.email)?.[0]?.toUpperCase()}
-                              </div>
-                              <span className="font-medium">{u.full_name || u.email}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
-                          <td className="px-4 py-3">{u.plant_name || '—'}</td>
-                          <td className="px-4 py-3">
-                            {u.is_active ? (
-                              <span className="flex items-center gap-1 text-xs text-green-700"><UserCheck className="w-3 h-3" />Active</span>
-                            ) : (
-                              <span className="flex items-center gap-1 text-xs text-red-600"><UserX className="w-3 h-3" />Inactive</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                              disabled={updateUserRolesMutation.isPending}
-                              onClick={() => removeRoleFromUser(u)}
-                            >
-                              <Trash2 className="w-3 h-3 mr-1" /> Remove
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
 
       {/* Assign Role Modal */}
       {showAssignModal && selectedRole && (
