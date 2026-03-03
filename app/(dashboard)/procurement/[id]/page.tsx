@@ -851,7 +851,6 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
       </div>
 
       {/* Line Items */}
-      {/* Line Items */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-xs font-semibold">Line Items</Label>
@@ -1086,6 +1085,7 @@ function LineItemsTable({ items, currencyCode }: { items: any[]; currencyCode?: 
           </tr>
         </tfoot>
       </table>
+
     </div>
   )
 }
@@ -1359,12 +1359,18 @@ export default function PRDetailPage() {
   const [activeTab, setActiveTab] = useState<'details' | 'approval' | 'bids'>('approval')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-
+  const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
+ 
   const { data: pr, isLoading } = useQuery({
     queryKey: ['pr', id],
     queryFn: async () => (await apiClient.get(`/procurement/${id}/`)).data,
   })
-
+  const subtotal = (pr?.line_items ?? []).reduce(
+    (sum:any, item:any) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
+    0,
+  )
+  const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
+  const grandTotal = subtotal + taxTotal
   const { data: plants } = useQuery({
     queryKey: ['plants'],
     queryFn: async () => { const r = await apiClient.get('/users/plants/'); return r.data.results ?? r.data },
@@ -1565,6 +1571,30 @@ export default function PRDetailPage() {
             <CardHeader><CardTitle className="text-sm">Line Items</CardTitle></CardHeader>
             <CardContent>
               <LineItemsTable items={pr.line_items ?? []} currencyCode={pr.currency_code} />
+              <div className="border border-border rounded-lg overflow-hidden mt-2">
+                <table className="w-full text-sm">
+                  <tbody className="divide-y divide-border">
+                    <tr className="bg-muted/30">
+                      <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
+                      <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
+                    </tr>
+                    {activeTaxes.map(tax => (
+                      <tr key={tax.id}>
+                        <td className="px-4 py-2.5 text-muted-foreground">
+                          {tax.name} <span className="text-xs">({tax.rate}%)</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-muted/50 border-t-2 border-border">
+                      <td className="px-4 py-3 font-semibold">Grand Total</td>
+                      <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </CardContent>
           </Card>
 
