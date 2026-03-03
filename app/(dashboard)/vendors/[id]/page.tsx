@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { formatDate, formatDateTime, getSLAPercentage, getSLAColor } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
+import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 
 // ─── Compliance rows config ───────────────────────────────────────────────────
 
@@ -23,13 +24,13 @@ const COMPLIANCE_ROWS: Array<{
   fieldKey: string
   show: (v: any) => boolean
 }> = [
-  { docType: 'gst_certificate',  label: 'GST Certificate',               fieldLabel: 'GST Number',     fieldKey: 'gst_number',    show: () => true },
-  { docType: 'pan_card',         label: 'PAN Card',                      fieldLabel: 'PAN Number',     fieldKey: 'pan_number',    show: () => true },
-  { docType: 'bank_details',     label: 'Bank Details / Cancelled Cheque', fieldLabel: 'Bank Account', fieldKey: 'bank_account',  show: () => true },
-  { docType: 'incorporation',    label: 'Incorporation Certificate',      fieldLabel: 'Company',        fieldKey: 'company_name',  show: () => true },
-  { docType: 'msme_certificate', label: 'MSME Certificate',              fieldLabel: 'MSME No.',       fieldKey: 'msme_number',   show: (v: any) => !!v.is_msme },
-  { docType: 'sez_certificate',  label: 'SEZ Certificate',               fieldLabel: 'SEZ Unit',       fieldKey: '',              show: (v: any) => !!v.is_sez },
-]
+    { docType: 'gst_certificate', label: 'GST Certificate', fieldLabel: 'GST Number', fieldKey: 'gst_number', show: () => true },
+    { docType: 'pan_card', label: 'PAN Card', fieldLabel: 'PAN Number', fieldKey: 'pan_number', show: () => true },
+    { docType: 'bank_details', label: 'Bank Details / Cancelled Cheque', fieldLabel: 'Bank Account', fieldKey: 'bank_account', show: () => true },
+    { docType: 'incorporation', label: 'Incorporation Certificate', fieldLabel: 'Company', fieldKey: 'company_name', show: () => true },
+    { docType: 'msme_certificate', label: 'MSME Certificate', fieldLabel: 'MSME No.', fieldKey: 'msme_number', show: (v: any) => !!v.is_msme },
+    { docType: 'sez_certificate', label: 'SEZ Certificate', fieldLabel: 'SEZ Unit', fieldKey: '', show: (v: any) => !!v.is_sez },
+  ]
 
 // ─── Compliance doc row ────────────────────────────────────────────────────────
 
@@ -211,30 +212,30 @@ function ComplianceDocRow({ docType, label, fieldLabel, fieldValue, fieldKey, do
 }
 
 const DOC_TYPE_LABELS: Record<string, string> = {
-  gst_certificate:    'GST Certificate',
-  pan_card:           'PAN Card',
-  bank_details:       'Bank Details',
-  msme_certificate:   'MSME Certificate',
-  sez_certificate:    'SEZ Certificate',
-  incorporation:      'Incorporation Certificate',
-  quality_certificate:'Quality Certificate',
-  iso_certificate:    'ISO Certificate',
-  trade_license:      'Trade License',
-  insurance:          'Insurance Document',
-  nda:                'NDA / Agreement',
-  warranty:           'Warranty Document',
-  other:              'Other',
+  gst_certificate: 'GST Certificate',
+  pan_card: 'PAN Card',
+  bank_details: 'Bank Details',
+  msme_certificate: 'MSME Certificate',
+  sez_certificate: 'SEZ Certificate',
+  incorporation: 'Incorporation Certificate',
+  quality_certificate: 'Quality Certificate',
+  iso_certificate: 'ISO Certificate',
+  trade_license: 'Trade License',
+  insurance: 'Insurance Document',
+  nda: 'NDA / Agreement',
+  warranty: 'Warranty Document',
+  other: 'Other',
 }
 
 // Doc types available in the "Other Documents" upload panel
 const OTHER_DOC_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'quality_certificate', label: 'Quality Certificate' },
-  { value: 'iso_certificate',     label: 'ISO Certificate' },
-  { value: 'trade_license',       label: 'Trade License' },
-  { value: 'insurance',           label: 'Insurance Document' },
-  { value: 'nda',                 label: 'NDA / Agreement' },
-  { value: 'warranty',            label: 'Warranty Document' },
-  { value: 'other',               label: 'Other' },
+  { value: 'iso_certificate', label: 'ISO Certificate' },
+  { value: 'trade_license', label: 'Trade License' },
+  { value: 'insurance', label: 'Insurance Document' },
+  { value: 'nda', label: 'NDA / Agreement' },
+  { value: 'warranty', label: 'Warranty Document' },
+  { value: 'other', label: 'Other' },
 ]
 
 // Doc types that belong to the "other" bucket (not in COMPLIANCE_ROWS)
@@ -404,110 +405,48 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
   const matrixCount = matrices?.length ?? 0
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">Select an approval matrix, then confirm your submission.</p>
-      {matrices === undefined && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-          <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices...
-        </div>
-      )}
-      {matrices && matrixCount === 0 && (
-        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-          No active vendor onboarding matrices configured.
-        </p>
-      )}
-        {matrices && matrixCount > 0 && (
-          <div className="border rounded-lg overflow-hidden">
-            {/* Table header */}
-            <div className="grid grid-cols-[auto_1fr_auto_auto] items-center bg-slate-50 px-3 py-2 text-xs font-semibold text-muted-foreground border-b gap-3">
-              <span className="w-4" />
-              <span>Matrix Name</span>
-              <span>Plant</span>
-              <span className="w-20 text-right">Levels</span>
+    <>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4 border-b">
+          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">Select an approval matrix, then confirm your submission.</p>
+        </CardHeader>
+        <CardContent className="pt-5">
+          {matrices === undefined && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
             </div>
-            {matrices.map((m: any) => {
-              const isSelected = selectedMatrix === m.id
-              const isExpanded = expandedMatrix === m.id
-              const levelCount = m.levels?.length ?? 0
-              return (
-                <div key={m.id} className={`border-t first:border-t-0 ${isSelected ? 'bg-primary/5' : ''}`}>
-                  <label
-                    htmlFor={`submit-matrix-${m.id}`}
-                    className={`grid grid-cols-[auto_1fr_auto_auto] items-center px-3 py-3 gap-3 cursor-pointer hover:bg-slate-50/80 transition-colors ${isSelected ? 'hover:bg-primary/5' : ''}`}
-                  >
-                    <input
-                      type="radio"
-                      id={`submit-matrix-${m.id}`}
-                      name="submit-matrix"
-                      checked={isSelected}
-                      onChange={() => { setSelectedMatrix(m.id); setExpandedMatrix(m.id) }}
-                      className="accent-primary w-4 h-4"
-                    />
-                    <div>
-                      <p className="text-sm font-medium">{m.name}</p>
-                    </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {m.plant_name || 'All Plants'}
-                    </span>
-                    <div className="flex items-center gap-1 w-20 justify-end">
-                      <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">
-                        {levelCount} level{levelCount === 1 ? '' : 's'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={e => { e.stopPropagation(); setExpandedMatrix(prev => (prev === m.id ? null : m.id)) }}
-                        className="text-muted-foreground hover:text-foreground p-0.5"
-                      >
-                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </label>
-                  {isExpanded && (
-                    <div className="border-t bg-slate-50/60 px-4 py-2">
-                      {levelCount === 0 ? (
-                        <p className="text-xs text-muted-foreground py-2">No levels configured.</p>
-                      ) : (
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-muted-foreground">
-                              <th className="text-left py-1.5 font-medium w-12">Level</th>
-                              <th className="text-left py-1.5 font-medium">Approver</th>
-                              <th className="text-left py-1.5 font-medium">Role</th>
-                              <th className="text-right py-1.5 font-medium w-20">SLA</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {m.levels.map((lvl: any) => (
-                              <tr key={lvl.id} className="border-t border-slate-200/60">
-                                <td className="py-1.5">
-                                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs">
-                                    {lvl.level_number}
-                                  </span>
-                                </td>
-                                <td className="py-1.5 font-medium text-slate-700">{lvl.user_name}</td>
-                                <td className="py-1.5 text-muted-foreground">{lvl.role_name}</td>
-                                <td className="py-1.5 text-right text-muted-foreground">{lvl.sla_hours}h</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+          )}
+          {matrices && matrixCount === 0 && (
+            <p className="text-xs text-amber-600 font-medium">No active PR approval matrices configured. The system will use the default matrix.</p>
+          )}
+          {matrices && matrixCount > 0 && (
+            <MatrixSelectorTable
+              matrices={matrices}
+              selectedMatrix={selectedMatrix}
+              expandedMatrix={expandedMatrix}
+              onSelect={(id) => {
+                setSelectedMatrix(id)
+                setExpandedMatrix(id) // Expands the matrix when selected
+              }}
+              onToggleExpand={(id) => {
+                setExpandedMatrix(prev => (prev === id ? null : id)) // Toggles expand/collapse
+              }}
+            />
+          )}
+        </CardContent>
+      </Card>
+      <div className="flex justify-end mt-4">
         <Button
           onClick={submit}
           disabled={submitting || (matrixCount > 0 && selectedMatrix === null)}
-          className="gap-1.5 w-full"
+          className="gap-1.5"
         >
           {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
           Submit for Approval
-      </Button>
-    </div>
+        </Button>
+      </div>
+    </>
   )
 }
 
@@ -754,16 +693,16 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
 }) {
   // ── Field state ───────────────────────────────────────────────────────────
   const [form, setForm] = useState({
-    company_name:  vendor.company_name  ?? '',
-    address:       vendor.address       ?? '',
-    city:          vendor.city          ?? '',
-    state:         vendor.state         ?? '',
-    pincode:       vendor.pincode       ?? '',
-    contact_name:  vendor.contact_name  ?? '',
+    company_name: vendor.company_name ?? '',
+    address: vendor.address ?? '',
+    city: vendor.city ?? '',
+    state: vendor.state ?? '',
+    pincode: vendor.pincode ?? '',
+    contact_name: vendor.contact_name ?? '',
     contact_email: vendor.contact_email ?? '',
     contact_phone: vendor.contact_phone ?? '',
-    category:      vendor.category      ?? '',
-    plant:         vendor.plant         ?? '',
+    category: vendor.category ?? '',
+    plant: vendor.plant ?? '',
   })
 
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
@@ -823,17 +762,17 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
           {/* Company fields — no section label, same as Add form */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {tf('company_name', 'Company Name *', 'Acme Pvt Ltd')}
-            {tf('address',      'Address *',      '123, Industrial Area')}
-            {tf('city',         'City *',         'Mumbai')}
-            {tf('state',        'State *',        'Maharashtra')}
-            {tf('pincode',      'PIN Code *',     '400001')}
+            {tf('address', 'Address *', '123, Industrial Area')}
+            {tf('city', 'City *', 'Mumbai')}
+            {tf('state', 'State *', 'Maharashtra')}
+            {tf('pincode', 'PIN Code *', '400001')}
           </div>
 
           {/* Contact fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tf('contact_name',  'Contact Person *', 'John Doe')}
-            {tf('contact_email', 'Contact Email *',  'john@acme.com')}
-            {tf('contact_phone', 'Contact Phone *',  '+91 98765 43210')}
+            {tf('contact_name', 'Contact Person *', 'John Doe')}
+            {tf('contact_email', 'Contact Email *', 'john@acme.com')}
+            {tf('contact_phone', 'Contact Phone *', '+91 98765 43210')}
           </div>
 
           <p className="text-xs text-muted-foreground pt-1">
@@ -1183,9 +1122,6 @@ export default function VendorDetailPage() {
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1.5">
               <Pencil className="w-3.5 h-3.5" /> Edit Details
             </Button>
-            <Button size="sm" onClick={() => setShowSubmitModal(true)} className="gap-1.5">
-              <SendHorizonal className="w-3.5 h-3.5" /> Submit for Approval
-            </Button>
           </div>
         )}
       </div>
@@ -1271,11 +1207,13 @@ export default function VendorDetailPage() {
             />
           )}
           {vendor.status === 'draft' && (
-            <div className="border rounded-lg p-8 text-center text-muted-foreground space-y-1">
-              <Clock className="w-5 h-5 mx-auto mb-2 text-slate-400" />
-              <p className="text-sm font-medium">No approval in progress</p>
-              <p className="text-xs">Use the Submit for Approval button to start the process.</p>
-            </div>
+            <SubmitForApprovalPanel
+              vendorId={id}
+              onSuccess={() => {
+                setShowSubmitModal(false)
+                queryClient.invalidateQueries({ queryKey: ['vendor', id] })
+              }}
+            />
           )}
         </div>
       )}
@@ -1298,11 +1236,10 @@ export default function VendorDetailPage() {
                   key={tab}
                   type="button"
                   onClick={() => setDocSubTab(tab)}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                    docSubTab === tab
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
-                  }`}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${docSubTab === tab
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
                 >
                   {tab === 'compliance' ? 'Compliance' : 'Other Documents'}
                 </button>
@@ -1315,147 +1252,148 @@ export default function VendorDetailPage() {
                 `grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start${isDraft && (!hasField || !hasDoc) ? ' border-amber-300' : ''}`
               return <>
 
-              {/* GST */}
-              <div className={blockCls(!!vendor.gst_number, !!docOf('gst_certificate'))}>
-                <div className="space-y-1">
-                  <Label className="text-xs">GST Number <span className="text-destructive">*</span></Label>
-                  <ComplianceFieldInput
-                    value={vendor.gst_number ?? ''}
-                    placeholder="27AAAAA0000A1Z5"
-                    canEdit={isDraft}
-                    onSave={v => handleFieldUpdate('gst_number', v)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">GST Certificate <span className="text-destructive">*</span></Label>
-                  <DocUploadInline vendorId={id} docType="gst_certificate"
-                    doc={docOf('gst_certificate')}
-                    onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
-                </div>
-              </div>
-
-              {/* PAN */}
-              <div className={blockCls(!!vendor.pan_number, !!docOf('pan_card'))}>
-                <div className="space-y-1">
-                  <Label className="text-xs">PAN Number <span className="text-destructive">*</span></Label>
-                  <ComplianceFieldInput
-                    value={vendor.pan_number ?? ''}
-                    placeholder="AAAAA9999A"
-                    canEdit={isDraft}
-                    onSave={v => handleFieldUpdate('pan_number', v)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">PAN Card <span className="text-destructive">*</span></Label>
-                  <DocUploadInline vendorId={id} docType="pan_card"
-                    doc={docOf('pan_card')}
-                    onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
-                </div>
-              </div>
-
-              {/* Bank Details */}
-              <div className={blockCls(!!(vendor.bank_account || vendor.bank_ifsc || vendor.bank_name), !!docOf('bank_details'))}>
-                <div className="space-y-2">
-                  {[
-                    { key: 'bank_account', label: 'Bank Account No', placeholder: '12345678901234' },
-                    { key: 'bank_ifsc',    label: 'Bank IFSC',       placeholder: 'HDFC0001234' },
-                    { key: 'bank_name',    label: 'Bank Name',       placeholder: 'HDFC Bank' },
-                  ].map(({ key, label, placeholder }) => (
-                    <div key={key} className="space-y-1">
-                      <Label className="text-xs">{label} <span className="text-destructive">*</span></Label>
-                      <ComplianceFieldInput
-                        value={vendor[key] ?? ''}
-                        placeholder={placeholder}
-                        canEdit={isDraft}
-                        onSave={v => handleFieldUpdate(key, v)}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
-                  <DocUploadInline vendorId={id} docType="bank_details"
-                    doc={docOf('bank_details')}
-                    onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
-                </div>
-              </div>
-
-              {/* MSME / SEZ toggles */}
-              <div className="flex items-center gap-4 pt-2">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!vendor.is_msme}
-                    disabled={!isDraft}
-                    onChange={async e => handleFieldUpdate('is_msme', e.target.checked)}
-                    className="rounded"
-                  />
-                  <span>MSME Registered</span>
-                </label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!vendor.is_sez}
-                    disabled={!isDraft}
-                    onChange={async e => handleFieldUpdate('is_sez', e.target.checked)}
-                    className="rounded"
-                  />
-                  <span>SEZ Unit</span>
-                </label>
-              </div>
-
-              {/* MSME (conditional) */}
-              {vendor.is_msme && (
-                <div className={blockCls(!!vendor.msme_number, !!docOf('msme_certificate'))}>
+                {/* GST */}
+                <div className={blockCls(!!vendor.gst_number, !!docOf('gst_certificate'))}>
                   <div className="space-y-1">
-                    <Label className="text-xs">MSME Number <span className="text-destructive">*</span></Label>
+                    <Label className="text-xs">GST Number <span className="text-destructive">*</span></Label>
                     <ComplianceFieldInput
-                      value={vendor.msme_number ?? ''}
-                      placeholder="UDYAM-MH-00-0000000"
+                      value={vendor.gst_number ?? ''}
+                      placeholder="27AAAAA0000A1Z5"
                       canEdit={isDraft}
-                      onSave={v => handleFieldUpdate('msme_number', v)}
+                      onSave={v => handleFieldUpdate('gst_number', v)}
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">MSME Certificate <span className="text-destructive">*</span></Label>
-                    <DocUploadInline vendorId={id} docType="msme_certificate"
-                      doc={docOf('msme_certificate')}
+                    <Label className="text-xs">GST Certificate <span className="text-destructive">*</span></Label>
+                    <DocUploadInline vendorId={id} docType="gst_certificate"
+                      doc={docOf('gst_certificate')}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                   </div>
                 </div>
-              )}
 
-              {/* SEZ (conditional) */}
-              {vendor.is_sez && (
-                <div className={blockCls(true, !!docOf('sez_certificate'))}>
+                {/* PAN */}
+                <div className={blockCls(!!vendor.pan_number, !!docOf('pan_card'))}>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">SEZ Unit</Label>
-                    <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
+                    <Label className="text-xs">PAN Number <span className="text-destructive">*</span></Label>
+                    <ComplianceFieldInput
+                      value={vendor.pan_number ?? ''}
+                      placeholder="AAAAA9999A"
+                      canEdit={isDraft}
+                      onSave={v => handleFieldUpdate('pan_number', v)}
+                    />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">SEZ Certificate <span className="text-destructive">*</span></Label>
-                    <DocUploadInline vendorId={id} docType="sez_certificate"
-                      doc={docOf('sez_certificate')}
+                    <Label className="text-xs">PAN Card <span className="text-destructive">*</span></Label>
+                    <DocUploadInline vendorId={id} docType="pan_card"
+                      doc={docOf('pan_card')}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                   </div>
                 </div>
-              )}
 
-              {/* Incorporation */}
-              <div className={blockCls(true, !!docOf('incorporation'))}>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Incorporation Certificate</p>
-                  <p className="text-sm">Company registration / MOA documents</p>
+                {/* Bank Details */}
+                <div className={blockCls(!!(vendor.bank_account || vendor.bank_ifsc || vendor.bank_name), !!docOf('bank_details'))}>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'bank_account', label: 'Bank Account No', placeholder: '12345678901234' },
+                      { key: 'bank_ifsc', label: 'Bank IFSC', placeholder: 'HDFC0001234' },
+                      { key: 'bank_name', label: 'Bank Name', placeholder: 'HDFC Bank' },
+                    ].map(({ key, label, placeholder }) => (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-xs">{label} <span className="text-destructive">*</span></Label>
+                        <ComplianceFieldInput
+                          value={vendor[key] ?? ''}
+                          placeholder={placeholder}
+                          canEdit={isDraft}
+                          onSave={v => handleFieldUpdate(key, v)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
+                    <DocUploadInline vendorId={id} docType="bank_details"
+                      doc={docOf('bank_details')}
+                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Incorporation Certificate <span className="text-destructive">*</span></Label>
-                  <DocUploadInline vendorId={id} docType="incorporation"
-                    doc={docOf('incorporation')}
-                    onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
-                </div>
-              </div>
 
-            </>})()}
+                {/* MSME / SEZ toggles */}
+                <div className="flex items-center gap-4 pt-2">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!vendor.is_msme}
+                      disabled={!isDraft}
+                      onChange={async e => handleFieldUpdate('is_msme', e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>MSME Registered</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!vendor.is_sez}
+                      disabled={!isDraft}
+                      onChange={async e => handleFieldUpdate('is_sez', e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>SEZ Unit</span>
+                  </label>
+                </div>
+
+                {/* MSME (conditional) */}
+                {vendor.is_msme && (
+                  <div className={blockCls(!!vendor.msme_number, !!docOf('msme_certificate'))}>
+                    <div className="space-y-1">
+                      <Label className="text-xs">MSME Number <span className="text-destructive">*</span></Label>
+                      <ComplianceFieldInput
+                        value={vendor.msme_number ?? ''}
+                        placeholder="UDYAM-MH-00-0000000"
+                        canEdit={isDraft}
+                        onSave={v => handleFieldUpdate('msme_number', v)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">MSME Certificate <span className="text-destructive">*</span></Label>
+                      <DocUploadInline vendorId={id} docType="msme_certificate"
+                        doc={docOf('msme_certificate')}
+                        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                    </div>
+                  </div>
+                )}
+
+                {/* SEZ (conditional) */}
+                {vendor.is_sez && (
+                  <div className={blockCls(true, !!docOf('sez_certificate'))}>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">SEZ Unit</Label>
+                      <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">SEZ Certificate <span className="text-destructive">*</span></Label>
+                      <DocUploadInline vendorId={id} docType="sez_certificate"
+                        doc={docOf('sez_certificate')}
+                        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Incorporation */}
+                <div className={blockCls(true, !!docOf('incorporation'))}>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Incorporation Certificate</p>
+                    <p className="text-sm">Company registration / MOA documents</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Incorporation Certificate <span className="text-destructive">*</span></Label>
+                    <DocUploadInline vendorId={id} docType="incorporation"
+                      doc={docOf('incorporation')}
+                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                  </div>
+                </div>
+
+              </>
+            })()}
 
             {docSubTab === 'other' && (
               <OtherDocsEditPanel
@@ -1469,34 +1407,6 @@ export default function VendorDetailPage() {
         </Card>
       )}
 
-      {/* Submit for Approval Modal */}
-      {showSubmitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40"
-            aria-label="Close"
-            onClick={() => setShowSubmitModal(false)}
-          />
-          <Card className="relative z-10 w-full max-w-lg">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Submit for Approval</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setShowSubmitModal(false)} className="h-7 w-7 p-0">
-                <X className="w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <SubmitForApprovalPanel
-                vendorId={id}
-                onSuccess={() => {
-                  setShowSubmitModal(false)
-                  queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-                }}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }
