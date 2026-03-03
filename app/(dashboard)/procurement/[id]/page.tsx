@@ -1732,7 +1732,7 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
             prId={id!}
             invitedVendors={pr.invited_vendors_detail ?? []}
             existingBidVendorIds={existingBidVendorIds}
-            onSuccess={refetchBids}
+            onSuccess={handleBidAdded}
           />
         )}
         {hasBids && pendingBids.length >= 2 && (
@@ -1848,11 +1848,21 @@ export default function PRDetailPage() {
   const [activeTab, setActiveTab] = useState<'details' | 'approval' | 'bids'>('approval')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const initialTabSet = useRef(false)
 
   const { data: pr, isLoading } = useQuery({
     queryKey: ['pr', id],
     queryFn: async () => (await apiClient.get(`/procurement/${id}/`)).data,
   })
+
+  // Auto-select Bids tab when PR is in a bids-eligible state
+  useEffect(() => {
+    if (pr && !initialTabSet.current) {
+      initialTabSet.current = true
+      const bidStatuses = ['approved', 'vendor_selected', 'synced_to_sap', 'po_created']
+      setActiveTab(bidStatuses.includes(pr.status) ? 'bids' : 'details')
+    }
+  }, [pr])
 
   const { data: plants } = useQuery({
     queryKey: ['plants'],
@@ -1905,11 +1915,13 @@ export default function PRDetailPage() {
     )
   }
 
+  const canCollectBids = ['approved', 'vendor_selected', 'synced_to_sap', 'po_created'].includes(pr.status)
+
   const TABS = [
-    { key: 'details', label: 'Details' },
-    { key: 'approval', label: 'Approval' },
-    { key: 'bids', label: 'Bids' },
-  ] as const
+    ...(canCollectBids ? [{ key: 'bids' as const, label: 'Bids' }] : []),
+    { key: 'details' as const, label: 'Details' },
+    { key: 'approval' as const, label: 'Approval' },
+  ]
 
   return (
     <div className="space-y-4">
