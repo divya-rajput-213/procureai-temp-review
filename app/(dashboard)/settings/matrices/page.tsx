@@ -47,7 +47,7 @@ function emptyForm(): MatrixForm {
 
 // ─── Matrix Form ──────────────────────────────────────────────────────────────
 
-function MatrixFormPanel({ initial, plants, users, roles, onSave, onCancel, saving }: {
+function MatrixFormPanel({ initial, plants, users, roles, onSave, onCancel, saving }: Readonly<{
   initial: MatrixForm
   plants: any[]
   users: any[]
@@ -55,7 +55,7 @@ function MatrixFormPanel({ initial, plants, users, roles, onSave, onCancel, savi
   onSave: (data: MatrixForm) => void
   onCancel: () => void
   saving: boolean
-}) {
+}>) {
   const [form, setForm] = useState<MatrixForm>(initial)
   const [formError, setFormError] = useState('')
   const set = (k: keyof MatrixForm, v: any) => setForm(prev => ({ ...prev, [k]: v }))
@@ -217,6 +217,11 @@ function MatrixFormPanel({ initial, plants, users, roles, onSave, onCancel, savi
                 setFormError('Every level must have an Approver and a Role selected.')
                 return
               }
+              const userIds = form.levels.map(lv => lv.user).filter(Boolean)
+              if (new Set(userIds).size !== userIds.length) {
+                setFormError('The same approver cannot be assigned to more than one level.')
+                return
+              }
               setFormError('')
               onSave(form)
             }}
@@ -233,12 +238,12 @@ function MatrixFormPanel({ initial, plants, users, roles, onSave, onCancel, savi
 
 // ─── Matrix Row ───────────────────────────────────────────────────────────────
 
-function MatrixRow({ matrix, onEdit, onDelete, deleting }: {
+function MatrixRow({ matrix, onEdit, onDelete, deleting }: Readonly<{
   matrix: any
   onEdit: () => void
   onDelete: () => void
   deleting: boolean
-}) {
+}>) {
   const [expanded, setExpanded] = useState(false)
   const levelCount = matrix.levels?.length ?? 0
   const typeLabel = MATRIX_TYPES.find(t => t.value === matrix.matrix_type)?.label ?? matrix.matrix_type
@@ -312,7 +317,7 @@ export default function MatricesPage() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
-  const [editingMatrix, setEditingMatrix] = useState<any | null>(null)
+  const [editingMatrix, setEditingMatrix] = useState<any>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [filterType, setFilterType] = useState('')
 
@@ -365,7 +370,18 @@ export default function MatricesPage() {
       setEditingMatrix(null)
     },
     onError: (err: any) => {
-      toast({ title: 'Save failed', description: err?.response?.data?.error ?? 'Please check all fields.', variant: 'destructive' })
+      const data = err?.response?.data
+      let description = 'Please check all fields.'
+      if (typeof data === 'string') {
+        description = data
+      } else if (data?.error) {
+        description = data.error
+      } else if (data && typeof data === 'object') {
+        // DRF validation errors: { field: ["msg", ...], ... }
+        const messages = Object.values(data).flat() as string[]
+        if (messages.length > 0) description = messages.join(' ')
+      }
+      toast({ title: 'Save failed', description, variant: 'destructive' })
     },
   })
 
