@@ -314,11 +314,10 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess }: {
   return (
     /* Overlay */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      className=" "
     >
       {/* Dialog */}
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-xl w-full  flex flex-col">
 
         {/* Header */}
         <div className="flex items-start justify-between gap-3 px-6 py-4 border-b">
@@ -331,13 +330,6 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess }: {
               Review PR details and select an approval matrix.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors mt-0.5"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Body — scrollable */}
@@ -861,7 +853,6 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
       </div>
 
       {/* Line Items */}
-      {/* Line Items */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-xs font-semibold">Line Items</Label>
@@ -1096,6 +1087,7 @@ function LineItemsTable({ items, currencyCode }: { items: any[]; currencyCode?: 
           </tr>
         </tfoot>
       </table>
+
     </div>
   )
 }
@@ -1881,13 +1873,19 @@ export default function PRDetailPage() {
   const [activeTab, setActiveTab] = useState<'details' | 'approval' | 'bids'>('approval')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const initialTabSet = useRef(false)
+  const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
+   const initialTabSet = useRef(false)
 
   const { data: pr, isLoading } = useQuery({
     queryKey: ['pr', id],
     queryFn: async () => (await apiClient.get(`/procurement/${id}/`)).data,
   })
-
+  const subtotal = (pr?.line_items ?? []).reduce(
+    (sum:any, item:any) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
+    0,
+  )
+  const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
+  const grandTotal = subtotal + taxTotal
   // Auto-select Bids tab when PR is in a bids-eligible state
   useEffect(() => {
     if (pr && !initialTabSet.current) {
@@ -2099,6 +2097,30 @@ export default function PRDetailPage() {
             <CardHeader><CardTitle className="text-sm">Line Items</CardTitle></CardHeader>
             <CardContent>
               <LineItemsTable items={pr.line_items ?? []} currencyCode={pr.currency_code} />
+              <div className="border border-border rounded-lg overflow-hidden mt-2">
+                <table className="w-full text-sm">
+                  <tbody className="divide-y divide-border">
+                    <tr className="bg-muted/30">
+                      <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
+                      <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
+                    </tr>
+                    {activeTaxes.map(tax => (
+                      <tr key={tax.id}>
+                        <td className="px-4 py-2.5 text-muted-foreground">
+                          {tax.name} <span className="text-xs">({tax.rate}%)</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-muted/50 border-t-2 border-border">
+                      <td className="px-4 py-3 font-semibold">Grand Total</td>
+                      <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </CardContent>
           </Card>
 
@@ -2109,34 +2131,16 @@ export default function PRDetailPage() {
       {activeTab === 'approval' && (
         <div className="space-y-4">
           {pr.status === 'draft' ? (
-            <div className="border rounded-xl p-8 text-center space-y-4 bg-slate-50">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                <Send className="w-6 h-6 text-primary" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold">Ready to submit?</p>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                  This PR is saved as a draft. Submit it for approval to start the review workflow.
-                </p>
-              </div>
-              <Button onClick={() => setShowSubmitModal(true)} className="gap-2">
-                <Send className="w-4 h-4" /> Submit for Approval
-              </Button>
-            </div>
+             <SubmitForApprovalModal
+             pr={pr}
+             prId={id!}
+             onClose={() => setShowSubmitModal(false)}
+             onSuccess={invalidatePR}
+           />
           ) : (
             <ApprovalProgressPanel prId={id!} onStatusChange={invalidatePR} />
           )}
         </div>
-      )}
-
-      {/* ── Submit for Approval Modal ── */}
-      {showSubmitModal && (
-        <SubmitForApprovalModal
-          pr={pr}
-          prId={id!}
-          onClose={() => setShowSubmitModal(false)}
-          onSuccess={invalidatePR}
-        />
       )}
 
       {/* ── Bids Tab ── */}
