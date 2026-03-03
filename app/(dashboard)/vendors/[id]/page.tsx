@@ -410,7 +410,7 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
       <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">Select an approval matrix, then confirm your submission.</p>
+          <p className="text-xs text-muted-foreground mt-1">Choose the approval workflow for this budget request.</p>
         </CardHeader>
         <CardContent className="pt-5">
           {matrices === undefined && (
@@ -435,9 +435,7 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
               }}
             />
           )}
-        </CardContent>
-      </Card>
-      <div className="flex justify-end mt-4">
+            <div className="flex justify-end mt-4">
         <Button
           onClick={submit}
           disabled={submitting || (matrixCount > 0 && selectedMatrix === null)}
@@ -447,6 +445,10 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
           Submit for Approval
         </Button>
       </div>
+        </CardContent>
+      
+      </Card>
+  
     </>
   )
 }
@@ -744,10 +746,6 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
             {tf('contact_email', 'Contact Email *', 'john@acme.com')}
             {tf('contact_phone', 'Contact Phone *', '+91 98765 43210')}
           </div>
-
-          <p className="text-xs text-muted-foreground pt-1">
-            Compliance fields (GST, PAN, bank details, documents) are managed from the <strong>Documents</strong> tab.
-          </p>
 
           <div className="flex justify-end gap-3 pt-2 border-t">
             <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">

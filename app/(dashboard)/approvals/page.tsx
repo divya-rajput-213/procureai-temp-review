@@ -545,7 +545,6 @@ export default function ApprovalsPage() {
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Submitted</th>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Completed</th>
-                        <th className="px-4 py-3 w-8" />
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -577,9 +576,6 @@ export default function ApprovalsPage() {
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
                             {req.completed_at ? formatDateTime(req.completed_at) : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
                           </td>
                         </tr>
                       ))}
