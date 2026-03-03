@@ -131,7 +131,7 @@ function MyActionPanel({ pendingAction, onProcess }: {
   return (
     <div className="pt-4 mt-4 border-t space-y-3">
       <p className="text-xs font-medium text-muted-foreground">
-        Your action required — Level {pendingAction.level}
+        Your action required — Level {pendingAction?.level}
       </p>
       <textarea
         className="w-full border rounded-md p-2 text-sm resize-none h-16"
@@ -141,7 +141,7 @@ function MyActionPanel({ pendingAction, onProcess }: {
       />
       <div className="flex gap-2">
         <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1"
-          onClick={() => handle('approved')} disabled={busy}>
+          onClick={() => handle('approved')} disabled={busy || !comments}>
           {loading === 'approved' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
           Approve
         </Button>
