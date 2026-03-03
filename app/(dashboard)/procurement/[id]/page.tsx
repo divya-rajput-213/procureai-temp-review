@@ -484,7 +484,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
     title: pr.title ?? ""
   })
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
-
+console.log('pr', pr)
   // Invited vendors
   const [invitedVendors, setInvitedVendors] = useState<any[]>(pr.invited_vendors_detail ?? [])
   const [vendorSearch, setVendorSearch] = useState('')
@@ -503,12 +503,13 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
   })
 
   // Line items
-  type LineItem = { _key: string; item_code: number | ''; description: string; quantity: string; unit_of_measure: string; unit_rate: string }
+  type LineItem = { _key: string; code:string;item_code: number | ''; description: string; quantity: string; unit_of_measure: string; unit_rate: string }
   const [lineItems, setLineItems] = useState<LineItem[]>(
     (pr.line_items ?? []).map((li: any) => ({
       _key: String(li.id),
+      code:li.item_code_detail?.code,
       item_code: li.item_code,
-      description: li.description,
+      description: li.item_code_detail?.description,
       quantity: String(li.quantity),
       unit_of_measure: li.unit_of_measure,
       unit_rate: String(li.unit_rate),
@@ -542,16 +543,17 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
 
   const addLineItem = () => setLineItems(prev => [
     ...prev,
-    { _key: crypto.randomUUID(), item_code: '', description: '', quantity: '1', unit_of_measure: 'Nos', unit_rate: '0' },
+    { _key: crypto.randomUUID(),code:"", item_code: '', description: '', quantity: '1', unit_of_measure: 'Nos', unit_rate: '0' },
   ])
   const removeLineItem = (idx: number) => setLineItems(prev => prev.filter((_, i) => i !== idx))
   const setLI = (idx: number, k: keyof LineItem, v: any) =>
     setLineItems(prev => prev.map((li, i) => i === idx ? { ...li, [k]: v } : li))
 
   const selectItem = (idx: number, item: any) => {
+    console.log('first', item.description)
     setLI(idx, 'item_code', item.id)
     setLI(idx, 'description', item.description)
-    setItemSearch(prev => ({ ...prev, [idx]: item.code }))
+    setItemSearch(prev => ({ ...prev, [idx]: `${item.code} - ${item.description}` }))
     setShowItemDropdown(null)
   }
 
@@ -855,7 +857,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
                   <div className="relative">
                     <Input
                       placeholder="Search item code..."
-                      value={itemSearch[idx] ?? (li.item_code ? String(li.item_code) : '')}
+                      value={itemSearch[idx] ?? (li.item_code ? `${li.code} - ${li.description}` : '')}
                       onChange={e => { setItemSearch(prev => ({ ...prev, [idx]: e.target.value })); setShowItemDropdown(idx) }}
                       onFocus={() => setShowItemDropdown(idx)}
                       onBlur={() => setTimeout(() => setShowItemDropdown(null), 150)}
