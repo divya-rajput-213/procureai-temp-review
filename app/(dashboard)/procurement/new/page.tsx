@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -186,6 +186,7 @@ function ItemSearch({ onSelect, placeholder, displayValue,hasError }: { onSelect
 export default function NewPRPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const submitModeRef = useRef<'draft' | 'approval'>('draft')
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
 
@@ -299,13 +300,13 @@ export default function NewPRPage() {
       return { pr, mode }
     },
     onSuccess: ({ pr, mode }) => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
       if (mode === 'approval') {
         toast({ title: `PR submitted for approval.` })
-        router.push('/procurement')
       } else {
         toast({ title: `PR saved as draft.` })
-        router.push(`/procurement`)
       }
+      router.push('/procurement')
     },
     onError: (err: any) => {
       const detail = err?.response?.data

@@ -10,10 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus } from 'lucide-react'
-import { formatDate, formatDateTime, getSLAPercentage, getSLAColor } from '@/lib/utils'
+import { ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download } from 'lucide-react'
+import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 // ─── Compliance rows config ───────────────────────────────────────────────────
 
@@ -536,59 +537,28 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
 }
 
 // ─── Compliance field input — editable (draft) or read-only ─────────────────
-function ComplianceFieldInput({ value, placeholder, canEdit, onSave }: {
+function ComplianceFieldInput({ value, placeholder, canEdit, onSave, onChange }: {
   value: string
   placeholder?: string
   canEdit: boolean
   onSave: (v: string) => void
+  onChange?: (v: string) => void
 }) {
-  const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
-
-  const commit = () => {
-    if (draft !== value) onSave(draft)
-    setEditing(false)
-  }
 
   if (!canEdit) {
     return <p className="text-sm font-medium h-10 flex items-center font-mono">{value || '—'}</p>
   }
 
-  return editing ? (
-    <div className="flex items-center gap-1">
-      <Input
-        autoFocus
-        value={draft}
-        placeholder={placeholder}
-        onChange={e => setDraft(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { commit() } else if (e.key === 'Escape') { setDraft(value); setEditing(false) } }}
-        className="h-10 text-sm flex-1 font-mono"
-      />
-      <button
-        type="button"
-        onClick={commit}
-        title="Save"
-        className="shrink-0 text-green-600 hover:text-green-800 transition-colors"
-      >
-        <CheckCircle className="w-4 h-4" />
-      </button>
-      <button
-        type="button"
-        onClick={() => { setDraft(value); setEditing(false) }}
-        title="Cancel"
-        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    </div>
-  ) : (
-    <button
-      type="button"
-      onClick={() => { setDraft(value); setEditing(true) }}
-      className="w-full h-10 flex items-center border rounded-md px-3 text-sm text-left hover:border-primary/60 transition-colors font-mono"
-    >
-      <span className={value ? 'text-foreground' : 'text-muted-foreground/60'}>{value || placeholder || 'Click to edit…'}</span>
-    </button>
+  return (
+    <Input
+      value={draft}
+      placeholder={placeholder}
+      onChange={e => { setDraft(e.target.value); onChange?.(e.target.value) }}
+      onBlur={() => { if (draft !== value) onSave(draft) }}
+      onKeyDown={e => { if (e.key === 'Enter') { if (draft !== value) onSave(draft) } }}
+      className="h-10 text-sm font-mono"
+    />
   )
 }
 
@@ -1040,15 +1010,552 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh }: {
   )
 }
 
+// ─── Vendor Dashboard ─────────────────────────────────────────────────────────
+
+const PR_STATUS_LABELS: Record<string, string> = {
+  draft:            'Draft',
+  pending_approval: 'Pending Approval',
+  approved:         'Approved',
+  vendor_selected:  'Vendor Selected',
+  synced_to_sap:    'Synced to SAP',
+  po_created:       'PO Created',
+  rejected:         'Rejected',
+  cancelled:        'Cancelled',
+}
+
+function prStatusColor(s: string) {
+  if (['vendor_selected', 'synced_to_sap', 'po_created'].includes(s)) return 'bg-green-100 text-green-700'
+  if (s === 'approved') return 'bg-blue-100 text-blue-700'
+  if (s === 'pending_approval') return 'bg-amber-100 text-amber-700'
+  if (['rejected', 'cancelled'].includes(s)) return 'bg-red-100 text-red-700'
+  return 'bg-slate-100 text-slate-600'
+}
+
+function bidStatusColor(s: string) {
+  if (s === 'shortlisted')      return 'bg-blue-100 text-blue-700'
+  if (s === 'pending_approval') return 'bg-purple-100 text-purple-700'
+  if (s === 'pending')          return 'bg-amber-100 text-amber-700'
+  return 'bg-slate-100 text-slate-600'
+}
+
+const BID_STATUS_LABELS: Record<string, string> = {
+  pending:          'Pending',
+  shortlisted:      'Shortlisted',
+  pending_approval: 'In Approval',
+}
+
+const COMPLIANCE_DOC_LABELS: Record<string, string> = {
+  gst_certificate: 'GST Certificate',
+  pan_card:        'PAN Card',
+  bank_details:    'Bank Details',
+  incorporation:   'Incorporation',
+  msme_certificate:'MSME Certificate',
+  sez_certificate: 'SEZ Certificate',
+}
+
+function KPICard({ label, value, sub, subPositive, icon: Icon, iconColor }: {
+  label: string; value: string; sub?: string; subPositive?: boolean
+  icon: React.ElementType; iconColor: string
+}) {
+  return (
+    <Card>
+      <CardContent className="pt-5 pb-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">{label}</p>
+            <p className="text-2xl font-bold mt-1">{value}</p>
+            {sub && (
+              <p className={`text-xs mt-1 flex items-center gap-1 font-medium ${subPositive ? 'text-green-600' : 'text-red-500'}`}>
+                {subPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                {sub}
+              </p>
+            )}
+          </div>
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconColor}`}>
+            <Icon className="w-4.5 h-4.5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; vendor: any }) {
+  const { data: dash, isLoading } = useQuery({
+    queryKey: ['vendor-dashboard', vendorId],
+    queryFn: async () => (await apiClient.get(`/vendors/${vendorId}/dashboard/`)).data,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Card key={i}><CardContent className="pt-5 pb-4"><div className="h-16 bg-slate-100 animate-pulse rounded" /></CardContent></Card>
+        ))}
+      </div>
+    )
+  }
+
+  if (!dash) return null
+
+  const stats = dash.stats ?? {}
+  const spendTrend: { month: string; spend: number }[] = dash.spend_trend ?? []
+  const transactions: any[] = dash.recent_transactions ?? []
+  const activeBids: any[] = dash.active_bids ?? []
+
+  // Performance + risk — freshly computed by backend on every dashboard fetch
+  const perfScore  = Math.round(dash.performance_score ?? 0)
+  const riskScore  = Math.round(dash.risk_score ?? 0)
+  const riskLabel  = riskScore < 30 ? 'Low Risk' : riskScore < 60 ? 'Medium Risk' : 'High Risk'
+  const riskColor  = riskScore < 30
+    ? 'text-green-700 bg-green-50 border-green-200'
+    : riskScore < 60
+      ? 'text-amber-700 bg-amber-50 border-amber-200'
+      : 'text-red-700 bg-red-50 border-red-200'
+  const riskBarColor = riskScore < 30 ? 'bg-green-500' : riskScore < 60 ? 'bg-amber-500' : 'bg-red-500'
+
+  // Dynamic risk factors
+  const riskFactors: { color: string; Icon: React.ElementType; title: string; desc: string }[] = []
+  if (stats.win_rate >= 40) riskFactors.push({ color: 'green', Icon: Award, title: `Strong Win Rate — ${stats.win_rate}%`, desc: `Won ${stats.accepted_bids} of ${stats.total_bids} bids submitted` })
+  if (riskScore < 30) riskFactors.push({ color: 'blue', Icon: Shield, title: 'Low Risk Vendor', desc: 'Risk score indicates a stable and reliable supplier' })
+  if (riskScore >= 60) riskFactors.push({ color: 'amber', Icon: AlertTriangle, title: 'Elevated Risk Score', desc: `Risk score of ${riskScore}/100 — monitor closely and consider alternatives` })
+  if (stats.open_prs > 2) riskFactors.push({ color: 'amber', Icon: AlertTriangle, title: 'Multiple Open PRs', desc: `${stats.open_prs} open purchase requisitions awaiting this vendor` })
+  if (stats.accepted_bids === 1) riskFactors.push({ color: 'amber', Icon: AlertTriangle, title: 'Single Awarded Contract', desc: 'Consider diversifying across multiple vendors to reduce dependency' })
+  if (riskFactors.length === 0) riskFactors.push({ color: 'green', Icon: CheckCircle, title: 'No Risk Factors', desc: 'Vendor is performing well with no identified concerns' })
+
+  // Compliance docs from vendor
+  const complianceDocs = Object.keys(COMPLIANCE_DOC_LABELS)
+    .map(type => ({ label: COMPLIANCE_DOC_LABELS[type], doc: vendor.documents?.find((d: any) => d.doc_type === type) }))
+    .filter(c => c.doc)
+
+  // Spend formatting helper
+  const fmtSpend = (v: number) => {
+    if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`
+    if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`
+    return String(Math.round(v))
+  }
+
+  const colorMap: Record<string, string> = {
+    green: 'bg-green-50 border-green-200 text-green-700',
+    blue:  'bg-blue-50 border-blue-200 text-blue-700',
+    amber: 'bg-amber-50 border-amber-200 text-amber-700',
+  }
+  const iconColorMap: Record<string, string> = {
+    green: 'text-green-600', blue: 'text-blue-600', amber: 'text-amber-600',
+  }
+
+  return (
+    <div className="space-y-5">
+
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KPICard label="Total Spend (YTD)"  value={stats.total_spend_ytd > 0 ? `${vendor.currency ?? ''} ${fmtSpend(stats.total_spend_ytd)}` : '—'} icon={DollarSign}    iconColor="bg-blue-50 text-blue-600" />
+        <KPICard label="Bids Won"            value={String(stats.accepted_bids)}                                                                       icon={FileText}     iconColor="bg-purple-50 text-purple-600" />
+        <KPICard label="Open PRs"            value={String(stats.open_prs)}                                                                            icon={ShoppingCart}  iconColor="bg-amber-50 text-amber-600" />
+        <KPICard label="Win Rate"            value={stats.total_bids > 0 ? `${stats.win_rate}%` : '—'}                                               icon={CheckCircle}  iconColor="bg-green-50 text-green-600" />
+        <KPICard label="Avg Lead Time"       value={stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days}d` : '—'} icon={Clock} iconColor="bg-cyan-50 text-cyan-600" />
+        <KPICard label="Performance Score"   value={perfScore > 0 ? `${perfScore}/100` : '—'}                                                          icon={Star}         iconColor="bg-rose-50 text-rose-500" />
+      </div>
+
+      {/* ── Spend Trend + Transactions ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+        {/* Spend trend chart */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-muted-foreground" /> Spend Trend (12 Months)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {spendTrend.every(d => d.spend === 0) ? (
+              <div className="h-[200px] flex items-center justify-center text-xs text-muted-foreground">No spend data yet.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={spendTrend} barSize={18} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${v / 1000}K` : String(v)} />
+                  <Tooltip formatter={(v: number) => [formatCurrency(v), 'Spend']} labelStyle={{ fontSize: 12 }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                  <Bar dataKey="spend" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Transactions */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Recent Transactions</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {transactions.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-8">No transactions yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-slate-50/60">
+                    <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">PR Number</th>
+                    <th className="text-right text-xs font-medium text-muted-foreground px-4 py-2">Amount</th>
+                    <th className="text-right text-xs font-medium text-muted-foreground px-4 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx: any, i: number) => (
+                    <tr key={i} className="border-b last:border-0 hover:bg-slate-50/40 transition-colors">
+                      <td className="px-4 py-2.5">
+                        <p className="text-xs font-medium font-mono">{tx.pr_number}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(tx.date)}</p>
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-xs font-medium">{formatCurrency(tx.amount)}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${prStatusColor(tx.status)}`}>
+                          {PR_STATUS_LABELS[tx.status] ?? tx.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Insights ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* Performance + Risk */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Zap className="w-4 h-4 text-yellow-500" /> Vendor Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Performance Score */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Performance Score</p>
+                <div className="flex items-end gap-1 mt-0.5">
+                  <span className="text-3xl font-bold">{perfScore > 0 ? perfScore : '—'}</span>
+                  {perfScore > 0 && <span className="text-sm text-muted-foreground mb-0.5">/100</span>}
+                </div>
+                {perfScore > 0 && (
+                  <p className={`text-xs font-medium mt-0.5 flex items-center gap-1 ${perfScore >= 70 ? 'text-green-600' : perfScore >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                    {perfScore >= 70 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {perfScore >= 70 ? 'Good performance' : perfScore >= 40 ? 'Average performance' : 'Needs improvement'}
+                  </p>
+                )}
+              </div>
+              <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center ${perfScore >= 70 ? 'border-indigo-500 bg-indigo-50' : perfScore >= 40 ? 'border-amber-400 bg-amber-50' : 'border-red-400 bg-red-50'}`}>
+                <span className={`text-sm font-bold ${perfScore >= 70 ? 'text-indigo-600' : perfScore >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
+                  {perfScore > 0 ? `${perfScore}%` : '—'}
+                </span>
+              </div>
+            </div>
+
+            {/* Risk Assessment */}
+            <div className="border-t pt-3">
+              <p className="text-xs text-muted-foreground font-medium mb-2">Risk Assessment</p>
+              <div className="flex items-center justify-between">
+                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border px-2.5 py-1 rounded-full ${riskColor}`}>
+                  <Shield className="w-3 h-3" /> {riskLabel}
+                </span>
+                <span className="text-xs text-muted-foreground font-mono">{riskScore > 0 ? `${riskScore}/100` : '—'}</span>
+              </div>
+              <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${riskBarColor}`} style={{ width: `${riskScore}%` }} />
+              </div>
+            </div>
+
+            {/* Vendor Profile */}
+            <div className="border-t pt-3">
+              <p className="text-xs text-muted-foreground font-medium mb-2">Vendor Profile</p>
+              <div className="space-y-1.5">
+                {[
+                  { label: 'Payment Terms',   value: vendor.payment_terms?.replace('_', ' ').toUpperCase() ?? '—' },
+                  { label: 'Lead Time',        value: vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : '—' },
+                  { label: 'Pricing Model',    value: vendor.pricing_model ?? '—' },
+                  { label: 'Total Bids',       value: String(stats.total_bids ?? 0) },
+                ].map(r => (
+                  <div key={r.label} className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">{r.label}</span>
+                    <span className="text-xs font-semibold capitalize">{r.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Risk Factors + Compliance */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Risk Factors & Opportunities</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {riskFactors.slice(0, 3).map((rf, i) => (
+              <div key={i} className={`border rounded-lg p-3 ${colorMap[rf.color]}`}>
+                <div className="flex items-start gap-2">
+                  <rf.Icon className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${iconColorMap[rf.color]}`} />
+                  <div>
+                    <p className="text-xs font-semibold">{rf.title}</p>
+                    <p className="text-xs opacity-80 mt-0.5">{rf.desc}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Compliance Documents */}
+            {complianceDocs.length > 0 && (
+              <div className="border-t pt-3">
+                <p className="text-xs text-muted-foreground font-medium mb-2">Compliance Documents</p>
+                <div className="space-y-1.5">
+                  {complianceDocs.map(c => {
+                    const aiStatus = c.doc?.ai_validation_status
+                    const isGood = aiStatus === 'passed'
+                    const isWarn = aiStatus === 'warning'
+                    return (
+                      <div key={c.label} className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium truncate">{c.label}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 font-medium ${isGood ? 'bg-green-50 text-green-700' : isWarn ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                          {isGood ? 'Verified' : isWarn ? 'Warning' : 'Uploaded'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Bid Stats */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Bid Performance</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'Total Bids',     value: String(stats.total_bids ?? 0),         positive: true },
+                { label: 'Bids Won',       value: String(stats.accepted_bids ?? 0),       positive: true },
+                { label: 'Win Rate',       value: stats.total_bids > 0 ? `${stats.win_rate}%` : '—', positive: (stats.win_rate ?? 0) >= 40 },
+                { label: 'Avg Lead Time',  value: stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : '—', positive: true },
+              ].map(m => (
+                <div key={m.label} className="bg-slate-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground">{m.label}</p>
+                  <p className={`text-sm font-bold mt-0.5 ${m.positive ? 'text-foreground' : 'text-red-500'}`}>{m.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Win rate bar */}
+            {stats.total_bids > 0 && (
+              <div>
+                <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                  <span>Win rate</span><span>{stats.win_rate}%</span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${(stats.win_rate ?? 0) >= 60 ? 'bg-green-500' : (stats.win_rate ?? 0) >= 30 ? 'bg-amber-400' : 'bg-red-400'}`}
+                    style={{ width: `${stats.win_rate}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Category + Location */}
+            <div className="border-t pt-3 space-y-1.5">
+              {[
+                { label: 'Category',  value: vendor.category_name ?? '—' },
+                { label: 'Location',  value: vendor.city && vendor.state ? `${vendor.city}, ${vendor.state}` : '—' },
+                { label: 'Currency',  value: vendor.currency ?? '—' },
+                { label: 'Incoterms', value: vendor.incoterms ?? '—' },
+              ].map(r => (
+                <div key={r.label} className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">{r.label}</span>
+                  <span className="text-xs font-semibold">{r.value}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Active Bids ── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Package className="w-4 h-4 text-muted-foreground" /> Active Bids
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {activeBids.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">No active bids for this vendor.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {activeBids.map((bid: any, i: number) => (
+                <div key={i} className="border rounded-xl p-4 space-y-2 hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono font-semibold text-muted-foreground">{bid.pr_number}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${bidStatusColor(bid.status)}`}>
+                      {BID_STATUS_LABELS[bid.status] ?? bid.status}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium line-clamp-2">{bid.title}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {formatDate(bid.submitted_at)}
+                    </p>
+                    {bid.bid_amount && (
+                      <p className="text-sm font-bold">{formatCurrency(bid.bid_amount)}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Vendor PDF Export ────────────────────────────────────────────────────────
+
+function exportVendorPDF(vendor: any) {
+  const addr = [vendor.address, vendor.city, vendor.state, vendor.pincode].filter(Boolean).join(', ')
+  const badgeCls: Record<string, string> = {
+    approved: 'background:#dcfce7;color:#166534',
+    draft: 'background:#f1f5f9;color:#475569',
+    rejected: 'background:#fee2e2;color:#991b1b',
+    pending_approval: 'background:#fef3c7;color:#92400e',
+    blocked: 'background:#fee2e2;color:#991b1b',
+  }
+  const statusStyle = badgeCls[vendor.status] ?? 'background:#f1f5f9;color:#475569'
+
+  const tag = (label: string, color: string) =>
+    `<span style="display:inline-block;padding:1px 7px;border-radius:9999px;font-size:9px;font-weight:700;background:${color};margin-right:4px;">${label}</span>`
+
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:5px 8px;color:#64748b;font-size:10px;width:45%">${label}</td><td style="padding:5px 8px;font-size:10px;font-weight:500">${value || '—'}</td></tr>`
+
+  const sectionHtml = (title: string, rows: string) =>
+    `<div style="margin-bottom:16px">
+      <div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:6px">${title}</div>
+      <table style="width:100%;border-collapse:collapse">${rows}</table>
+    </div>`
+
+  const infoRows = [
+    row('GST Number', vendor.gst_number),
+    row('PAN Number', vendor.pan_number),
+    row('Category', vendor.category_name),
+    row('Plant', vendor.plant_name),
+    row('SAP Vendor Code', vendor.sap_vendor_code),
+    row('Country', vendor.country),
+    row('MSME Number', vendor.is_msme ? (vendor.msme_number || 'Yes') : 'No'),
+    row('SEZ Unit', vendor.is_sez ? 'Yes' : 'No'),
+    row('International', vendor.is_international ? 'Yes' : 'No'),
+  ].join('')
+
+  const contactRows = [
+    row('Contact Person', vendor.contact_name),
+    row('Email', vendor.contact_email),
+    row('Phone', vendor.contact_phone),
+    row('Address', addr),
+  ].join('')
+
+  const bankRows = [
+    row('Bank Name', vendor.bank_name),
+    row('Account Number', vendor.bank_account),
+    row('IFSC Code', vendor.bank_ifsc),
+  ].join('')
+
+  const commercialRows = [
+    row('Pricing Model', vendor.pricing_model),
+    row('Payment Terms', vendor.payment_terms),
+    row('Currency', vendor.currency),
+    row('Incoterms', vendor.incoterms),
+    row('Std Lead Time', vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : ''),
+    row('Rush Lead Time', vendor.rush_lead_time_days ? `${vendor.rush_lead_time_days} days` : ''),
+    row('Min Order Qty', vendor.min_order_quantity),
+  ].join('')
+
+  const perfRows = [
+    row('Performance Score', vendor.performance_score != null ? `${Number(vendor.performance_score).toFixed(1)} / 100` : ''),
+    row('Risk Score', vendor.risk_score != null ? `${Number(vendor.risk_score).toFixed(1)} / 100` : ''),
+    row('Created By', vendor.created_by_name),
+    row('Created At', vendor.created_at ? new Date(vendor.created_at).toLocaleDateString() : ''),
+  ].join('')
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Vendor Profile — ${vendor.company_name}</title>
+  <style>
+    @page { size: A4; margin: 14mm 16mm; }
+    body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; color: #1e293b; }
+    h1 { font-size: 18px; margin: 0 0 4px; color: #1e3a5f; }
+    .meta { font-size: 10px; color: #64748b; margin-bottom: 14px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+    table tr:nth-child(even) td { background: #f8fafc; }
+    .footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #94a3b8; display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <h1>${vendor.company_name}
+    <span style="display:inline-block;padding:2px 9px;border-radius:9999px;font-size:10px;font-weight:600;${statusStyle};margin-left:6px">${(vendor.status ?? '').replace(/_/g, ' ')}</span>
+    ${vendor.is_msme ? tag('MSME', '#dbeafe') : ''}
+    ${vendor.is_sez ? tag('SEZ', '#f3e8ff') : ''}
+    ${vendor.is_international ? tag('International', '#fce7f3') : ''}
+  </h1>
+  <div class="meta">
+    Vendor Code: <strong>${vendor.vendor_code || '—'}</strong>
+    &nbsp;·&nbsp; Category: <strong>${vendor.category_name || '—'}</strong>
+    &nbsp;·&nbsp; Plant: <strong>${vendor.plant_name || '—'}</strong>
+  </div>
+
+  <div class="grid2">
+    ${sectionHtml('Business Identity', infoRows)}
+    ${sectionHtml('Contact Information', contactRows)}
+  </div>
+  <div class="grid2">
+    ${sectionHtml('Bank Details', bankRows)}
+    ${sectionHtml('Commercial Terms', commercialRows)}
+  </div>
+  ${sectionHtml('Performance & Audit', perfRows)}
+
+  <div class="footer">
+    <span>Lumax Procurement — Vendor Profile Report</span>
+    <span>Generated: ${new Date().toLocaleString()}</span>
+  </div>
+</body>
+</html>`
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url, '_blank')
+  if (!win) { URL.revokeObjectURL(url); return }
+  win.addEventListener('load', () => { win.focus(); win.print() })
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
 export default function VendorDetailPage() {
   const { id } = useParams()
   const { toast } = useToast()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('details')
+  const [activeTab, setActiveTab] = useState('dashboard')
   const [docSubTab, setDocSubTab] = useState<'compliance' | 'other'>('compliance')
   const [isEditing, setIsEditing] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [savingDocs, setSavingDocs] = useState(false)
+  const [docFields, setDocFields] = useState<Record<string, string>>({})
 
   const { data: vendor, isLoading } = useQuery({
     queryKey: ['vendor', id],
@@ -1098,11 +1605,40 @@ export default function VendorDetailPage() {
     toast({ title: 'Field updated.' })
   }
 
+  const startDocEdit = (v: any) => {
+    setDocFields({
+      gst_number:   v.gst_number   ?? '',
+      pan_number:   v.pan_number   ?? '',
+      bank_account: v.bank_account ?? '',
+      bank_ifsc:    v.bank_ifsc    ?? '',
+      bank_name:    v.bank_name    ?? '',
+      msme_number:  v.msme_number  ?? '',
+    })
+    setIsEditing(true)
+  }
+
+  const setDocField = (key: string, val: string) =>
+    setDocFields(prev => ({ ...prev, [key]: val }))
+
+  const saveDocChanges = async () => {
+    setSavingDocs(true)
+    try {
+      await apiClient.patch(`/vendors/${id}/`, docFields)
+      queryClient.invalidateQueries({ queryKey: ['vendor', id] })
+      toast({ title: 'Documents saved.' })
+      setIsEditing(false)
+    } catch (err: any) {
+      toast({ title: 'Save failed', description: err?.response?.data?.error ?? 'Please try again.', variant: 'destructive' })
+    } finally {
+      setSavingDocs(false)
+    }
+  }
+
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
   if (!vendor) return <div className="p-8 text-center text-muted-foreground">Vendor not found.</div>
 
   const isDraft = vendor.status === 'draft'
-  const tabs = ['details', 'documents', 'approval']
+  const tabs = ['dashboard', 'details', 'documents', 'approval']
 
   return (
     <div className="space-y-4">
@@ -1117,13 +1653,23 @@ export default function VendorDetailPage() {
             {vendor.is_sez && <Badge variant="secondary" className="text-xs">SEZ</Badge>}
           </div>
         </div>
-        {isDraft && !isEditing && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1.5">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportVendorPDF(vendor)} className="gap-1.5">
+            <Download className="w-3.5 h-3.5" /> Download PDF
+          </Button>
+          {isDraft && !isEditing && (
+            <Button variant="outline" size="sm" onClick={() => {
+              if (activeTab === 'documents') {
+                startDocEdit(vendor)
+              } else {
+                if (activeTab !== 'details') setActiveTab('details')
+                setIsEditing(true)
+              }
+            }} className="gap-1.5">
               <Pencil className="w-3.5 h-3.5" /> Edit Details
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -1139,6 +1685,9 @@ export default function VendorDetailPage() {
           </button>
         ))}
       </div>
+
+      {/* Dashboard Tab */}
+      {activeTab === 'dashboard' && <VendorDashboard vendorId={id} vendor={vendor} />}
 
       {/* Details Tab */}
       {activeTab === 'details' && (
@@ -1257,10 +1806,11 @@ export default function VendorDetailPage() {
                   <div className="space-y-1">
                     <Label className="text-xs">GST Number <span className="text-destructive">*</span></Label>
                     <ComplianceFieldInput
-                      value={vendor.gst_number ?? ''}
+                      value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
                       placeholder="27AAAAA0000A1Z5"
-                      canEdit={isDraft}
-                      onSave={v => handleFieldUpdate('gst_number', v)}
+                      canEdit={isDraft && isEditing}
+                      onChange={v => setDocField('gst_number', v)}
+                      onSave={v => setDocField('gst_number', v)}
                     />
                   </div>
                   <div className="space-y-1">
@@ -1276,10 +1826,11 @@ export default function VendorDetailPage() {
                   <div className="space-y-1">
                     <Label className="text-xs">PAN Number <span className="text-destructive">*</span></Label>
                     <ComplianceFieldInput
-                      value={vendor.pan_number ?? ''}
+                      value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
                       placeholder="AAAAA9999A"
-                      canEdit={isDraft}
-                      onSave={v => handleFieldUpdate('pan_number', v)}
+                      canEdit={isDraft && isEditing}
+                      onChange={v => setDocField('pan_number', v)}
+                      onSave={v => setDocField('pan_number', v)}
                     />
                   </div>
                   <div className="space-y-1">
@@ -1301,10 +1852,11 @@ export default function VendorDetailPage() {
                       <div key={key} className="space-y-1">
                         <Label className="text-xs">{label} <span className="text-destructive">*</span></Label>
                         <ComplianceFieldInput
-                          value={vendor[key] ?? ''}
+                          value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
                           placeholder={placeholder}
-                          canEdit={isDraft}
-                          onSave={v => handleFieldUpdate(key, v)}
+                          canEdit={isDraft && isEditing}
+                          onChange={v => setDocField(key, v)}
+                          onSave={v => setDocField(key, v)}
                         />
                       </div>
                     ))}
@@ -1347,10 +1899,11 @@ export default function VendorDetailPage() {
                     <div className="space-y-1">
                       <Label className="text-xs">MSME Number <span className="text-destructive">*</span></Label>
                       <ComplianceFieldInput
-                        value={vendor.msme_number ?? ''}
+                        value={isEditing ? (docFields.msme_number ?? '') : (vendor.msme_number ?? '')}
                         placeholder="UDYAM-MH-00-0000000"
-                        canEdit={isDraft}
-                        onSave={v => handleFieldUpdate('msme_number', v)}
+                        canEdit={isDraft && isEditing}
+                        onChange={v => setDocField('msme_number', v)}
+                        onSave={v => setDocField('msme_number', v)}
                       />
                     </div>
                     <div className="space-y-1">
@@ -1403,6 +1956,18 @@ export default function VendorDetailPage() {
               />
             )}
 
+          {/* Save / Cancel — bottom right, only in edit mode */}
+          {isDraft && isEditing && (
+            <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setIsEditing(false)}>
+                <X className="w-3.5 h-3.5" /> Cancel
+              </Button>
+              <Button size="sm" className="gap-1.5" onClick={saveDocChanges} disabled={savingDocs}>
+                {savingDocs ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                Save Changes
+              </Button>
+            </div>
+          )}
           </CardContent>
         </Card>
       )}

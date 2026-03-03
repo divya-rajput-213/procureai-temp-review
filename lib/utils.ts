@@ -71,6 +71,7 @@ export const STATUS_COLORS: Record<string, string> = {
   pending_approval: 'bg-amber-100 text-amber-700',
   pending_finance: 'bg-amber-100 text-amber-700',
   approved: 'bg-green-100 text-green-700',
+  vendor_selected: 'bg-teal-100 text-teal-700',
   rejected: 'bg-red-100 text-red-700',
   blocked: 'bg-red-100 text-red-700',
   synced_to_sap: 'bg-blue-100 text-blue-700',

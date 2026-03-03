@@ -16,6 +16,8 @@ import {
 import { formatDateTime } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
+const EXCLUDED_ROLE_NAMES = new Set(['super_admin', 'vendor_external'])
+
 export default function UsersPage() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -24,11 +26,13 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showClientSecret, setShowClientSecret] = useState(false)
-  const [addForm, setAddForm] = useState({ first_name: '', last_name: '', email: '', designation: '', phone: '', role_ids: [] as number[] })
+  const [addForm, setAddForm] = useState({ first_name: '', last_name: '', email: '', designation: '', phone: '', plant: '' as string | number, role_ids: [] as number[] })
+  const [addRoleSearch, setAddRoleSearch] = useState('')
+  const [showAddRoleDropdown, setShowAddRoleDropdown] = useState(false)
 
   // Edit user state
   const [editUser, setEditUser] = useState<any | null>(null)
-  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', designation: '', role_ids: [] as number[] })
+  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', designation: '', plant: '' as string | number, role_ids: [] as number[] })
   const [editRoleSearch, setEditRoleSearch] = useState('')
   const [showEditRoleDropdown, setShowEditRoleDropdown] = useState(false)
 
@@ -73,13 +77,6 @@ export default function UsersPage() {
     onError: () => toast({ title: 'Sync failed', variant: 'destructive' }),
   })
 
-  const toggleAddRole = (roleId: number, checked: boolean) => {
-    setAddForm(f => ({
-      ...f,
-      role_ids: checked ? [...f.role_ids, roleId] : f.role_ids.filter(id => id !== roleId),
-    }))
-  }
-
   const createUserMutation = useMutation({
     mutationFn: async () => (await apiClient.post('/users/', addForm)).data,
     onSuccess: (data: any) => {
@@ -90,7 +87,8 @@ export default function UsersPage() {
           : `User created but welcome email failed. Check SMTP settings.`,
       })
       setShowAddModal(false)
-      setAddForm({ first_name: '', last_name: '', email: '', designation: '', phone: '', role_ids: [] })
+      setAddForm({ first_name: '', last_name: '', email: '', designation: '', phone: '', plant: '', role_ids: [] })
+      setAddRoleSearch('')
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
     onError: (err: any) => toast({ title: 'Failed to create user', description: err?.response?.data?.email?.[0], variant: 'destructive' }),
@@ -112,6 +110,7 @@ export default function UsersPage() {
       first_name: u.first_name || '',
       last_name: u.last_name || '',
       designation: u.designation || '',
+      plant: u.plant ?? '',
       role_ids: (u.roles || []).map((r: any) => r.id),
     })
     setEditRoleSearch('')
@@ -157,11 +156,19 @@ export default function UsersPage() {
     }
   }
 
-  // Roles queries & mutation
+  // Roles + Plants queries
   const { data: roles } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
       const r = await apiClient.get('/users/roles/')
+      return r.data.results ?? r.data
+    },
+  })
+
+  const { data: plants } = useQuery({
+    queryKey: ['plants'],
+    queryFn: async () => {
+      const r = await apiClient.get('/users/plants/')
       return r.data.results ?? r.data
     },
   })
@@ -443,9 +450,28 @@ export default function UsersPage() {
           <Card>
             <CardHeader><CardTitle>Bulk Import Users via CSV</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                CSV columns: full_name, email, employee_code, plant_code, department_code, designation, phone, role
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Columns: full_name, email, employee_code, plant_code, department_code, designation, phone, role
+                </p>
+                <button
+                  type="button"
+                  className="text-xs text-primary underline underline-offset-2 shrink-0 ml-4"
+                  onClick={() => {
+                    const csv = [
+                      'full_name,email,employee_code,plant_code,department_code,designation,phone,role',
+                      'John Doe,john.doe@company.com,EMP001,PLT01,DEPT01,Manager,+919876543210,approver_l1',
+                      'Jane Smith,jane.smith@company.com,EMP002,PLT01,DEPT02,Engineer,+919876543211,requester',
+                    ].join('\n')
+                    const a = document.createElement('a')
+                    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
+                    a.download = 'sample_users.csv'
+                    a.click()
+                  }}
+                >
+                  Download sample CSV
+                </button>
+              </div>
 
               <div
                 {...getImportRootProps()}
@@ -611,6 +637,21 @@ export default function UsersPage() {
                 />
               </div>
 
+              {/* Plant dropdown */}
+              <div className="space-y-1">
+                <Label className="text-xs">Plant</Label>
+                <select
+                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                  value={editForm.plant}
+                  onChange={e => setEditForm(f => ({ ...f, plant: e.target.value }))}
+                >
+                  <option value="">— Select Plant —</option>
+                  {(plants || []).map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name} {p.code ? `(${p.code})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Roles multi-select */}
               <div className="space-y-1.5">
                 <Label className="text-xs">Roles</Label>
@@ -648,6 +689,7 @@ export default function UsersPage() {
                     <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-white border rounded-md shadow-lg max-h-44 overflow-y-auto">
                       {(roles || [])
                         .filter((r: any) =>
+                          !EXCLUDED_ROLE_NAMES.has(r.name) &&
                           !editForm.role_ids.includes(r.id) &&
                           (r.display_name.toLowerCase().includes(editRoleSearch.toLowerCase()) || !editRoleSearch)
                         )
@@ -666,6 +708,7 @@ export default function UsersPage() {
                           </button>
                         ))}
                       {(roles || []).filter((r: any) =>
+                        !EXCLUDED_ROLE_NAMES.has(r.name) &&
                         !editForm.role_ids.includes(r.id) &&
                         (r.display_name.toLowerCase().includes(editRoleSearch.toLowerCase()) || !editRoleSearch)
                       ).length === 0 && (
@@ -718,26 +761,89 @@ export default function UsersPage() {
                   />
                 </div>
               ))}
-              {(roles || []).length > 0 && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Roles</Label>
-                  <div className="border rounded-md p-2.5 max-h-36 overflow-y-auto space-y-1.5">
-                    {(roles || []).map((r: any) => (
-                      <label key={r.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                        <input
-                          type="checkbox"
-                          className="h-3.5 w-3.5 rounded"
-                          checked={addForm.role_ids.includes(r.id)}
-                          onChange={e => toggleAddRole(r.id, e.target.checked)}
-                        />
-                        {r.display_name}
-                      </label>
-                    ))}
+
+              {/* Plant dropdown */}
+              <div className="space-y-1">
+                <Label className="text-xs">Plant</Label>
+                <select
+                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                  value={addForm.plant}
+                  onChange={e => setAddForm(f => ({ ...f, plant: e.target.value }))}
+                >
+                  <option value="">— Select Plant —</option>
+                  {(plants || []).map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name} {p.code ? `(${p.code})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Roles multiselect */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Roles</Label>
+                {addForm.role_ids.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-1">
+                    {addForm.role_ids.map(id => {
+                      const role = (roles || []).find((r: any) => r.id === id)
+                      return role ? (
+                        <span key={id} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">
+                          {role.display_name}
+                          <button
+                            type="button"
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => setAddForm(f => ({ ...f, role_ids: f.role_ids.filter(i => i !== id) }))}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ) : null
+                    })}
                   </div>
+                )}
+                <div className="relative">
+                  <Input
+                    placeholder="Search and add roles..."
+                    value={addRoleSearch}
+                    onChange={e => { setAddRoleSearch(e.target.value); setShowAddRoleDropdown(true) }}
+                    onFocus={() => setShowAddRoleDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowAddRoleDropdown(false), 150)}
+                    className="text-sm"
+                  />
+                  {showAddRoleDropdown && (
+                    <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-white border rounded-md shadow-lg max-h-44 overflow-y-auto">
+                      {(roles || [])
+                        .filter((r: any) =>
+                          !EXCLUDED_ROLE_NAMES.has(r.name) &&
+                          !addForm.role_ids.includes(r.id) &&
+                          (r.display_name.toLowerCase().includes(addRoleSearch.toLowerCase()) || !addRoleSearch)
+                        )
+                        .map((r: any) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => {
+                              setAddForm(f => ({ ...f, role_ids: [...f.role_ids, r.id] }))
+                              setAddRoleSearch('')
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+                          >
+                            {r.display_name}
+                          </button>
+                        ))}
+                      {(roles || []).filter((r: any) =>
+                        !EXCLUDED_ROLE_NAMES.has(r.name) &&
+                        !addForm.role_ids.includes(r.id) &&
+                        (r.display_name.toLowerCase().includes(addRoleSearch.toLowerCase()) || !addRoleSearch)
+                      ).length === 0 && (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">No more roles available.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+
               <div className="flex gap-2 pt-2">
-                <Button variant="outline" onClick={() => setShowAddModal(false)} className="flex-1">
+                <Button variant="outline" onClick={() => { setShowAddModal(false); setAddRoleSearch('') }} className="flex-1">
                   Cancel
                 </Button>
                 <Button

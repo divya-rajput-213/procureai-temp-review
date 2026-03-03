@@ -12,6 +12,7 @@ const STATUS_LABELS: Record<string, string> = {
   approved: 'Approved',
   rejected: 'Rejected',
   blocked: 'Blocked',
+  vendor_selected: 'Vendor Selected',
   synced_to_sap: 'Synced to SAP',
   po_created: 'PO Created',
   cancelled: 'Cancelled',
