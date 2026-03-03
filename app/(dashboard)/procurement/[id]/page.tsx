@@ -2064,159 +2064,217 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
 
 // ─── PR PDF Export ────────────────────────────────────────────────────────────
 
-function exportPRPDF(pr: any) {
+function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }> = []) {
   const lineItems: any[] = pr.line_items ?? []
   const subtotal = lineItems.reduce(
     (s, item) => s + Number(item.quantity || 0) * Number(item.unit_rate || 0),
     0,
   )
-  const fmt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
+  const grandTotal = Number(pr.total_amount || (subtotal + taxTotal))
   const currency = pr.currency_code ?? ''
+  const fmt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const dateStr = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 
-  const lineRows = lineItems.map((item, idx) => {
-    const total = Number(item.quantity || 0) * Number(item.unit_rate || 0)
-    return `<tr>
-      <td style="padding:5px 8px;text-align:center">${idx + 1}</td>
-      <td style="padding:5px 8px;font-family:monospace">${item.item_code || '—'}</td>
-      <td style="padding:5px 8px">${item.description || '—'}</td>
-      <td style="padding:5px 8px;text-align:right">${Number(item.quantity).toLocaleString()}</td>
-      <td style="padding:5px 8px;text-align:center">${item.unit_of_measure || 'EA'}</td>
-      <td style="padding:5px 8px;text-align:right">${fmt(Number(item.unit_rate))}</td>
-      <td style="padding:5px 8px;text-align:right;font-weight:600">${fmt(total)}</td>
-    </tr>`
-  }).join('')
+  // ── Status badge ─────────────────────────────────────────────────────────────
 
-  const invitedVendors: string = (pr.invited_vendors_detail ?? [])
-    .map((v: any) => v.company_name)
-    .join(', ') || '—'
-
-  const selectedVendor: string = pr.selected_vendor_name || '—'
-
-  const statusBadge = (s: string) => {
-    const colors: Record<string, string> = {
-      approved: '#dcfce7;color:#166534',
-      draft: '#f1f5f9;color:#475569',
-      rejected: '#fee2e2;color:#991b1b',
-      pending_approval: '#fef3c7;color:#92400e',
-      vendor_selected: '#dbeafe;color:#1e40af',
-    }
-    const style = colors[s] ?? '#f1f5f9;color:#475569'
-    return `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:9px;font-weight:700;background:${style}">${s.replace(/_/g, ' ')}</span>`
+  const statusStyles: Record<string, string> = {
+    draft:            'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0',
+    pending_approval: 'background:#fef3c7;color:#92400e;border:1px solid #fde68a',
+    approved:         'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
+    rejected:         'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
+    vendor_selected:  'background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe',
+    po_created:       'background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe',
   }
+  const sstyle = statusStyles[pr.status] ?? statusStyles.draft
+  const statusLabel = (pr.status ?? '').replace(/_/g, ' ').toUpperCase()
+
+  // ── Line item rows ────────────────────────────────────────────────────────────
+
+  const lineRows = lineItems.length === 0
+    ? `<tr><td colspan="7" style="padding:10px;text-align:center;color:#94a3b8;font-style:italic">No line items</td></tr>`
+    : lineItems.map((item, idx) => {
+        const total = Number(item.quantity || 0) * Number(item.unit_rate || 0)
+        const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
+        return `<tr style="${bg}">
+          <td style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${idx + 1}</td>
+          <td style="padding:5px 8px;font-family:Courier New,monospace;font-size:9px;border:1px solid #e2e8f0">${item.item_code || '—'}</td>
+          <td style="padding:5px 8px;border:1px solid #e2e8f0">${item.description || '—'}</td>
+          <td style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0">${Number(item.quantity).toLocaleString()}</td>
+          <td style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${item.unit_of_measure || 'EA'}</td>
+          <td style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0">${fmt(Number(item.unit_rate))}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:600;border:1px solid #e2e8f0">${fmt(total)}</td>
+        </tr>`
+      }).join('')
+
+  // ── Info field row ────────────────────────────────────────────────────────────
+
+  const frow = (label: string, value: string | undefined | null) =>
+    `<tr>
+      <td style="padding:5px 10px;color:#64748b;font-size:9.5px;width:38%;border-bottom:1px solid #f1f5f9;white-space:nowrap">${label}</td>
+      <td style="padding:5px 10px;font-size:9.5px;font-weight:500;border-bottom:1px solid #f1f5f9">${value || '—'}</td>
+    </tr>`
+
+  const section = (title: string, rows: string) =>
+    `<div style="margin-bottom:12px">
+      <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f">${title}</div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">${rows}</table>
+    </div>`
+
+  const invitedVendors = (pr.invited_vendors_detail ?? []).map((v: any) => v.company_name).join(', ') || '—'
+  const selectedVendor = pr.selected_vendor_name || '—'
+  const createdAt = pr.created_at ? dateStr(pr.created_at) : '—'
+
+  const detailRows = [
+    frow('Title',       pr.title),
+    frow('Description', pr.description),
+    frow('Department',  pr.department_name),
+    frow('Plant',       pr.plant_name),
+    frow('Type',        pr.purchase_type),
+    frow('Currency',    pr.currency_code),
+  ].join('')
+
+  const vendorRows = [
+    frow('Invited Vendors',  invitedVendors),
+    frow('Selected Vendor',  selectedVendor),
+  ].join('')
+
+  // ── HTML ───────────────────────────────────────────────────────────────────────
 
   const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>Purchase Requisition — ${pr.pr_number}</title>
+  <title>PR — ${pr.pr_number}</title>
   <style>
-    @page { size: A4; margin: 14mm 16mm; }
-    body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; color: #1e293b; }
-    h1 { font-size: 18px; margin: 0 0 3px; color: #1e3a5f; }
-    .meta { font-size: 10px; color: #64748b; margin-bottom: 14px; }
-    .section-title { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin: 14px 0 8px; }
-    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-    .kpi { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; }
-    .kpi-label { font-size: 9px; color: #64748b; }
-    .kpi-value { font-size: 15px; font-weight: 700; color: #1e3a5f; margin-top: 2px; }
-    table { width: 100%; border-collapse: collapse; font-size: 10px; }
-    th { background: #f1f5f9; padding: 5px 8px; text-align: left; font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase; border: 1px solid #e2e8f0; }
-    td { border: 1px solid #e2e8f0; vertical-align: top; }
-    tr:nth-child(even) td { background: #f8fafc; }
-    .totals { margin-top: 8px; text-align: right; }
-    .totals table { width: auto; margin-left: auto; min-width: 280px; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
-    .info-row { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f1f5f9; font-size: 10px; }
-    .info-label { color: #64748b; width: 130px; shrink: 0; }
-    .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #94a3b8; display: flex; justify-content: space-between; }
+    @page { size: A4 portrait; margin: 14mm 15mm 12mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; margin: 0; color: #1e293b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   </style>
 </head>
 <body>
-  <h1>${pr.pr_number} ${statusBadge(pr.status)}</h1>
-  <div class="meta">
-    ${pr.tracking_code ? `Tracking ID: <strong>${pr.tracking_code}</strong> &nbsp;·&nbsp;` : ''}
-    Created: <strong>${pr.created_at ? new Date(pr.created_at).toLocaleDateString() : '—'}</strong>
-    ${pr.created_by_name ? `&nbsp;·&nbsp; By: <strong>${pr.created_by_name}</strong>` : ''}
-  </div>
 
-  <div class="kpi-grid">
-    <div class="kpi">
-      <div class="kpi-label">Total Value</div>
-      <div class="kpi-value">${currency} ${Number(pr.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Line Items</div>
-      <div class="kpi-value">${lineItems.length}</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Type</div>
-      <div class="kpi-value">${pr.purchase_type || 'General'}</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Plant</div>
-      <div class="kpi-value">${pr.plant_name || '—'}</div>
-    </div>
-  </div>
-
-  <div class="info-grid">
-    <div>
-      <div class="section-title">Requisition Details</div>
-      <div class="info-row"><span class="info-label">Title</span><span>${pr.title || '—'}</span></div>
-      <div class="info-row"><span class="info-label">Description</span><span>${pr.description || '—'}</span></div>
-      <div class="info-row"><span class="info-label">Department</span><span>${pr.department_name || '—'}</span></div>
-      <div class="info-row"><span class="info-label">Currency</span><span>${pr.currency_code || '—'}</span></div>
-    </div>
-    <div>
-      <div class="section-title">Vendor Information</div>
-      <div class="info-row"><span class="info-label">Invited Vendors</span><span>${invitedVendors}</span></div>
-      <div class="info-row"><span class="info-label">Selected Vendor</span><span>${selectedVendor}</span></div>
-    </div>
-  </div>
-
-  <div class="section-title">Line Items</div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:30px">#</th>
-        <th style="width:90px">Item Code</th>
-        <th>Description</th>
-        <th style="width:60px;text-align:right">Qty</th>
-        <th style="width:45px;text-align:center">UOM</th>
-        <th style="width:90px;text-align:right">Unit Rate</th>
-        <th style="width:100px;text-align:right">Total (${currency})</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${lineRows || '<tr><td colspan="7" style="padding:8px;text-align:center;color:#94a3b8">No line items</td></tr>'}
-    </tbody>
+  <!-- ═══ HEADER ═══ -->
+  <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #1e3a5f;padding-bottom:10px;margin-bottom:12px">
+    <tr>
+      <td style="vertical-align:top">
+        <div style="font-size:9px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">Purchase Requisition</div>
+        <div style="font-size:22px;font-weight:700;color:#1e3a5f;line-height:1.1">${pr.pr_number}</div>
+        <div style="margin-top:5px">
+          <span style="display:inline-block;padding:2px 10px;border-radius:9999px;font-size:9px;font-weight:700;${sstyle}">${statusLabel}</span>
+        </div>
+      </td>
+      <td style="text-align:right;vertical-align:top;white-space:nowrap">
+        <div style="font-size:9px;color:#64748b;line-height:1.9">
+          ${pr.tracking_code ? `<div><strong style="color:#1e293b">Tracking ID:</strong> ${pr.tracking_code}</div>` : ''}
+          <div><strong style="color:#1e293b">Created:</strong> ${createdAt}</div>
+          ${pr.created_by_name ? `<div><strong style="color:#1e293b">By:</strong> ${pr.created_by_name}</div>` : ''}
+          <div style="margin-top:4px;font-size:18px;font-weight:700;color:#1e3a5f">${currency} ${fmt(grandTotal)}</div>
+          <div style="font-size:8.5px;color:#94a3b8">Grand Total</div>
+        </div>
+      </td>
+    </tr>
   </table>
 
-  <div class="totals">
-    <table>
-      <tr>
-        <td style="padding:5px 12px;color:#64748b">Subtotal</td>
-        <td style="padding:5px 12px;text-align:right;font-weight:600">${currency} ${fmt(subtotal)}</td>
-      </tr>
-      <tr style="background:#f1f5f9">
-        <td style="padding:6px 12px;font-weight:700">Grand Total</td>
-        <td style="padding:6px 12px;text-align:right;font-weight:700;font-size:13px;color:#1e3a5f">${currency} ${fmt(Number(pr.total_amount || subtotal))}</td>
-      </tr>
-    </table>
-  </div>
+  <!-- ═══ KPI BOXES ═══ -->
+  <table style="width:100%;border-collapse:separate;border-spacing:8px;margin-bottom:4px">
+    <tr>
+      <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;text-align:center">
+        <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Total Value</div>
+        <div style="font-size:15px;font-weight:700;color:#1e3a5f">${currency} ${fmt(grandTotal)}</div>
+      </td>
+      <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;text-align:center">
+        <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Line Items</div>
+        <div style="font-size:15px;font-weight:700;color:#1e3a5f">${lineItems.length}</div>
+      </td>
+      <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;text-align:center">
+        <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Purchase Type</div>
+        <div style="font-size:15px;font-weight:700;color:#1e3a5f">${pr.purchase_type || 'General'}</div>
+      </td>
+      <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;text-align:center">
+        <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Invited Vendors</div>
+        <div style="font-size:15px;font-weight:700;color:#1e3a5f">${(pr.invited_vendors_detail ?? []).length}</div>
+      </td>
+    </tr>
+  </table>
 
-  <div class="footer">
-    <span>Lumax Procurement — Purchase Requisition</span>
-    <span>Generated: ${new Date().toLocaleString()}</span>
-  </div>
+  <!-- ═══ DETAILS + VENDORS (2 col) ═══ -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:2px">
+    <tr>
+      <td style="width:55%;padding-right:8px;vertical-align:top">${section('Requisition Details', detailRows)}</td>
+      <td style="width:45%;padding-left:8px;vertical-align:top">${section('Vendor Information', vendorRows)}</td>
+    </tr>
+  </table>
+
+  <!-- ═══ LINE ITEMS ═══ -->
+  <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Line Items</div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
+    <thead>
+      <tr style="background:#f1f5f9">
+        <th style="padding:6px 8px;text-align:center;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:28px">#</th>
+        <th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:90px">Item Code</th>
+        <th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b">Description</th>
+        <th style="padding:6px 8px;text-align:right;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:55px">Qty</th>
+        <th style="padding:6px 8px;text-align:center;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:42px">UOM</th>
+        <th style="padding:6px 8px;text-align:right;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:85px">Unit Rate</th>
+        <th style="padding:6px 8px;text-align:right;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:90px">Total (${currency})</th>
+      </tr>
+    </thead>
+    <tbody>${lineRows}</tbody>
+  </table>
+
+  <!-- ═══ TOTALS ═══ -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+    <tr>
+      <td style="width:60%"></td>
+      <td style="width:40%">
+        <table style="width:100%;border-collapse:collapse">
+          <tr>
+            <td style="padding:5px 12px;color:#64748b;border:1px solid #e2e8f0">Subtotal</td>
+            <td style="padding:5px 12px;text-align:right;font-weight:600;border:1px solid #e2e8f0">${currency} ${fmt(subtotal)}</td>
+          </tr>
+          ${activeTaxes.map(t => {
+            const amt = subtotal * t.rate / 100
+            return `<tr>
+              <td style="padding:5px 12px;color:#64748b;border:1px solid #e2e8f0">${t.name} (${t.rate}%)</td>
+              <td style="padding:5px 12px;text-align:right;border:1px solid #e2e8f0">${currency} ${fmt(amt)}</td>
+            </tr>`
+          }).join('')}
+          ${activeTaxes.length > 0 ? `<tr style="background:#f8fafc">
+            <td style="padding:5px 12px;color:#475569;font-weight:600;border:1px solid #e2e8f0">Total Tax</td>
+            <td style="padding:5px 12px;text-align:right;font-weight:600;border:1px solid #e2e8f0">${currency} ${fmt(taxTotal)}</td>
+          </tr>` : ''}
+          <tr style="background:#1e3a5f">
+            <td style="padding:7px 12px;color:#ffffff;font-weight:700;border:1px solid #1e3a5f">Grand Total</td>
+            <td style="padding:7px 12px;text-align:right;font-weight:700;font-size:13px;color:#ffffff;border:1px solid #1e3a5f">${currency} ${fmt(grandTotal)}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <!-- ═══ FOOTER ═══ -->
+  <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;padding-top:6px;margin-top:4px">
+    <tr>
+      <td style="font-size:8.5px;color:#94a3b8">Lumax Procurement — Purchase Requisition Document</td>
+      <td style="font-size:8.5px;color:#94a3b8;text-align:right">Generated: ${new Date().toLocaleString('en-IN')}</td>
+    </tr>
+  </table>
+
 </body>
 </html>`
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
-  const win = window.open(url, '_blank')
-  if (!win) { URL.revokeObjectURL(url); return }
-  win.addEventListener('load', () => { win.focus(); win.print() })
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none'
+  document.body.appendChild(iframe)
+  iframe.src = url
+  iframe.addEventListener('load', () => {
+    iframe.contentWindow?.focus()
+    iframe.contentWindow?.print()
+    setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url) }, 60_000)
+  })
 }
 
 export default function PRDetailPage() {
@@ -2328,7 +2386,7 @@ export default function PRDetailPage() {
               <Pencil className="w-3.5 h-3.5" /> Edit
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => exportPRPDF(pr)} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => exportPRPDF(pr, activeTaxes)} className="gap-1.5">
             <Download className="w-3.5 h-3.5" /> PDF
           </Button>
           <Button variant="ghost" size="sm" onClick={() => router.push('/procurement')} className="gap-1 shrink-0">

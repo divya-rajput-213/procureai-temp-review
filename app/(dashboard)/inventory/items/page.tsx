@@ -235,7 +235,8 @@ function ImportPanel({ onClose, onDone }: { onClose: () => void; onDone: () => v
         seen.add(code)
       }
     }
-    return [...dupes]
+    return Array.from(dupes)
+    
   }, [csvRows, mapping])
 
   function applyMapping(rows: Record<string, string>[]): Record<string, string>[] {
