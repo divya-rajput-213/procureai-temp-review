@@ -505,7 +505,7 @@ function SystemSettingsTab() {
     .reduce((sum, t) => sum + t.rate, 0)
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className=" space-y-4">
 
       {/* ── Currency ─────────────────────────────────────── */}
       <Card>
