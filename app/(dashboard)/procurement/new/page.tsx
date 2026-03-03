@@ -28,7 +28,7 @@ const schema = z.object({
   matrix_id: z.number().optional(),
   line_items: z.array(
     z.object({
-      item_code: z.number({ required_error: 'Item required' }).min(1),
+      item_code: z.number({ required_error: 'Item required' }).positive('Item code is required '),
       quantity: z
         .number({ required_error: 'Quantity required' })
         .positive('Quantity must be greater than zero')
@@ -120,7 +120,7 @@ function TrackingIdSearch({
   )
 }
 
-function ItemSearch({ onSelect, placeholder, displayValue }: { onSelect: (item: any) => void; placeholder?: string, displayValue?: string }) {
+function ItemSearch({ onSelect, placeholder, displayValue,hasError }: { onSelect: (item: any) => void; placeholder?: string, displayValue?: string,hasError:any }) {
   const [search, setSearch] = useState(displayValue ?? '')
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -145,7 +145,7 @@ function ItemSearch({ onSelect, placeholder, displayValue }: { onSelect: (item: 
           value={search}
           onChange={e => { setSearch(e.target.value); setOpen(true) }}
           onFocus={() => search.length > 0 && setOpen(true)}
-          className="pl-8 text-sm"
+          className={`pl-8 text-sm ${hasError}?'border-destructive' : ''`}
         />
         {isFetching && (
           <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />
@@ -431,7 +431,7 @@ export default function NewPRPage() {
           </Card>
 
           {/* ── Invited Vendors ── */}
-          <Card className="shadow-sm">
+          {watchedTrackingId && <Card className="shadow-sm">
             <CardHeader className="pb-4 border-b">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Invited Vendors</CardTitle>
@@ -509,10 +509,10 @@ export default function NewPRPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* ── Line Items ── */}
-          <Card className="shadow-sm">
+          {watchedTrackingId && <Card className="shadow-sm">
             <CardHeader className="pb-4 border-b">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Line Items</CardTitle>
@@ -566,6 +566,7 @@ export default function NewPRPage() {
                           setItemLabels(prev => ({ ...prev, [idx]: `${item.code} — ${item.description}` }))
                         }}
                         placeholder="Search by code or description…"
+                        hasError={errors.line_items?.[idx]?.item_code && errors.line_items[idx]?.item_code?.message}
                       />
                       {errors.line_items?.[idx]?.item_code && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
@@ -681,16 +682,17 @@ export default function NewPRPage() {
               </div>
             </CardContent>
           </Card>
-
-
+          }
           <div className="flex justify-end">
             <Button
               type="button"
               className="gap-1.5"
               onClick={async () => {
-                // Trigger validation for specific fields (in this case, line_items)
-                const isValid = await trigger('line_items');
-                
+                // Conditionally trigger validation based on watchedTrackingId
+                const isValid = watchedTrackingId
+                  ? await trigger(['line_items', 'tracking_id'])  // Validate both when tracking ID is available
+                  : await trigger('tracking_id');  // If no tracking ID, only validate the tracking_id field
+          
                 if (isValid) {
                   // If validation passes, proceed with changing the tab
                   setActiveTab('matrix');
