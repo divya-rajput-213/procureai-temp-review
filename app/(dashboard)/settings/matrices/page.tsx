@@ -57,14 +57,18 @@ function MatrixFormPanel({ initial, plants, users, roles, onSave, onCancel, savi
   saving: boolean
 }) {
   const [form, setForm] = useState<MatrixForm>(initial)
+  const [formError, setFormError] = useState('')
   const set = (k: keyof MatrixForm, v: any) => setForm(prev => ({ ...prev, [k]: v }))
 
   const addLevel = () => {
-    const next = form.levels.length + 1
-    setForm(prev => ({
-      ...prev,
-      levels: [...prev.levels, { level_number: next, user: '', role: '', sla_hours: 72 }],
-    }))
+    setForm(prev => {
+      // Use max existing level_number + 1 (not just length+1) to handle any gaps
+      const maxNum = prev.levels.reduce((m, lv) => Math.max(m, lv.level_number), 0)
+      return {
+        ...prev,
+        levels: [...prev.levels, { level_number: maxNum + 1, user: '', role: '', sla_hours: 72 }],
+      }
+    })
   }
 
   const removeLevel = (idx: number) => {
@@ -190,15 +194,38 @@ function MatrixFormPanel({ initial, plants, users, roles, onSave, onCancel, savi
         ))}
       </div>
 
-      <div className="flex justify-end gap-3 pt-2 border-t">
-        <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
-          <X className="w-3.5 h-3.5" /> Cancel
-        </Button>
-        <Button size="sm" onClick={() => onSave(form)} disabled={saving || !form.name} className="gap-1">
-          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {!saving && <Check className="w-3.5 h-3.5" />}
-          Save Matrix
-        </Button>
+      <div className="space-y-2 pt-2 border-t">
+        {formError && (
+          <p className="text-xs text-destructive font-medium">{formError}</p>
+        )}
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
+            <X className="w-3.5 h-3.5" /> Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={saving || !form.name}
+            className="gap-1"
+            onClick={() => {
+              const nums = form.levels.map(lv => lv.level_number)
+              if (new Set(nums).size !== nums.length) {
+                setFormError('Duplicate level numbers detected. Each level must be unique.')
+                return
+              }
+              const missing = form.levels.some(lv => !lv.user || !lv.role)
+              if (missing) {
+                setFormError('Every level must have an Approver and a Role selected.')
+                return
+              }
+              setFormError('')
+              onSave(form)
+            }}
+          >
+            {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {!saving && <Check className="w-3.5 h-3.5" />}
+            Save Matrix
+          </Button>
+        </div>
       </div>
     </div>
   )
@@ -371,13 +398,16 @@ export default function MatricesPage() {
         matrix_type: editingMatrix.matrix_type,
         plant: editingMatrix.plant ?? '',
         is_active: editingMatrix.is_active,
-        levels: (editingMatrix.levels ?? []).map((lv: any) => ({
-          id: lv.id,
-          level_number: lv.level_number,
-          user: lv.user ?? '',
-          role: lv.role ?? '',
-          sla_hours: lv.sla_hours ?? 72,
-        })),
+        levels: (editingMatrix.levels ?? [])
+          .slice()
+          .sort((a: any, b: any) => a.level_number - b.level_number)
+          .map((lv: any, i: number) => ({
+            id: lv.id,
+            level_number: i + 1,   // normalize to sequential 1-N regardless of DB state
+            user: lv.user ?? '',
+            role: lv.role ?? '',
+            sla_hours: lv.sla_hours ?? 72,
+          })),
       }
     : emptyForm()
 
