@@ -155,7 +155,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Pending approvals alert ─────────────────────────────────────────── */}
-      {pendingCount > 0 && (
+      {/* {pendingCount > 0 && (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4 flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
@@ -169,7 +169,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-      )}
+      )} */}
 
       {/* ── Spend vs Budget chart ───────────────────────────────────────────── */}
       <Card>

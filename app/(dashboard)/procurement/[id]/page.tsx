@@ -144,7 +144,7 @@ function MyActionPanel({ pendingAction, onProcess }: {
       />
       <div className="flex gap-2">
         <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1"
-          onClick={() => handle('approved')} disabled={busy || !comments}>
+          onClick={() => handle('approved')} disabled={busy}>
           {loading === 'approved' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
           Approve
         </Button>
