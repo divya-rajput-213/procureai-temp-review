@@ -22,6 +22,7 @@ import {
 import apiClient from '@/lib/api/client'
 import ReactMarkdown from 'react-markdown'
 import { useSettingsStore } from '@/lib/stores/settings.store'
+import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 
 // ─── Approval Timeline ─────────────────────────────────────────────────────────
 
@@ -312,183 +313,68 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess }: {
   const vendorNames = (pr.invited_vendors_detail as any[] ?? []).map((v: any) => v.company_name)
 
   return (
-    /* Overlay */
-    <div
-      className=" "
-    >
-      {/* Dialog */}
-      <div className="bg-white rounded-xl w-full  flex flex-col">
+    <>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4 border-b">
+          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Select Approval Matrix
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Choose the approval workflow for this budget request.
+          </p>
+        </CardHeader>
 
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 px-6 py-4 border-b">
-          <div>
-            <h2 className="text-base font-semibold flex items-center gap-2">
-              <Send className="w-4 h-4 text-primary" />
-              Submit for Approval
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Review PR details and select an approval matrix.
+        <CardContent className="pt-5">
+          {matrices === undefined && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
+            </div>
+          )}
+
+          {!loadingMatrices && (matrices ?? []).length === 0 && (
+            <p className="text-xs text-amber-600 font-medium">
+              No active PR approval matrices configured. The system will use the default matrix.
             </p>
-          </div>
-        </div>
+          )}
 
-        {/* Body — scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+          {!loadingMatrices && (matrices ?? []).length > 0 && (
+            <MatrixSelectorTable
+              matrices={matrices}
+              selectedMatrix={selectedMatrix}
+              expandedMatrix={expandedMatrix}
+              onSelect={(id) => {
+                setSelectedMatrix(id)
+                setExpandedMatrix(id)
+              }}
+              onToggleExpand={(id) => {
+                setExpandedMatrix((prev) => (prev === id ? null : id))
+              }}
+            />
+          )}
+        </CardContent>
 
-          {/* PR Summary */}
-          <div className="bg-slate-50 border rounded-lg p-4 space-y-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">PR Summary</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
-              <div>
-                <p className="text-xs text-muted-foreground">PR Number</p>
-                <p className="font-semibold mt-0.5">{pr.pr_number}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Amount</p>
-                <p className="font-bold text-primary mt-0.5">{formatCurrency(pr.total_amount, pr.currency_code)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Line Items</p>
-                <p className="font-medium mt-0.5">{lineCount} item{lineCount === 1 ? '' : 's'}</p>
-              </div>
-              {pr.plant_name && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Plant</p>
-                  <p className="font-medium mt-0.5">{pr.plant_name}</p>
-                </div>
-              )}
-              {pr.department_name && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Department</p>
-                  <p className="font-medium mt-0.5">{pr.department_name}</p>
-                </div>
-              )}
-              {vendorNames.length > 0 && (
-                <div className="col-span-2 sm:col-span-3">
-                  <p className="text-xs text-muted-foreground">Invited Vendors</p>
-                  <p className="font-medium mt-0.5">{vendorNames.join(', ')}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Matrix Selection */}
-          <div className="space-y-2">
-            <div>
-              <p className="text-sm font-medium">Approval Matrix</p>
-              <p className="text-xs text-muted-foreground">
-                Select a matrix or leave unselected — system auto-matches based on plant.
-              </p>
-            </div>
-
-            {loadingMatrices && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
-              </div>
-            )}
-            {!loadingMatrices && (matrices ?? []).length === 0 && (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                No active PR approval matrices configured. The system will use the default.
-              </p>
-            )}
-            {!loadingMatrices && (matrices ?? []).length > 0 && (
-              <div className="border rounded-md overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b">
-                    <tr>
-                      <th className="w-8 px-3 py-2" />
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Matrix Name</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground hidden sm:table-cell">Plant</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Levels</th>
-                      <th className="w-8 px-3 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {(matrices as any[]).map((m: any) => {
-                      const levelCount = m.levels?.length ?? 0
-                      const isSelected = selectedMatrix === m.id
-                      const isExpanded = expandedMatrix === m.id
-                      return (
-                        <>
-                          <tr
-                            key={m.id}
-                            className={`cursor-pointer transition-colors ${isSelected ? 'bg-primary/5 ring-1 ring-inset ring-primary/20' : 'hover:bg-slate-50'}`}
-                            onClick={() => setSelectedMatrix(m.id)}
-                          >
-                            <td className="px-3 py-2.5 text-center">
-                              <input type="radio" checked={isSelected} onChange={() => setSelectedMatrix(m.id)}
-                                className="accent-primary" onClick={e => e.stopPropagation()} />
-                            </td>
-                            <td className="px-3 py-2.5 font-medium">{m.name}</td>
-                            <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                              {m.plant_name || 'All Plants'}
-                            </td>
-                            <td className="px-3 py-2.5 text-muted-foreground">
-                              {levelCount} level{levelCount === 1 ? '' : 's'}
-                            </td>
-                            <td className="px-3 py-2.5 text-center">
-                              <button type="button"
-                                onClick={e => { e.stopPropagation(); setExpandedMatrix(prev => prev === m.id ? null : m.id) }}
-                                className="text-muted-foreground hover:text-foreground">
-                                {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                              </button>
-                            </td>
-                          </tr>
-                          {isExpanded && levelCount > 0 && (
-                            <tr key={`${m.id}-lvl`}>
-                              <td colSpan={5} className="p-0">
-                                <div className="bg-slate-50 border-t px-6 py-3">
-                                  <table className="w-full text-xs">
-                                    <thead>
-                                      <tr className="text-muted-foreground border-b border-slate-200">
-                                        <th className="text-left pb-2 pr-4 font-medium">Level</th>
-                                        <th className="text-left pb-2 pr-4 font-medium">Approver</th>
-                                        <th className="text-left pb-2 pr-4 font-medium">Role</th>
-                                        <th className="text-left pb-2 font-medium">SLA</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                      {m.levels.map((lv: any) => (
-                                        <tr key={lv.id}>
-                                          <td className="py-2 pr-4 font-medium text-muted-foreground">L{lv.level_number}</td>
-                                          <td className="py-2 pr-4">
-                                            <div className="flex items-center gap-1.5">
-                                              <User className="w-3 h-3 text-muted-foreground shrink-0" />
-                                              <span className="font-medium">{lv.user_name ?? '—'}</span>
-                                            </div>
-                                          </td>
-                                          <td className="py-2 pr-4 text-muted-foreground">{lv.role_name ?? '—'}</td>
-                                          <td className="py-2 text-muted-foreground">{lv.sla_hours ? `${lv.sla_hours}h` : '—'}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
+        {/* Footer — same as first design */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
           <Button variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={submitting} className="gap-2 min-w-[160px]">
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+
+          <Button
+            onClick={submit}
+            disabled={submitting}            
+            className="gap-2 min-w-[160px]"
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
             Submit for Approval
           </Button>
         </div>
-      </div>
-    </div>
+      </Card>
+    </>
+
   )
 }
 
@@ -1261,11 +1147,11 @@ function AddBidForm({ prId, invitedVendors, existingBidVendorIds, onSuccess }: {
 
 function BidStatusBadge({ status }: { status: string }) {
   const map: Record<string, { cls: string; label: string }> = {
-    pending:          { cls: 'bg-slate-100 text-slate-600',  label: 'Pending' },
-    shortlisted:      { cls: 'bg-blue-100 text-blue-700',    label: 'Shortlisted' },
-    pending_approval: { cls: 'bg-amber-100 text-amber-700',  label: 'Pending Approval' },
-    accepted:         { cls: 'bg-green-100 text-green-700',  label: 'Accepted' },
-    rejected:         { cls: 'bg-red-100 text-red-700',      label: 'Rejected' },
+    pending: { cls: 'bg-slate-100 text-slate-600', label: 'Pending' },
+    shortlisted: { cls: 'bg-blue-100 text-blue-700', label: 'Shortlisted' },
+    pending_approval: { cls: 'bg-amber-100 text-amber-700', label: 'Pending Approval' },
+    accepted: { cls: 'bg-green-100 text-green-700', label: 'Accepted' },
+    rejected: { cls: 'bg-red-100 text-red-700', label: 'Rejected' },
   }
   const s = map[status] ?? { cls: 'bg-gray-100 text-gray-600', label: status }
   return (
@@ -1550,13 +1436,12 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
   const isLocked = hasBidPendingApproval && !isPendingApproval && !isAccepted && !isRejected
 
   return (
-    <div className={`border rounded-xl overflow-hidden transition-all ${
-      isAccepted       ? 'border-green-300' :
-      isRejected       ? 'border-red-200 opacity-60' :
-      isPendingApproval ? 'border-amber-300' :
-      isLocked         ? 'border-slate-200 opacity-50' :
-      isRecommended    ? 'border-purple-300' : 'border-border'
-    }`}>
+    <div className={`border rounded-xl overflow-hidden transition-all ${isAccepted ? 'border-green-300' :
+        isRejected ? 'border-red-200 opacity-60' :
+          isPendingApproval ? 'border-amber-300' :
+            isLocked ? 'border-slate-200 opacity-50' :
+              isRecommended ? 'border-purple-300' : 'border-border'
+      }`}>
       {/* Lock banner */}
       {isLocked && (
         <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-100 border-b text-xs text-slate-500">
@@ -1569,12 +1454,11 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
       )}
 
       {/* Main row */}
-      <div className={`flex items-center gap-3 px-4 py-3 ${
-        isAccepted        ? 'bg-green-50/60' :
-        isRejected        ? 'bg-red-50/20' :
-        isPendingApproval ? 'bg-amber-50/40' :
-        isRecommended     ? 'bg-purple-50/30' : 'bg-white'
-      }`}>
+      <div className={`flex items-center gap-3 px-4 py-3 ${isAccepted ? 'bg-green-50/60' :
+          isRejected ? 'bg-red-50/20' :
+            isPendingApproval ? 'bg-amber-50/40' :
+              isRecommended ? 'bg-purple-50/30' : 'bg-white'
+        }`}>
         {/* Rank */}
         <span className="text-xs font-bold text-muted-foreground w-6 shrink-0 text-center">#{rank}</span>
 
@@ -1621,14 +1505,12 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
 
         {/* AI Score pill */}
         {bid.ai_score != null && (
-          <div className={`shrink-0 hidden sm:flex flex-col items-center justify-center w-14 h-12 rounded-lg border ${
-            bid.ai_score >= 75 ? 'border-green-200 bg-green-50' :
-            bid.ai_score >= 50 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50'
-          }`}>
-            <span className={`text-base font-bold leading-none ${
-              bid.ai_score >= 75 ? 'text-green-700' :
-              bid.ai_score >= 50 ? 'text-amber-700' : 'text-red-700'
-            }`}>{bid.ai_score}</span>
+          <div className={`shrink-0 hidden sm:flex flex-col items-center justify-center w-14 h-12 rounded-lg border ${bid.ai_score >= 75 ? 'border-green-200 bg-green-50' :
+              bid.ai_score >= 50 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50'
+            }`}>
+            <span className={`text-base font-bold leading-none ${bid.ai_score >= 75 ? 'text-green-700' :
+                bid.ai_score >= 50 ? 'text-amber-700' : 'text-red-700'
+              }`}>{bid.ai_score}</span>
             <span className="text-[10px] text-muted-foreground mt-0.5">AI Score</span>
           </div>
         )}
@@ -1908,8 +1790,8 @@ function BidApprovalModal({ bid, pr, onClose, onSuccess }: {
 function bidActionStyle(action: string, isCurrent: boolean) {
   if (action === 'approved') return { badge: 'bg-green-100 text-green-700 border-green-200', dot: 'bg-green-500', label: 'Approved' }
   if (action === 'rejected') return { badge: 'bg-red-100 text-red-700 border-red-200', dot: 'bg-red-500', label: 'Rejected' }
-  if (action === 'held')     return { badge: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-400', label: 'On Hold' }
-  if (isCurrent)             return { badge: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400', label: 'Awaiting' }
+  if (action === 'held') return { badge: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-400', label: 'On Hold' }
+  if (isCurrent) return { badge: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400', label: 'Awaiting' }
   return { badge: 'bg-slate-100 text-slate-500 border-slate-200', dot: 'bg-slate-300', label: 'Pending' }
 }
 
@@ -2346,14 +2228,14 @@ export default function PRDetailPage() {
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
-   const initialTabSet = useRef(false)
+  const initialTabSet = useRef(false)
 
   const { data: pr, isLoading } = useQuery({
     queryKey: ['pr', id],
     queryFn: async () => (await apiClient.get(`/procurement/${id}/`)).data,
   })
   const subtotal = (pr?.line_items ?? []).reduce(
-    (sum:any, item:any) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
+    (sum: any, item: any) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
     0,
   )
   const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
@@ -2655,12 +2537,12 @@ export default function PRDetailPage() {
       {activeTab === 'approval' && (
         <div className="space-y-4">
           {pr.status === 'draft' ? (
-             <SubmitForApprovalModal
-             pr={pr}
-             prId={id!}
-             onClose={() => setShowSubmitModal(false)}
-             onSuccess={invalidatePR}
-           />
+            <SubmitForApprovalModal
+              pr={pr}
+              prId={id!}
+              onClose={() => setShowSubmitModal(false)}
+              onSuccess={invalidatePR}
+            />
           ) : (
             <ApprovalProgressPanel prId={id!} onStatusChange={invalidatePR} />
           )}
