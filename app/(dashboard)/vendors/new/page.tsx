@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { ArrowLeft, ArrowRight, Loader2, Sparkles, CheckCircle, Send, Save, ChevronDown, ChevronRight, Upload, X, Plus, FileText } from 'lucide-react'
 import apiClient from '@/lib/api/client'
+import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 
 const SRF_FIELD_LABELS: Record<string, string> = {
   company_name:  'Company Name',
@@ -602,7 +603,7 @@ export default function NewVendorPage() {
 
             {/* Tabs */}
             <div className="flex gap-1 border-b">
-              {(['compliance', 'other'] as const).map(tab => (
+              {(['compliance'] as const).map(tab => (
                 <button
                   key={tab}
                   type="button"
@@ -767,11 +768,6 @@ export default function NewVendorPage() {
                 />
               </div>
             </div>
-
-            </>}
-
-            {complianceTab === 'other' && <>
-            {/* Other Documents */}
             <div className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -835,9 +831,7 @@ export default function NewVendorPage() {
                 </p>
               )}
             </div>
-
             </>}
-
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 type="button"
@@ -883,92 +877,20 @@ export default function NewVendorPage() {
                 </p>
               )}
               {matrices && matrices.length > 0 && (
-                <div className="border rounded-lg overflow-hidden">
-                  {/* Table header */}
-                  <div className="grid grid-cols-[auto_1fr_auto_auto] items-center bg-slate-50 px-3 py-2 text-xs font-semibold text-muted-foreground border-b gap-3">
-                    <span className="w-4" />
-                    <span>Matrix Name</span>
-                    <span>Plant</span>
-                    <span className="w-20 text-right">Levels</span>
-                  </div>
-
-                  {matrices.map((m: any) => {
-                    const isSelected = selectedMatrix === m.id
-                    const isExpanded = expandedMatrix === m.id
-                    const levelCount = m.levels?.length ?? 0
-                    return (
-                      <div key={m.id} className={`border-t first:border-t-0 ${isSelected ? 'bg-primary/5' : ''}`}>
-                        {/* Matrix row — <label> wrapping a radio is the correct accessible pattern */}
-                        <label
-                          htmlFor={`matrix-radio-${m.id}`}
-                          className={`grid grid-cols-[auto_1fr_auto_auto] items-center px-3 py-3 gap-3 cursor-pointer hover:bg-slate-50/80 transition-colors ${isSelected ? 'hover:bg-primary/5' : ''}`}
-                        >
-                          <input
-                            type="radio"
-                            id={`matrix-radio-${m.id}`}
-                            name="matrix"
-                            checked={isSelected}
-                            onChange={() => { setSelectedMatrix(m.id); setExpandedMatrix(m.id) }}
-                            className="accent-primary w-4 h-4"
-                          />
-                          <div>
-                            <p className="text-sm font-medium">{m.name}</p>
-                          </div>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {m.plant_name || 'All Plants'}
-                          </span>
-                          <div className="flex items-center gap-1 w-20 justify-end">
-                            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">
-                              {levelCount} level{levelCount === 1 ? '' : 's'}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={e => { e.stopPropagation(); setExpandedMatrix(prev => (prev === m.id ? null : m.id)) }}
-                              className="text-muted-foreground hover:text-foreground p-0.5"
-                            >
-                              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </label>
-
-                        {/* Expanded levels */}
-                        {isExpanded && (
-                          <div className="border-t bg-slate-50/60 px-4 py-2 space-y-0">
-                            {levelCount === 0 ? (
-                              <p className="text-xs text-muted-foreground py-2">No levels configured.</p>
-                            ) : (
-                              <table className="w-full text-xs">
-                                <thead>
-                                  <tr className="text-muted-foreground">
-                                    <th className="text-left py-1.5 font-medium w-12">Level</th>
-                                    <th className="text-left py-1.5 font-medium">Approver</th>
-                                    <th className="text-left py-1.5 font-medium">Role</th>
-                                    <th className="text-right py-1.5 font-medium w-20">SLA</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {m.levels.map((lvl: any) => (
-                                    <tr key={lvl.id} className="border-t border-slate-200/60">
-                                      <td className="py-1.5">
-                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs">
-                                          {lvl.level_number}
-                                        </span>
-                                      </td>
-                                      <td className="py-1.5 font-medium text-slate-700">{lvl.user_name}</td>
-                                      <td className="py-1.5 text-muted-foreground">{lvl.role_name}</td>
-                                      <td className="py-1.5 text-right text-muted-foreground">{lvl.sla_hours}h</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+                <MatrixSelectorTable
+                  matrices={matrices}
+                  selectedMatrix={selectedMatrix}
+                  expandedMatrix={expandedMatrix}
+                  onSelect={(id) => {
+                    setSelectedMatrix(id)
+                    setExpandedMatrix(id) // Expands the matrix when selected
+                  }}
+                  onToggleExpand={(id) => {
+                    setExpandedMatrix(prev => (prev === id ? null : id)) // Toggles expand/collapse
+                  }}
+                />
               )}
+
             </div>
 
             <div className="flex  justify-end gap-3 pt-2 flex-wrap">
