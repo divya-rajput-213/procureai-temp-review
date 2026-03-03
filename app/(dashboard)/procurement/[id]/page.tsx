@@ -884,10 +884,28 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
                 <div className="col-span-4 sm:col-span-2 space-y-1">
                   <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
                   <Input
-                    type="number" placeholder="1" value={li.quantity}
-                    onChange={e => setLI(idx, 'quantity', e.target.value)}
+                    type="number"
+                    placeholder="1"
+                    value={li.quantity}
+                    onChange={e => {
+                      let value = Number(e.target.value);
+
+                      // Clamp the value to maximum limit
+                      if (value > 99999) {
+                        value = 99999;
+                      }
+
+                      // Ensure value is a valid number
+                      if (isNaN(value) || value <= 0) {
+                        value = 0;
+                      }
+
+                      setLI(idx, 'quantity', value);
+                    }}
                     className="h-10 text-sm"
                   />
+
+
                 </div>
 
                 {/* UOM */}
@@ -904,10 +922,29 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
                 <div className="col-span-5 sm:col-span-2 space-y-1">
                   <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
                   <Input
-                    type="number" placeholder="0.00" value={li.unit_rate}
-                    onChange={e => setLI(idx, 'unit_rate', e.target.value)}
+                    type="number"
+                    placeholder="0.00"
+                    value={li.unit_rate}
+                    onChange={e => {
+                      let value = parseFloat(e.target.value);
+
+                      // Clamp the value to maximum limit
+                      if (value > 9999999.99) {
+                        value = 9999999.99;
+                      }
+
+                      // Ensure value is a valid number and round to 2 decimals
+                      if (isNaN(value) || value <= 0) {
+                        value = 0;
+                      } else {
+                        value = Math.round(value * 100) / 100; // Limit to 2 decimal places
+                      }
+
+                      setLI(idx, 'unit_rate', value);
+                    }}
                     className="h-10 text-sm"
                   />
+
                 </div>
 
                 {/* Total */}

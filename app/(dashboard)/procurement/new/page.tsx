@@ -29,7 +29,6 @@ const schema = z.object({
   line_items: z.array(
     z.object({
       item_code: z.number({ required_error: 'Item required' }).min(1),
-
       quantity: z
         .number({ required_error: 'Quantity required' })
         .positive('Must be > 0')
@@ -43,8 +42,6 @@ const schema = z.object({
         .refine(v => /^\d+(\.\d{1,2})?$/.test(String(v)), {
           message: 'Maximum 2 decimal places allowed',
         }),
-
-
       unit_of_measure: z.string().min(1, 'UOM required'),
     })
   )
@@ -569,10 +566,27 @@ export default function NewPRPage() {
                     <div className="col-span-4 sm:col-span-2 space-y-1">
                       <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
                       <Input
-                        type="number" step="0.01" min="0.01" placeholder="1"
+                        type="number"
+                        min="0.01"
+                        max="99999"
+                        step="0.01"
+                        placeholder="1"
                         className={errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}
-                        {...register(`line_items.${idx}.quantity`, { valueAsNumber: true })}
+                        {...register(`line_items.${idx}.quantity`, {
+                          valueAsNumber: true,
+                          onChange: e => {
+                            let value = Number(e.target.value)
+
+                            if (value > 99999) {
+                              value = 99999
+                              setValue(`line_items.${idx}.quantity`, value)
+                            }
+
+                            clearErrors(`line_items.${idx}.quantity`)
+                          },
+                        })}
                       />
+
                       {errors.line_items?.[idx]?.quantity && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.quantity?.message}</p>
                       )}
@@ -584,10 +598,30 @@ export default function NewPRPage() {
                     <div className="col-span-5 sm:col-span-2 space-y-1">
                       <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
                       <Input
-                        type="number" step="0.01" min="0.01" placeholder="0.00"
+                        type="number"
+                        min="0.01"
+                        max="9999999.99"
+                        step="0.01"
+                        placeholder="0.00"
                         className={errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}
-                        {...register(`line_items.${idx}.unit_rate`, { valueAsNumber: true })}
+                        {...register(`line_items.${idx}.unit_rate`, {
+                          valueAsNumber: true,
+                          onChange: e => {
+                            let value = Number(e.target.value)
+
+                            if (value > 9999999.99) {
+                              value = 9999999.99
+                            }
+
+                            value = Number(value.toFixed(2))
+
+                            setValue(`line_items.${idx}.unit_rate`, value)
+
+                            clearErrors(`line_items.${idx}.unit_rate`)
+                          },
+                        })}
                       />
+
                       {errors.line_items?.[idx]?.unit_rate && (
                         <p className="text-xs text-destructive">{errors.line_items[idx]?.unit_rate?.message}</p>
                       )}
@@ -602,7 +636,7 @@ export default function NewPRPage() {
                         className="h-10 text-sm"
                       />
 
-    
+
 
                     </div>
                   </div>
