@@ -58,9 +58,6 @@ function MatrixRow({ matrix, onEdit, onDelete, onToggle }: {
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Button size="sm" variant="ghost" onClick={onToggle} className="text-xs">
-            {matrix.is_active ? 'Deactivate' : 'Activate'}
-          </Button>
           <Button size="sm" variant="ghost" onClick={onEdit}><Pencil className="w-3.5 h-3.5" /></Button>
           <Button size="sm" variant="ghost" onClick={onDelete} className="text-red-400 hover:text-red-600">
             <Trash2 className="w-3.5 h-3.5" />
@@ -276,6 +273,8 @@ function MatrixConfigTab() {
   const [creating, setCreating] = useState(false)
   const [editTarget, setEditTarget] = useState<any>(null)
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<any>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const { data: matrices, isLoading } = useQuery({
     queryKey: ['approval-matrices'],
@@ -312,14 +311,19 @@ function MatrixConfigTab() {
     }
   }
 
-  const deleteMatrix = async (id: number) => {
-    if (!confirm('Delete this matrix? This cannot be undone.')) return
+  const confirmDeleteMatrix = async () => {
+    if (!deleteTarget) return
+
+    setDeleting(true)
     try {
-      await apiClient.delete(`/approvals/matrices/${id}/`)
+      await apiClient.delete(`/approvals/matrices/${deleteTarget.id}/`)
       toast({ title: 'Matrix deleted.' })
       queryClient.invalidateQueries({ queryKey: ['approval-matrices'] })
+      setDeleteTarget(null)
     } catch {
       toast({ title: 'Delete failed', variant: 'destructive' })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -382,15 +386,53 @@ function MatrixConfigTab() {
           <p className="text-xs mt-1">Create one to enable approval workflows.</p>
         </div>
       )}
-      {!isLoading && (matrices ?? []).length > 0 && (
+      {!isLoading && (matrices ?? []).length > 0 && !creating && !editTarget && (
         <div className="space-y-2">
           {(matrices ?? []).map((m: any) => (
             <MatrixRow key={m.id} matrix={m}
               onEdit={() => { setEditTarget(m); setCreating(false) }}
-              onDelete={() => deleteMatrix(m.id)}
+              onDelete={() => setDeleteTarget(m)}
               onToggle={() => toggleMatrix(m)}
             />
           ))}
+          {deleteTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-md p-6">
+                <h2 className="text-lg font-semibold mb-2">Delete Matrix</h2>
+
+                <p className="text-sm text-muted-foreground mb-6">
+                  Are you sure you want to delete{" "}
+                  <span className="font-medium">{deleteTarget.name}</span>?
+                  <br />
+                  This action cannot be undone.
+                </p>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setDeleteTarget(null)}
+                    disabled={deleting}
+                    className="px-4 py-2 text-sm border rounded-md"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    onClick={confirmDeleteMatrix}
+                    disabled={deleting}
+                    className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
+                  >
+                    {deleting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Delete"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+
         </div>
       )}
     </div>
