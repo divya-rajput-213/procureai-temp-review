@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,8 @@ import { useToast } from '@/components/ui/use-toast'
 import {
   ArrowLeft, Loader2, CheckCircle, XCircle, Clock, Send,
   ChevronDown, ChevronRight, Plus, Sparkles, X, User, Pencil,
+  MapPin, Star, AlertTriangle, ThumbsUp, ThumbsDown, Trophy,
+  Users, TrendingUp, TrendingDown, BarChart3, PiggyBank,
 } from 'lucide-react'
 import {
   formatCurrency, formatDate, formatDateTime, getSLAPercentage, getSLAColor,
@@ -1067,147 +1069,599 @@ function LineItemsTable({ items, currencyCode }: { items: any[]; currencyCode?: 
 
 // ─── Add Bid Form ─────────────────────────────────────────────────────────────
 
-function AddBidForm({ prId, onSuccess }: { prId: string | string[]; onSuccess: () => void }) {
+function AddBidForm({ prId, invitedVendors, existingBidVendorIds, onSuccess }: {
+  prId: string | string[]
+  invitedVendors: any[]
+  existingBidVendorIds: number[]
+  onSuccess: () => void
+}) {
   const { toast } = useToast()
+  const [open, setOpen] = useState(false)
   const [form, setForm] = useState({
     vendor: '',
     bid_amount: '',
     delivery_days: '30',
-    validity_days: '30',
     notes: '',
   })
+  const [bidFile, setBidFile] = useState<File | null>(null)
 
-  const { data: vendors } = useQuery({
-    queryKey: ['vendors-approved'],
-    queryFn: async () => (await apiClient.get('/vendors/?status=approved')).data.results || [],
-  })
+  const availableVendors = invitedVendors.filter(
+    (v: any) => !existingBidVendorIds.includes(v.id)
+  )
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const payload = new FormData()
-      payload.append('vendor', form.vendor)
-      payload.append('bid_amount', form.bid_amount)
-      payload.append('delivery_days', form.delivery_days)
-      payload.append('validity_days', form.validity_days)
-      if (form.notes) payload.append('notes', form.notes)
-      await apiClient.post(`/procurement/${prId}/bids/`, payload)
+      if (bidFile) {
+        const fd = new FormData()
+        fd.append('vendor', String(Number(form.vendor)))
+        fd.append('bid_amount', form.bid_amount)
+        fd.append('delivery_days', String(Number(form.delivery_days)))
+        fd.append('notes', form.notes)
+        fd.append('bid_document', bidFile)
+        await apiClient.post(`/procurement/${prId}/bids/`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+      } else {
+        await apiClient.post(`/procurement/${prId}/bids/`, {
+          vendor: Number(form.vendor),
+          bid_amount: form.bid_amount,
+          delivery_days: Number(form.delivery_days),
+          notes: form.notes,
+        })
+      }
     },
     onSuccess: () => {
-      toast({ title: 'Bid added.' })
-      setForm({ vendor: '', bid_amount: '', delivery_days: '30', validity_days: '30', notes: '' })
+      toast({ title: 'Bid recorded.' })
+      setForm({ vendor: '', bid_amount: '', delivery_days: '30', notes: '' })
+      setBidFile(null)
+      setOpen(false)
       onSuccess()
     },
     onError: (err: any) => {
-      toast({ title: 'Failed to add bid', description: err?.response?.data?.error, variant: 'destructive' })
+      const msg = err?.response?.data
+      const detail = typeof msg === 'object' ? Object.values(msg).flat().join(' ') : String(msg)
+      toast({ title: 'Failed to add bid', description: detail, variant: 'destructive' })
     },
   })
 
-  const valid = !!form.vendor && !!form.bid_amount
+  if (!open) {
+    return (
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)} className="gap-1.5">
+        <Plus className="w-3.5 h-3.5" /> Record Bid
+      </Button>
+    )
+  }
 
   return (
-    <div className="border rounded-lg p-4 space-y-3 bg-slate-50">
-      <p className="text-xs font-medium text-muted-foreground">Add Vendor Bid</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="space-y-1 sm:col-span-2">
-          <Label className="text-xs">Vendor <span className="text-destructive">*</span></Label>
+    <div className="w-full border rounded-xl p-5 space-y-4 bg-slate-50">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">Record Vendor Bid</p>
+        <button type="button" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Vendor — full width */}
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs font-medium">Vendor <span className="text-destructive">*</span></Label>
           <select
             className="w-full h-9 border rounded-md px-3 text-sm bg-white"
             value={form.vendor}
             onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))}
           >
-            <option value="">Select vendor…</option>
-            {(vendors || []).map((v: any) => (
+            <option value="">Select invited vendor…</option>
+            {availableVendors.map((v: any) => (
               <option key={v.id} value={v.id}>{v.company_name}</option>
             ))}
           </select>
+          {availableVendors.length === 0 && (
+            <p className="text-xs text-amber-600">All invited vendors have already submitted bids.</p>
+          )}
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Bid Amount (₹) <span className="text-destructive">*</span></Label>
+
+        {/* Bid Amount */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Bid Amount <span className="text-destructive">*</span></Label>
           <Input
-            type="number"
-            step="0.01"
-            placeholder="0.00"
+            type="number" step="0.01" placeholder="0.00"
             value={form.bid_amount}
             onChange={e => setForm(f => ({ ...f, bid_amount: e.target.value }))}
             className="h-9"
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Delivery Days</Label>
+
+        {/* Delivery Days */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Delivery Days</Label>
           <Input
-            type="number"
-            placeholder="30"
+            type="number" placeholder="30"
             value={form.delivery_days}
             onChange={e => setForm(f => ({ ...f, delivery_days: e.target.value }))}
             className="h-9"
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Validity Days</Label>
-          <Input
-            type="number"
-            placeholder="30"
-            value={form.validity_days}
-            onChange={e => setForm(f => ({ ...f, validity_days: e.target.value }))}
-            className="h-9"
-          />
+
+        {/* Bid Document — full width */}
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs font-medium">Bid Document</Label>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer border rounded-md px-3 py-2 bg-white hover:bg-slate-50 text-sm transition-colors">
+              <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+              {bidFile ? bidFile.name : 'Attach file (PDF, Excel, Word)…'}
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx"
+                className="hidden"
+                onChange={e => setBidFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            {bidFile && (
+              <button type="button" onClick={() => setBidFile(null)}
+                className="text-muted-foreground hover:text-destructive">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Notes</Label>
-          <Input
-            placeholder="Optional notes…"
+
+        {/* Notes — full width textarea */}
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs font-medium">Notes</Label>
+          <textarea
+            className="w-full border rounded-md px-3 py-2 text-sm resize-none h-20 bg-white focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="Additional notes, terms, conditions…"
             value={form.notes}
             onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-            className="h-9"
           />
         </div>
       </div>
-      <Button
-        size="sm"
-        onClick={() => mutation.mutate()}
-        disabled={!valid || mutation.isPending}
-        className="gap-1.5"
-      >
-        {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-        Add Bid
-      </Button>
+
+      <div className="flex gap-2 pt-1 border-t">
+        <Button
+          onClick={() => mutation.mutate()}
+          disabled={!form.vendor || !form.bid_amount || mutation.isPending}
+          className="gap-1.5"
+        >
+          {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          Save Bid
+        </Button>
+        <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Bid Status Badge ─────────────────────────────────────────────────────────
+
+function BidStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { cls: string; label: string }> = {
+    pending:     { cls: 'bg-slate-100 text-slate-600',  label: 'Pending' },
+    shortlisted: { cls: 'bg-blue-100 text-blue-700',    label: 'Shortlisted' },
+    accepted:    { cls: 'bg-green-100 text-green-700',  label: 'Accepted' },
+    rejected:    { cls: 'bg-red-100 text-red-700',      label: 'Rejected' },
+  }
+  const s = map[status] ?? { cls: 'bg-gray-100 text-gray-600', label: status }
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>
+      {s.label}
+    </span>
+  )
+}
+
+// ─── Score Bar ────────────────────────────────────────────────────────────────
+
+function ScoreBar({ label, score }: { label: string; score: number }) {
+  const color = score >= 75 ? 'bg-green-500' : score >= 50 ? 'bg-amber-400' : 'bg-red-400'
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium">{score}</span>
+      </div>
+      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${score}%` }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Confirm Dialog ───────────────────────────────────────────────────────────
+
+function ConfirmDialog({ title, message, confirmLabel, confirmClass, onConfirm, onCancel, children }: {
+  title: string
+  message: string
+  confirmLabel: string
+  confirmClass?: string
+  onConfirm: (reason?: string) => void
+  onCancel: () => void
+  children?: React.ReactNode
+}) {
+  const [reason, setReason] = useState('')
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onCancel() }}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <h3 className="font-semibold text-sm">{title}</h3>
+        <p className="text-sm text-muted-foreground">{message}</p>
+        {children}
+        <div className="space-y-2">
+          <textarea
+            className="w-full border rounded-md p-2 text-sm resize-none h-16"
+            placeholder="Reason / comments (optional)…"
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button size="sm" className={confirmClass} onClick={() => onConfirm(reason)}>
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Bid Summary Cards ─────────────────────────────────────────────────────────
+
+function BidSummaryCards({ bids, pr }: { bids: any[]; pr: any }) {
+  if (!bids.length) return null
+
+  const amounts = bids.map(b => Number(b.bid_amount))
+  const minAmount = Math.min(...amounts)
+  const maxAmount = Math.max(...amounts)
+  const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length
+  const budget = Number(pr.total_amount)
+  const potentialSavings = budget - minAmount
+  const savingsPct = budget > 0 ? (potentialSavings / budget * 100) : 0
+  const totalInvitations = pr.invited_vendors_detail?.length ?? 0
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="border border-blue-100 bg-blue-50/50 rounded-xl p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-muted-foreground">Total Invitations</p>
+          <Users className="w-4 h-4 text-blue-500" />
+        </div>
+        <p className="text-2xl font-bold text-blue-700">{totalInvitations}</p>
+        <p className="text-xs text-muted-foreground">{bids.length} bid{bids.length !== 1 ? 's' : ''} received</p>
+      </div>
+
+      <div className="border border-violet-100 bg-violet-50/50 rounded-xl p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-muted-foreground">Quote Range</p>
+          <TrendingUp className="w-4 h-4 text-violet-500" />
+        </div>
+        <p className="text-sm font-bold text-violet-700 leading-tight">
+          {formatCurrency(minAmount, pr.currency_code)}
+          <span className="text-muted-foreground font-normal"> – </span>
+          {formatCurrency(maxAmount, pr.currency_code)}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Spread: {formatCurrency(maxAmount - minAmount, pr.currency_code)}
+        </p>
+      </div>
+
+      <div className="border border-amber-100 bg-amber-50/50 rounded-xl p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-muted-foreground">Avg. Quote</p>
+          <BarChart3 className="w-4 h-4 text-amber-500" />
+        </div>
+        <p className="text-xl font-bold text-amber-700">{formatCurrency(avgAmount, pr.currency_code)}</p>
+        <p className="text-xs text-muted-foreground">Budget: {formatCurrency(budget, pr.currency_code)}</p>
+      </div>
+
+      <div className={`border rounded-xl p-4 space-y-2 ${potentialSavings >= 0 ? 'border-green-100 bg-green-50/50' : 'border-red-100 bg-red-50/50'}`}>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-muted-foreground">Potential Savings</p>
+          <PiggyBank className={`w-4 h-4 ${potentialSavings >= 0 ? 'text-green-500' : 'text-red-500'}`} />
+        </div>
+        <p className={`text-xl font-bold ${potentialSavings >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+          {potentialSavings >= 0 ? '' : '-'}{formatCurrency(Math.abs(potentialSavings), pr.currency_code)}
+        </p>
+        <p className="text-xs text-muted-foreground">{Math.abs(savingsPct).toFixed(1)}% vs budget</p>
+      </div>
+    </div>
+  )
+}
+
+// ─── Bid Highlight Cards ───────────────────────────────────────────────────────
+
+function BidHighlightCards({ bids, pr, aiRec }: { bids: any[]; pr: any; aiRec: any }) {
+  if (!bids.length) return null
+
+  const amounts = bids.map(b => Number(b.bid_amount))
+  const lowestBid = bids.find(b => Number(b.bid_amount) === Math.min(...amounts))
+  const rec = aiRec?.recommendation
+  const rankedVendors: any[] = aiRec?.ranked_vendors ?? []
+  const recommendedBid = rec ? bids.find(b => b.vendor === rec.recommended_vendor_id) : null
+  const recommendedRank = rankedVendors.find(rv => rv.vendor_id === rec?.recommended_vendor_id)
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Lowest Price */}
+      {lowestBid && (
+        <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-white">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center">
+              <TrendingDown className="w-3.5 h-3.5 text-slate-600" />
+            </div>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Lowest Price</span>
+          </div>
+          <div>
+            <p className="font-semibold text-sm text-slate-800">{lowestBid.vendor_name}</p>
+            <p className="text-2xl font-bold mt-0.5">{formatCurrency(lowestBid.bid_amount, pr.currency_code)}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {lowestBid.delivery_days}d delivery
+            {lowestBid.vendor_performance_score != null && ` · Perf ${lowestBid.vendor_performance_score}/100`}
+            {lowestBid.vendor_risk_score != null && ` · Risk ${lowestBid.vendor_risk_score}/100`}
+          </p>
+        </div>
+      )}
+
+      {/* Best Value / Recommended */}
+      {recommendedBid && recommendedRank ? (
+        <div className="border border-purple-200 rounded-xl p-4 space-y-3 bg-purple-50/30">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center">
+              <Trophy className="w-3.5 h-3.5 text-purple-600" />
+            </div>
+            <span className="text-xs font-semibold text-purple-600 uppercase tracking-wide">Best Value (Recommended)</span>
+          </div>
+          <div>
+            <p className="font-semibold text-sm text-slate-800">{recommendedBid.vendor_name}</p>
+            <p className="text-2xl font-bold mt-0.5">{formatCurrency(recommendedBid.bid_amount, pr.currency_code)}</p>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+            {recommendedBid.delivery_days && <span>{recommendedBid.delivery_days}d lead time</span>}
+            {recommendedRank.ai_score != null && (
+              <span className="font-semibold text-purple-700">AI Score: {recommendedRank.ai_score}/100</span>
+            )}
+            {recommendedBid.vendor_risk_score != null && (
+              <span>Low risk profile ({recommendedBid.vendor_risk_score}/100)</span>
+            )}
+          </div>
+        </div>
+      ) : !rec && (
+        <div className="border border-dashed border-purple-200 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-2 bg-purple-50/20">
+          <Sparkles className="w-6 h-6 text-purple-400" />
+          <p className="text-sm font-medium text-purple-700">Run AI Analysis</p>
+          <p className="text-xs text-muted-foreground">Get recommendations across 6 dimensions</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── AI Recommendation Banner ─────────────────────────────────────────────────
+
+function AIRecommendationBanner({ aiRec }: { aiRec: any }) {
+  if (!aiRec?.recommendation?.recommended_vendor_name) return null
+  const rec = aiRec.recommendation
+  return (
+    <div className="flex items-start gap-3 bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-xl px-4 py-3">
+      <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0 space-y-0.5">
+        <p className="text-xs font-semibold text-purple-800">AI Recommendation</p>
+        <p className="text-sm text-slate-700 leading-relaxed">{rec.reasoning}</p>
+      </div>
+      {rec.confidence && (
+        <span className="shrink-0 text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full font-medium">
+          {Math.round(rec.confidence * 100)}% confidence
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ─── Score Dimension Grid ─────────────────────────────────────────────────────
+
+const DIMENSION_LABELS: Record<string, string> = {
+  price_score: 'Price',
+  past_record_score: 'Past Record',
+  delivery_score: 'Delivery',
+  distance_score: 'Distance',
+  quality_score: 'Quality',
+  communication_score: 'Communication',
+}
+
+function ScoreDimensionGrid({ scoreBreakdown }: { scoreBreakdown: Record<string, number> }) {
+  const keys = ['price_score', 'past_record_score', 'delivery_score', 'distance_score', 'quality_score', 'communication_score']
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 pt-3 border-t border-dashed">
+      {keys.map(k => {
+        const score = scoreBreakdown[k]
+        if (score === undefined) return null
+        return <ScoreBar key={k} label={DIMENSION_LABELS[k] ?? k} score={score} />
+      })}
+    </div>
+  )
+}
+
+// ─── Bid Row ──────────────────────────────────────────────────────────────────
+
+function BidRow({ bid, pr, rank, aiRankedVendors, canAct, onApprove, onReject }: {
+  bid: any
+  pr: any
+  rank: number
+  aiRankedVendors: any[]
+  canAct: boolean
+  onApprove: (bid: any) => void
+  onReject: (bid: any) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const aiRank = aiRankedVendors.find(rv => rv.vendor_id === bid.vendor)
+  const isAccepted = bid.status === 'accepted'
+  const isRejected = bid.status === 'rejected'
+  const isRecommended = pr.ai_recommendation?.recommendation?.recommended_vendor_id === bid.vendor
+
+  return (
+    <div className={`border rounded-xl overflow-hidden transition-all ${
+      isAccepted ? 'border-green-300' :
+      isRejected ? 'border-red-200 opacity-75' :
+      isRecommended ? 'border-purple-300' : 'border-border'
+    }`}>
+      {/* Main row */}
+      <div className={`flex items-center gap-3 px-4 py-3 ${
+        isAccepted ? 'bg-green-50/60' :
+        isRejected ? 'bg-red-50/20' :
+        isRecommended ? 'bg-purple-50/30' : 'bg-white'
+      }`}>
+        {/* Rank */}
+        <span className="text-xs font-bold text-muted-foreground w-6 shrink-0 text-center">#{rank}</span>
+
+        {/* Vendor info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold text-sm">{bid.vendor_name}</p>
+            <BidStatusBadge status={bid.status} />
+            {isRecommended && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                <Sparkles className="w-3 h-3" /> AI Pick
+              </span>
+            )}
+            {isAccepted && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                <Trophy className="w-3 h-3" /> Selected
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+            {(bid.vendor_city || bid.vendor_state) && (
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {[bid.vendor_city, bid.vendor_state].filter(Boolean).join(', ')}
+              </span>
+            )}
+            {bid.vendor_performance_score != null && (
+              <span className="flex items-center gap-1">
+                <Star className="w-3 h-3 text-amber-400" />
+                Perf {bid.vendor_performance_score}/100
+              </span>
+            )}
+            {bid.notes && <span className="italic">"{bid.notes}"</span>}
+          </div>
+        </div>
+
+        {/* Quote */}
+        <div className="text-right shrink-0">
+          <p className="text-base font-bold">{formatCurrency(bid.bid_amount, pr.currency_code)}</p>
+          <p className="text-xs text-muted-foreground">
+            {bid.delivery_days}d · {bid.validity_days}d validity
+          </p>
+        </div>
+
+        {/* AI Score pill */}
+        {bid.ai_score != null && (
+          <div className={`shrink-0 hidden sm:flex flex-col items-center justify-center w-14 h-12 rounded-lg border ${
+            bid.ai_score >= 75 ? 'border-green-200 bg-green-50' :
+            bid.ai_score >= 50 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50'
+          }`}>
+            <span className={`text-base font-bold leading-none ${
+              bid.ai_score >= 75 ? 'text-green-700' :
+              bid.ai_score >= 50 ? 'text-amber-700' : 'text-red-700'
+            }`}>{bid.ai_score}</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5">AI Score</span>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {canAct && !isAccepted && !isRejected && (
+            <>
+              <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1"
+                onClick={() => onApprove(bid)}>
+                <ThumbsUp className="w-3 h-3" /> Approve
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50 gap-1"
+                onClick={() => onReject(bid)}>
+                <ThumbsDown className="w-3 h-3" /> Reject
+              </Button>
+            </>
+          )}
+          {aiRank?.score_breakdown && (
+            <button type="button"
+              onClick={() => setExpanded(x => !x)}
+              className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground rounded border border-transparent hover:border-border transition-colors ml-1">
+              {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Expanded: 6-dimension score grid */}
+      {expanded && aiRank?.score_breakdown && (
+        <div className="px-4 pb-4 bg-slate-50 border-t">
+          <ScoreDimensionGrid scoreBreakdown={aiRank.score_breakdown} />
+        </div>
+      )}
+
+      {/* Rejection reason */}
+      {isRejected && bid.rejection_reason && (
+        <div className="px-4 pb-3 bg-red-50/30 border-t border-red-100">
+          <p className="text-xs text-red-600 mt-2">Reason: {bid.rejection_reason}</p>
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── Bids Tab ─────────────────────────────────────────────────────────────────
 
-function BidsTab({ pr }: { pr: any }) {
+function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
   const { id } = useParams()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [analysingBids, setAnalysingBids] = useState(false)
-  const [aiResult, setAiResult] = useState<any>(null)
+  const [confirmApprove, setConfirmApprove] = useState<any>(null)
+  const [confirmReject, setConfirmReject] = useState<any>(null)
 
-  const isApproved = pr.status === 'approved' || pr.status === 'synced_to_sap' || pr.status === 'po_created'
+  const canCollectBids = ['approved', 'vendor_selected', 'synced_to_sap', 'po_created'].includes(pr.status)
+  const canAct = ['approved', 'vendor_selected'].includes(pr.status)
 
-  const { data: bids, refetch } = useQuery({
+  const { data: bids, refetch: refetchBids } = useQuery({
     queryKey: ['pr-bids', id],
-    queryFn: async () => (await apiClient.get(`/procurement/${id}/bids/`)).data.results ??
-      (await apiClient.get(`/procurement/${id}/bids/`)).data,
+    queryFn: async () => {
+      const res = await apiClient.get(`/procurement/${id}/bids/`)
+      return res.data.results ?? res.data
+    },
   })
 
-  const selectVendorMutation = useMutation({
-    mutationFn: async (vendorId: number) => {
-      await apiClient.patch(`/procurement/${id}/`, { selected_vendor: vendorId })
-    },
-    onSuccess: () => {
-      toast({ title: 'Vendor selected.' })
-      queryClient.invalidateQueries({ queryKey: ['pr', id] })
-    },
-    onError: () => toast({ title: 'Failed to select vendor', variant: 'destructive' }),
+  const existingBidVendorIds = (bids ?? []).map((b: any) => b.vendor)
+  const aiRec = pr.ai_recommendation ?? {}
+  const aiRankedVendors: any[] = aiRec.ranked_vendors ?? []
+
+  // Called after a bid is saved — refetch then auto-run AI analysis if ≥2 bids
+  const handleBidAdded = async () => {
+    const res = await refetchBids()
+    const updatedBids: any[] = res.data ?? []
+    if (updatedBids.length >= 2) {
+      await analyseBids()
+    }
+  }
+
+  // Sort: accepted → ranked by AI → by amount → rejected
+  const sortedBids = [...(bids ?? [])].sort((a: any, b: any) => {
+    if (a.status === 'accepted') return -1
+    if (b.status === 'accepted') return 1
+    if (a.status === 'rejected' && b.status !== 'rejected') return 1
+    if (b.status === 'rejected' && a.status !== 'rejected') return -1
+    const ar = aiRankedVendors.find(rv => rv.vendor_id === a.vendor)
+    const br = aiRankedVendors.find(rv => rv.vendor_id === b.vendor)
+    if (ar && br) return ar.rank - br.rank
+    return Number(a.bid_amount) - Number(b.bid_amount)
   })
 
   const analyseBids = async () => {
     setAnalysingBids(true)
     try {
-      const { data } = await apiClient.post(`/procurement/${id}/analyse-bids/`)
-      setAiResult(data)
+      await apiClient.post(`/procurement/${id}/analyse-bids/`)
+      await refetchBids()
+      onPRChange()
+      toast({ title: 'AI analysis complete.' })
     } catch (err: any) {
       toast({ title: 'AI analysis failed', description: err?.response?.data?.error, variant: 'destructive' })
     } finally {
@@ -1215,110 +1669,170 @@ function BidsTab({ pr }: { pr: any }) {
     }
   }
 
-  if (!isApproved) {
+  const handleApprove = async (reason?: string) => {
+    if (!confirmApprove) return
+    try {
+      await apiClient.post(`/procurement/${id}/approve-bid/`, { bid_id: confirmApprove.id, reason })
+      toast({ title: `Bid approved — ${confirmApprove.vendor_name} selected as vendor.` })
+      setConfirmApprove(null)
+      refetchBids()
+      onPRChange()
+      queryClient.invalidateQueries({ queryKey: ['pr', id] })
+    } catch (err: any) {
+      toast({ title: 'Approval failed', description: err?.response?.data?.error, variant: 'destructive' })
+    }
+  }
+
+  const handleReject = async (reason?: string) => {
+    if (!confirmReject) return
+    try {
+      await apiClient.post(`/procurement/${id}/reject-bid/`, { bid_id: confirmReject.id, reason })
+      toast({ title: `Bid from ${confirmReject.vendor_name} rejected.` })
+      setConfirmReject(null)
+      refetchBids()
+    } catch (err: any) {
+      toast({ title: 'Rejection failed', description: err?.response?.data?.error, variant: 'destructive' })
+    }
+  }
+
+  if (!canCollectBids) {
     return (
-      <div className="border rounded-lg p-8 text-center space-y-2">
+      <div className="border rounded-xl p-8 text-center space-y-2">
         <Clock className="w-8 h-8 text-muted-foreground mx-auto" />
-        <p className="text-sm font-medium">Bids are collected after approval</p>
-        <p className="text-xs text-muted-foreground">
-          Once this PR is approved, you can invite vendors to submit bids here.
-        </p>
+        <p className="text-sm font-medium">Bids are collected after PR approval</p>
+        <p className="text-xs text-muted-foreground">Once this PR is approved, invited vendors can submit bids here.</p>
       </div>
     )
   }
 
-  return (
-    <div className="space-y-4">
-      <AddBidForm prId={id!} onSuccess={refetch} />
+  const pendingBids = (bids ?? []).filter((b: any) => b.status === 'pending')
+  const acceptedBid = (bids ?? []).find((b: any) => b.status === 'accepted')
+  const hasBids = (bids ?? []).length > 0
 
-      {/* Bid list */}
-      {bids && bids.length > 0 ? (
-        <div className="space-y-3">
-          {(bids as any[]).map((bid: any) => (
-            <div key={bid.id} className="border rounded-lg p-4 space-y-2">
-              <div className="flex items-start justify-between gap-2 flex-wrap">
-                <div>
-                  <p className="font-medium text-sm">{bid.vendor_name}</p>
-                  {bid.notes && <p className="text-xs text-muted-foreground">{bid.notes}</p>}
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold">{formatCurrency(bid.bid_amount, pr.currency_code)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {bid.delivery_days}d delivery · {bid.validity_days}d validity
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 pt-1 border-t">
-                {pr.selected_vendor === bid.vendor ? (
-                  <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
-                    <CheckCircle className="w-3 h-3 mr-1" /> Selected Vendor
-                  </Badge>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => selectVendorMutation.mutate(bid.vendor)}
-                    disabled={selectVendorMutation.isPending}
-                  >
-                    Select This Vendor
-                  </Button>
-                )}
-                {bid.submitted_at && (
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {formatDate(bid.submitted_at)}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
+  return (
+    <div className="space-y-5">
+
+      {/* Vendor-selected banner */}
+      {pr.status === 'vendor_selected' && acceptedBid && (
+        <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+          <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-green-800">Vendor selected: {acceptedBid.vendor_name}</p>
+            <p className="text-xs text-green-700">
+              Bid of {formatCurrency(acceptedBid.bid_amount, pr.currency_code)} · {acceptedBid.delivery_days}d delivery
+            </p>
+          </div>
         </div>
-      ) : (
-        <p className="text-sm text-muted-foreground text-center py-6">No bids yet.</p>
       )}
 
-      {/* AI Analysis */}
-      {bids && bids.length >= 2 && (
-        <div className="space-y-3 pt-2 border-t">
-          <Button
-            variant="outline"
-            onClick={analyseBids}
-            disabled={analysingBids}
-            className="gap-2"
-          >
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {canAct && (
+          <AddBidForm
+            prId={id!}
+            invitedVendors={pr.invited_vendors_detail ?? []}
+            existingBidVendorIds={existingBidVendorIds}
+            onSuccess={refetchBids}
+          />
+        )}
+        {hasBids && pendingBids.length >= 2 && (
+          <Button variant="outline" onClick={analyseBids} disabled={analysingBids} className="gap-2">
             {analysingBids
               ? <><Loader2 className="w-4 h-4 animate-spin" />Analysing…</>
-              : <><Sparkles className="w-4 h-4 text-purple-500" />Analyse Bids with AI</>}
+              : <><Sparkles className="w-4 h-4 text-purple-500" />
+                  {aiRec.recommendation ? 'Re-analyse Bids' : 'Analyse Bids with AI'}</>
+            }
           </Button>
-          {aiResult && (
-            <div className="bg-slate-50 border rounded-lg p-4 space-y-3">
-              <h3 className="font-medium flex items-center gap-2 text-sm">
-                <Sparkles className="w-4 h-4 text-purple-500" /> AI Bid Analysis
-              </h3>
-              {aiResult.recommendation && (
-                <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                  <p className="text-sm font-medium text-green-800">
-                    Recommended: {aiResult.recommendation.recommended_vendor_name}
-                  </p>
-                  <p className="text-xs text-green-700 mt-1">{aiResult.recommendation.reasoning}</p>
-                </div>
-              )}
-              {aiResult.comparison_table && (
-                <div className="overflow-x-auto text-xs">
-                  <ReactMarkdown>{aiResult.comparison_table}</ReactMarkdown>
-                </div>
-              )}
-              {aiResult.anomalies?.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-amber-700 mb-1">Anomalies Detected:</p>
-                  <ul className="text-xs text-amber-600 space-y-0.5">
-                    {aiResult.anomalies.map((a: string) => <li key={a}>• {a}</li>)}
-                  </ul>
-                </div>
-              )}
+        )}
+        {hasBids && pendingBids.length < 2 && !aiRec.recommendation && (
+          <p className="text-xs text-muted-foreground">At least 2 pending bids needed to run AI analysis.</p>
+        )}
+      </div>
+
+      {hasBids ? (
+        <>
+          {/* ── KPI Cards ── */}
+          <BidSummaryCards bids={bids ?? []} pr={pr} />
+
+          {/* ── Highlight Cards (Lowest Price + Best Value) ── */}
+          <BidHighlightCards bids={bids ?? []} pr={pr} aiRec={aiRec} />
+
+          {/* ── AI Recommendation Banner ── */}
+          <AIRecommendationBanner aiRec={aiRec} />
+
+          {/* ── Anomalies ── */}
+          {(aiRec.anomalies ?? []).length > 0 && (
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-amber-700 mb-1">Anomalies / Red Flags</p>
+                <ul className="text-xs text-amber-700 space-y-0.5">
+                  {(aiRec.anomalies as string[]).map((a: string, i: number) => <li key={i}>• {a}</li>)}
+                </ul>
+              </div>
             </div>
           )}
+
+          {/* ── Bids list ── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Bids ({(bids ?? []).length})
+              </p>
+              {aiRec.comparison_table && (
+                <details className="relative">
+                  <summary className="text-xs text-purple-600 cursor-pointer hover:text-purple-800 font-medium list-none">
+                    View comparison table ↓
+                  </summary>
+                  <div className="absolute right-0 z-10 mt-2 w-[640px] max-w-[90vw] bg-white border rounded-xl shadow-xl p-4 overflow-x-auto text-xs">
+                    <ReactMarkdown>{aiRec.comparison_table}</ReactMarkdown>
+                  </div>
+                </details>
+              )}
+            </div>
+            {sortedBids.map((bid: any, idx: number) => (
+              <BidRow
+                key={bid.id}
+                bid={bid}
+                pr={pr}
+                rank={idx + 1}
+                aiRankedVendors={aiRankedVendors}
+                canAct={canAct}
+                onApprove={b => setConfirmApprove(b)}
+                onReject={b => setConfirmReject(b)}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="border rounded-xl p-8 text-center space-y-1">
+          <p className="text-sm text-muted-foreground">No bids recorded yet.</p>
+          <p className="text-xs text-muted-foreground">Use "Record Bid" above to enter vendor bids.</p>
         </div>
+      )}
+
+      {/* Confirm approve */}
+      {confirmApprove && (
+        <ConfirmDialog
+          title="Approve Bid"
+          message={`Approve the bid from ${confirmApprove.vendor_name} for ${formatCurrency(confirmApprove.bid_amount, pr.currency_code)}? All other pending bids will be rejected and this vendor will be selected.`}
+          confirmLabel="Approve & Select Vendor"
+          confirmClass="bg-green-600 hover:bg-green-700 text-white"
+          onConfirm={handleApprove}
+          onCancel={() => setConfirmApprove(null)}
+        />
+      )}
+
+      {/* Confirm reject */}
+      {confirmReject && (
+        <ConfirmDialog
+          title="Reject Bid"
+          message={`Reject the bid from ${confirmReject.vendor_name}?`}
+          confirmLabel="Reject Bid"
+          confirmClass="bg-red-600 hover:bg-red-700 text-white"
+          onConfirm={handleReject}
+          onCancel={() => setConfirmReject(null)}
+        />
       )}
     </div>
   )
@@ -1581,7 +2095,7 @@ export default function PRDetailPage() {
       )}
 
       {/* ── Bids Tab ── */}
-      {activeTab === 'bids' && <BidsTab pr={pr} />}
+      {activeTab === 'bids' && <BidsTab pr={pr} onPRChange={invalidatePR} />}
     </div>
   )
 }
