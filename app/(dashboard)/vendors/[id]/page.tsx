@@ -15,6 +15,7 @@ import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurren
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 
 // ─── Compliance rows config ───────────────────────────────────────────────────
 
@@ -248,7 +249,7 @@ function AIValidationBadge({ status }: { status: string }) {
     warning: { label: 'AI Warning', cls: 'bg-amber-100 text-amber-700' },
     failed: { label: 'AI Failed', cls: 'bg-red-100 text-red-700' },
     pending: { label: 'AI Pending', cls: 'bg-slate-100 text-slate-500' },
-    skipped: { label: 'AI Skipped', cls: 'bg-slate-100 text-slate-500' },
+    skipped: { label: 'AI Pending', cls: 'bg-slate-100 text-slate-500' },
   }
   const { label, cls } = map[status] || map.pending
   return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
@@ -286,18 +287,22 @@ function approvalActionLabel(action: string): string {
   return 'Pending'
 }
 
-function ApprovalSteps({ actions, currentLevel }: { actions: any[]; currentLevel?: number }) {
+function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[]; currentLevel?: number; requestedAt?: string }) {
   if (!actions?.length) return null
   return (
     <div className="px-4 py-3 bg-white border-b">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Approval Timeline</p>
+      {requestedAt && (
+        <p className="text-[11px] text-muted-foreground mb-2">Requested for approval: <span className="font-medium text-slate-700">{formatDateTime(requestedAt)}</span></p>
+      )}
       <table className="w-full text-xs">
         <thead>
           <tr className="text-muted-foreground border-b">
             <th className="text-left py-1.5 font-medium w-12">Level</th>
             <th className="text-left py-1.5 font-medium">Approver</th>
             <th className="text-left py-1.5 font-medium">Status</th>
-            <th className="text-right py-1.5 font-medium">Date / Time</th>
+            <th className="text-left py-1.5 font-medium whitespace-nowrap">Due Date</th>
+            <th className="text-right py-1.5 font-medium whitespace-nowrap">Acted At</th>
           </tr>
         </thead>
         <tbody>
@@ -326,7 +331,10 @@ function ApprovalSteps({ actions, currentLevel }: { actions: any[]; currentLevel
                     {approvalActionLabel(effectiveAction)}
                   </span>
                 </td>
-                <td className="py-2 text-right text-muted-foreground">
+                <td className="py-2 text-muted-foreground whitespace-nowrap">
+                  {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
+                </td>
+                <td className="py-2 text-right text-muted-foreground whitespace-nowrap">
                   {a.acted_at ? formatDateTime(a.acted_at) : '—'}
                 </td>
               </tr>
@@ -532,7 +540,7 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getSLAColor(pct)}`}>{slaLabel}</span>
         )}
       </div>
-      <ApprovalSteps actions={approvalRequest?.actions ?? []} currentLevel={approvalRequest?.current_level} />
+      <ApprovalSteps actions={approvalRequest?.actions ?? []} currentLevel={approvalRequest?.current_level} requestedAt={approvalRequest?.created_at} />
       {myPendingAction && <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} />}
     </div>
   )
@@ -565,11 +573,12 @@ function ComplianceFieldInput({ value, placeholder, canEdit, onSave, onChange }:
 }
 
 // ─── Inline doc upload widget ─────────────────────────────────────────────────
-function DocUploadInline({ vendorId, docType, doc, onRefresh }: {
+function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true }: {
   vendorId: string | string[]
   docType: string
   doc: any | null
   onRefresh: () => void
+  editable?: boolean
 }) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
@@ -618,15 +627,25 @@ function DocUploadInline({ vendorId, docType, doc, onRefresh }: {
             <ExternalLink className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
           </a>
         )}
-        <button
-          type="button"
-          onClick={remove}
-          disabled={deleting}
-          className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-50"
-          title="Remove"
-        >
-          {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-        </button>
+        {editable && (
+          <button
+            type="button"
+            onClick={remove}
+            disabled={deleting}
+            className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-50"
+            title="Remove"
+          >
+            {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  if (!editable) {
+    return (
+      <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[38px]">
+        <span className="text-xs text-muted-foreground italic">No document</span>
       </div>
     )
   }
@@ -734,7 +753,21 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
           {/* Company fields — no section label, same as Add form */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {tf('company_name', 'Company Name *', 'Acme Pvt Ltd')}
-            {tf('address', 'Address *', '123, Industrial Area')}
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-xs">Address *</Label>
+              <AddressAutocomplete
+                value={form.address}
+                onChange={v => set('address', v)}
+                onSelect={result => {
+                  set('address', result.address)
+                  if (result.city) set('city', result.city)
+                  if (result.state) set('state', result.state)
+                  if (result.pincode) set('pincode', result.pincode)
+                }}
+                placeholder="Start typing an address…"
+                className="h-10 text-sm"
+              />
+            </div>
             {tf('city', 'City *', 'Mumbai')}
             {tf('state', 'State *', 'Maharashtra')}
             {tf('pincode', 'PIN Code *', '400001')}
@@ -758,15 +791,17 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
           </div>
         </CardContent>
       </Card>
+
     </>
   )
 }
 
 // ─── Other Documents edit panel (shown in Details tab when editing) ──────────
-function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh }: {
+function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh, editable = true }: {
   vendorId: string | string[]
   existingDocs: any[]
   onRefresh: () => void
+  editable?: boolean
 }) {
   const { toast } = useToast()
 
@@ -850,9 +885,11 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh }: {
             Quality certs, trade licences, NDAs, insurance, etc.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={addRow}>
-          <Plus className="w-3.5 h-3.5" /> Add Document
-        </Button>
+        {editable && (
+          <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={addRow}>
+            <Plus className="w-3.5 h-3.5" /> Add Document
+          </Button>
+        )}
       </div>
       <div className="space-y-2">
         {/* Existing docs with inline title edit */}
@@ -861,7 +898,7 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh }: {
             <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0 space-y-1">
               {/* Title row — editable */}
-              {editingId === doc.id ? (
+              {editable && editingId === doc.id ? (
                 <div className="flex items-center gap-1.5">
                   <input
                     type="text"
@@ -889,13 +926,15 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh }: {
               ) : (
                 <span className="text-sm font-medium group inline-flex items-center gap-1">
                   {doc.title || doc.original_filename}
-                  <button
-                    onClick={() => startEdit(doc)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                    title="Edit title"
-                  >
-                    <Pencil className="w-3 h-3" />
-                  </button>
+                  {editable && (
+                    <button
+                      onClick={() => startEdit(doc)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                      title="Edit title"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
                 </span>
               )}
               {/* Meta row — type chip + AI badge + date */}
@@ -918,14 +957,16 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh }: {
                   </Button>
                 </a>
               )}
-              <Button
-                variant="ghost" size="sm"
-                className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                onClick={() => deleteDoc(doc.id)}
-                disabled={deletingId === doc.id}
-              >
-                {deletingId === doc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              </Button>
+              {editable && (
+                <Button
+                  variant="ghost" size="sm"
+                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                  onClick={() => deleteDoc(doc.id)}
+                  disabled={deletingId === doc.id}
+                >
+                  {deletingId === doc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                </Button>
+              )}
             </div>
           </div>
         ))}
@@ -1501,6 +1542,37 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
     frow('Min Order Qty',  vendor.min_order_quantity != null ? String(vendor.min_order_quantity) : null),
   ].join('')
 
+  // ── Compliance documents status ──────────────────────────────────────────
+  const complianceDocTypes = [
+    { type: 'gst_certificate', label: 'GST Certificate' },
+    { type: 'pan_card', label: 'PAN Card' },
+    { type: 'bank_details', label: 'Bank Details / Cancelled Cheque' },
+    { type: 'incorporation', label: 'Incorporation Certificate' },
+    ...(vendor.is_msme ? [{ type: 'msme_certificate', label: 'MSME Certificate' }] : []),
+    ...(vendor.is_sez ? [{ type: 'sez_certificate', label: 'SEZ Certificate' }] : []),
+  ]
+  const docs: any[] = vendor.documents ?? []
+  const complianceRows = complianceDocTypes.map(({ type, label }) => {
+    const doc = docs.find((d: any) => d.doc_type === type)
+    const statusLabel = doc ? (doc.ai_validation_status === 'passed' ? 'Verified' : doc.ai_validation_status === 'failed' ? 'Failed' : 'Uploaded') : 'Missing'
+    const statusClr = doc ? (doc.ai_validation_status === 'passed' ? 'color:#166534' : doc.ai_validation_status === 'failed' ? 'color:#991b1b' : 'color:#92400e') : 'color:#991b1b'
+    const fileName = doc?.original_filename ?? '—'
+    return `<tr>
+      <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${label}</td>
+      <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fileName}</td>
+      <td style="padding:5px 10px;font-size:9.5px;font-weight:600;border-bottom:1px solid #f1f5f9;${statusClr}">${statusLabel}</td>
+    </tr>`
+  }).join('')
+
+  const otherDocs = docs.filter((d: any) => !complianceDocTypes.some(c => c.type === d.doc_type))
+  const otherDocsRows = otherDocs.length > 0
+    ? otherDocs.map((d: any) => `<tr>
+        <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${DOC_TYPE_LABELS[d.doc_type] ?? d.doc_type}</td>
+        <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${d.title || d.original_filename}</td>
+        <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9;color:#64748b">${d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+      </tr>`).join('')
+    : ''
+
   const perfScore  = vendor.performance_score != null ? `${Number(vendor.performance_score).toFixed(1)} / 100` : null
   const riskScore  = vendor.risk_score != null ? `${Number(vendor.risk_score).toFixed(1)} / 100` : null
   const createdAt  = vendor.created_at ? new Date(vendor.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null
@@ -1588,6 +1660,32 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
     </tr>
   </table>
 
+  <!-- ═══ COMPLIANCE DOCUMENTS ═══ -->
+  <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Compliance Documents</div>
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;margin-bottom:14px">
+    <thead>
+      <tr style="background:#f8fafc">
+        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">Document</th>
+        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">File</th>
+        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0;width:80px">Status</th>
+      </tr>
+    </thead>
+    <tbody>${complianceRows}</tbody>
+  </table>
+
+  ${otherDocsRows ? `
+  <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Other Documents</div>
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;margin-bottom:14px">
+    <thead>
+      <tr style="background:#f8fafc">
+        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">Type</th>
+        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">Title / File</th>
+        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0;width:80px">Uploaded</th>
+      </tr>
+    </thead>
+    <tbody>${otherDocsRows}</tbody>
+  </table>` : ''}
+
   ${activeBids.length > 0 ? `
   <!-- ═══ ACTIVE BIDS ═══ -->
   <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Active &amp; Recent Bids</div>
@@ -1651,16 +1749,406 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
   })
 }
 
+// ─── Change Request Tab ─────────────────────────────────────────────────────
+
+function ChangeRequestTab({ vendorId, vendor, categories, plants }: {
+  vendorId: string | string[]
+  vendor: any
+  categories: any[]
+  plants: any[]
+}) {
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+  const [showForm, setShowForm] = useState(false)
+  const [expandedCR, setExpandedCR] = useState<number | null>(null)
+  const [submittingCR, setSubmittingCR] = useState<number | null>(null)
+  const [selectingMatrixCR, setSelectingMatrixCR] = useState<number | null>(null)
+  const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
+  const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
+
+  const { data: matrices } = useQuery({
+    queryKey: ['approval-matrices', 'vendor_onboarding'],
+    queryFn: async () => {
+      const r = await apiClient.get('/approvals/matrices/?matrix_type=vendor_onboarding&is_active=true')
+      return r.data.results ?? r.data
+    },
+    enabled: selectingMatrixCR !== null,
+  })
+
+  const { data: changeRequests, refetch } = useQuery({
+    queryKey: ['vendor-change-requests', vendorId],
+    queryFn: async () => (await apiClient.get(`/vendors/${vendorId}/change-requests/`)).data,
+  })
+
+  const { data: crDetail } = useQuery({
+    queryKey: ['vendor-cr-detail', vendorId, expandedCR],
+    queryFn: async () => (await apiClient.get(`/vendors/${vendorId}/change-requests/${expandedCR}/`)).data,
+    enabled: !!expandedCR,
+  })
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { reason: string; changes: Record<string, any> }) =>
+      (await apiClient.post(`/vendors/${vendorId}/change-requests/`, data)).data,
+    onSuccess: (cr) => {
+      toast({ title: 'Change request created.' })
+      setShowForm(false)
+      refetch()
+      setExpandedCR(cr.id)
+    },
+    onError: (err: any) => {
+      toast({ title: 'Failed', description: err?.response?.data?.error || 'Could not create change request.', variant: 'destructive' })
+    },
+  })
+
+  const handleSubmitForApproval = async (crId: number, matrixId?: number) => {
+    setSubmittingCR(crId)
+    try {
+      const payload: any = {}
+      if (matrixId) payload.matrix_id = matrixId
+      await apiClient.post(`/vendors/${vendorId}/change-requests/${crId}/submit/`, payload)
+      toast({ title: 'Change request submitted for approval.' })
+      setSelectingMatrixCR(null)
+      setSelectedMatrix(null)
+      refetch()
+      queryClient.invalidateQueries({ queryKey: ['vendor', vendorId] })
+    } catch (err: any) {
+      toast({ title: 'Submit failed', description: err?.response?.data?.error || 'Failed to submit.', variant: 'destructive' })
+    } finally {
+      setSubmittingCR(null)
+    }
+  }
+
+  const FIELD_LABELS: Record<string, string> = {
+    company_name: 'Company Name', category: 'Category', plant: 'Plant',
+    gst_number: 'GST Number', pan_number: 'PAN Number',
+    bank_account: 'Bank Account', bank_ifsc: 'Bank IFSC', bank_name: 'Bank Name',
+    contact_name: 'Contact Person', contact_email: 'Contact Email', contact_phone: 'Contact Phone',
+    address: 'Address', city: 'City', state: 'State', pincode: 'PIN Code', country: 'Country',
+    is_msme: 'MSME', msme_number: 'MSME Number', is_sez: 'SEZ',
+    standard_lead_time_days: 'Lead Time (days)', rush_lead_time_days: 'Rush Lead Time (days)',
+    min_order_quantity: 'Min Order Qty', pricing_model: 'Pricing Model',
+    payment_terms: 'Payment Terms', currency: 'Currency', incoterms: 'Incoterms',
+  }
+
+  const crStatusCls = (s: string) => {
+    if (s === 'approved') return 'bg-green-100 text-green-700'
+    if (s === 'rejected') return 'bg-red-100 text-red-700'
+    if (s === 'pending_approval') return 'bg-amber-100 text-amber-700'
+    return 'bg-slate-100 text-slate-600'
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Change Requests</h3>
+        {!showForm && (
+          <Button size="sm" variant="outline" onClick={() => setShowForm(true)} className="gap-1.5">
+            <Plus className="w-3.5 h-3.5" /> Request Change
+          </Button>
+        )}
+      </div>
+
+      {/* ── Create Form ── */}
+      {showForm && (
+        <ChangeRequestForm
+          vendor={vendor}
+          categories={categories}
+          plants={plants}
+          saving={createMutation.isPending}
+          onSubmit={(data) => createMutation.mutate(data)}
+          onCancel={() => setShowForm(false)}
+        />
+      )}
+
+      {/* ── List ── */}
+      {(changeRequests ?? []).length === 0 && !showForm && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No change requests yet. Click "Request Change" to propose changes to this vendor.
+          </CardContent>
+        </Card>
+      )}
+
+      {(changeRequests ?? []).map((cr: any) => (
+        <Card key={cr.id} className="overflow-hidden">
+          <div
+            className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
+            onClick={() => setExpandedCR(expandedCR === cr.id ? null : cr.id)}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              {expandedCR === cr.id ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium">CR-{cr.id}</span>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${crStatusCls(cr.status)}`}>
+                    {cr.status.replace('_', ' ')}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground truncate max-w-md">{cr.reason}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-xs text-muted-foreground">{formatDateTime(cr.created_at)}</span>
+              {cr.status === 'pending' && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="gap-1 h-7 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSelectingMatrixCR(selectingMatrixCR === cr.id ? null : cr.id)
+                    setSelectedMatrix(null)
+                    setExpandedMatrix(null)
+                  }}
+                  disabled={submittingCR === cr.id}
+                >
+                  {submittingCR === cr.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
+                  {selectingMatrixCR === cr.id ? 'Cancel' : 'Submit'}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* ── Expanded Detail ── */}
+          {expandedCR === cr.id && crDetail && (
+            <div className="border-t px-4 py-3 bg-slate-50/50 space-y-3">
+              <div className="text-xs text-muted-foreground">
+                Requested by <span className="font-medium text-slate-700">{crDetail.created_by_name}</span> on {formatDateTime(crDetail.created_at)}
+                {crDetail.applied_at && <> · Applied {formatDateTime(crDetail.applied_at)}</>}
+              </div>
+              <p className="text-sm"><span className="font-medium">Reason:</span> {crDetail.reason}</p>
+
+              {/* Changes diff table */}
+              <table className="w-full text-xs border rounded-md overflow-hidden">
+                <thead>
+                  <tr className="bg-slate-100 text-muted-foreground">
+                    <th className="text-left px-3 py-2 font-medium">Field</th>
+                    <th className="text-left px-3 py-2 font-medium">Before</th>
+                    <th className="text-left px-3 py-2 font-medium">After</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(crDetail.changed_fields ?? []).map((f: string) => (
+                    <tr key={f} className="border-t">
+                      <td className="px-3 py-2 font-medium text-slate-700">{FIELD_LABELS[f] || f}</td>
+                      <td className="px-3 py-2 text-red-600 line-through">{String(crDetail.before_snapshot?.[f] ?? '—')}</td>
+                      <td className="px-3 py-2 text-green-700 font-medium">{String(crDetail.after_snapshot?.[f] ?? '—')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* ── Matrix Selector for Submit ── */}
+          {selectingMatrixCR === cr.id && (
+            <div className="border-t px-4 py-4 bg-blue-50/40 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Select Approval Matrix</p>
+              {matrices === undefined && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
+                </div>
+              )}
+              {matrices && matrices.length === 0 && (
+                <p className="text-xs text-amber-600 font-medium">No active vendor onboarding matrices configured.</p>
+              )}
+              {matrices && matrices.length > 0 && (
+                <MatrixSelectorTable
+                  matrices={matrices}
+                  selectedMatrix={selectedMatrix}
+                  expandedMatrix={expandedMatrix}
+                  onSelect={(id) => { setSelectedMatrix(id); setExpandedMatrix(id) }}
+                  onToggleExpand={(id) => setExpandedMatrix(prev => (prev === id ? null : id))}
+                />
+              )}
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleSubmitForApproval(cr.id, selectedMatrix ?? undefined)
+                  }}
+                  disabled={submittingCR === cr.id || (matrices && matrices.length > 0 && !selectedMatrix)}
+                >
+                  {submittingCR === cr.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
+                  Submit for Approval
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+function ChangeRequestForm({ vendor, categories, plants, saving, onSubmit, onCancel }: {
+  vendor: any
+  categories: any[]
+  plants: any[]
+  saving: boolean
+  onSubmit: (data: { reason: string; changes: Record<string, any> }) => void
+  onCancel: () => void
+}) {
+  const [form, setForm] = useState({
+    company_name: vendor.company_name ?? '',
+    address: vendor.address ?? '',
+    city: vendor.city ?? '',
+    state: vendor.state ?? '',
+    pincode: vendor.pincode ?? '',
+    contact_name: vendor.contact_name ?? '',
+    contact_email: vendor.contact_email ?? '',
+    contact_phone: vendor.contact_phone ?? '',
+    category: vendor.category ?? '',
+    plant: vendor.plant ?? '',
+  })
+  const [reason, setReason] = useState('')
+
+  const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
+
+  const tf = (key: string, label: string, placeholder?: string) => (
+    <div className="space-y-1" key={key}>
+      <Label className="text-xs">{label}</Label>
+      <Input
+        value={form[key as keyof typeof form] as string}
+        onChange={e => set(key, e.target.value)}
+        placeholder={placeholder}
+        className="h-10 text-sm"
+      />
+    </div>
+  )
+
+  // Build changes dict (only fields that differ from current vendor)
+  const buildChanges = (): Record<string, any> => {
+    const changes: Record<string, any> = {}
+    for (const [key, value] of Object.entries(form)) {
+      const current = vendor[key]
+      const currentStr = current == null ? '' : String(current)
+      const newStr = value == null ? '' : String(value)
+      if (currentStr !== newStr) {
+        changes[key] = value || null
+      }
+    }
+    return changes
+  }
+
+  const handleSubmit = () => {
+    const changes = buildChanges()
+    if (Object.keys(changes).length === 0) return
+    onSubmit({ reason, changes })
+  }
+
+  const changeCount = Object.keys(buildChanges()).length
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Propose Changes</CardTitle>
+        <p className="text-xs text-muted-foreground">Edit the fields you want to change. Only modified fields will be included in the request.</p>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* Reason */}
+        <div className="space-y-1">
+          <Label className="text-xs">Reason for Change *</Label>
+          <textarea
+            className="w-full border rounded-md p-2 text-sm resize-none h-16"
+            placeholder="Explain why this change is needed…"
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+          />
+        </div>
+
+        {/* General fields */}
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">General Information</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Vendor Category</Label>
+              <select
+                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                value={form.category}
+                onChange={e => set('category', e.target.value ? Number(e.target.value) : '')}
+              >
+                <option value="">Select category</option>
+                {categories.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Plant</Label>
+              <select
+                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                value={form.plant}
+                onChange={e => set('plant', e.target.value ? Number(e.target.value) : '')}
+              >
+                <option value="">Select plant</option>
+                {plants.map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Company fields */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {tf('company_name', 'Company Name', 'Acme Pvt Ltd')}
+          <div className="space-y-1 sm:col-span-2">
+            <Label className="text-xs">Address</Label>
+            <AddressAutocomplete
+              value={form.address}
+              onChange={v => set('address', v)}
+              onSelect={result => {
+                set('address', result.address)
+                if (result.city) set('city', result.city)
+                if (result.state) set('state', result.state)
+                if (result.pincode) set('pincode', result.pincode)
+              }}
+              placeholder="Start typing an address…"
+              className="h-10 text-sm"
+            />
+          </div>
+          {tf('city', 'City', 'Mumbai')}
+          {tf('state', 'State', 'Maharashtra')}
+          {tf('pincode', 'PIN Code', '400001')}
+        </div>
+
+        {/* Contact fields */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {tf('contact_name', 'Contact Person', 'John Doe')}
+          {tf('contact_email', 'Contact Email', 'john@acme.com')}
+          {tf('contact_phone', 'Contact Phone', '+91 98765 43210')}
+        </div>
+
+        {/* Summary + actions */}
+        <div className="flex items-center justify-between pt-2 border-t">
+          <span className="text-xs text-muted-foreground">
+            {changeCount > 0 ? `${changeCount} field${changeCount > 1 ? 's' : ''} changed` : 'No changes detected'}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
+              <X className="w-3.5 h-3.5" /> Cancel
+            </Button>
+            <Button size="sm" onClick={handleSubmit} disabled={saving || !reason.trim() || changeCount === 0} className="gap-1">
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SendHorizonal className="w-3.5 h-3.5" />}
+              Create Change Request
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function VendorDetailPage() {
   const { id } = useParams()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [docSubTab, setDocSubTab] = useState<'compliance' | 'other'>('compliance')
   const [isEditing, setIsEditing] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
-  const [savingDocs, setSavingDocs] = useState(false)
-  const [docFields, setDocFields] = useState<Record<string, string>>({})
 
   const { data: vendor, isLoading } = useQuery({
     queryKey: ['vendor', id],
@@ -1673,7 +2161,7 @@ export default function VendorDetailPage() {
       const r = await apiClient.get('/vendors/categories/')
       return r.data.results ?? r.data
     },
-    enabled: isEditing,
+    enabled: isEditing || activeTab === 'change requests',
   })
 
   const { data: plants } = useQuery({
@@ -1682,7 +2170,7 @@ export default function VendorDetailPage() {
       const r = await apiClient.get('/users/plants/')
       return r.data.results ?? r.data
     },
-    enabled: isEditing,
+    enabled: isEditing || activeTab === 'change requests',
   })
 
   const editMutation = useMutation({
@@ -1710,17 +2198,18 @@ export default function VendorDetailPage() {
     toast({ title: 'Field updated.' })
   }
 
-  const startDocEdit = (v: any) => {
-    setDocFields({
-      gst_number:   v.gst_number   ?? '',
-      pan_number:   v.pan_number   ?? '',
-      bank_account: v.bank_account ?? '',
-      bank_ifsc:    v.bank_ifsc    ?? '',
-      bank_name:    v.bank_name    ?? '',
-      msme_number:  v.msme_number  ?? '',
-    })
-    setIsEditing(true)
-  }
+  // ── Documents tab edit state ──────────────────────────────────────────────
+  const [docFields, setDocFields] = useState<Record<string, string>>({})
+  const [savingDocs, setSavingDocs] = useState(false)
+
+  const initDocFields = () => setDocFields({
+    gst_number:   vendor?.gst_number   ?? '',
+    pan_number:   vendor?.pan_number   ?? '',
+    bank_account: vendor?.bank_account ?? '',
+    bank_ifsc:    vendor?.bank_ifsc    ?? '',
+    bank_name:    vendor?.bank_name    ?? '',
+    msme_number:  vendor?.msme_number  ?? '',
+  })
 
   const setDocField = (key: string, val: string) =>
     setDocFields(prev => ({ ...prev, [key]: val }))
@@ -1739,11 +2228,13 @@ export default function VendorDetailPage() {
     }
   }
 
+
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
   if (!vendor) return <div className="p-8 text-center text-muted-foreground">Vendor not found.</div>
 
   const isDraft = vendor.status === 'draft'
-  const tabs = ['dashboard', 'details', 'documents', 'approval']
+  const showChangeRequests = ['pending_approval', 'approved', 'blocked'].includes(vendor.status)
+  const tabs = ['dashboard', 'details', 'documents', 'approval', ...(showChangeRequests ? ['change requests'] : [])]
 
   return (
     <div className="space-y-4">
@@ -1764,12 +2255,9 @@ export default function VendorDetailPage() {
           </Button>
           {isDraft && !isEditing && (
             <Button variant="outline" size="sm" onClick={() => {
-              if (activeTab === 'documents') {
-                startDocEdit(vendor)
-              } else {
-                if (activeTab !== 'details') setActiveTab('details')
-                setIsEditing(true)
-              }
+              if (activeTab !== 'details' && activeTab !== 'documents') setActiveTab('details')
+              if (activeTab === 'documents') initDocFields()
+              setIsEditing(true)
             }} className="gap-1.5">
               <Pencil className="w-3.5 h-3.5" /> Edit Details
             </Button>
@@ -1878,29 +2366,12 @@ export default function VendorDetailPage() {
           <CardHeader>
             <CardTitle>Compliance &amp; Documents</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Enter regulatory numbers and upload supporting documents alongside each field.
+              {isEditing ? 'You can upload, replace, or remove documents.' : 'View regulatory documents and compliance information. Click "Edit Details" to make changes.'}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
 
-            {/* Sub-tabs */}
-            <div className="flex gap-1 border-b">
-              {(['compliance', 'other'] as const).map(tab => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setDocSubTab(tab)}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${docSubTab === tab
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                    }`}
-                >
-                  {tab === 'compliance' ? 'Compliance' : 'Other Documents'}
-                </button>
-              ))}
-            </div>
-
-            {docSubTab === 'compliance' && (() => {
+            {(() => {
               const docOf = (type: string) => vendor.documents?.find((d: any) => d.doc_type === type) ?? null
               const blockCls = (hasField: boolean, hasDoc: boolean) =>
                 `grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start${isDraft && (!hasField || !hasDoc) ? ' border-amber-300' : ''}`
@@ -1909,7 +2380,7 @@ export default function VendorDetailPage() {
                 {/* GST */}
                 <div className={blockCls(!!vendor.gst_number, !!docOf('gst_certificate'))}>
                   <div className="space-y-1">
-                    <Label className="text-xs">GST Number <span className="text-destructive">*</span></Label>
+                    <Label className="text-xs">GST Number</Label>
                     <ComplianceFieldInput
                       value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
                       placeholder="27AAAAA0000A1Z5"
@@ -1919,9 +2390,9 @@ export default function VendorDetailPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">GST Certificate <span className="text-destructive">*</span></Label>
+                    <Label className="text-xs">GST Certificate</Label>
                     <DocUploadInline vendorId={id} docType="gst_certificate"
-                      doc={docOf('gst_certificate')}
+                      doc={docOf('gst_certificate')} editable={isDraft && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                   </div>
                 </div>
@@ -1929,7 +2400,7 @@ export default function VendorDetailPage() {
                 {/* PAN */}
                 <div className={blockCls(!!vendor.pan_number, !!docOf('pan_card'))}>
                   <div className="space-y-1">
-                    <Label className="text-xs">PAN Number <span className="text-destructive">*</span></Label>
+                    <Label className="text-xs">PAN Number</Label>
                     <ComplianceFieldInput
                       value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
                       placeholder="AAAAA9999A"
@@ -1939,9 +2410,9 @@ export default function VendorDetailPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">PAN Card <span className="text-destructive">*</span></Label>
+                    <Label className="text-xs">PAN Card</Label>
                     <DocUploadInline vendorId={id} docType="pan_card"
-                      doc={docOf('pan_card')}
+                      doc={docOf('pan_card')} editable={isDraft && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                   </div>
                 </div>
@@ -1955,7 +2426,7 @@ export default function VendorDetailPage() {
                       { key: 'bank_name', label: 'Bank Name', placeholder: 'HDFC Bank' },
                     ].map(({ key, label, placeholder }) => (
                       <div key={key} className="space-y-1">
-                        <Label className="text-xs">{label} <span className="text-destructive">*</span></Label>
+                        <Label className="text-xs">{label}</Label>
                         <ComplianceFieldInput
                           value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
                           placeholder={placeholder}
@@ -1967,9 +2438,9 @@ export default function VendorDetailPage() {
                     ))}
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
+                    <Label className="text-xs">Bank Details / Cancelled Cheque</Label>
                     <DocUploadInline vendorId={id} docType="bank_details"
-                      doc={docOf('bank_details')}
+                      doc={docOf('bank_details')} editable={isDraft && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                   </div>
                 </div>
@@ -1980,7 +2451,7 @@ export default function VendorDetailPage() {
                     <input
                       type="checkbox"
                       checked={!!vendor.is_msme}
-                      disabled={!isDraft}
+                      disabled={!(isDraft && isEditing)}
                       onChange={async e => handleFieldUpdate('is_msme', e.target.checked)}
                       className="rounded"
                     />
@@ -1990,7 +2461,7 @@ export default function VendorDetailPage() {
                     <input
                       type="checkbox"
                       checked={!!vendor.is_sez}
-                      disabled={!isDraft}
+                      disabled={!(isDraft && isEditing)}
                       onChange={async e => handleFieldUpdate('is_sez', e.target.checked)}
                       className="rounded"
                     />
@@ -2002,7 +2473,7 @@ export default function VendorDetailPage() {
                 {vendor.is_msme && (
                   <div className={blockCls(!!vendor.msme_number, !!docOf('msme_certificate'))}>
                     <div className="space-y-1">
-                      <Label className="text-xs">MSME Number <span className="text-destructive">*</span></Label>
+                      <Label className="text-xs">MSME Number</Label>
                       <ComplianceFieldInput
                         value={isEditing ? (docFields.msme_number ?? '') : (vendor.msme_number ?? '')}
                         placeholder="UDYAM-MH-00-0000000"
@@ -2012,9 +2483,9 @@ export default function VendorDetailPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">MSME Certificate <span className="text-destructive">*</span></Label>
+                      <Label className="text-xs">MSME Certificate</Label>
                       <DocUploadInline vendorId={id} docType="msme_certificate"
-                        doc={docOf('msme_certificate')}
+                        doc={docOf('msme_certificate')} editable={isDraft && isEditing}
                         onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                     </div>
                   </div>
@@ -2028,9 +2499,9 @@ export default function VendorDetailPage() {
                       <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">SEZ Certificate <span className="text-destructive">*</span></Label>
+                      <Label className="text-xs">SEZ Certificate</Label>
                       <DocUploadInline vendorId={id} docType="sez_certificate"
-                        doc={docOf('sez_certificate')}
+                        doc={docOf('sez_certificate')} editable={isDraft && isEditing}
                         onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                     </div>
                   </div>
@@ -2043,9 +2514,9 @@ export default function VendorDetailPage() {
                     <p className="text-sm">Company registration / MOA documents</p>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Incorporation Certificate <span className="text-destructive">*</span></Label>
+                    <Label className="text-xs">Incorporation Certificate</Label>
                     <DocUploadInline vendorId={id} docType="incorporation"
-                      doc={docOf('incorporation')}
+                      doc={docOf('incorporation')} editable={isDraft && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                   </div>
                 </div>
@@ -2053,28 +2524,39 @@ export default function VendorDetailPage() {
               </>
             })()}
 
-            {docSubTab === 'other' && (
+            <div className="border-t pt-4 mt-2">
               <OtherDocsEditPanel
                 vendorId={id}
                 existingDocs={(vendor.documents ?? []).filter((d: any) => OTHER_DOC_TYPES.has(d.doc_type))}
                 onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })}
+                editable={isDraft && isEditing}
               />
+            </div>
+
+            {isDraft && isEditing && (
+              <div className="flex justify-end gap-2 pt-4 border-t mt-2">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setIsEditing(false)}>
+                  <X className="w-3.5 h-3.5" /> Cancel
+                </Button>
+                <Button size="sm" className="gap-1.5" onClick={saveDocChanges} disabled={savingDocs}>
+                  {savingDocs ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                  Save Changes
+                </Button>
+              </div>
             )}
 
-          {/* Save / Cancel — bottom right, only in edit mode */}
-          {isDraft && isEditing && (
-            <div className="flex justify-end gap-2 pt-2 border-t mt-2">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setIsEditing(false)}>
-                <X className="w-3.5 h-3.5" /> Cancel
-              </Button>
-              <Button size="sm" className="gap-1.5" onClick={saveDocChanges} disabled={savingDocs}>
-                {savingDocs ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                Save Changes
-              </Button>
-            </div>
-          )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Change Requests Tab */}
+      {activeTab === 'change requests' && showChangeRequests && (
+        <ChangeRequestTab
+          vendorId={id}
+          vendor={vendor}
+          categories={categories ?? []}
+          plants={plants ?? []}
+        />
       )}
 
     </div>

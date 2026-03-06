@@ -46,7 +46,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const resp = await login(data)
-      setTokens(resp.access, resp.refresh, resp.user)
+      setTokens(resp.access, resp.refresh, resp.user, resp.company)
       router.push('/dashboard')
     } catch (err: any) {
       toast({
@@ -72,7 +72,7 @@ export default function LoginPage() {
         scopes: ['openid', 'profile', 'email', 'User.Read'],
       })
       const resp = await azureCallback(result.accessToken)
-      setTokens(resp.access, resp.refresh, resp.user)
+      setTokens(resp.access, resp.refresh, resp.user, resp.company)
       router.push('/dashboard')
     } catch (err: any) {
       toast({
@@ -159,7 +159,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-xs text-center text-muted-foreground">
-            New user? Check your email for the setup link.
+            Contact your administrator for access.
           </p>
         </CardContent>
       </Card>

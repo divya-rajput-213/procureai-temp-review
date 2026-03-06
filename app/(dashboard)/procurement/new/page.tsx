@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, ArrowRight, Plus, Trash2, Loader2, Search, X, Send, Save } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Plus, Trash2, Loader2, Search, X, Send, Save, AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
@@ -66,8 +66,8 @@ function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => voi
 function TrackingIdSearch({
   trackingIds,
   onSelect,
-  value,        // ← add
-  onChange,     // ← add
+  value,
+  onChange,
 }: {
   trackingIds: any[]
   onSelect: (tracking: any) => void
@@ -76,31 +76,46 @@ function TrackingIdSearch({
 }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
 
-  const filtered = trackingIds?.filter(t =>
-    t.tracking_code.toLowerCase().includes(search.toLowerCase())
-  )
+  useClickOutside(wrapperRef, () => setOpen(false))
+
+  const filtered = search.length > 0
+    ? (trackingIds ?? []).filter(t =>
+        t.tracking_code.toLowerCase().includes(search.toLowerCase()) ||
+        (t.title ?? '').toLowerCase().includes(search.toLowerCase())
+      )
+    : []
 
   return (
-    <div className="relative">
-      <Input
-        placeholder="Search Tracking ID..."
-        value={value ? value.tracking_code : search}
-        onChange={(e) => {
-          setSearch(e.target.value)
-          onChange(null)   // ← clear parent selection
-          setOpen(true)
-        }}
-        onFocus={() => setOpen(true)}
-      />
-      {open && !value && (
-        <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow max-h-60 overflow-auto">
-          {filtered?.length > 0 ? (
+    <div ref={wrapperRef} className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <Input
+          placeholder="Search by tracking code or title..."
+          value={value ? value.tracking_code : search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            onChange(null)
+            setOpen(true)
+          }}
+          onFocus={() => { if (search.length > 0) setOpen(true) }}
+          className="pl-8"
+        />
+        {value && (
+          <button type="button" onClick={() => { onChange(null); setSearch('') }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {open && !value && search.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+          {filtered.length > 0 ? (
             filtered.map(t => (
               <button
                 key={t.id}
                 type="button"
-                className="w-full text-left px-3 py-2 hover:bg-muted"
+                className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
                 onClick={() => {
                   onChange(t)
                   setSearch('')
@@ -108,11 +123,15 @@ function TrackingIdSearch({
                   onSelect(t)
                 }}
               >
-                {t.tracking_code}
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-medium">{t.tracking_code}</span>
+                  <span className="text-xs text-muted-foreground">{formatCurrency(t.approved_amount)}</span>
+                </div>
+                {t.title && <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.title}</p>}
               </button>
             ))
           ) : (
-            <div className="px-3 py-2 text-sm text-muted-foreground">No results found</div>
+            <div className="px-3 py-2.5 text-sm text-muted-foreground">No approved tracking IDs found</div>
           )}
         </div>
       )}
@@ -152,7 +171,7 @@ function ItemSearch({ onSelect, placeholder, displayValue,hasError }: { onSelect
         )}
       </div>
       {open && search.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+        <div className="absolute z-50 w-full bottom-full mb-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
           {!items || items.length === 0 ? (
             <p className="px-3 py-2 text-xs text-muted-foreground">
               {isFetching ? 'Searching…' : 'No items found'}
@@ -318,12 +337,25 @@ export default function NewPRPage() {
     },
   })
 
+  const budgetRemaining = trackingDetail
+    ? Number(trackingDetail.remaining_amount ?? (trackingDetail.approved_amount ?? trackingDetail.requested_amount) - trackingDetail.consumed_amount)
+    : null
+  const budgetExceeded = budgetRemaining !== null && grandTotal > budgetRemaining
+
   const handleDraft = handleSubmit(data => {
+    if (budgetExceeded) {
+      toast({ title: 'Budget exceeded', description: `PR total (${formatCurrency(grandTotal)}) exceeds remaining budget (${formatCurrency(budgetRemaining)}).`, variant: 'destructive' })
+      return
+    }
     submitModeRef.current = 'draft'
     createMutation.mutate(data)
   })
 
   const handleApproval = handleSubmit(data => {
+    if (budgetExceeded) {
+      toast({ title: 'Budget exceeded', description: `PR total (${formatCurrency(grandTotal)}) exceeds remaining budget (${formatCurrency(budgetRemaining)}).`, variant: 'destructive' })
+      return
+    }
     submitModeRef.current = 'approval'
     createMutation.mutate(data)
   })
@@ -385,6 +417,23 @@ export default function NewPRPage() {
                 />
                 {errors.tracking_id && <p className="text-xs text-destructive">{errors.tracking_id.message}</p>}
               </div>
+
+              {/* Budget Details — compact inline */}
+              {trackingDetail && (
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-md border border-blue-200 bg-blue-50/60 px-3 py-2 text-xs">
+                  <span className="font-medium text-blue-700">Budget</span>
+                  <span className="text-muted-foreground">Approved: <span className="font-semibold text-foreground">{formatCurrency(trackingDetail.approved_amount ?? trackingDetail.requested_amount)}</span></span>
+                  <span className="text-muted-foreground">Consumed: <span className="font-semibold text-foreground">{formatCurrency(trackingDetail.consumed_amount)}</span></span>
+                  <span className="text-muted-foreground">Remaining: <span className={`font-semibold ${budgetRemaining !== null && budgetRemaining > 0 ? 'text-green-700' : 'text-red-600'}`}>{formatCurrency(budgetRemaining ?? 0)}</span></span>
+                  {grandTotal > 0 && budgetExceeded && (
+                    <span className="flex items-center gap-1 text-red-600 font-medium ml-auto">
+                      <AlertTriangle className="w-3 h-3" />
+                      Exceeds by {formatCurrency(grandTotal - (budgetRemaining ?? 0))}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {watchedTrackingId &&
                 <>
                   <div className="space-y-1.5">
@@ -531,126 +580,96 @@ export default function NewPRPage() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-5 space-y-3">
-              {lineItemFields.map((field, idx) => (
-                <div key={field.id} className="border border-border rounded-lg p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item {idx + 1}</span>
-                    {lineItemFields.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => remove(idx)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-12 gap-2 items-end">
-                    {/* Item Code */}
-                    <div className="col-span-12 sm:col-span-5 space-y-1">
-                      <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
-                      <ItemSearch
-                        displayValue={itemLabels[idx]}
-                        onSelect={item => {
-                          const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
-                          if (duplicateIdx !== -1) {
-                            remove(duplicateIdx)
-                            const newIdx = duplicateIdx < idx ? idx - 1 : idx
-                            setValue(`line_items.${newIdx}.item_code`, item.id)
-                            setValue(`line_items.${newIdx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                            return
-                          }
-                          setValue(`line_items.${idx}.item_code`, item.id)
-                          setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                          clearErrors(`line_items.${idx}.item_code`)
-                          setItemLabels(prev => ({ ...prev, [idx]: `${item.code} — ${item.description}` }))
-                        }}
-                        placeholder="Search by code or description…"
-                        hasError={errors.line_items?.[idx]?.item_code && errors.line_items[idx]?.item_code?.message}
-                      />
-                      {errors.line_items?.[idx]?.item_code && (
-                        <p className="text-xs text-destructive">{errors.line_items[idx]?.item_code?.message}</p>
-                      )}
-                    </div>
-                    {/* Qty */}
-                    <div className="col-span-4 sm:col-span-2 space-y-1">
-                      <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
-                      <Input
-                        type="number"
-                        min="0.01"
-                        max="99999"
-                        step="0.01"
-                        placeholder="1"
-                        className={errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}
-                        {...register(`line_items.${idx}.quantity`, {
-                          valueAsNumber: true,
-                          onChange: e => {
-                            let value = Number(e.target.value)
-
-                            if (value > 99999) {
-                              value = 99999
-                              setValue(`line_items.${idx}.quantity`, value)
-                            }
-
-                            clearErrors(`line_items.${idx}.quantity`)
-                          },
-                        })}
-                      />
-                      {errors.line_items?.[idx]?.quantity && (
-                        <p className="text-xs text-destructive">{errors.line_items[idx]?.quantity?.message}</p>
-                      )}
-                    </div>
-                    {/* Unit of Measure */}
-                    <div className="col-span-3 sm:col-span-2 space-y-1">
-                      <Label className="text-xs">UOM <span className="text-destructive">*</span></Label>
-                      <Input placeholder="EA" {...register(`line_items.${idx}.unit_of_measure`)} />
-                    </div>
-                    {/* Unit Rate */}
-                    <div className="col-span-5 sm:col-span-2 space-y-1">
-                      <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
-                      <Input
-                        type="number"
-                        min="0.01"
-                        max="9999999.99"
-                        step="0.01"
-                        placeholder="0.00"
-                        className={errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}
-                        {...register(`line_items.${idx}.unit_rate`, {
-                          valueAsNumber: true,
-                          onChange: e => {
-                            let value = Number(e.target.value)
-
-                            if (value > 9999999.99) {
-                              value = 9999999.99
-                            }
-
-                            value = Number(value.toFixed(2))
-
-                            setValue(`line_items.${idx}.unit_rate`, value)
-
-                            clearErrors(`line_items.${idx}.unit_rate`)
-                          },
-                        })}
-                      />
-                      {errors.line_items?.[idx]?.unit_rate && (
-                        <p className="text-xs text-destructive">{errors.line_items[idx]?.unit_rate?.message}</p>
-                      )}
-                    </div>
-                    {/* Total */}
-                    <div className="col-span-12 sm:col-span-1 space-y-1">
-                      <Label className="text-xs hidden sm:block">Total</Label>
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        value={(watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0)}  // Raw numeric value
-                        disabled
-                        className="h-10 text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <CardContent className="pt-4">
+              <div className="border border-border rounded-lg overflow-visible">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50 border-b">
+                    <tr>
+                      <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[40%]">Item <span className="text-destructive">*</span></th>
+                      <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">Qty <span className="text-destructive">*</span></th>
+                      <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">UOM</th>
+                      <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Rate <span className="text-destructive">*</span></th>
+                      <th className="px-2 py-2 text-right font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Total</th>
+                      <th className="px-2 py-2 w-8" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {lineItemFields.map((field, idx) => (
+                      <tr key={field.id} className="group">
+                        <td className="px-2 py-1.5">
+                          <ItemSearch
+                            displayValue={itemLabels[idx]}
+                            onSelect={item => {
+                              const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
+                              if (duplicateIdx !== -1) {
+                                remove(duplicateIdx)
+                                const newIdx = duplicateIdx < idx ? idx - 1 : idx
+                                setValue(`line_items.${newIdx}.item_code`, item.id)
+                                setValue(`line_items.${newIdx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+                                if (item.unit_rate) setValue(`line_items.${newIdx}.unit_rate`, Number(item.unit_rate))
+                                return
+                              }
+                              setValue(`line_items.${idx}.item_code`, item.id)
+                              setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+                              if (item.unit_rate) setValue(`line_items.${idx}.unit_rate`, Number(item.unit_rate))
+                              clearErrors(`line_items.${idx}.item_code`)
+                              setItemLabels(prev => ({ ...prev, [idx]: `${item.code} — ${item.description}` }))
+                            }}
+                            placeholder="Search item…"
+                            hasError={errors.line_items?.[idx]?.item_code && errors.line_items[idx]?.item_code?.message}
+                          />
+                          {errors.line_items?.[idx]?.item_code && (
+                            <p className="text-xs text-destructive mt-0.5">{errors.line_items[idx]?.item_code?.message}</p>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <Input
+                            type="number" min="0.01" max="99999" step="0.01" placeholder="1"
+                            className={`h-8 text-xs ${errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}`}
+                            {...register(`line_items.${idx}.quantity`, {
+                              valueAsNumber: true,
+                              onChange: e => {
+                                let value = Number(e.target.value)
+                                if (value > 99999) { value = 99999; setValue(`line_items.${idx}.quantity`, value) }
+                                clearErrors(`line_items.${idx}.quantity`)
+                              },
+                            })}
+                          />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <Input placeholder="EA" className="h-8 text-xs" {...register(`line_items.${idx}.unit_of_measure`)} />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <Input
+                            type="number" min="0.01" max="9999999.99" step="0.01" placeholder="0.00"
+                            className={`h-8 text-xs ${errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}`}
+                            {...register(`line_items.${idx}.unit_rate`, {
+                              valueAsNumber: true,
+                              onChange: e => {
+                                let value = Number(e.target.value)
+                                if (value > 9999999.99) value = 9999999.99
+                                value = Number(value.toFixed(2))
+                                setValue(`line_items.${idx}.unit_rate`, value)
+                                clearErrors(`line_items.${idx}.unit_rate`)
+                              },
+                            })}
+                          />
+                        </td>
+                        <td className="px-2 py-1.5 text-right text-sm font-medium text-muted-foreground">
+                          {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
+                        </td>
+                        <td className="px-2 py-1.5 text-center">
+                          {lineItemFields.length > 1 && (
+                            <button type="button" onClick={() => remove(idx)} className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               {errors.line_items?.root && (
                 <p className="text-xs text-destructive">{errors.line_items.root.message}</p>

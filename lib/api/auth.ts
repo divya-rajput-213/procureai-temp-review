@@ -9,6 +9,11 @@ export interface AuthResponse {
   access: string
   refresh: string
   user: User
+  company?: {
+    id: number
+    name: string
+    schema_name: string
+  }
 }
 
 export interface User {
@@ -19,6 +24,8 @@ export interface User {
   full_name: string
   account_type: 'azure_ad' | 'local' | 'vendor'
   roles: Role[]
+  company: number | null
+  company_name: string | null
   plant: number | null
   plant_name: string | null
   department: number | null

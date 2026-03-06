@@ -410,7 +410,7 @@ export default function ApprovalDetailPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b">
                 <tr>
-                  {['Level', 'Approver / Role', 'Status', 'Date', 'Comments'].map(h => (
+                  {['Level', 'Approver / Role', 'Status', 'Due Date', 'Acted At', 'Comments'].map(h => (
                     <th key={h} className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">{h}</th>
                   ))}
                 </tr>
@@ -438,10 +438,11 @@ export default function ApprovalDetailPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {a.acted_at && formatDateTime(a.acted_at)}
-                      {!a.acted_at && a.sla_deadline && <span className="text-amber-600">Due {formatDateTime(a.sla_deadline)}</span>}
-                      {!a.acted_at && !a.sla_deadline && '—'}
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                      {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                      {a.acted_at ? formatDateTime(a.acted_at) : '—'}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground max-w-[200px] truncate">
                       {a.comments || '—'}

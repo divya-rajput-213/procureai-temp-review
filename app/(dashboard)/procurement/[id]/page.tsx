@@ -15,6 +15,7 @@ import {
   ChevronDown, ChevronRight, Plus, Sparkles, X, User, Pencil,
   MapPin, Star, AlertTriangle, ThumbsUp, ThumbsDown, Trophy,
   Users, TrendingUp, TrendingDown, BarChart3, PiggyBank, Download,
+  History, FileText, Search, Trash2,
 } from 'lucide-react'
 import {
   formatCurrency, formatDate, formatDateTime, getSLAPercentage, getSLAColor,
@@ -51,12 +52,15 @@ function ActionStepIcon({ action }: { action: string }) {
   if (action === 'rejected') return <XCircle className="w-3 h-3" />
   return <Clock className="w-3 h-3" />
 }
-function ApprovalTimeline({ actions, currentLevel }: { actions: any[]; currentLevel: number }) {
+function ApprovalTimeline({ actions, currentLevel, requestedAt }: { actions: any[]; currentLevel: number; requestedAt?: string }) {
   if (!actions?.length) return <p className="text-sm text-muted-foreground">No actions yet.</p>;
 
   return (
     <div className="px-4 py-3 bg-white border-b">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Approval Timeline</p>
+      {requestedAt && (
+        <p className="text-[11px] text-muted-foreground mb-2">Requested for approval: <span className="font-medium text-slate-700">{formatDateTime(requestedAt)}</span></p>
+      )}
       <table className="w-full text-xs">
         <thead>
           <tr className="text-muted-foreground border-b">
@@ -64,7 +68,8 @@ function ApprovalTimeline({ actions, currentLevel }: { actions: any[]; currentLe
             <th className="text-left py-1.5 font-medium">Approver</th>
             <th className="text-left py-1.5 font-medium w-28">Status</th>
             <th className="text-left py-1.5 font-medium">Comments</th>
-            <th className="text-right py-1.5 font-medium whitespace-nowrap">Date / Time</th>
+            <th className="text-left py-1.5 font-medium whitespace-nowrap">Due Date</th>
+            <th className="text-right py-1.5 font-medium whitespace-nowrap">Acted At</th>
           </tr>
         </thead>
         <tbody>
@@ -100,6 +105,9 @@ function ApprovalTimeline({ actions, currentLevel }: { actions: any[]; currentLe
                 </td>
                 <td className="py-2 text-muted-foreground italic">
                   {a.comments ? `"${a.comments}"` : '—'}
+                </td>
+                <td className="py-2 text-muted-foreground whitespace-nowrap">
+                  {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
                 </td>
                 <td className="py-2 text-right text-muted-foreground whitespace-nowrap">
                   {a.acted_at ? formatDateTime(a.acted_at) : '—'}
@@ -256,7 +264,7 @@ function ApprovalProgressPanel({ prId, onStatusChange }: {
       )}
       {!isLoading && approvalRequest && (
         <div className="">
-          <ApprovalTimeline actions={approvalRequest.actions ?? []} currentLevel={approvalRequest.current_level} />
+          <ApprovalTimeline actions={approvalRequest.actions ?? []} currentLevel={approvalRequest.current_level} requestedAt={approvalRequest.created_at} />
           {myPendingAction && (
             <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} />
           )}
@@ -463,8 +471,11 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
 
   const selectItem = (idx: number, item: any) => {
     setLI(idx, 'item_code', item.id)
+    setLI(idx, 'code', item.code)
     setLI(idx, 'description', item.description)
-    setItemSearch(prev => ({ ...prev, [idx]: `${item.code} - ${item.description}` }))
+    setLI(idx, 'unit_of_measure', item.unit_of_measure ?? 'EA')
+    if (item.unit_rate) setLI(idx, 'unit_rate', String(Number(item.unit_rate)))
+    setItemSearch(prev => ({ ...prev, [idx]: `${item.code} — ${item.description}` }))
     setShowItemDropdown(null)
   }
 
@@ -507,226 +518,149 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
       }));
     }
   }, [form.tracking_id, trackingIds]);
+  const budgetApproved = selectedTrackingObj
+    ? Number(selectedTrackingObj.approved_amount ?? selectedTrackingObj.requested_amount)
+    : null
+  const budgetRemaining = selectedTrackingObj
+    ? Number(selectedTrackingObj.remaining_amount ?? (budgetApproved! - Number(selectedTrackingObj.consumed_amount)))
+    : null
+  const budgetExceeded = budgetRemaining !== null && grandTotal > budgetRemaining
+
   return (
     <div className="space-y-4">
-      {/* Tracking ID + Plant + Department */}
+      {/* Tracking ID */}
       <div className="space-y-1">
         <Label className="text-xs">Budget / Tracking ID</Label>
-
         <div className="relative">
-          <Input
-            placeholder="Search tracking ID..."
-            value={showTrackingDropdown ? trackingSearch : (selectedTrackingObj?.tracking_code ?? '')}
-
-            onChange={(e) => {
-              setTrackingSearch(e.target.value)
-              setShowTrackingDropdown(true)
-            }}
-            onFocus={() => setShowTrackingDropdown(true)}
-            onBlur={() => setTimeout(() => setShowTrackingDropdown(false), 150)}
-            className="h-8"
-          />
-
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search by tracking code or title..."
+              value={showTrackingDropdown ? trackingSearch : (selectedTrackingObj?.tracking_code ?? '')}
+              onChange={(e) => { setTrackingSearch(e.target.value); setShowTrackingDropdown(true) }}
+              onFocus={() => { if (trackingSearch.length > 0) setShowTrackingDropdown(true) }}
+              onBlur={() => setTimeout(() => setShowTrackingDropdown(false), 200)}
+              className="h-8 pl-8"
+            />
+            {selectedTrackingObj && (
+              <button type="button" onClick={() => { set('tracking_id', ''); setTrackingSearch('') }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
           {showTrackingDropdown && trackingSearch && (
-            <div className="absolute z-20 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
-
+            <div className="absolute z-20 top-full mt-1 left-0 right-0 border rounded-md bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
               {trackingIds
-                .filter((t: any) =>
-                  !trackingSearch ||   // ← show all when search is empty
-                  `${t.tracking_code} ${t.title}`
-                    .toLowerCase()
-                    .includes(trackingSearch.toLowerCase())
-                )
+                .filter((t: any) => `${t.tracking_code} ${t.title}`.toLowerCase().includes(trackingSearch.toLowerCase()))
                 .map((t: any) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      set('tracking_id', t.id)
-                      setTrackingSearch('')
-                      setShowTrackingDropdown(false)
-                    }}
-                    className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm"
-                  >
-                    <div className="font-medium">
-                      {t.tracking_code}
+                  <button key={t.id} type="button" onMouseDown={e => e.preventDefault()}
+                    onClick={() => { set('tracking_id', t.id); setTrackingSearch(''); setShowTrackingDropdown(false) }}
+                    className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-medium">{t.tracking_code}</span>
+                      <span className="text-xs text-muted-foreground">{formatCurrency(t.approved_amount)}</span>
                     </div>
-
-                    <div className="text-xs text-muted-foreground">
-                      {t.title}
-                    </div>
+                    {t.title && <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.title}</p>}
                   </button>
                 ))}
-
-              {trackingIds.filter((t: any) =>
-                `${t.tracking_code} ${t.title}`
-                  .toLowerCase()
-                  .includes(trackingSearch.toLowerCase())
-              ).length === 0 && (
-                  <p className="px-3 py-2 text-sm text-muted-foreground">
-                    No tracking IDs found
-                  </p>
-                )}
+              {trackingIds.filter((t: any) => `${t.tracking_code} ${t.title}`.toLowerCase().includes(trackingSearch.toLowerCase())).length === 0 && (
+                <p className="px-3 py-2.5 text-sm text-muted-foreground">No tracking IDs found</p>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Budget Details — compact inline */}
+      {selectedTrackingObj && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-md border border-blue-200 bg-blue-50/60 px-3 py-2 text-xs">
+          <span className="font-medium text-blue-700">Budget</span>
+          <span className="text-muted-foreground">Approved: <span className="font-semibold text-foreground">{formatCurrency(budgetApproved ?? 0)}</span></span>
+          <span className="text-muted-foreground">Consumed: <span className="font-semibold text-foreground">{formatCurrency(selectedTrackingObj.consumed_amount)}</span></span>
+          <span className="text-muted-foreground">Remaining: <span className={`font-semibold ${budgetRemaining !== null && budgetRemaining > 0 ? 'text-green-700' : 'text-red-600'}`}>{formatCurrency(budgetRemaining ?? 0)}</span></span>
+          {grandTotal > 0 && budgetExceeded && (
+            <span className="flex items-center gap-1 text-red-600 font-medium ml-auto">
+              <AlertTriangle className="w-3 h-3" />
+              Exceeds by {formatCurrency(grandTotal - (budgetRemaining ?? 0))}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
-        <Input
-          value={form.title}
-          disabled
-          readOnly
-          placeholder="e.g. Enterprise Laptop Procurement"
-          className="h-10 bg-muted cursor-not-allowed text-muted-foreground"
-        />
+        <Label className="text-sm font-medium">Title</Label>
+        <Input value={form.title} disabled readOnly className="h-8 bg-muted cursor-not-allowed text-muted-foreground" />
       </div>
-      {/* Description */}
       <div className="space-y-1">
         <Label className="text-xs">Description</Label>
-        <textarea
-          className="w-full border rounded-md px-3 py-2 text-sm resize-none h-20"
-          value={form.description}
-          onChange={e => set('description', e.target.value)}
-          placeholder="Brief description of what is being procured…"
-        />
+        <textarea className="w-full border rounded-md px-3 py-2 text-sm resize-none h-16" value={form.description} onChange={e => set('description', e.target.value)} placeholder="Brief description…" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Plant</Label>
-          <select
-            disabled
-            className="w-full h-8 border rounded-md px-3 text-sm  bg-muted cursor-not-allowed text-muted-foreground"
-            value={form.plant}
-            onChange={e => set('plant', e.target.value ? Number(e.target.value) : '')}
-          >
+          <select disabled className="w-full h-8 border rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground" value={form.plant}>
             <option value="">— none —</option>
             {plants.map((p: any) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Department</Label>
-          <select
-            disabled
-            className="w-full h-8 border rounded-md px-3 text-sm   bg-muted cursor-not-allowed text-muted-foreground"
-            value={form.department}
-            onChange={e => set('department', e.target.value ? Number(e.target.value) : '')}
-          >
+          <select disabled className="w-full h-8 border rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground" value={form.department}>
             <option value="">— none —</option>
             {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
       </div>
 
-
-
       {/* Invited Vendors */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <Label className="text-xs">Invited Vendors</Label>
-
-        {/* Search Input */}
         <div className="relative">
-          <Input
-            placeholder="Search approved vendors…"
-            value={vendorSearch}
-            onChange={e => {
-              setVendorSearch(e.target.value);
-              setShowVendorDropdown(true);
-            }}
+          <Input placeholder="Search approved vendors…" value={vendorSearch}
+            onChange={e => { setVendorSearch(e.target.value); setShowVendorDropdown(true) }}
             onFocus={() => setShowVendorDropdown(true)}
-            onBlur={() => setTimeout(() => setShowVendorDropdown(false), 150)}
-            className="h-10"
-          />
-
+            onBlur={() => setTimeout(() => setShowVendorDropdown(false), 200)}
+            className="h-8" />
           {showVendorDropdown && vendorSearch && (
-            <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
-              {(vendorResults || [])
-                .filter((v: any) => !invitedVendors.some((s: any) => s.id === v.id))
-                .map((v: any) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onMouseDown={e => e.preventDefault()}
-                    onClick={() => addVendor(v)}
-                    className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{v.company_name}</span>
-                      <span className="text-xs text-emerald-600 font-medium">
-                        {v.status}
-                      </span>
-                    </div>
-
-                    <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
-                      {v.category_name && <span>{v.category_name}</span>}
-                      {v.city && (
-                        <span>
-                          {v.city}
-                          {v.state ? `, ${v.state}` : ""}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-
-              {(vendorResults || []).filter(
-                (v: any) => !invitedVendors.some((s: any) => s.id === v.id)
-              ).length === 0 && (
-                  <p className="px-3 py-2.5 text-sm text-muted-foreground">
-                    No vendors found.
-                  </p>
-                )}
+            <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-md bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
+              {(vendorResults || []).filter((v: any) => !invitedVendors.some((s: any) => s.id === v.id)).map((v: any) => (
+                <button key={v.id} type="button" onMouseDown={e => e.preventDefault()} onClick={() => addVendor(v)}
+                  className="w-full text-left px-3 py-2 hover:bg-muted/50 text-sm transition-colors">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{v.company_name}</span>
+                    <span className="text-xs text-emerald-600 font-medium">{v.status}</span>
+                  </div>
+                  <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
+                    {v.category_name && <span>{v.category_name}</span>}
+                    {v.city && <span>{v.city}{v.state ? `, ${v.state}` : ''}</span>}
+                  </div>
+                </button>
+              ))}
+              {(vendorResults || []).filter((v: any) => !invitedVendors.some((s: any) => s.id === v.id)).length === 0 && (
+                <p className="px-3 py-2 text-sm text-muted-foreground">No vendors found.</p>
+              )}
             </div>
           )}
         </div>
-
-        {/* Selected Vendors Table */}
         {invitedVendors.length > 0 && (
           <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b border-border">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/50 border-b">
                 <tr>
-                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Vendor
-                  </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
-                    Category
-                  </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
-                    Location
-                  </th>
-                  <th className="w-8 px-3 py-2.5" />
+                  <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
+                  <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
+                  <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
+                  <th className="px-2 py-2 w-8" />
                 </tr>
               </thead>
-
               <tbody className="divide-y divide-border">
                 {invitedVendors.map((v: any) => (
-                  <tr
-                    key={v.id}
-                    className="hover:bg-muted/30 transition-colors"
-                  >
-                    <td className="px-3 py-2.5 font-medium">
-                      {v.company_name}
-                    </td>
-
-                    <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                      {v.category_name || "—"}
-                    </td>
-
-                    <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                      {v.city
-                        ? [v.city, v.state].filter(Boolean).join(", ")
-                        : "—"}
-                    </td>
-
-                    <td className="px-3 py-2.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => removeVendor(v.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                      >
+                  <tr key={v.id} className="group hover:bg-muted/30">
+                    <td className="px-2 py-1.5 font-medium">{v.company_name}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground hidden sm:table-cell">{v.city ? [v.city, v.state].filter(Boolean).join(', ') : '—'}</td>
+                    <td className="px-2 py-1.5 text-center">
+                      <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </td>
@@ -738,7 +672,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
         )}
       </div>
 
-      {/* Line Items */}
+      {/* Line Items — compact table */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-xs font-semibold">Line Items</Label>
@@ -746,161 +680,98 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
             <Plus className="w-3 h-3" /> Add
           </Button>
         </div>
-
-        <div className="space-y-2">
-          {lineItems.map((li, idx) => (
-            <div key={li._key} className="border border-border rounded-lg p-3 space-y-3">
-              {/* Row header */}
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item {idx + 1}</span>
-                <button type="button" onClick={() => removeLineItem(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Fields grid — same as doc 4 */}
-              <div className="grid grid-cols-12 gap-2 items-end">
-
-                {/* Item Code */}
-                <div className="col-span-12 sm:col-span-5 space-y-1">
-                  <Label className="text-xs">Item Code <span className="text-destructive">*</span></Label>
-                  <div className="relative">
-                    <Input
-                      placeholder="Search item code..."
-                      value={itemSearch[idx] ?? (li.item_code ? `${li.code} - ${li.description}` : '')}
-                      onChange={e => { setItemSearch(prev => ({ ...prev, [idx]: e.target.value })); setShowItemDropdown(idx) }}
-                      onFocus={() => setShowItemDropdown(idx)}
-                      onBlur={() => setTimeout(() => setShowItemDropdown(null), 150)}
-                      className="h-10 text-sm"
-                    />
-                    {showItemDropdown === idx && (
-                      <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-md bg-background shadow-md max-h-40 overflow-y-auto divide-y">
-                        {(itemResults || []).map((item: any) => (
-                          <button key={item.id} type="button" onMouseDown={e => e.preventDefault()}
-                            className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm flex items-center gap-2"
-                            onClick={() => selectItem(idx, item)}>
-                            <span className="font-mono text-xs bg-slate-100 px-1 rounded">{item.code}</span>
-                            <span className="truncate">{item.description}</span>
-                            <span className="ml-auto text-xs text-muted-foreground shrink-0">{item.unit_of_measure}</span>
-                          </button>
-                        ))}
-                        {(itemResults || []).length === 0 && (
-                          <p className="px-3 py-2 text-sm text-muted-foreground">No items found.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Qty */}
-                <div className="col-span-4 sm:col-span-2 space-y-1">
-                  <Label className="text-xs">Qty <span className="text-destructive">*</span></Label>
-                  <Input
-                    type="number"
-                    placeholder="1"
-                    value={li.quantity}
-                    onChange={e => {
-                      let value = Number(e.target.value);
-
-                      // Clamp the value to maximum limit
-                      if (value > 99999) {
-                        value = 99999;
-                      }
-
-                      // Ensure value is a valid number
-                      if (isNaN(value) || value <= 0) {
-                        value = 0;
-                      }
-
-                      setLI(idx, 'quantity', value);
-                    }}
-                    className="h-10 text-sm"
-                  />
-
-
-                </div>
-
-                {/* UOM */}
-                <div className="col-span-3 sm:col-span-2 space-y-1">
-                  <Label className="text-xs">UOM <span className="text-destructive">*</span></Label>
-                  <Input
-                    placeholder="EA" value={li.unit_of_measure}
-                    onChange={e => setLI(idx, 'unit_of_measure', e.target.value)}
-                    className="h-10 text-sm"
-                  />
-                </div>
-
-                {/* Unit Rate */}
-                <div className="col-span-5 sm:col-span-2 space-y-1">
-                  <Label className="text-xs">Unit Rate <span className="text-destructive">*</span></Label>
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    value={li.unit_rate}
-                    onChange={e => {
-                      let value = parseFloat(e.target.value);
-
-                      // Clamp the value to maximum limit
-                      if (value > 9999999.99) {
-                        value = 9999999.99;
-                      }
-
-                      // Ensure value is a valid number and round to 2 decimals
-                      if (isNaN(value) || value <= 0) {
-                        value = 0;
-                      } else {
-                        value = Math.round(value * 100) / 100; // Limit to 2 decimal places
-                      }
-
-                      setLI(idx, 'unit_rate', value);
-                    }}
-                    className="h-10 text-sm"
-                  />
-
-                </div>
-
-                {/* Total */}
-                <div className="col-span-12 sm:col-span-1 space-y-1">
-                  <Label className="text-xs hidden sm:block">Total</Label>
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    value={(Number(li.quantity) || 0) * (Number(li.unit_rate) || 0)}  // Raw numeric value
-                    disabled
-                    className="h-10 text-sm"
-                  />
-                </div>
-
-              </div>
-            </div>
-          ))}
-
-          {lineItems.length === 0 && (
-            <p className="text-xs text-muted-foreground italic py-1">No line items. Click Add to add one.</p>
-          )}
+        <div className="border border-border rounded-lg overflow-visible">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50 border-b">
+              <tr>
+                <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[40%]">Item</th>
+                <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">Qty</th>
+                <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">UOM</th>
+                <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Rate</th>
+                <th className="px-2 py-2 text-right font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Total</th>
+                <th className="px-2 py-2 w-8" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {lineItems.map((li, idx) => (
+                <tr key={li._key} className="group">
+                  <td className="px-2 py-1.5">
+                    <div className="relative">
+                      <Input
+                        placeholder="Search item…"
+                        value={itemSearch[idx] ?? (li.item_code ? `${li.code} — ${li.description}` : '')}
+                        onChange={e => { setItemSearch(prev => ({ ...prev, [idx]: e.target.value })); setShowItemDropdown(idx) }}
+                        onFocus={() => { setShowItemDropdown(idx) }}
+                        onBlur={() => setTimeout(() => setShowItemDropdown(null), 200)}
+                        className="h-8 text-xs"
+                      />
+                      {showItemDropdown === idx && (
+                        <div className="absolute z-50 bottom-full mb-1 left-0 right-0 border rounded-md bg-background shadow-lg max-h-48 overflow-y-auto divide-y">
+                          {(itemResults || []).map((item: any) => (
+                            <button key={item.id} type="button" onMouseDown={e => e.preventDefault()}
+                              className="w-full text-left px-3 py-1.5 hover:bg-slate-50 text-xs flex items-center gap-2"
+                              onClick={() => selectItem(idx, item)}>
+                              <span className="font-mono bg-slate-100 px-1 rounded">{item.code}</span>
+                              <span className="truncate">{item.description}</span>
+                              <span className="ml-auto text-muted-foreground shrink-0">{item.unit_of_measure}</span>
+                            </button>
+                          ))}
+                          {(itemResults || []).length === 0 && (
+                            <p className="px-3 py-1.5 text-xs text-muted-foreground">No items found.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input type="number" placeholder="1" value={li.quantity}
+                      onChange={e => { let v = Number(e.target.value); if (v > 99999) v = 99999; setLI(idx, 'quantity', v || 0) }}
+                      className="h-8 text-xs" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input placeholder="EA" value={li.unit_of_measure} onChange={e => setLI(idx, 'unit_of_measure', e.target.value)} className="h-8 text-xs" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input type="number" placeholder="0.00" value={li.unit_rate}
+                      onChange={e => { let v = parseFloat(e.target.value); if (v > 9999999.99) v = 9999999.99; setLI(idx, 'unit_rate', isNaN(v) ? 0 : Math.round(v * 100) / 100) }}
+                      className="h-8 text-xs" />
+                  </td>
+                  <td className="px-2 py-1.5 text-right text-sm font-medium text-muted-foreground">
+                    {formatCurrency((Number(li.quantity) || 0) * (Number(li.unit_rate) || 0))}
+                  </td>
+                  <td className="px-2 py-1.5 text-center">
+                    <button type="button" onClick={() => removeLineItem(idx)} className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+        {lineItems.length === 0 && (
+          <p className="text-xs text-muted-foreground italic py-1">No line items. Click Add to add one.</p>
+        )}
 
-        {/* Totals table */}
+        {/* Totals */}
         <div className="border border-border rounded-lg overflow-hidden mt-2">
           <table className="w-full text-sm">
             <tbody className="divide-y divide-border">
               <tr className="bg-muted/30">
-                <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
-                <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
+                <td className="px-4 py-2 text-muted-foreground">Subtotal</td>
+                <td className="px-4 py-2 text-right font-medium">{formatCurrency(subtotal)}</td>
               </tr>
               {activeTaxes.map(tax => (
                 <tr key={tax.id}>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {tax.name} <span className="text-xs">({tax.rate}%)</span>
-                  </td>
-                  <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{tax.name} <span className="text-xs">({tax.rate}%)</span></td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="bg-muted/50 border-t-2 border-border">
-                <td className="px-4 py-3 font-semibold">Grand Total</td>
-                <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+                <td className="px-4 py-2.5 font-semibold">Grand Total</td>
+                <td className="px-4 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
               </tr>
             </tfoot>
           </table>
@@ -1414,9 +1285,158 @@ function ScoreDimensionGrid({ scoreBreakdown }: { scoreBreakdown: Record<string,
   )
 }
 
+// ─── Bid Edit Modal ──────────────────────────────────────────────────────────
+
+function EditBidModal({ bid, prId, onClose, onSuccess }: {
+  bid: any
+  prId: string | string[]
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const { toast } = useToast()
+  const [form, setForm] = useState({
+    bid_amount: String(bid.bid_amount),
+    delivery_days: String(bid.delivery_days),
+    notes: bid.notes ?? '',
+    change_reason: '',
+  })
+  const [bidFile, setBidFile] = useState<File | null>(null)
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const fd = new FormData()
+      fd.append('bid_amount', form.bid_amount)
+      fd.append('delivery_days', String(Number(form.delivery_days)))
+      fd.append('notes', form.notes)
+      fd.append('change_reason', form.change_reason)
+      if (bidFile) fd.append('bid_document', bidFile)
+      await apiClient.patch(`/procurement/${prId}/bids/${bid.id}/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+    },
+    onSuccess: () => {
+      toast({ title: 'Bid updated.' })
+      onSuccess()
+      onClose()
+    },
+    onError: (err: any) => {
+      const d = err?.response?.data
+      const msg = typeof d === 'string' ? d : d?.detail ?? (d && typeof d === 'object' ? Object.values(d).flat().join(' ') : 'Update failed.')
+      toast({ title: 'Update failed', description: msg, variant: 'destructive' })
+    },
+  })
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          <Pencil className="w-4 h-4" /> Edit Bid — {bid.vendor_name}
+        </h3>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Bid Amount *</Label>
+            <Input type="number" step="0.01" value={form.bid_amount}
+              onChange={e => setForm(f => ({ ...f, bid_amount: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Delivery Days *</Label>
+            <Input type="number" value={form.delivery_days}
+              onChange={e => setForm(f => ({ ...f, delivery_days: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Comments / Notes</Label>
+            <textarea className="w-full border rounded-md p-2 text-sm resize-none h-16"
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Replace Document</Label>
+            <div className="flex items-center gap-2 text-xs">
+              <label className="cursor-pointer border rounded px-2 py-1 hover:bg-slate-50">
+                Choose file
+                <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) setBidFile(f); e.target.value = '' }} />
+              </label>
+              <span className="text-muted-foreground truncate">{bidFile?.name ?? 'No new file'}</span>
+              {bidFile && <button type="button" onClick={() => setBidFile(null)} className="text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button>}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Reason for Change *</Label>
+            <textarea className={`w-full border rounded-md p-2 text-sm resize-none h-12 ${!form.change_reason.trim() ? 'border-amber-300' : ''}`}
+              placeholder="Why is this bid being revised? (required)"
+              value={form.change_reason}
+              onChange={e => setForm(f => ({ ...f, change_reason: e.target.value }))} />
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end pt-1">
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending || !form.bid_amount || !form.delivery_days || !form.change_reason.trim()}
+            className="gap-1">
+            {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+            Save Changes
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Bid Edit Trail ──────────────────────────────────────────────────────────
+
+function BidEditTrail({ logs, currencyCode }: { logs: any[]; currencyCode: string }) {
+  if (!logs || logs.length === 0) return null
+  return (
+    <div className="px-4 pb-3 bg-slate-50/60 border-t">
+      <div className="flex items-center gap-1.5 pt-2 pb-1.5">
+        <History className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Edit History ({logs.length})
+        </span>
+      </div>
+      <div className="space-y-2">
+        {logs.map((log: any) => {
+          const priceChanged = String(log.old_bid_amount) !== String(log.new_bid_amount)
+          const deliveryChanged = log.old_delivery_days !== log.new_delivery_days
+          const notesChanged = log.old_notes !== log.new_notes
+          const docChanged = log.old_bid_document !== log.new_bid_document
+          return (
+            <div key={log.id} className="border rounded-md bg-white px-3 py-2 text-xs">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="font-medium text-foreground">{log.edited_by_name}</span>
+                <span className="text-muted-foreground">{formatDateTime(log.edited_at)}</span>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+                {priceChanged && (
+                  <span>
+                    Price: <span className="line-through text-red-500">{formatCurrency(log.old_bid_amount, currencyCode)}</span>
+                    {' → '}<span className="font-medium text-foreground">{formatCurrency(log.new_bid_amount, currencyCode)}</span>
+                  </span>
+                )}
+                {deliveryChanged && (
+                  <span>
+                    Delivery: <span className="line-through text-red-500">{log.old_delivery_days}d</span>
+                    {' → '}<span className="font-medium text-foreground">{log.new_delivery_days}d</span>
+                  </span>
+                )}
+                {notesChanged && <span>Notes updated</span>}
+                {docChanged && <span className="flex items-center gap-0.5"><FileText className="w-3 h-3" /> Document replaced</span>}
+              </div>
+              {log.change_reason && (
+                <p className="mt-1 text-muted-foreground italic">Reason: {log.change_reason}</p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Bid Row ──────────────────────────────────────────────────────────────────
 
-function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval, onApprove, onReject }: {
+function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval, onApprove, onReject, onBidEdited }: {
   bid: any
   pr: any
   rank: number
@@ -1425,8 +1445,12 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
   hasBidPendingApproval: boolean
   onApprove: (bid: any) => void
   onReject: (bid: any) => void
+  onBidEdited: () => void
 }) {
+  const { id: prId } = useParams()
   const [expanded, setExpanded] = useState(false)
+  const [showEditTrail, setShowEditTrail] = useState(false)
+  const [editing, setEditing] = useState(false)
   const aiRank = aiRankedVendors.find(rv => rv.vendor_id === bid.vendor)
   const isAccepted = bid.status === 'accepted'
   const isRejected = bid.status === 'rejected'
@@ -1434,6 +1458,8 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
   const isRecommended = pr.ai_recommendation?.recommendation?.recommended_vendor_id === bid.vendor
 
   const isLocked = hasBidPendingApproval && !isPendingApproval && !isAccepted && !isRejected
+  const canEdit = canAct && !isAccepted && !isRejected && !isPendingApproval
+  const editCount = (bid.edit_logs ?? []).length
 
   return (
     <div className={`border rounded-xl overflow-hidden transition-all ${isAccepted ? 'border-green-300' :
@@ -1495,9 +1521,14 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
           </div>
         </div>
 
-        {/* Quote */}
+        {/* Quote (latest price) */}
         <div className="text-right shrink-0">
-          <p className="text-base font-bold">{formatCurrency(bid.bid_amount, pr.currency_code)}</p>
+          <div className="flex items-center gap-1.5 justify-end">
+            <p className="text-base font-bold">{formatCurrency(bid.bid_amount, pr.currency_code)}</p>
+            {editCount > 0 && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">Revised</span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             {bid.delivery_days}d · {bid.validity_days}d validity
           </p>
@@ -1517,6 +1548,12 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
 
         {/* Actions */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {canEdit && (
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+              onClick={() => setEditing(true)}>
+              <Pencil className="w-3 h-3" /> Edit
+            </Button>
+          )}
           {canAct && !isAccepted && !isRejected && !isPendingApproval && !hasBidPendingApproval && (
             <>
               <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 gap-1"
@@ -1528,6 +1565,15 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
                 <ThumbsDown className="w-3 h-3" /> Reject
               </Button>
             </>
+          )}
+          {editCount > 0 && (
+            <button type="button"
+              onClick={() => setShowEditTrail(x => !x)}
+              className="h-7 flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground rounded border border-transparent hover:border-border transition-colors"
+              title="View edit history">
+              <History className="w-3.5 h-3.5" />
+              <span>{editCount}</span>
+            </button>
           )}
           {aiRank?.score_breakdown && (
             <button type="button"
@@ -1546,6 +1592,9 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
         </div>
       )}
 
+      {/* Edit trail */}
+      {showEditTrail && <BidEditTrail logs={bid.edit_logs} currencyCode={pr.currency_code} />}
+
       {/* Pending approval progress */}
       <BidApprovalProgress bid={bid} />
 
@@ -1554,6 +1603,11 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
         <div className="px-4 pb-3 bg-red-50/30 border-t border-red-100">
           <p className="text-xs text-red-600 mt-2">Reason: {bid.rejection_reason}</p>
         </div>
+      )}
+
+      {/* Edit modal */}
+      {editing && (
+        <EditBidModal bid={bid} prId={prId!} onClose={() => setEditing(false)} onSuccess={onBidEdited} />
       )}
     </div>
   )
@@ -1830,6 +1884,10 @@ function BidApprovalProgress({ bid }: { bid: any }) {
 
       {isLoading && <p className="text-xs text-muted-foreground py-1">Loading approval status…</p>}
 
+      {!isLoading && approvalRequest?.created_at && (
+        <p className="text-[11px] text-muted-foreground mb-2">Requested for approval: <span className="font-medium text-slate-700">{formatDateTime(approvalRequest.created_at)}</span></p>
+      )}
+
       {!isLoading && actions.length > 0 && (
         <table className="w-full text-xs border rounded-lg overflow-hidden">
           <thead>
@@ -1838,7 +1896,8 @@ function BidApprovalProgress({ bid }: { bid: any }) {
               <th className="text-left px-3 py-1.5 font-medium">Approver</th>
               <th className="text-left px-3 py-1.5 font-medium w-28">Status</th>
               <th className="text-left px-3 py-1.5 font-medium">Comments</th>
-              <th className="text-right px-3 py-1.5 font-medium whitespace-nowrap">Date</th>
+              <th className="text-left px-3 py-1.5 font-medium whitespace-nowrap">Due Date</th>
+              <th className="text-right px-3 py-1.5 font-medium whitespace-nowrap">Acted At</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-amber-50">
@@ -1868,6 +1927,9 @@ function BidApprovalProgress({ bid }: { bid: any }) {
                   </td>
                   <td className="px-3 py-2 text-muted-foreground italic">
                     {a.comments || '—'}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                    {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
                   </td>
                   <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
                     {a.acted_at ? formatDateTime(a.acted_at) : '—'}
@@ -2024,6 +2086,7 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
                 hasBidPendingApproval={hasBidPendingApproval}
                 onApprove={b => setBidToApprove(b)}
                 onReject={b => setConfirmReject(b)}
+                onBidEdited={() => { refetchBids(); onPRChange() }}
               />
             ))}
           </div>
@@ -2525,20 +2588,53 @@ export default function PRDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Budget Info */}
+          {pr.budget_info && (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-md border border-blue-200 bg-blue-50/60 px-3 py-2 text-xs">
+              <span className="font-medium text-blue-700">Budget</span>
+              <span className="font-mono text-muted-foreground">{pr.budget_info.tracking_code}</span>
+              <span className="text-muted-foreground">Approved: <span className="font-semibold text-foreground">{formatCurrency(pr.budget_info.approved_amount)}</span></span>
+              <span className="text-muted-foreground">Consumed: <span className="font-semibold text-foreground">{formatCurrency(pr.budget_info.consumed_amount)}</span></span>
+              <span className="text-muted-foreground">Remaining: <span className={`font-semibold ${Number(pr.budget_info.remaining_amount) > 0 ? 'text-green-700' : 'text-red-600'}`}>{formatCurrency(pr.budget_info.remaining_amount)}</span></span>
+            </div>
+          )}
+
           {/* Invited Vendors */}
           {pr.invited_vendors_detail?.length > 0 && (
             <Card>
               <CardHeader><CardTitle className="text-sm">Invited Vendors</CardTitle></CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {(pr.invited_vendors_detail as any[]).map((v: any) => (
-                    <div key={v.id} className="border rounded-lg px-3 py-2 text-sm bg-slate-50">
-                      <p className="font-medium">{v.company_name}</p>
-                      {v.category_name && (
-                        <p className="text-xs text-muted-foreground">{v.category_name}</p>
-                      )}
-                    </div>
-                  ))}
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 border-b border-border">
+                      <tr>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Email</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {(pr.invited_vendors_detail as any[]).map((v: any) => (
+                        <tr key={v.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-3 py-2.5 font-medium text-foreground">{v.company_name}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
+                            {v.city ? [v.city, v.state].filter(Boolean).join(', ') : '—'}
+                          </td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{v.contact_email || '—'}</td>
+                          <td className="px-3 py-2.5 hidden md:table-cell">
+                            {v.status && (
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${v.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                                {v.status}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>

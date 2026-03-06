@@ -540,15 +540,16 @@ export default function ApprovalsPage() {
                     <thead className="bg-slate-50 border-b">
                       <tr>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Entity</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Type</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Matrix</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Submitted</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Completed</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">First Approver</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Request Date</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Due Date</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Approved Date</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {all.map((req: any) => (
+                      {all.map((req: any) => {
+                        const firstAction = (req.actions ?? []).find((a: any) => a.level_number === 1)
+                        return (
                         <tr
                           key={req.id}
                           className="hover:bg-slate-50 cursor-pointer transition-colors"
@@ -557,28 +558,32 @@ export default function ApprovalsPage() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2 min-w-0">
                               <EntityTypeIcon type={req.entity_type} />
-                              <span className="font-medium truncate max-w-[180px]">{req.entity_label}</span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium truncate max-w-[160px]">{req.entity_label}</span>
+                                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${historyStatusBadge(req.status)}`}>
+                                    {req.status}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-muted-foreground">{entityTypeLabel(req.entity_type)}</span>
+                              </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 hidden md:table-cell">
-                            <span className="text-xs text-muted-foreground">{entityTypeLabel(req.entity_type)}</span>
-                          </td>
-                          <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground text-xs">
-                            {req.matrix_name}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${historyStatusBadge(req.status)}`}>
-                              {req.status}
-                            </span>
+                          <td className="px-4 py-3 hidden md:table-cell text-xs text-muted-foreground">
+                            {firstAction?.approver_name ?? '—'}
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
                             {formatDateTime(req.created_at)}
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
+                            {firstAction?.sla_deadline ? formatDateTime(firstAction.sla_deadline) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
                             {req.completed_at ? formatDateTime(req.completed_at) : '—'}
                           </td>
                         </tr>
-                      ))}
+                        )
+                      })}
                     </tbody>
                   </table>
                   <div className="px-4 py-3 border-t text-xs text-muted-foreground">
