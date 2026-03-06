@@ -12,13 +12,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SortDir = 'asc' | 'desc'
-type SortField = 'company_name' | 'status' | 'created_at' | 'category_name' | 'performance_score' | 'total_spend'
+type SortField = 'company_name' | 'status' | 'created_at' | 'category_name' | 'performance_score'
 
 // ─── Sort helpers ─────────────────────────────────────────────────────────────
 
@@ -386,12 +386,10 @@ export default function VendorsPage() {
                   <tr>
                     <SortableTh field="company_name" label="Company" {...sortProps} />
                     <SortableTh field="category_name" label="Category" {...sortProps} />
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">GST No.</th>
-                    <SortableTh field="performance_score" label="Rating" {...sortProps} />
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Risk</th>
-                    <SortableTh field="total_spend" label="Total Spend" {...sortProps} />
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Contracts</th>
                     <SortableTh field="status" label="Status" {...sortProps} />
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Risk</th>
+                    <SortableTh field="performance_score" label="Rating" {...sortProps} />
                     <SortableTh field="created_at" label="Since" {...sortProps} />
                   </tr>
                 </thead>
@@ -423,38 +421,6 @@ export default function VendorsPage() {
                         )}
                       </td>
 
-                      {/* GST */}
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden md:table-cell">
-                        {v.gst_number || '—'}
-                      </td>
-
-                      {/* Rating */}
-                      <td className="px-4 py-3">
-                        {v.performance_score == null ? (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        ) : (
-                          <StarRating score={v.performance_score} />
-                        )}
-                      </td>
-
-                      {/* Risk */}
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        {v.risk_score == null ? (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        ) : (
-                          <RiskBadge score={v.risk_score} />
-                        )}
-                      </td>
-
-                      {/* Total Spend */}
-                      <td className="px-4 py-3">
-                        {v.total_spend ? (
-                          <span className="text-sm font-semibold tabular-nums">{formatCurrency(v.total_spend)}</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-
                       {/* Contracts */}
                       <td className="px-4 py-3 text-center">
                         {v.contracts_count > 0 ? (
@@ -469,6 +435,24 @@ export default function VendorsPage() {
                       {/* Status */}
                       <td className="px-4 py-3">
                         <StatusBadge status={v.status} />
+                      </td>
+
+                      {/* Risk */}
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {v.risk_score == null ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          <RiskBadge score={v.risk_score} />
+                        )}
+                      </td>
+
+                      {/* Rating */}
+                      <td className="px-4 py-3">
+                        {v.performance_score == null ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          <StarRating score={v.performance_score} />
+                        )}
                       </td>
 
                       {/* Since */}

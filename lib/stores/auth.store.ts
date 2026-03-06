@@ -2,11 +2,18 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User } from '@/lib/api/auth'
 
+interface CompanyInfo {
+  id: number
+  name: string
+  schema_name: string
+}
+
 interface AuthState {
   user: User | null
   accessToken: string | null
   refreshToken: string | null
-  setTokens: (access: string, refresh: string, user: User) => void
+  company: CompanyInfo | null
+  setTokens: (access: string, refresh: string, user: User, company?: CompanyInfo | null) => void
   logout: () => void
   isAuthenticated: () => boolean
   hasRole: (role: string) => boolean
@@ -18,13 +25,14 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
+      company: null,
 
-      setTokens: (access, refresh, user) => {
+      setTokens: (access, refresh, user, company) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('access_token', access)
           localStorage.setItem('refresh_token', refresh)
         }
-        set({ accessToken: access, refreshToken: refresh, user })
+        set({ accessToken: access, refreshToken: refresh, user, company: company ?? null })
       },
 
       logout: () => {
@@ -32,7 +40,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
         }
-        set({ accessToken: null, refreshToken: null, user: null })
+        set({ accessToken: null, refreshToken: null, user: null, company: null })
       },
 
       isAuthenticated: () => {
@@ -51,6 +59,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
+        company: state.company,
       }),
     }
   )

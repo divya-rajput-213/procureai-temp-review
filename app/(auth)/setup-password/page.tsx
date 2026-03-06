@@ -49,7 +49,7 @@ function SetupPasswordForm() {
     setLoading(true)
     try {
       const resp = await setupPassword({ token, ...data })
-      setTokens(resp.access, resp.refresh, resp.user)
+      setTokens(resp.access, resp.refresh, resp.user, resp.company)
       setSuccess(true)
       setTimeout(() => router.push('/dashboard'), 2000)
     } catch (err: any) {

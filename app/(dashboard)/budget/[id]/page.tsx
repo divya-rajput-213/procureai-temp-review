@@ -253,11 +253,14 @@ function levelBubbleCls(action: string, isCurrent: boolean): string {
   return 'bg-slate-100 text-slate-500'
 }
 
-function ApprovalSteps({ actions, currentLevel }: { actions: any[]; currentLevel?: number }) {
+function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[]; currentLevel?: number; requestedAt?: string }) {
   if (!actions?.length) return null
   return (
     <div className="px-4 py-3 bg-white border-b">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Approval Timeline</p>
+      {requestedAt && (
+        <p className="text-[11px] text-muted-foreground mb-2">Requested for approval: <span className="font-medium text-slate-700">{formatDateTime(requestedAt)}</span></p>
+      )}
       <table className="w-full text-xs">
         <thead>
           <tr className="text-muted-foreground border-b">
@@ -265,7 +268,8 @@ function ApprovalSteps({ actions, currentLevel }: { actions: any[]; currentLevel
             <th className="text-left py-1.5 font-medium">Approver</th>
             <th className="text-left py-1.5 font-medium w-28">Status</th>
             <th className="text-left py-1.5 font-medium">Comments</th>
-            <th className="text-right py-1.5 font-medium whitespace-nowrap">Date / Time</th>
+            <th className="text-left py-1.5 font-medium whitespace-nowrap">Due Date</th>
+            <th className="text-right py-1.5 font-medium whitespace-nowrap">Acted At</th>
           </tr>
         </thead>
         <tbody>
@@ -299,6 +303,9 @@ function ApprovalSteps({ actions, currentLevel }: { actions: any[]; currentLevel
                 </td>
                 <td className="py-2 text-muted-foreground italic">
                   {a.comments ? `"${a.comments}"` : '—'}
+                </td>
+                <td className="py-2 text-muted-foreground whitespace-nowrap">
+                  {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
                 </td>
                 <td className="py-2 text-right text-muted-foreground whitespace-nowrap">
                   {a.acted_at ? formatDateTime(a.acted_at) : '—'}
@@ -441,7 +448,7 @@ function ApprovalProgressPanel({ budgetId, onStatusChange }: {
       )}
       {!isLoading && (
         <>
-          <ApprovalSteps actions={approvalRequest?.actions ?? []} currentLevel={approvalRequest?.current_level} />
+          <ApprovalSteps actions={approvalRequest?.actions ?? []} currentLevel={approvalRequest?.current_level} requestedAt={approvalRequest?.created_at} />
           {myPendingAction && <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} />}
         </>
       )}
@@ -779,7 +786,7 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
                     <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
                     <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
                     <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Email</th>
-                    <th className="w-8 px-3 py-2.5" />
+                    {isDraft && <th className="w-8 px-3 py-2.5" />}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -793,11 +800,13 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
                         <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
                         <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{location}</td>
                         <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{v.contact_email || '—'}</td>
+                        {isDraft && (
                         <td className="px-3 py-2.5 text-center">
                           <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </td>
+                        )}
                       </tr>
                     )
                   })}
@@ -891,8 +900,8 @@ export default function BudgetDetailPage() {
   const editMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
       const payload = { ...data }
-      if (!payload.plant) payload.plant = null
-      if (!payload.department) payload.department = null
+      if ('plant' in payload && !payload.plant) payload.plant = null
+      if ('department' in payload && !payload.department) payload.department = null
       if (payload.requested_amount) payload.requested_amount = Number(payload.requested_amount)
       return (await apiClient.patch(`/budget/tracking-ids/${id}/`, payload)).data
     },
@@ -929,7 +938,8 @@ export default function BudgetDetailPage() {
   if (!budget) return <div className="p-8 text-center text-muted-foreground">Budget not found.</div>
 
   const isDraft = budget.status === 'draft'
-  const canEdit = budget.status !== 'approved'
+  const isPendingApproval = budget.status === 'pending_approval'
+  const canEdit = isDraft || isPendingApproval
 
   return (
     <div className="space-y-4">
