@@ -321,9 +321,10 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
 
 // ─── My Action Panel ───────────────────────────────────────────────────────────
 
-function MyActionPanel({ pendingAction, onProcess }: {
+function MyActionPanel({ pendingAction, onProcess, onReleaseHold }: {
   pendingAction: any
   onProcess: (action: string, comments: string) => void
+  onReleaseHold: () => void
 }) {
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState('')
@@ -336,24 +337,39 @@ function MyActionPanel({ pendingAction, onProcess }: {
   }
 
   const busy = loading !== ''
+  const isHeld = pendingAction.action_status === 'held'
+
+  if (isHeld) {
+    return (
+      <div className="px-4 py-3 border-t space-y-2">
+        <p className="text-xs font-medium text-amber-700">This item is on hold — Level {pendingAction.level}</p>
+        <Button size="sm" variant="outline" className="gap-1" onClick={onReleaseHold} disabled={busy}>
+          <Clock className="w-3.5 h-3.5" /> Release Hold
+        </Button>
+      </div>
+    )
+  }
 
   return (
-    <div className="pt-4 mt-4 border-t space-y-3">
+    <div className="px-4 py-3 border-t space-y-2">
       <p className="text-xs font-medium text-muted-foreground">Your action required — Level {pendingAction.level}</p>
-      <textarea
-        className="w-full border rounded-md p-2 text-sm resize-none h-16"
-        placeholder="Comments (required for Reject / Hold)…"
-        value={comments}
-        onChange={e => setComments(e.target.value)}
-      />
+      <div>
+        <label className="text-xs font-medium">Comments <span className="text-red-500">*</span></label>
+        <textarea
+          className="mt-1 w-full border rounded-md p-2 text-sm resize-none h-16"
+          placeholder="Add your comments…"
+          value={comments}
+          onChange={e => setComments(e.target.value)}
+        />
+      </div>
       <div className="flex gap-2">
-        <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => handle('approved')} disabled={busy}>
+        <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => handle('approved')} disabled={busy || !comments.trim()}>
           {loading === 'approved' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />} Approve
         </Button>
-        <Button size="sm" variant="destructive" className="gap-1" onClick={() => handle('rejected')} disabled={busy || !comments}>
+        <Button size="sm" variant="destructive" className="gap-1" onClick={() => handle('rejected')} disabled={busy || !comments.trim()}>
           {loading === 'rejected' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Reject
         </Button>
-        <Button size="sm" variant="outline" className="gap-1 text-amber-600 border-amber-300" onClick={() => handle('held')} disabled={busy || !comments}>
+        <Button size="sm" variant="outline" className="gap-1 text-amber-600 border-amber-300" onClick={() => handle('held')} disabled={busy || !comments.trim()}>
           {loading === 'held' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />} Hold
         </Button>
       </div>
@@ -409,6 +425,17 @@ function ApprovalProgressPanel({ budgetId, onStatusChange }: {
     }
   }
 
+  const releaseHold = async () => {
+    if (!myPendingAction) return
+    try {
+      await apiClient.post(`/approvals/actions/${myPendingAction.action_id}/release-hold/`)
+      toast({ title: 'Hold released. You can now approve or reject.' })
+      invalidateAll()
+    } catch (err: any) {
+      toast({ title: 'Failed to release hold', description: err?.response?.data?.error, variant: 'destructive' })
+    }
+  }
+
   const pct = myPendingAction ? getSLAPercentage(myPendingAction.sla_deadline) : 100
   const slaLabel = pct <= 0 ? 'SLA Breached' : `SLA: ${Math.round(pct)}% remaining`
   const reqStatus = approvalRequest?.status
@@ -449,7 +476,7 @@ function ApprovalProgressPanel({ budgetId, onStatusChange }: {
       {!isLoading && (
         <>
           <ApprovalSteps actions={approvalRequest?.actions ?? []} currentLevel={approvalRequest?.current_level} requestedAt={approvalRequest?.created_at} />
-          {myPendingAction && <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} />}
+          {myPendingAction && <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} onReleaseHold={releaseHold} />}
         </>
       )}
     </div>

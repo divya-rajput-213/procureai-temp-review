@@ -318,7 +318,7 @@ export default function MatricesPage() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editingMatrix, setEditingMatrix] = useState<any>(null)
-  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [filterType, setFilterType] = useState('')
 
   const { data: matrices, isLoading } = useQuery({
@@ -359,7 +359,7 @@ export default function MatricesPage() {
         })),
       }
       if (editingMatrix) {
-        return (await apiClient.put(`/approvals/matrices/${editingMatrix.id}/`, payload)).data
+        return (await apiClient.put(`/approvals/matrices/${editingMatrix.hash_id}/`, payload)).data
       }
       return (await apiClient.post('/approvals/matrices/', payload)).data
     },
@@ -385,7 +385,7 @@ export default function MatricesPage() {
     },
   })
 
-  const deleteMatrix = async (id: number) => {
+  const deleteMatrix = async (id: string) => {
     setDeletingId(id)
     try {
       await apiClient.delete(`/approvals/matrices/${id}/`)
@@ -501,8 +501,8 @@ export default function MatricesPage() {
                   key={m.id}
                   matrix={m}
                   onEdit={() => startEdit(m)}
-                  onDelete={() => deleteMatrix(m.id)}
-                  deleting={deletingId === m.id}
+                  onDelete={() => deleteMatrix(m.hash_id)}
+                  deleting={deletingId === m.hash_id}
                 />
               ))}
             </div>

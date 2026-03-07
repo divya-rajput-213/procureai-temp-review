@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,6 @@ import {
   Pencil, X, Loader2, Check, Plus, ChevronDown, ChevronRight, Trash2,
   ChevronUp,
 } from 'lucide-react'
-import { useAuthStore } from '@/lib/stores/auth.store'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import apiClient from '@/lib/api/client'
 
@@ -282,7 +281,7 @@ function MatrixConfigTab() {
     queryFn: async () => (await apiClient.get('/approvals/matrices/')).data.results ?? (await apiClient.get('/approvals/matrices/')).data,
   })
 
-  const saveMatrix = async (data: MatrixDraft, id?: number) => {
+  const saveMatrix = async (data: MatrixDraft, id?: string) => {
     setSaving(true)
     try {
       const payload = {
@@ -317,7 +316,7 @@ function MatrixConfigTab() {
 
     setDeleting(true)
     try {
-      await apiClient.delete(`/approvals/matrices/${deleteTarget.id}/`)
+      await apiClient.delete(`/approvals/matrices/${deleteTarget.hash_id}/`)
       toast({ title: 'Matrix deleted.' })
       queryClient.invalidateQueries({ queryKey: ['approval-matrices'] })
       setDeleteTarget(null)
@@ -330,7 +329,7 @@ function MatrixConfigTab() {
 
   const toggleMatrix = async (m: any) => {
     try {
-      await apiClient.patch(`/approvals/matrices/${m.id}/`, { is_active: !m.is_active })
+      await apiClient.patch(`/approvals/matrices/${m.hash_id}/`, { is_active: !m.is_active })
       queryClient.invalidateQueries({ queryKey: ['approval-matrices'] })
     } catch {
       toast({ title: 'Update failed', variant: 'destructive' })
@@ -371,7 +370,7 @@ function MatrixConfigTab() {
           <CardContent>
             <MatrixForm
               initial={editTarget ? toEditDraft(editTarget) : undefined}
-              onSave={data => saveMatrix(data, editTarget?.id)}
+              onSave={data => saveMatrix(data, editTarget?.hash_id)}
               onCancel={() => { setCreating(false); setEditTarget(null) }}
               saving={saving}
             />
@@ -487,16 +486,16 @@ function SystemSettingsTab() {
 
   // ── Tax section ──────────────────────────────────────────
   const [taxForm, setTaxForm] = useState(EMPTY_TAX)
-  const [editingTaxId, setEditingTaxId] = useState<number | null>(null)
+  const [editingTaxId, setEditingTaxId] = useState<string | null>(null)
   const [showTaxForm, setShowTaxForm] = useState(false)
   const [taxSaving, setTaxSaving] = useState(false)
-  const [deletingTaxId, setDeletingTaxId] = useState<number | null>(null)
+  const [deletingTaxId, setDeletingTaxId] = useState<string | null>(null)
 
   const openAddTax = () => { setTaxForm(EMPTY_TAX); setEditingTaxId(null); setShowTaxForm(true) }
 
   const openEditTax = (t: any) => {
     setTaxForm({ name: t.name, rate: String(t.rate), description: t.description, is_active: t.is_active })
-    setEditingTaxId(t.id)
+    setEditingTaxId(t.hash_id)
     setShowTaxForm(true)
   }
 
@@ -531,7 +530,7 @@ function SystemSettingsTab() {
     }
   }
 
-  const handleDeleteTax = async (id: number) => {
+  const handleDeleteTax = async (id: string) => {
     setDeletingTaxId(id)
     try {
       await deleteTax(id)
@@ -741,11 +740,11 @@ function SystemSettingsTab() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteTax(t.id)}
-                            disabled={deletingTaxId === t.id}
+                            onClick={() => handleDeleteTax(t.hash_id)}
+                            disabled={deletingTaxId === t.hash_id}
                             className="text-muted-foreground hover:text-red-600 p-0.5 rounded hover:bg-red-50"
                           >
-                            {deletingTaxId === t.id
+                            {deletingTaxId === t.hash_id
                               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                               : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
@@ -775,50 +774,9 @@ function SystemSettingsTab() {
 // ─── Settings Page ────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { toast } = useToast()
-  const user = useAuthStore((s) => s.user)
-  const setTokens = useAuthStore((s) => s.setTokens)
-  const accessToken = useAuthStore((s) => s.accessToken)
-  const refreshToken = useAuthStore((s) => s.refreshToken)
-
-  const [activeTab, setActiveTab] = useState<'account' | 'matrices' | 'system'>('account')
-  const [isEditing, setIsEditing] = useState(false)
-  const [form, setForm] = useState({
-    first_name: user?.first_name ?? '',
-    last_name: user?.last_name ?? '',
-    designation: user?.designation ?? '',
-  })
-
-  const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
-
-  const editMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiClient.patch(`/users/${user?.id}/`, {
-        first_name: form.first_name,
-        last_name: form.last_name,
-        designation: form.designation,
-      })
-      return res.data
-    },
-    onSuccess: (updated) => {
-      if (accessToken && refreshToken) {
-        setTokens(accessToken, refreshToken, { ...user!, ...updated })
-      }
-      toast({ title: 'Profile updated.' })
-      setIsEditing(false)
-    },
-    onError: (err: any) => {
-      toast({ title: 'Update failed', description: err?.response?.data?.error, variant: 'destructive' })
-    },
-  })
-
-  const handleCancel = () => {
-    setForm({ first_name: user?.first_name ?? '', last_name: user?.last_name ?? '', designation: user?.designation ?? '' })
-    setIsEditing(false)
-  }
+  const [activeTab, setActiveTab] = useState<'matrices' | 'system'>('matrices')
 
   const TABS = [
-    { key: 'account', label: 'Account' },
     { key: 'matrices', label: 'Matrix Config'},
     { key: 'system', label: 'System' },
   ] as const
@@ -839,100 +797,11 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {/* Account Tab */}
-      {activeTab === 'account' && (
-        <div className="max-w-2xl">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <CardTitle>Account Information</CardTitle>
-                  <CardDescription>Your current account settings</CardDescription>
-                </div>
-                {!isEditing && (
-                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1.5 shrink-0">
-                    <Pencil className="w-3.5 h-3.5" /> Edit
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">First Name</Label>
-                      <Input value={form.first_name} onChange={e => set('first_name', e.target.value)} className="h-8 text-sm" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Last Name</Label>
-                      <Input value={form.last_name} onChange={e => set('last_name', e.target.value)} className="h-8 text-sm" />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Designation</Label>
-                    <Input value={form.designation} onChange={e => set('designation', e.target.value)} className="h-8 text-sm" placeholder="e.g. Purchase Manager" />
-                  </div>
-                  <div className="space-y-2 pt-2 border-t text-sm">
-                    {([
-                      ['Email', user?.email],
-                      ['Account Type', user?.account_type],
-                      ['Plant', user?.plant_name || '—'],
-                      ['Department', user?.department_name || '—'],
-                    ] as [string, string | undefined][]).map(([label, value]) => (
-                      <div key={label} className="flex justify-between">
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className="font-medium">{value ?? '—'}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-end gap-2 pt-2 border-t">
-                    <Button variant="outline" size="sm" onClick={handleCancel} className="gap-1" disabled={editMutation.isPending}>
-                      <X className="w-3.5 h-3.5" /> Cancel
-                    </Button>
-                    <Button size="sm" onClick={() => editMutation.mutate()} disabled={editMutation.isPending} className="gap-1">
-                      {editMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                      Save
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {([
-                    ['Name', `${user?.first_name} ${user?.last_name}`],
-                    ['Email', user?.email],
-                    ['Designation', user?.designation || '—'],
-                    ['Account Type', user?.account_type],
-                    ['Plant', user?.plant_name || '—'],
-                    ['Department', user?.department_name || '—'],
-                  ] as [string, string | undefined][]).map(([label, value]) => (
-                    <div key={label} className="flex justify-between border-b pb-2 last:border-0">
-                      <span className="text-muted-foreground">{label}</span>
-                      <span className="font-medium">{value ?? '—'}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between pt-1">
-                    <span className="text-muted-foreground">Roles</span>
-                    <div className="flex flex-wrap gap-1 justify-end">
-                      {user?.roles?.map((r) => (
-                        <Badge key={r.id} variant="secondary" className="text-xs">{r.display_name}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {/* Approval Matrices Tab */}
       {activeTab === 'matrices' && <MatrixConfigTab />}
 
       {/* System Tab */}
       {activeTab === 'system' && <SystemSettingsTab />}
-
-
     </div>
   )
 }

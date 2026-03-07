@@ -3,6 +3,7 @@ import apiClient from '@/lib/api/client'
 
 export interface TaxComponent {
   id: number
+  hash_id: string
   name: string
   rate: number
   description: string
@@ -21,8 +22,8 @@ interface SettingsStore extends SiteSettings {
   fetch: () => Promise<void>
   updateCurrency: (data: { currencyCode: string; currencySymbol: string }) => Promise<void>
   addTax: (data: { name: string; rate: number; description: string; is_active: boolean }) => Promise<TaxComponent>
-  updateTax: (id: number, data: Partial<{ name: string; rate: number; description: string; is_active: boolean }>) => Promise<void>
-  deleteTax: (id: number) => Promise<void>
+  updateTax: (id: string | number, data: Partial<{ name: string; rate: number; description: string; is_active: boolean }>) => Promise<void>
+  deleteTax: (id: string | number) => Promise<void>
 }
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
@@ -77,12 +78,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const res = await apiClient.patch(`/core/tax-components/${id}/`, data)
     const updated: TaxComponent = { ...res.data, rate: Number(res.data.rate) }
     set(s => ({
-      taxComponents: s.taxComponents.map(t => (t.id === id ? updated : t)),
+      taxComponents: s.taxComponents.map(t => ((t.hash_id ?? t.id) === id ? updated : t)),
     }))
   },
 
   deleteTax: async (id) => {
     await apiClient.delete(`/core/tax-components/${id}/`)
-    set(s => ({ taxComponents: s.taxComponents.filter(t => t.id !== id) }))
+    set(s => ({ taxComponents: s.taxComponents.filter(t => (t.hash_id ?? t.id) !== id) }))
   },
 }))

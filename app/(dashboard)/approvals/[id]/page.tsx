@@ -238,17 +238,21 @@ export default function ApprovalDetailPage() {
   const myPendingAction = (request?.actions ?? []).find(
     (a: any) => a.action === 'pending' && a.approver === user?.id,
   )
+  const myHeldAction = (request?.actions ?? []).find(
+    (a: any) => a.action === 'held' && a.approver === user?.id,
+  )
+  const myAction = myPendingAction || myHeldAction
 
   const processAction = async (action: string) => {
     if (!myPendingAction) return
-    if ((action === 'rejected' || action === 'held') && !comments.trim()) {
-      toast({ title: 'Comments required for Reject / Hold', variant: 'destructive' })
+    if (!comments.trim()) {
+      toast({ title: 'Comments are required', variant: 'destructive' })
       return
     }
     setSubmitting(true)
     setSubmittingAction(action)
     try {
-      await apiClient.patch(`/approvals/actions/${myPendingAction.id}/`, { action, comments })
+      await apiClient.patch(`/approvals/actions/${myPendingAction.hash_id}/`, { action, comments })
       const actionLabels: Record<string, string> = { approved: 'Approved', rejected: 'Rejected', held: 'Held' }
       toast({ title: `${actionLabels[action] ?? 'Done'} successfully.` })
       queryClient.invalidateQueries({ queryKey: ['approval-request', id] })
@@ -259,6 +263,21 @@ export default function ApprovalDetailPage() {
     } finally {
       setSubmitting(false)
       setSubmittingAction(null)
+    }
+  }
+
+  const releaseHold = async () => {
+    if (!myHeldAction) return
+    setSubmitting(true)
+    try {
+      await apiClient.post(`/approvals/actions/${myHeldAction.hash_id}/release-hold/`)
+      toast({ title: 'Hold released. You can now approve or reject.' })
+      queryClient.invalidateQueries({ queryKey: ['approval-request', id] })
+      queryClient.invalidateQueries({ queryKey: ['pending-mine'] })
+    } catch (err: any) {
+      toast({ title: 'Failed to release hold', description: err?.response?.data?.error, variant: 'destructive' })
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -301,7 +320,7 @@ export default function ApprovalDetailPage() {
           </p>
         </div>
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${requestStatusClass(request.status)}`}>
-          {request.status}
+          {request.status.replaceAll('_', ' ')}
         </span>
         <Button variant="ghost" size="sm" onClick={() => router.back()} className="gap-1 shrink-0">
           <ArrowLeft className="w-4 h-4" /> Back
@@ -334,64 +353,75 @@ export default function ApprovalDetailPage() {
       )}
 
       {/* ── Action Panel for current user ── */}
-      {myPendingAction && (
+      {myAction && (
         <Card className="border-amber-200 bg-amber-50/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-amber-800 flex items-center gap-1.5">
               <Clock className="w-4 h-4" />
-              Your Action Required — Level {myPendingAction.level_number}
+              {myHeldAction
+                ? `On Hold — Level ${myHeldAction.level_number}`
+                : `Your Action Required — Level ${myPendingAction!.level_number}`}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-1">
-              <label htmlFor="action-comments" className="text-xs font-medium">
-                Comments <span className="text-muted-foreground">(required for Reject / Hold)</span>
-              </label>
-              <textarea
-                id="action-comments"
-                className="w-full border rounded-md p-2 text-sm resize-none h-24 bg-white"
-                placeholder="Add your comments…"
-                value={comments}
-                onChange={e => setComments(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 gap-1"
-                onClick={() => processAction('approved')}
-                disabled={submitting}
-              >
-                {submitting && submittingAction === 'approved'
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <CheckCircle className="w-3.5 h-3.5" />}
-                Approve
+          <CardContent className="space-y-2">
+            {myHeldAction && !myPendingAction ? (
+              <Button size="sm" variant="outline" className="gap-1" onClick={releaseHold} disabled={submitting}>
+                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
+                Release Hold
               </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                className="gap-1"
-                onClick={() => processAction('rejected')}
-                disabled={submitting || !comments.trim()}
-              >
-                {submitting && submittingAction === 'rejected'
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <XCircle className="w-3.5 h-3.5" />}
-                Reject
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1 text-amber-600 border-amber-300"
-                onClick={() => processAction('held')}
-                disabled={submitting || !comments.trim()}
-              >
-                {submitting && submittingAction === 'held'
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <PauseCircle className="w-3.5 h-3.5" />}
-                Hold
-              </Button>
-            </div>
+            ) : (
+              <>
+                <div>
+                  <label htmlFor="action-comments" className="text-xs font-medium">
+                    Comments <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    id="action-comments"
+                    className="mt-1 w-full border rounded-md p-2 text-sm resize-none h-16 bg-white"
+                    placeholder="Add your comments…"
+                    value={comments}
+                    onChange={e => setComments(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 gap-1"
+                    onClick={() => processAction('approved')}
+                    disabled={submitting || !comments.trim()}
+                  >
+                    {submitting && submittingAction === 'approved'
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <CheckCircle className="w-3.5 h-3.5" />}
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1"
+                    onClick={() => processAction('rejected')}
+                    disabled={submitting || !comments.trim()}
+                  >
+                    {submitting && submittingAction === 'rejected'
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <XCircle className="w-3.5 h-3.5" />}
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1 text-amber-600 border-amber-300"
+                    onClick={() => processAction('held')}
+                    disabled={submitting || !comments.trim()}
+                  >
+                    {submitting && submittingAction === 'held'
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <PauseCircle className="w-3.5 h-3.5" />}
+                    Hold
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       )}

@@ -95,7 +95,7 @@ export default function UsersPage() {
   })
 
   const editUserMutation = useMutation({
-    mutationFn: async () => apiClient.patch(`/users/${editUser?.id}/`, editForm),
+    mutationFn: async () => apiClient.patch(`/users/${editUser?.hash_id}/`, editForm),
     onSuccess: () => {
       toast({ title: 'User updated.' })
       setEditUser(null)
@@ -183,7 +183,7 @@ export default function UsersPage() {
   })
 
   const updateUserRolesMutation = useMutation({
-    mutationFn: async ({ userId, roleIds }: { userId: number; roleIds: number[] }) =>
+    mutationFn: async ({ userId, roleIds }: { userId: string; roleIds: number[] }) =>
       apiClient.patch(`/users/${userId}/`, { role_ids: roleIds }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['role-users', selectedRole?.name] })
@@ -195,13 +195,13 @@ export default function UsersPage() {
 
   const removeRoleFromUser = (user: any) => {
     const newIds = (user.roles || []).filter((r: any) => r.id !== selectedRole?.id).map((r: any) => r.id)
-    updateUserRolesMutation.mutate({ userId: user.id, roleIds: newIds })
+    updateUserRolesMutation.mutate({ userId: user.hash_id, roleIds: newIds })
   }
 
   const assignRoleToUser = (user: any) => {
     const currentIds = (user.roles || []).map((r: any) => r.id)
     if (currentIds.includes(selectedRole?.id)) return
-    updateUserRolesMutation.mutate({ userId: user.id, roleIds: [...currentIds, selectedRole.id] })
+    updateUserRolesMutation.mutate({ userId: user.hash_id, roleIds: [...currentIds, selectedRole.id] })
     setShowAssignModal(false)
     setAssignSearch('')
   }

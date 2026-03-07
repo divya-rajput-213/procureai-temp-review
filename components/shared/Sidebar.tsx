@@ -9,15 +9,16 @@ import {
   FileText,
   ShoppingCart,
   CheckSquare,
-  BarChart3,
   Settings,
   LogOut,
   ChevronRight,
   Package,
+  Pencil,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth.store'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { Badge } from '@/components/ui/badge'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, indent: false },
@@ -34,9 +35,105 @@ const NAV_ITEMS = [
     ],
   },
   { href: '/users', label: 'Users', icon: Users, indent: false },
-  { href: '/reports', label: 'Reports', icon: BarChart3, indent: false },
   { href: '/settings', label: 'Settings', icon: Settings, indent: false },
 ]
+
+function SidebarProfile({ user, onLogout }: { user: any; onLogout: () => void }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    if (open) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const initials = `${user?.first_name?.[0] ?? ''}${user?.last_name?.[0] ?? ''}`.toUpperCase() || 'U'
+
+  return (
+    <div className="relative p-3 border-t border-white/10" ref={ref}>
+      {/* Dropdown opens upward */}
+      {open && (
+        <div className="absolute bottom-full left-2 right-2 mb-2 bg-white text-slate-800 border rounded-xl shadow-lg z-50 overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-600 text-white text-sm font-semibold flex items-center justify-center shrink-0">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{user?.first_name} {user?.last_name}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Profile details */}
+          <div className="px-4 py-3 space-y-2 text-sm">
+            {([
+              ['Designation', user?.designation || '—'],
+              ['Account Type', user?.account_type],
+              ['Plant', user?.plant_name || '—'],
+              ['Department', user?.department_name || '—'],
+            ] as [string, string | undefined][]).map(([label, value]) => (
+              <div key={label} className="flex justify-between">
+                <span className="text-muted-foreground text-xs">{label}</span>
+                <span className="text-xs font-medium">{value ?? '—'}</span>
+              </div>
+            ))}
+            {user?.roles && user.roles.length > 0 && (
+              <div className="flex justify-between items-start">
+                <span className="text-muted-foreground text-xs">Roles</span>
+                <div className="flex flex-wrap gap-1 justify-end">
+                  {user.roles.map((r: any) => (
+                    <Badge key={r.id} variant="secondary" className="text-[10px] h-5">{r.display_name}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => { setOpen(false); router.push('/profile') }}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground pt-1"
+            >
+              <Pencil className="w-3 h-3" /> Edit profile
+            </button>
+          </div>
+
+          {/* Logout */}
+          <div className="border-t">
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Sign out
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Trigger button */}
+      <button
+        onClick={() => setOpen(prev => !prev)}
+        className="flex items-center gap-3 w-full px-2 py-2 rounded-lg hover:bg-white/10 transition-colors"
+      >
+        <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+          {initials}
+        </div>
+        <div className="flex-1 min-w-0 text-left">
+          <p className="text-xs font-medium text-white truncate">
+            {user?.first_name} {user?.last_name}
+          </p>
+          <p className="text-xs text-white/50 truncate">{user?.email}</p>
+        </div>
+      </button>
+    </div>
+  )
+}
 
 export function Sidebar() {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
@@ -165,27 +262,8 @@ export function Sidebar() {
       </nav>
 
 
-      {/* User info + logout */}
-      <div className="p-3 border-t border-white/10">
-        <div className="flex items-center gap-3 px-2 py-2 mb-1">
-          <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-            {user?.first_name?.[0]?.toUpperCase() || 'U'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white truncate">
-              {user?.first_name} {user?.last_name}
-            </p>
-            <p className="text-xs text-white/50 truncate">{user?.email}</p>
-          </div>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign out
-        </button>
-      </div>
+      {/* User profile */}
+      <SidebarProfile user={user} onLogout={handleLogout} />
     </aside>
   )
 }

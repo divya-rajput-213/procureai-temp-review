@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { Bell, Check, CheckCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { useAuthStore } from '@/lib/stores/auth.store'
 import apiClient from '@/lib/api/client'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -16,8 +14,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/approvals': 'Approvals',
   '/inventory': "Inventory",
   '/users': 'User Management',
-  '/reports': 'Reports',
   '/settings': 'Settings',
+  '/profile': 'Profile',
 }
 
 function timeAgo(dateStr: string): string {
@@ -44,7 +42,6 @@ function notifTypeLabel(type: string): string {
 
 export function TopBar() {
   const pathname = usePathname()
-  const user = useAuthStore((s) => s.user)
 
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
@@ -91,9 +88,9 @@ export function TopBar() {
     }
   }
 
-  const markRead = async (id: number) => {
+  const markRead = async (id: string) => {
     await apiClient.patch(`/notifications/${id}/mark-read/`)
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
+    setNotifications(prev => prev.map(n => (n.hash_id ?? n.id) === id ? { ...n, is_read: true } : n))
     setUnreadCount(prev => Math.max(0, prev - 1))
   }
 
@@ -145,7 +142,7 @@ export function TopBar() {
                     key={n.id}
                     className={`px-4 py-3 cursor-pointer transition-colors ${n.is_read ? 'hover:bg-slate-50' : 'bg-blue-50/40 hover:bg-blue-50'}`}
                     onClick={() => {
-                      if (!n.is_read) markRead(n.id)
+                      if (!n.is_read) markRead(n.hash_id ?? n.id)
                       if (n.link) window.location.href = n.link
                     }}
                   >
@@ -164,7 +161,7 @@ export function TopBar() {
                       </div>
                       {!n.is_read && (
                         <button
-                          onClick={e => { e.stopPropagation(); markRead(n.id) }}
+                          onClick={e => { e.stopPropagation(); markRead(n.hash_id ?? n.id) }}
                           className="shrink-0 text-muted-foreground hover:text-blue-600 mt-0.5"
                           title="Mark as read"
                         >
@@ -180,13 +177,6 @@ export function TopBar() {
           )}
         </div>
 
-        {/* <div className="flex items-center gap-2">
-          {user?.roles?.map((role) => (
-            <Badge key={role.id} variant="secondary" className="text-xs hidden sm:inline-flex">
-              {role.display_name}
-            </Badge>
-          ))}
-        </div> */}
       </div>
     </header>
   )

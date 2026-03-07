@@ -18,6 +18,7 @@ export interface AuthResponse {
 
 export interface User {
   id: number
+  hash_id: string
   email: string
   first_name: string
   last_name: string

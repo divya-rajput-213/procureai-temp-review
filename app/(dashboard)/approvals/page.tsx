@@ -207,16 +207,19 @@ function PendingCard({
   isSelected,
   onSelect,
   onAction,
+  onReleaseHold,
   submitting,
 }: {
   item: any
   isSelected: boolean
   onSelect: () => void
   onAction: (action: string, comments: string) => void
+  onReleaseHold: () => void
   submitting: boolean
 }) {
   const [comments, setComments] = useState('')
   const [loadingAct, setLoadingAct] = useState('')
+  const isHeld = item.action_status === 'held'
 
   const handle = async (act: string) => {
     setLoadingAct(act)
@@ -282,58 +285,72 @@ function PendingCard({
         {/* Action panel (when card is selected) */}
         {isSelected && (
           <div className="border-t pt-3 space-y-3" onClick={e => e.stopPropagation()}>
-            <div className="space-y-1">
-              <label className="text-xs font-medium">
-                Comments <span className="text-muted-foreground">(required for Reject / Hold)</span>
-              </label>
-              <textarea
-                className="w-full border rounded-md p-2 text-sm resize-none h-20 bg-white"
-                placeholder="Add your comments…"
-                value={comments}
-                onChange={e => setComments(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 gap-1"
-                onClick={() => handle('approved')}
-                disabled={busy}
-              >
-                {loadingAct === 'approved' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                Approve
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                className="gap-1"
-                onClick={() => handle('rejected')}
-                disabled={busy || !comments.trim()}
-              >
-                {loadingAct === 'rejected' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-                Reject
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1 text-amber-600 border-amber-300"
-                onClick={() => handle('held')}
-                disabled={busy || !comments.trim()}
-              >
-                {loadingAct === 'held' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PauseCircle className="w-3.5 h-3.5" />}
-                Hold
-              </Button>
-              <Button size="sm" variant="ghost" onClick={onSelect} className="ml-auto">
-                Cancel
-              </Button>
-            </div>
+            {isHeld ? (
+              <div className="flex gap-2 items-center">
+                <p className="text-xs font-medium text-amber-700">This item is on hold.</p>
+                <Button size="sm" variant="outline" className="gap-1" onClick={onReleaseHold} disabled={busy}>
+                  <Clock className="w-3.5 h-3.5" /> Release Hold
+                </Button>
+                <Button size="sm" variant="ghost" onClick={onSelect} className="ml-auto">
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="text-xs font-medium">
+                    Comments <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    className="mt-1 w-full border rounded-md p-2 text-sm resize-none h-20 bg-white"
+                    placeholder="Add your comments…"
+                    value={comments}
+                    onChange={e => setComments(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 gap-1"
+                    onClick={() => handle('approved')}
+                    disabled={busy || !comments.trim()}
+                  >
+                    {loadingAct === 'approved' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1"
+                    onClick={() => handle('rejected')}
+                    disabled={busy || !comments.trim()}
+                  >
+                    {loadingAct === 'rejected' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1 text-amber-600 border-amber-300"
+                    onClick={() => handle('held')}
+                    disabled={busy || !comments.trim()}
+                  >
+                    {loadingAct === 'held' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PauseCircle className="w-3.5 h-3.5" />}
+                    Hold
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={onSelect} className="ml-auto">
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {/* Collapsed prompt when not selected */}
         {!isSelected && (
           <p className="text-xs text-muted-foreground text-center pt-1">
-            Click to review and take action
+            {isHeld ? 'On Hold — click to release' : 'Click to review and take action'}
           </p>
         )}
       </CardContent>
@@ -417,6 +434,20 @@ export default function ApprovalsPage() {
     }
   }
 
+  const releaseHold = async (item: any) => {
+    setSubmitting(true)
+    try {
+      await apiClient.post(`/approvals/actions/${item.action_id}/release-hold/`)
+      toast({ title: 'Hold released. You can now approve or reject.' })
+      setSelectedActionId(null)
+      queryClient.invalidateQueries({ queryKey: ['pending-mine'] })
+    } catch (err: any) {
+      toast({ title: 'Failed to release hold', description: err?.response?.data?.error, variant: 'destructive' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const pending: any[] = pendingMine || []
   const allRaw: any[] = allRequests || []
 
@@ -469,6 +500,7 @@ export default function ApprovalsPage() {
               isSelected={selectedActionId === item.action_id}
               onSelect={() => setSelectedActionId(prev => prev === item.action_id ? null : item.action_id)}
               onAction={(action, comments) => processAction(item, action, comments)}
+              onReleaseHold={() => releaseHold(item)}
               submitting={submitting}
             />
           ))}
@@ -553,7 +585,7 @@ export default function ApprovalsPage() {
                         <tr
                           key={req.id}
                           className="hover:bg-slate-50 cursor-pointer transition-colors"
-                          onClick={() => router.push(`/approvals/${req.id}`)}
+                          onClick={() => router.push(`/approvals/${req.hash_id}`)}
                         >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2 min-w-0">
@@ -562,7 +594,7 @@ export default function ApprovalsPage() {
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-medium truncate max-w-[160px]">{req.entity_label}</span>
                                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${historyStatusBadge(req.status)}`}>
-                                    {req.status}
+                                    {req.status.replaceAll('_', ' ')}
                                   </span>
                                 </div>
                                 <span className="text-xs text-muted-foreground">{entityTypeLabel(req.entity_type)}</span>
