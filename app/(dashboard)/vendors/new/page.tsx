@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, ArrowRight, Loader2, Sparkles, CheckCircle, Send, Save, X, Plus, FileText } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2, Sparkles, CheckCircle, Send, Save, X, Plus, FileText, ExternalLink, Upload } from 'lucide-react'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
@@ -93,6 +93,73 @@ function DocFileInput({ chosen, onSelect, onClear, hasError }: Readonly<{
   )
 }
 
+function DocUploadWidget({ vendorId, docType, doc, onRefresh }: {
+  vendorId: string
+  docType: string
+  doc: any | null
+  onRefresh: () => void
+}) {
+  const { toast } = useToast()
+  const [uploading, setUploading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const upload = async (file: File) => {
+    setUploading(true)
+    try {
+      const fd = new FormData(); fd.append('file', file); fd.append('doc_type', docType)
+      await apiClient.post(`/vendors/${vendorId}/documents/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      onRefresh()
+      toast({ title: 'Document uploaded.' })
+    } catch {
+      toast({ title: 'Upload failed', variant: 'destructive' })
+    } finally { setUploading(false) }
+  }
+
+  const remove = async () => {
+    if (!doc) return
+    setDeleting(true)
+    try {
+      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id ?? doc.id}/`)
+      onRefresh()
+      toast({ title: 'Document removed.' })
+    } catch {
+      toast({ title: 'Delete failed', variant: 'destructive' })
+    } finally { setDeleting(false) }
+  }
+
+  if (doc) {
+    return (
+      <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[36px]">
+        <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <span className="text-xs truncate flex-1 min-w-0">{doc.original_filename}</span>
+        {doc.file_url && (
+          <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0">
+            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
+          </a>
+        )}
+        <button type="button" onClick={remove} disabled={deleting}
+          className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-50">
+          {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[36px]">
+      <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">No file chosen</span>
+      <label className="cursor-pointer shrink-0">
+        <span className="inline-flex items-center gap-1 text-xs border rounded px-2 py-1 hover:bg-slate-50 transition-colors">
+          {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+          Choose
+        </span>
+        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png"
+          onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
+      </label>
+    </div>
+  )
+}
+
 // ── Schema ────────────────────────────────────────────────────────────────────
 // Compliance fields (GST, PAN, bank) are optional at creation.
 // They are enforced by the backend only at submit-for-approval time.
@@ -168,6 +235,18 @@ export default function NewVendorPage() {
     queryKey: ['plants'],
     queryFn: async () => { const r = await apiClient.get('/users/plants/'); return r.data.results ?? r.data },
   })
+  // Fetch vendor documents once vendor is created (step >= 1)
+  const { data: vendorDocs } = useQuery({
+    queryKey: ['vendor-docs', vendorId],
+    queryFn: async () => {
+      const r = await apiClient.get(`/vendors/${vendorId}/documents/`)
+      return r.data.results ?? r.data
+    },
+    enabled: !!vendorId && step >= 1,
+  })
+  const refreshDocs = () => queryClient.invalidateQueries({ queryKey: ['vendor-docs', vendorId] })
+  const docOf = (type: string) => (vendorDocs ?? []).find((d: any) => d.doc_type === type) ?? null
+
   const { data: matrices } = useQuery({
     queryKey: ['approval-matrices', 'vendor_onboarding'],
     queryFn: async () => {
@@ -219,11 +298,11 @@ export default function NewVendorPage() {
       })
       return vendor
     },
-    onSuccess: (vendor) => { setVendorId(vendor.hash_id); queryClient.invalidateQueries({ queryKey: ['vendors'] }); setStep(1) },
+    onSuccess: (vendor) => { setVendorId(vendor.hash_id ?? vendor.id); queryClient.invalidateQueries({ queryKey: ['vendors'] }); setStep(1) },
     onError: (err: any) => toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' }),
   })
 
-  // ── Step 1: patch compliance fields + upload docs ────────────────────────────
+  // ── Step 1: patch compliance fields ─────────────────────────────────────────
   const step1Mutation = useMutation({
     mutationFn: async (data: VendorForm) => {
       await apiClient.patch(`/vendors/${vendorId}/`, {
@@ -233,7 +312,6 @@ export default function NewVendorPage() {
         is_msme: data.is_msme ?? false, msme_number: data.msme_number ?? '',
         is_sez: data.is_sez ?? false,
       })
-      await uploadDocs(vendorId!)
     },
     onSuccess: () => setStep(2),
     onError: (err: any) => toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' }),
@@ -257,6 +335,38 @@ export default function NewVendorPage() {
     onError: (err: any) => setSubmitError(apiErrorMsg(err)),
   })
 
+  // ── Compliance cross-validation (field ↔ doc) ───────────────────────────────
+  const [complianceErrors, setComplianceErrors] = useState<Record<string, string>>({})
+
+  const validateCompliancePairs = (): boolean => {
+    const data = getValues()
+    const errs: Record<string, string> = {}
+    const pairs: Array<{ fieldKey: string; fieldLabel: string; docType: string; docLabel: string }> = [
+      { fieldKey: 'gst_number', fieldLabel: 'GST Number', docType: 'gst_certificate', docLabel: 'GST Certificate' },
+      { fieldKey: 'pan_number', fieldLabel: 'PAN Number', docType: 'pan_card', docLabel: 'PAN Card' },
+    ]
+    for (const { fieldKey, fieldLabel, docType, docLabel } of pairs) {
+      const hasValue = !!(data as any)[fieldKey]
+      const hasDoc = !!docOf(docType)
+      if (hasValue && !hasDoc) errs[`doc_${docType}`] = `${docLabel} is required when ${fieldLabel} is provided`
+      if (hasDoc && !hasValue) errs[`field_${fieldKey}`] = `${fieldLabel} is required when ${docLabel} is uploaded`
+    }
+    // Bank: any bank field filled → bank doc required, and vice versa
+    const hasBankField = !!(data.bank_account || data.bank_ifsc || data.bank_name)
+    const hasBankDoc = !!docOf('bank_details')
+    if (hasBankField && !hasBankDoc) errs['doc_bank_details'] = 'Bank document is required when bank details are provided'
+    if (hasBankDoc && !hasBankField) errs['field_bank_account'] = 'Bank details are required when bank document is uploaded'
+    // MSME
+    if (data.is_msme) {
+      const hasMsmeNum = !!data.msme_number
+      const hasMsmeDoc = !!docOf('msme_certificate')
+      if (hasMsmeNum && !hasMsmeDoc) errs['doc_msme_certificate'] = 'MSME Certificate is required when MSME Number is provided'
+      if (hasMsmeDoc && !hasMsmeNum) errs['field_msme_number'] = 'MSME Number is required when MSME Certificate is uploaded'
+    }
+    setComplianceErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleStep0Next = async () => {
     const valid = await trigger(STEP0_FIELDS)
@@ -264,7 +374,10 @@ export default function NewVendorPage() {
     handleSubmit(data => step0Mutation.mutate(data))()
   }
 
-  const handleStep1Next = () => step1Mutation.mutate(getValues())
+  const handleStep1Next = () => {
+    if (!validateCompliancePairs()) return
+    step1Mutation.mutate(getValues())
+  }
 
   const handleSaveAsDraft = () => { setSubmitError(''); submitMutation.mutate({ mode: 'draft' }) }
 
@@ -449,46 +562,46 @@ export default function NewVendorPage() {
             <SectionTitle>General Information</SectionTitle>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-xs">Vendor Category *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Vendor Category <span className="text-destructive">*</span></Label>
                 <select
-                  className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.category ? 'border-destructive' : ''}`}
+                  className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.category ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
                   value={watchedCategory ?? ''}
                   onChange={e => setValue('category', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
                 >
                   <option value="">Select category</option>
                   {(categories || []).map((c: any) => <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>)}
                 </select>
-                {errors.category && <p className="text-xs text-destructive">{errors.category.message}</p>}
+                {errors.category && <p className="text-xs text-destructive mt-1">{errors.category.message}</p>}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Plant *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Plant <span className="text-destructive">*</span></Label>
                 <select
-                  className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.plant ? 'border-destructive' : ''}`}
+                  className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.plant ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
                   value={watchedPlant ?? ''}
                   onChange={e => setValue('plant', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
                 >
                   <option value="">Select plant</option>
                   {(plants || []).map((p: any) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
                 </select>
-                {errors.plant && <p className="text-xs text-destructive">{errors.plant.message}</p>}
+                {errors.plant && <p className="text-xs text-destructive mt-1">{errors.plant.message}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <Label className="text-xs">
-                  Company Name *
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">
+                  Company Name <span className="text-destructive">*</span>
                   {extractedFields?.company_name && confidenceBadge(extractedFields.company_name.confidence)}
                 </Label>
-                <Input placeholder="Acme Pvt Ltd" {...register('company_name')}
-                  className={extractedFields?.company_name ? 'border-purple-200 bg-purple-50' : ''} />
-                {errors.company_name && <p className="text-xs text-destructive">{errors.company_name.message}</p>}
+                <Input placeholder="e.g. Acme Pvt Ltd" {...register('company_name')}
+                  className={`${errors.company_name ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.company_name ? 'border-purple-200 bg-purple-50' : ''}`} />
+                {errors.company_name && <p className="text-xs text-destructive mt-1">{errors.company_name.message}</p>}
               </div>
 
-              <div className="space-y-1 sm:col-span-2">
-                <Label className="text-xs">
-                  Address *
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs font-semibold text-slate-700">
+                  Address <span className="text-destructive">*</span>
                   {extractedFields?.address && confidenceBadge(extractedFields.address.confidence)}
                 </Label>
                 <AddressAutocomplete
@@ -501,25 +614,25 @@ export default function NewVendorPage() {
                     if (result.pincode) setValue('pincode', result.pincode, { shouldValidate: true })
                   }}
                   placeholder="Start typing an address…"
-                  className={`h-10 text-sm ${extractedFields?.address ? 'border-purple-200 bg-purple-50' : ''}`}
+                  className={`h-10 text-sm ${errors.address ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.address ? 'border-purple-200 bg-purple-50' : ''}`}
                 />
-                {errors.address && <p className="text-xs text-destructive">{errors.address.message}</p>}
+                {errors.address && <p className="text-xs text-destructive mt-1">{errors.address.message}</p>}
               </div>
 
               {[
-                { name: 'city',         label: 'City *',         placeholder: 'Mumbai' },
-                { name: 'state',        label: 'State *',        placeholder: 'Maharashtra' },
-                { name: 'pincode',      label: 'PIN Code *',     placeholder: '400001' },
+                { name: 'city',         label: 'City',         placeholder: 'e.g. Mumbai' },
+                { name: 'state',        label: 'State',        placeholder: 'e.g. Maharashtra' },
+                { name: 'pincode',      label: 'PIN Code',     placeholder: 'e.g. 400001' },
               ].map(({ name, label, placeholder }) => (
-                <div key={name} className="space-y-1">
-                  <Label className="text-xs">
-                    {label}
+                <div key={name} className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    {label} <span className="text-destructive">*</span>
                     {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                   </Label>
                   <Input placeholder={placeholder} {...register(name as keyof VendorForm)}
-                    className={extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''} />
+                    className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
                   {errors[name as keyof VendorForm] && (
-                    <p className="text-xs text-destructive">{(errors[name as keyof VendorForm] as any)?.message}</p>
+                    <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
                   )}
                 </div>
               ))}
@@ -527,19 +640,19 @@ export default function NewVendorPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { name: 'contact_name',  label: 'Contact Person *', placeholder: 'John Doe' },
-                { name: 'contact_email', label: 'Contact Email *',   placeholder: 'john@acme.com' },
-                { name: 'contact_phone', label: 'Contact Phone *',   placeholder: '+91 98765 43210' },
+                { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe' },
+                { name: 'contact_email', label: 'Contact Email',   placeholder: 'e.g. john@acme.com' },
+                { name: 'contact_phone', label: 'Contact Phone',   placeholder: 'e.g. +91 98765 43210' },
               ].map(({ name, label, placeholder }) => (
-                <div key={name} className="space-y-1">
-                  <Label className="text-xs">
-                    {label}
+                <div key={name} className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    {label} <span className="text-destructive">*</span>
                     {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                   </Label>
                   <Input placeholder={placeholder} {...register(name as keyof VendorForm)}
-                    className={extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''} />
+                    className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
                   {errors[name as keyof VendorForm] && (
-                    <p className="text-xs text-destructive">{(errors[name as keyof VendorForm] as any)?.message}</p>
+                    <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
                   )}
                 </div>
               ))}
@@ -567,57 +680,61 @@ export default function NewVendorPage() {
           <CardContent className="space-y-4">
 
             {/* GST */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start">
-              <div className="space-y-1">
-                <Label className="text-xs">GST Number{extractedFields?.gst_number && confidenceBadge(extractedFields.gst_number.confidence)}</Label>
-                <Input placeholder="27AAAAA0000A1Z5" {...register('gst_number')}
-                  className={inputCls(!!errors.gst_number, !!extractedFields?.gst_number)} />
-                {errors.gst_number && <p className="text-xs text-destructive">{errors.gst_number.message}</p>}
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate'] ? 'border-destructive/50' : ''}`}>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">GST Number{extractedFields?.gst_number && confidenceBadge(extractedFields.gst_number.confidence)}</Label>
+                <Input placeholder="e.g. 27AAAAA0000A1Z5" {...register('gst_number')}
+                  className={`${complianceErrors['field_gst_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${inputCls(!!errors.gst_number, !!extractedFields?.gst_number)}`} />
+                {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">GST Certificate</Label>
-                <DocFileInput chosen={pendingDocs.find(d => d.doc_type === 'gst_certificate')?.file ?? null}
-                  onSelect={f => setDocFile('gst_certificate', f)} onClear={() => setDocFile('gst_certificate', null)} />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">GST Certificate</Label>
+                <DocUploadWidget vendorId={vendorId!} docType="gst_certificate"
+                  doc={docOf('gst_certificate')} onRefresh={refreshDocs} />
+                {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
               </div>
             </div>
 
             {/* PAN */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start">
-              <div className="space-y-1">
-                <Label className="text-xs">PAN Number{extractedFields?.pan_number && confidenceBadge(extractedFields.pan_number.confidence)}</Label>
-                <Input placeholder="AAAAA9999A" {...register('pan_number')}
-                  className={inputCls(!!errors.pan_number, !!extractedFields?.pan_number)} />
-                {errors.pan_number && <p className="text-xs text-destructive">{errors.pan_number.message}</p>}
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card'] ? 'border-destructive/50' : ''}`}>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">PAN Number{extractedFields?.pan_number && confidenceBadge(extractedFields.pan_number.confidence)}</Label>
+                <Input placeholder="e.g. AAAAA9999A" {...register('pan_number')}
+                  className={`${complianceErrors['field_pan_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${inputCls(!!errors.pan_number, !!extractedFields?.pan_number)}`} />
+                {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">PAN Card</Label>
-                <DocFileInput chosen={pendingDocs.find(d => d.doc_type === 'pan_card')?.file ?? null}
-                  onSelect={f => setDocFile('pan_card', f)} onClear={() => setDocFile('pan_card', null)} />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">PAN Card</Label>
+                <DocUploadWidget vendorId={vendorId!} docType="pan_card"
+                  doc={docOf('pan_card')} onRefresh={refreshDocs} />
+                {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
               </div>
             </div>
 
             {/* Bank Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start">
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details'] ? 'border-destructive/50' : ''}`}>
               <div className="space-y-2">
                 {[
-                  { name: 'bank_account', label: 'Bank Account No', placeholder: '12345678901234' },
-                  { name: 'bank_ifsc',    label: 'Bank IFSC',       placeholder: 'HDFC0001234' },
-                  { name: 'bank_name',    label: 'Bank Name',       placeholder: 'HDFC Bank' },
+                  { name: 'bank_account', label: 'Bank Account No', placeholder: 'e.g. 12345678901234' },
+                  { name: 'bank_ifsc',    label: 'Bank IFSC',       placeholder: 'e.g. HDFC0001234' },
+                  { name: 'bank_name',    label: 'Bank Name',       placeholder: 'e.g. HDFC Bank' },
                 ].map(({ name, label, placeholder }) => (
-                  <div key={name} className="space-y-1">
-                    <Label className="text-xs">{label}{extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}</Label>
+                  <div key={name} className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">{label}{extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}</Label>
                     <Input placeholder={placeholder} {...register(name as keyof VendorForm)}
-                      className={inputCls(!!errors[name as keyof VendorForm], !!extractedFields?.[name])} />
+                      className={`${complianceErrors['field_bank_account'] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${inputCls(!!errors[name as keyof VendorForm], !!extractedFields?.[name])}`} />
                     {errors[name as keyof VendorForm] && (
-                      <p className="text-xs text-destructive">{(errors[name as keyof VendorForm] as any)?.message}</p>
+                      <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
                     )}
                   </div>
                 ))}
+                {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_bank_account']}</p>}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Bank Details / Cancelled Cheque</Label>
-                <DocFileInput chosen={pendingDocs.find(d => d.doc_type === 'bank_details')?.file ?? null}
-                  onSelect={f => setDocFile('bank_details', f)} onClear={() => setDocFile('bank_details', null)} />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque</Label>
+                <DocUploadWidget vendorId={vendorId!} docType="bank_details"
+                  doc={docOf('bank_details')} onRefresh={refreshDocs} />
+                {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
               </div>
             </div>
 
@@ -634,43 +751,46 @@ export default function NewVendorPage() {
             </div>
 
             {watchedIsMsme && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start">
-                <div className="space-y-1">
-                  <Label className="text-xs">MSME Number</Label>
-                  <Input placeholder="UDYAM-MH-00-0000000" {...register('msme_number')} />
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_msme_number'] || complianceErrors['doc_msme_certificate'] ? 'border-destructive/50' : ''}`}>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">MSME Number</Label>
+                  <Input placeholder="e.g. UDYAM-MH-00-0000000" {...register('msme_number')}
+                    className={complianceErrors['field_msme_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} />
+                  {complianceErrors['field_msme_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_msme_number']}</p>}
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">MSME Certificate</Label>
-                  <DocFileInput chosen={pendingDocs.find(d => d.doc_type === 'msme_certificate')?.file ?? null}
-                    onSelect={f => setDocFile('msme_certificate', f)} onClear={() => setDocFile('msme_certificate', null)} />
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">MSME Certificate</Label>
+                  <DocUploadWidget vendorId={vendorId!} docType="msme_certificate"
+                    doc={docOf('msme_certificate')} onRefresh={refreshDocs} />
+                  {complianceErrors['doc_msme_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_msme_certificate']}</p>}
                 </div>
               </div>
             )}
 
             {watchedIsSez && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">SEZ Unit</p>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">SEZ Unit</Label>
                   <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">SEZ Certificate</Label>
-                  <DocFileInput chosen={pendingDocs.find(d => d.doc_type === 'sez_certificate')?.file ?? null}
-                    onSelect={f => setDocFile('sez_certificate', f)} onClear={() => setDocFile('sez_certificate', null)} />
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">SEZ Certificate</Label>
+                  <DocUploadWidget vendorId={vendorId!} docType="sez_certificate"
+                    doc={docOf('sez_certificate')} onRefresh={refreshDocs} />
                 </div>
               </div>
             )}
 
             {/* Incorporation */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start">
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Incorporation Certificate</p>
-                <p className="text-sm">Company registration / MOA documents</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Incorporation Certificate</Label>
+                <p className="text-sm text-muted-foreground">Company registration / MOA documents</p>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Incorporation Certificate</Label>
-                <DocFileInput chosen={pendingDocs.find(d => d.doc_type === 'incorporation')?.file ?? null}
-                  onSelect={f => setDocFile('incorporation', f)} onClear={() => setDocFile('incorporation', null)} />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Upload Document</Label>
+                <DocUploadWidget vendorId={vendorId!} docType="incorporation"
+                  doc={docOf('incorporation')} onRefresh={refreshDocs} />
               </div>
             </div>
 
@@ -688,20 +808,20 @@ export default function NewVendorPage() {
               {otherDocRows.length === 0 && <p className="text-xs text-muted-foreground italic">No additional documents added.</p>}
               {otherDocRows.map(row => (
                 <div key={row.id} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end border rounded-md p-3 bg-slate-50/60">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Document Type</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Document Type</Label>
                     <select value={row.doc_type} onChange={e => updateOtherDocRow(row.id, { doc_type: e.target.value })}
                       className="w-full h-9 border rounded-md px-2 text-sm bg-background">
                       {OTHER_DOC_TYPE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Title</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Title</Label>
                     <Input value={row.title} onChange={e => updateOtherDocRow(row.id, { title: e.target.value })}
                       placeholder="e.g. ISO 9001 — 2024" className="h-9 text-sm" />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">File</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">File</Label>
                     <DocFileInput chosen={row.file} onSelect={f => updateOtherDocRow(row.id, { file: f })}
                       onClear={() => updateOtherDocRow(row.id, { file: null })} />
                   </div>
