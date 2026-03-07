@@ -160,7 +160,7 @@ function ComplianceDocRow({ docType, label, fieldLabel, fieldValue, fieldKey, do
             <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-medium truncate max-w-[180px]">{doc.original_filename}</p>
-              <div className="mt-0.5"><AIValidationBadge status={doc.ai_validation_status} /></div>
+              <div className="mt-0.5"><span className="text-xs text-muted-foreground">{doc.original_filename}</span></div>
             </div>
             {doc.file_url && (
               <a href={doc.file_url} target="_blank" rel="noreferrer">
@@ -647,7 +647,6 @@ function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true }:
       <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[38px]">
         <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
         <span className="text-xs truncate flex-1 min-w-0">{doc.original_filename}</span>
-        <AIValidationBadge status={doc.ai_validation_status} />
         {doc.file_url && (
           <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0">
             <ExternalLink className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
@@ -725,12 +724,12 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
 
   const tf = (key: string, label: string, placeholder?: string) => (
-    <div className="space-y-1" key={key}>
-      <Label className="text-xs">{label}</Label>
+    <div className="space-y-1.5" key={key}>
+      <Label className="text-xs font-semibold text-slate-700">{label}</Label>
       <Input
         value={form[key as keyof typeof form] as string}
         onChange={e => set(key, e.target.value)}
-        placeholder={placeholder}
+        placeholder={placeholder ? `e.g. ${placeholder}` : undefined}
         className="h-10 text-sm"
       />
     </div>
@@ -747,8 +746,8 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 mt-1">General Information</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-xs">Vendor Category *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Vendor Category <span className="text-destructive">*</span></Label>
                 <select
                   className="w-full h-10 border rounded-md px-3 text-sm bg-background"
                   value={form.category}
@@ -760,8 +759,8 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Plant *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Plant <span className="text-destructive">*</span></Label>
                 <select
                   className="w-full h-10 border rounded-md px-3 text-sm bg-background"
                   value={form.plant}
@@ -779,8 +778,8 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
           {/* Company fields — no section label, same as Add form */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {tf('company_name', 'Company Name *', 'Acme Pvt Ltd')}
-            <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs">Address *</Label>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs font-semibold text-slate-700">Address <span className="text-destructive">*</span></Label>
               <AddressAutocomplete
                 value={form.address}
                 onChange={v => set('address', v)}
@@ -963,17 +962,13 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh, editable = true
                   )}
                 </span>
               )}
-              {/* Meta row — type chip + AI badge + date */}
+              {/* Meta row — type chip + date */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
                   {DOC_TYPE_LABELS[doc.doc_type] ?? doc.doc_type}
                 </span>
-                <AIValidationBadge status={doc.ai_validation_status} />
                 <span className="text-xs text-muted-foreground">{formatDate(doc.uploaded_at)}</span>
               </div>
-              {doc.ai_validation_notes && (
-                <p className="text-xs text-muted-foreground">{doc.ai_validation_notes}</p>
-              )}
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {doc.file_url && (
@@ -2034,12 +2029,12 @@ function ChangeRequestForm({ vendor, categories, plants, saving, onSubmit, onCan
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
 
   const tf = (key: string, label: string, placeholder?: string) => (
-    <div className="space-y-1" key={key}>
-      <Label className="text-xs">{label}</Label>
+    <div className="space-y-1.5" key={key}>
+      <Label className="text-xs font-semibold text-slate-700">{label}</Label>
       <Input
         value={form[key as keyof typeof form] as string}
         onChange={e => set(key, e.target.value)}
-        placeholder={placeholder}
+        placeholder={placeholder ? `e.g. ${placeholder}` : undefined}
         className="h-10 text-sm"
       />
     </div>
@@ -2240,7 +2235,37 @@ export default function VendorDetailPage() {
   const setDocField = (key: string, val: string) =>
     setDocFields(prev => ({ ...prev, [key]: val }))
 
+  const [complianceErrors, setComplianceErrors] = useState<Record<string, string>>({})
+
+  const validateCompliancePairs = (): boolean => {
+    const docOf = (type: string) => vendor?.documents?.find((d: any) => d.doc_type === type) ?? null
+    const errs: Record<string, string> = {}
+    const pairs: Array<{ fieldKey: string; fieldLabel: string; docType: string; docLabel: string }> = [
+      { fieldKey: 'gst_number', fieldLabel: 'GST Number', docType: 'gst_certificate', docLabel: 'GST Certificate' },
+      { fieldKey: 'pan_number', fieldLabel: 'PAN Number', docType: 'pan_card', docLabel: 'PAN Card' },
+    ]
+    for (const { fieldKey, fieldLabel, docType, docLabel } of pairs) {
+      const hasValue = !!docFields[fieldKey]
+      const hasDoc = !!docOf(docType)
+      if (hasValue && !hasDoc) errs[`doc_${docType}`] = `${docLabel} is required when ${fieldLabel} is provided`
+      if (hasDoc && !hasValue) errs[`field_${fieldKey}`] = `${fieldLabel} is required when ${docLabel} is uploaded`
+    }
+    const hasBankField = !!(docFields.bank_account || docFields.bank_ifsc || docFields.bank_name)
+    const hasBankDoc = !!docOf('bank_details')
+    if (hasBankField && !hasBankDoc) errs['doc_bank_details'] = 'Bank document is required when bank details are provided'
+    if (hasBankDoc && !hasBankField) errs['field_bank_account'] = 'Bank details are required when bank document is uploaded'
+    if (vendor?.is_msme) {
+      const hasMsmeNum = !!docFields.msme_number
+      const hasMsmeDoc = !!docOf('msme_certificate')
+      if (hasMsmeNum && !hasMsmeDoc) errs['doc_msme_certificate'] = 'MSME Certificate is required when MSME Number is provided'
+      if (hasMsmeDoc && !hasMsmeNum) errs['field_msme_number'] = 'MSME Number is required when MSME Certificate is uploaded'
+    }
+    setComplianceErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   const saveDocChanges = async () => {
+    if (!validateCompliancePairs()) return
     setSavingDocs(true)
     try {
       await apiClient.patch(`/vendors/${id}/`, docFields)
@@ -2399,60 +2424,64 @@ export default function VendorDetailPage() {
 
             {(() => {
               const docOf = (type: string) => vendor.documents?.find((d: any) => d.doc_type === type) ?? null
-              const blockCls = (hasField: boolean, hasDoc: boolean) =>
-                `grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start${isDraft && (!hasField || !hasDoc) ? ' border-amber-300' : ''}`
+              const blockCls = () =>
+                'grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start'
               return <>
 
                 {/* GST */}
-                <div className={blockCls(!!vendor.gst_number, !!docOf('gst_certificate'))}>
-                  <div className="space-y-1">
-                    <Label className="text-xs">GST Number</Label>
+                <div className={`${blockCls()} ${complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate'] ? 'border-destructive/50' : ''}`}>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">GST Number</Label>
                     <ComplianceFieldInput
                       value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
-                      placeholder="27AAAAA0000A1Z5"
+                      placeholder="e.g. 27AAAAA0000A1Z5"
                       canEdit={isDraft && isEditing}
                       onChange={v => setDocField('gst_number', v)}
                       onSave={v => setDocField('gst_number', v)}
                     />
+                    {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">GST Certificate</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">GST Certificate</Label>
                     <DocUploadInline vendorId={id} docType="gst_certificate"
                       doc={docOf('gst_certificate')} editable={isDraft && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                    {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
                   </div>
                 </div>
 
                 {/* PAN */}
-                <div className={blockCls(!!vendor.pan_number, !!docOf('pan_card'))}>
-                  <div className="space-y-1">
-                    <Label className="text-xs">PAN Number</Label>
+                <div className={`${blockCls()} ${complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card'] ? 'border-destructive/50' : ''}`}>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">PAN Number</Label>
                     <ComplianceFieldInput
                       value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
-                      placeholder="AAAAA9999A"
+                      placeholder="e.g. AAAAA9999A"
                       canEdit={isDraft && isEditing}
                       onChange={v => setDocField('pan_number', v)}
                       onSave={v => setDocField('pan_number', v)}
                     />
+                    {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">PAN Card</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">PAN Card</Label>
                     <DocUploadInline vendorId={id} docType="pan_card"
                       doc={docOf('pan_card')} editable={isDraft && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                    {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
                   </div>
                 </div>
 
                 {/* Bank Details */}
-                <div className={blockCls(!!(vendor.bank_account || vendor.bank_ifsc || vendor.bank_name), !!docOf('bank_details'))}>
+                <div className={`${blockCls()} ${complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details'] ? 'border-destructive/50' : ''}`}>
                   <div className="space-y-2">
                     {[
-                      { key: 'bank_account', label: 'Bank Account No', placeholder: '12345678901234' },
-                      { key: 'bank_ifsc', label: 'Bank IFSC', placeholder: 'HDFC0001234' },
-                      { key: 'bank_name', label: 'Bank Name', placeholder: 'HDFC Bank' },
+                      { key: 'bank_account', label: 'Bank Account No', placeholder: 'e.g. 12345678901234' },
+                      { key: 'bank_ifsc', label: 'Bank IFSC', placeholder: 'e.g. HDFC0001234' },
+                      { key: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
                     ].map(({ key, label, placeholder }) => (
-                      <div key={key} className="space-y-1">
-                        <Label className="text-xs">{label}</Label>
+                      <div key={key} className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-700">{label}</Label>
                         <ComplianceFieldInput
                           value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
                           placeholder={placeholder}
@@ -2462,12 +2491,14 @@ export default function VendorDetailPage() {
                         />
                       </div>
                     ))}
+                    {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_bank_account']}</p>}
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Bank Details / Cancelled Cheque</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque</Label>
                     <DocUploadInline vendorId={id} docType="bank_details"
                       doc={docOf('bank_details')} editable={isDraft && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                    {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
                   </div>
                 </div>
 
@@ -2497,35 +2528,37 @@ export default function VendorDetailPage() {
 
                 {/* MSME (conditional) */}
                 {vendor.is_msme && (
-                  <div className={blockCls(!!vendor.msme_number, !!docOf('msme_certificate'))}>
-                    <div className="space-y-1">
-                      <Label className="text-xs">MSME Number</Label>
+                  <div className={`${blockCls()} ${complianceErrors['field_msme_number'] || complianceErrors['doc_msme_certificate'] ? 'border-destructive/50' : ''}`}>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-700">MSME Number</Label>
                       <ComplianceFieldInput
                         value={isEditing ? (docFields.msme_number ?? '') : (vendor.msme_number ?? '')}
-                        placeholder="UDYAM-MH-00-0000000"
+                        placeholder="e.g. UDYAM-MH-00-0000000"
                         canEdit={isDraft && isEditing}
                         onChange={v => setDocField('msme_number', v)}
                         onSave={v => setDocField('msme_number', v)}
                       />
+                      {complianceErrors['field_msme_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_msme_number']}</p>}
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">MSME Certificate</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-700">MSME Certificate</Label>
                       <DocUploadInline vendorId={id} docType="msme_certificate"
                         doc={docOf('msme_certificate')} editable={isDraft && isEditing}
                         onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                      {complianceErrors['doc_msme_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_msme_certificate']}</p>}
                     </div>
                   </div>
                 )}
 
                 {/* SEZ (conditional) */}
                 {vendor.is_sez && (
-                  <div className={blockCls(true, !!docOf('sez_certificate'))}>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">SEZ Unit</Label>
+                  <div className={blockCls()}>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-700">SEZ Unit</Label>
                       <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">SEZ Certificate</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-700">SEZ Certificate</Label>
                       <DocUploadInline vendorId={id} docType="sez_certificate"
                         doc={docOf('sez_certificate')} editable={isDraft && isEditing}
                         onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
@@ -2534,13 +2567,13 @@ export default function VendorDetailPage() {
                 )}
 
                 {/* Incorporation */}
-                <div className={blockCls(true, !!docOf('incorporation'))}>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Incorporation Certificate</p>
-                    <p className="text-sm">Company registration / MOA documents</p>
+                <div className={blockCls()}>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Incorporation Certificate</Label>
+                    <p className="text-sm text-muted-foreground">Company registration / MOA documents</p>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Incorporation Certificate</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Upload Document</Label>
                     <DocUploadInline vendorId={id} docType="incorporation"
                       doc={docOf('incorporation')} editable={isDraft && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
