@@ -108,8 +108,9 @@ export default function ProcurementPage() {
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Tracking ID</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Amount</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Plant</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Vendor</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Date</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Created</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -119,10 +120,22 @@ export default function ProcurementPage() {
                       onClick={() => router.push(`/procurement/${pr.hash_id}`)}
                       className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
                     >
-                      <td className="px-4 py-3 font-medium">{pr.pr_number}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{pr.pr_number}</p>
+                        {pr.created_by_name && <p className="text-xs text-muted-foreground">{pr.created_by_name}</p>}
+                      </td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{pr.tracking_code || '—'}</td>
                       <td className="px-4 py-3 font-semibold">{formatCurrency(pr.total_amount, pr.currency_code)}</td>
                       <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{pr.plant_name}</td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {pr.selected_vendor_name ? (
+                          <span className="text-xs font-medium text-teal-700">{pr.selected_vendor_name}</span>
+                        ) : (pr.invited_vendor_names ?? []).length > 0 ? (
+                          <span className="text-xs text-muted-foreground">{(pr.invited_vendor_names as string[]).length} invited</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3"><StatusBadge status={pr.status} /></td>
                       <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{formatDate(pr.created_at)}</td>
                     </tr>

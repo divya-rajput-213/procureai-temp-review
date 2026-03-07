@@ -28,15 +28,34 @@ const STATUS_LABELS: Record<string, string> = {
   skipped: 'Skipped',
 }
 
+const DOT_COLORS: Record<string, string> = {
+  draft: 'bg-gray-400',
+  pending_approval: 'bg-amber-500',
+  pending_finance: 'bg-amber-500',
+  approved: 'bg-green-500',
+  vendor_selected: 'bg-teal-500',
+  rejected: 'bg-red-500',
+  blocked: 'bg-red-500',
+  synced_to_sap: 'bg-blue-500',
+  po_created: 'bg-purple-500',
+  cancelled: 'bg-gray-400',
+  exhausted: 'bg-orange-500',
+  pending: 'bg-amber-500',
+  in_progress: 'bg-blue-500',
+  success: 'bg-green-500',
+  failed: 'bg-red-500',
+}
+
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+        'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium',
         STATUS_COLORS[status] || 'bg-gray-100 text-gray-600',
         className
       )}
     >
+      <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', DOT_COLORS[status] || 'bg-gray-400')} />
       {STATUS_LABELS[status] || status}
     </span>
   )

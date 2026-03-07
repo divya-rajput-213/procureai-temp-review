@@ -1104,15 +1104,6 @@ const BID_STATUS_LABELS: Record<string, string> = {
   pending_approval: 'In Approval',
 }
 
-const COMPLIANCE_DOC_LABELS: Record<string, string> = {
-  gst_certificate: 'GST Certificate',
-  pan_card:        'PAN Card',
-  bank_details:    'Bank Details',
-  incorporation:   'Incorporation',
-  msme_certificate:'MSME Certificate',
-  sez_certificate: 'SEZ Certificate',
-}
-
 function KPICard({ label, value, sub, subPositive, icon: Icon, iconColor }: {
   label: string; value: string; sub?: string; subPositive?: boolean
   icon: React.ElementType; iconColor: string
@@ -1182,11 +1173,6 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
   if (stats.open_prs > 2) riskFactors.push({ color: 'amber', Icon: AlertTriangle, title: 'Multiple Open PRs', desc: `${stats.open_prs} open purchase requisitions awaiting this vendor` })
   if (stats.accepted_bids === 1) riskFactors.push({ color: 'amber', Icon: AlertTriangle, title: 'Single Awarded Contract', desc: 'Consider diversifying across multiple vendors to reduce dependency' })
   if (riskFactors.length === 0) riskFactors.push({ color: 'green', Icon: CheckCircle, title: 'No Risk Factors', desc: 'Vendor is performing well with no identified concerns' })
-
-  // Compliance docs from vendor
-  const complianceDocs = Object.keys(COMPLIANCE_DOC_LABELS)
-    .map(type => ({ label: COMPLIANCE_DOC_LABELS[type], doc: vendor.documents?.find((d: any) => d.doc_type === type) }))
-    .filter(c => c.doc)
 
   // Spend formatting helper
   const fmtSpend = (v: number) => {
@@ -1368,27 +1354,6 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
               </div>
             ))}
 
-            {/* Compliance Documents */}
-            {complianceDocs.length > 0 && (
-              <div className="border-t pt-3">
-                <p className="text-xs text-muted-foreground font-medium mb-2">Compliance Documents</p>
-                <div className="space-y-1.5">
-                  {complianceDocs.map(c => {
-                    const aiStatus = c.doc?.ai_validation_status
-                    const isGood = aiStatus === 'passed'
-                    const isWarn = aiStatus === 'warning'
-                    return (
-                      <div key={c.label} className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium truncate">{c.label}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 font-medium ${isGood ? 'bg-green-50 text-green-700' : isWarn ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                          {isGood ? 'Verified' : isWarn ? 'Warning' : 'Uploaded'}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -1533,7 +1498,6 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
     frow('PAN Number',     vendor.pan_number),
     frow('Category',       vendor.category_name),
     frow('Plant',          vendor.plant_name),
-    frow('SAP Code',       vendor.sap_vendor_code),
     frow('Country',        vendor.country),
     frow('MSME',           vendor.is_msme ? (vendor.msme_number ? `Yes — ${vendor.msme_number}` : 'Yes') : 'No'),
     frow('SEZ',            vendor.is_sez ? 'Yes' : 'No'),
@@ -1629,7 +1593,6 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
       <td style="text-align:right;vertical-align:top;white-space:nowrap">
         <div style="font-size:9px;color:#64748b;line-height:1.8">
           <div><strong style="color:#1e293b">Vendor Code:</strong> ${vendor.vendor_code || '—'}</div>
-          <div><strong style="color:#1e293b">SAP Code:</strong> ${vendor.sap_vendor_code || '—'}</div>
           <div><strong style="color:#1e293b">Generated:</strong> ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
         </div>
       </td>
@@ -2356,7 +2319,6 @@ export default function VendorDetailPage() {
                     ['Category', vendor.category_name || '—'],
                     ['Plant', vendor.plant_name || '—'],
                     ['Country', vendor.country],
-                    ['SAP Vendor Code', vendor.sap_vendor_code || '—'],
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between">
                       <span className="text-muted-foreground">{label}</span>
