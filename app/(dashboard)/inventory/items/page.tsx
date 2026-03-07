@@ -17,9 +17,9 @@ import apiClient from '@/lib/api/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Category { id: number; name: string; is_active: boolean }
+interface Category { id: number; hash_id: string; name: string; is_active: boolean }
 interface Item {
-  id: number; code: string; description: string; unit_of_measure: string
+  id: number; hash_id: string; code: string; description: string; unit_of_measure: string
   category: number | null; category_name: string; unit_rate: string; is_active: boolean
 }
 interface ItemFormData {
@@ -106,7 +106,7 @@ function ItemModal({ item, onClose }: { item: Item | null; onClose: () => void }
 
   const saveMutation = useMutation({
     mutationFn: async (data: ItemFormData) =>
-      isEdit ? (await apiClient.patch(`/procurement/items/${item.id}/`, data)).data
+      isEdit ? (await apiClient.patch(`/procurement/items/${item.hash_id}/`, data)).data
              : (await apiClient.post('/procurement/items/', data)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items-inventory'] })
@@ -475,7 +475,7 @@ export default function ItemsInventoryPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => apiClient.delete(`/procurement/items/${id}/`),
+    mutationFn: async (id: string) => apiClient.delete(`/procurement/items/${id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items-inventory'] })
       toast({ title: 'Item deleted' })
@@ -489,7 +489,7 @@ export default function ItemsInventoryPage() {
   })
 
   const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, is_active }: { id: number; is_active: boolean }) =>
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) =>
       apiClient.patch(`/procurement/items/${id}/`, { is_active }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items-inventory'] })
@@ -591,7 +591,7 @@ export default function ItemsInventoryPage() {
                         <Badge
                           variant={item.is_active ? 'default' : 'secondary'}
                           className="text-xs cursor-pointer"
-                          onClick={() => toggleActiveMutation.mutate({ id: item.id, is_active: !item.is_active })}
+                          onClick={() => toggleActiveMutation.mutate({ id: item.hash_id, is_active: !item.is_active })}
                         >
                           {item.is_active ? 'Active' : 'Inactive'}
                         </Badge>
@@ -631,7 +631,7 @@ export default function ItemsInventoryPage() {
               <Button
                 variant="destructive"
                 disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate(deletingItem.id)}
+                onClick={() => deleteMutation.mutate(deletingItem.hash_id)}
                 className="gap-2"
               >
                 {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}

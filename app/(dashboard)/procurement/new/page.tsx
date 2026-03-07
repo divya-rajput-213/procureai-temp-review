@@ -206,7 +206,6 @@ export default function NewPRPage() {
   const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
-  const submitModeRef = useRef<'draft' | 'approval'>('draft')
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
 
   const [activeTab, setActiveTab] = useState<'details' | 'matrix'>('details')
@@ -217,6 +216,7 @@ export default function NewPRPage() {
   const [showVendorSearch, setShowVendorSearch] = useState(false)
   const [selectedTracking, setSelectedTracking] = useState<any>(null)
   const [itemLabels, setItemLabels] = useState<Record<number, string>>({})
+  const [savedPrId, setSavedPrId] = useState<string | null>(null)
   // ─── Remote data ──────────────────────────────────────────────────────
 
   const { data: trackingIds } = useQuery({
@@ -302,30 +302,20 @@ export default function NewPRPage() {
 
   // ─── Mutation ─────────────────────────────────────────────────────────
 
-  const createMutation = useMutation({
+  // Save as draft (create or update)
+  const saveDraftMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const mode = submitModeRef.current
       const payload = {
-        ...data, invited_vendor_ids: selectedVendors.map(v => v.id),
-        status: mode === 'approval' ? 'pending_approval' : 'draft',
+        ...data,
+        invited_vendor_ids: selectedVendors.map(v => v.id),
+        status: 'draft',
       }
-
-      if (mode === 'approval' && selectedMatrix) {
-        payload.matrix_id = selectedMatrix
+      if (savedPrId) {
+        const { data: pr } = await apiClient.patch(`/procurement/${savedPrId}/`, payload)
+        return pr
       }
-
       const { data: pr } = await apiClient.post('/procurement/', payload)
-
-      return { pr, mode }
-    },
-    onSuccess: ({ pr, mode }) => {
-      queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
-      if (mode === 'approval') {
-        toast({ title: `PR submitted for approval.` })
-      } else {
-        toast({ title: `PR saved as draft.` })
-      }
-      router.push('/procurement')
+      return pr
     },
     onError: (err: any) => {
       const detail = err?.response?.data
@@ -337,28 +327,35 @@ export default function NewPRPage() {
     },
   })
 
+  // Submit for approval (update existing draft)
+  const submitApprovalMutation = useMutation({
+    mutationFn: async () => {
+      const payload: any = { status: 'pending_approval' }
+      if (selectedMatrix) payload.matrix_id = selectedMatrix
+      const { data: pr } = await apiClient.patch(`/procurement/${savedPrId}/`, payload)
+      return pr
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
+      toast({ title: 'PR submitted for approval.' })
+      router.push('/procurement')
+    },
+    onError: (err: any) => {
+      const detail = err?.response?.data
+      toast({
+        title: 'Failed to submit PR',
+        description: typeof detail === 'object' ? JSON.stringify(detail) : String(detail ?? ''),
+        variant: 'destructive',
+      })
+    },
+  })
+
   const budgetRemaining = trackingDetail
     ? Number(trackingDetail.remaining_amount ?? (trackingDetail.approved_amount ?? trackingDetail.requested_amount) - trackingDetail.consumed_amount)
     : null
   const budgetExceeded = budgetRemaining !== null && grandTotal > budgetRemaining
 
-  const handleDraft = handleSubmit(data => {
-    if (budgetExceeded) {
-      toast({ title: 'Budget exceeded', description: `PR total (${formatCurrency(grandTotal)}) exceeds remaining budget (${formatCurrency(budgetRemaining)}).`, variant: 'destructive' })
-      return
-    }
-    submitModeRef.current = 'draft'
-    createMutation.mutate(data)
-  })
-
-  const handleApproval = handleSubmit(data => {
-    if (budgetExceeded) {
-      toast({ title: 'Budget exceeded', description: `PR total (${formatCurrency(grandTotal)}) exceeds remaining budget (${formatCurrency(budgetRemaining)}).`, variant: 'destructive' })
-      return
-    }
-    submitModeRef.current = 'approval'
-    createMutation.mutate(data)
-  })
+  const isSaving = saveDraftMutation.isPending || submitApprovalMutation.isPending
 
   // ─── Render ───────────────────────────────────────────────────────────
 
@@ -703,26 +700,35 @@ export default function NewPRPage() {
             </CardContent>
           </Card>
           }
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end">
             <Button
               type="button"
               className="gap-1.5"
+              disabled={isSaving}
               onClick={async () => {
-                // Conditionally trigger validation based on watchedTrackingId
                 const isValid = watchedTrackingId
-                  ? await trigger(['line_items', 'tracking_id'])  // Validate both when tracking ID is available
-                  : await trigger('tracking_id');  // If no tracking ID, only validate the tracking_id field
-          
-                if (isValid) {
-                  // If validation passes, proceed with changing the tab
-                  setActiveTab('matrix');
-                } else {
-                  // Optionally handle the case when validation fails
-                  console.log('Validation failed');
+                  ? await trigger(['line_items', 'tracking_id'])
+                  : await trigger('tracking_id');
+                if (!isValid) return
+                if (budgetExceeded) {
+                  toast({ title: 'Budget exceeded', description: `PR total (${formatCurrency(grandTotal)}) exceeds remaining budget (${formatCurrency(budgetRemaining)}).`, variant: 'destructive' })
+                  return
                 }
+                const data = watch()
+                saveDraftMutation.mutate(data, {
+                  onSuccess: (pr) => {
+                    setSavedPrId(pr.hash_id)
+                    queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
+                    toast({ title: 'PR saved as draft.' })
+                    setActiveTab('matrix')
+                  },
+                })
               }}
             >
-              Next<ArrowRight className="w-4 h-4" />
+              {saveDraftMutation.isPending
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Save className="w-4 h-4" />}
+              Save & Next <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
         </>)}
@@ -766,22 +772,23 @@ export default function NewPRPage() {
               <Button
                 type="button"
                 variant="outline"
-                disabled={createMutation.isPending}
+                disabled={isSaving}
                 className="gap-2"
-                onClick={handleDraft}
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
+                  router.push('/procurement')
+                }}
               >
-                {createMutation.isPending && submitModeRef.current === 'draft'
-                  ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : <Save className="w-4 h-4" />}
-                Save as Draft
+                <Save className="w-4 h-4" />
+                Keep as Draft
               </Button>
               <Button
                 type="button"
-                disabled={createMutation.isPending || !selectedMatrix}
+                disabled={isSaving || !selectedMatrix}
                 className="gap-2"
-                onClick={handleApproval}
+                onClick={() => submitApprovalMutation.mutate()}
               >
-                {createMutation.isPending && submitModeRef.current === 'approval'
+                {submitApprovalMutation.isPending
                   ? <Loader2 className="w-4 h-4 animate-spin" />
                   : <Send className="w-4 h-4" />}
                 Submit for Approval

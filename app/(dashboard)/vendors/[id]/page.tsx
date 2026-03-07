@@ -77,7 +77,7 @@ function ComplianceDocRow({ docType, label, fieldLabel, fieldValue, fieldKey, do
   const remove = async () => {
     setDeleting(true)
     try {
-      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.id}/`)
+      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id}/`)
       onRefresh()
       toast({ title: 'Document removed.' })
     } catch {
@@ -346,11 +346,12 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
   )
 }
 
-function MyActionPanel({ pendingAction, onProcess }: {
-  pendingAction: any; onProcess: (action: string, comments: string) => void
+function MyActionPanel({ pendingAction, onProcess, onReleaseHold }: {
+  pendingAction: any; onProcess: (action: string, comments: string) => void; onReleaseHold: () => void
 }) {
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState('')
+  const isHeld = pendingAction?.action_status === 'held'
 
   const handle = async (action: string) => {
     setLoading(action)
@@ -359,23 +360,37 @@ function MyActionPanel({ pendingAction, onProcess }: {
     setComments('')
   }
 
+  if (isHeld) {
+    return (
+      <div className="px-4 py-3 bg-white space-y-2">
+        <p className="text-xs font-medium text-amber-700">This item is on hold (Level {pendingAction.level})</p>
+        <Button size="sm" variant="outline" className="gap-1" onClick={onReleaseHold} disabled={!!loading}>
+          <Clock className="w-3.5 h-3.5" /> Release Hold
+        </Button>
+      </div>
+    )
+  }
+
   return (
-    <div className="px-4 py-3 bg-white space-y-3">
+    <div className="px-4 py-3 bg-white space-y-2">
       <p className="text-xs font-medium text-muted-foreground">Your action required (Level {pendingAction.level})</p>
-      <textarea
-        className="w-full border rounded-md p-2 text-sm resize-none h-16"
-        placeholder="Comments (required for Reject / Hold)…"
-        value={comments}
-        onChange={e => setComments(e.target.value)}
-      />
+      <div>
+        <label className="text-xs font-medium">Comments <span className="text-red-500">*</span></label>
+        <textarea
+          className="mt-1 w-full border rounded-md p-2 text-sm resize-none h-16"
+          placeholder="Add your comments…"
+          value={comments}
+          onChange={e => setComments(e.target.value)}
+        />
+      </div>
       <div className="flex gap-2">
-        <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => handle('approved')} disabled={!!loading}>
+        <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => handle('approved')} disabled={!!loading || !comments.trim()}>
           <ActionBtnIcon loading={loading} name="approved" icon={<CheckCircle className="w-3.5 h-3.5" />} /> Approve
         </Button>
-        <Button size="sm" variant="destructive" className="gap-1" onClick={() => handle('rejected')} disabled={!!loading || !comments}>
+        <Button size="sm" variant="destructive" className="gap-1" onClick={() => handle('rejected')} disabled={!!loading || !comments.trim()}>
           <ActionBtnIcon loading={loading} name="rejected" icon={<XCircle className="w-3.5 h-3.5" />} /> Reject
         </Button>
-        <Button size="sm" variant="outline" className="gap-1 text-amber-600 border-amber-300" onClick={() => handle('held')} disabled={!!loading || !comments}>
+        <Button size="sm" variant="outline" className="gap-1 text-amber-600 border-amber-300" onClick={() => handle('held')} disabled={!!loading || !comments.trim()}>
           <ActionBtnIcon loading={loading} name="held" icon={<Clock className="w-3.5 h-3.5" />} /> Hold
         </Button>
       </div>
@@ -502,6 +517,17 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
     }
   }
 
+  const releaseHold = async () => {
+    if (!myPendingAction) return
+    try {
+      await apiClient.post(`/approvals/actions/${myPendingAction.action_id}/release-hold/`)
+      toast({ title: 'Hold released. You can now approve or reject.' })
+      invalidateAll()
+    } catch (err: any) {
+      toast({ title: 'Failed to release hold', description: err?.response?.data?.error, variant: 'destructive' })
+    }
+  }
+
   const pct = myPendingAction ? getSLAPercentage(myPendingAction.sla_deadline) : 100
   const slaLabel = pct <= 0 ? 'SLA Breached' : `SLA: ${Math.round(pct)}% remaining`
   const reqStatus = approvalRequest?.status
@@ -541,7 +567,7 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
         )}
       </div>
       <ApprovalSteps actions={approvalRequest?.actions ?? []} currentLevel={approvalRequest?.current_level} requestedAt={approvalRequest?.created_at} />
-      {myPendingAction && <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} />}
+      {myPendingAction && <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} onReleaseHold={releaseHold} />}
     </div>
   )
 }
@@ -606,7 +632,7 @@ function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true }:
     if (!doc) return
     setDeleting(true)
     try {
-      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.id}/`)
+      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id}/`)
       onRefresh()
       toast({ title: 'Document removed.' })
     } catch {
@@ -806,16 +832,16 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh, editable = true
   const { toast } = useToast()
 
   // ── Inline title editing for existing docs ────────────────────────────────
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [savingTitle, setSavingTitle] = useState(false)
 
   const startEdit = (doc: any) => {
-    setEditingId(doc.id)
+    setEditingId(doc.hash_id)
     setEditTitle(doc.title || doc.original_filename)
   }
 
-  const saveTitle = async (docId: number) => {
+  const saveTitle = async (docId: string) => {
     setSavingTitle(true)
     try {
       await apiClient.patch(`/vendors/${vendorId}/documents/${docId}/`, { title: editTitle })
@@ -862,8 +888,8 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh, editable = true
   }
 
   // ── Delete existing ───────────────────────────────────────────────────────
-  const [deletingId, setDeletingId] = useState<number | null>(null)
-  const deleteDoc = async (docId: number) => {
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const deleteDoc = async (docId: string) => {
     setDeletingId(docId)
     try {
       await apiClient.delete(`/vendors/${vendorId}/documents/${docId}/`)
@@ -898,21 +924,21 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh, editable = true
             <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0 space-y-1">
               {/* Title row — editable */}
-              {editable && editingId === doc.id ? (
+              {editable && editingId === doc.hash_id ? (
                 <div className="flex items-center gap-1.5">
                   <input
                     type="text"
                     value={editTitle}
                     onChange={e => setEditTitle(e.target.value)}
                     onKeyDown={e => {
-                      if (e.key === 'Enter') saveTitle(doc.id)
+                      if (e.key === 'Enter') saveTitle(doc.hash_id)
                       else if (e.key === 'Escape') setEditingId(null)
                     }}
                     className="flex-1 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                     autoFocus
                   />
                   <button
-                    onClick={() => saveTitle(doc.id)}
+                    onClick={() => saveTitle(doc.hash_id)}
                     disabled={savingTitle}
                     className="text-green-600 hover:text-green-800 disabled:opacity-50 shrink-0"
                     title="Save"
@@ -961,10 +987,10 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh, editable = true
                 <Button
                   variant="ghost" size="sm"
                   className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                  onClick={() => deleteDoc(doc.id)}
-                  disabled={deletingId === doc.id}
+                  onClick={() => deleteDoc(doc.hash_id)}
+                  disabled={deletingId === doc.hash_id}
                 >
-                  {deletingId === doc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  {deletingId === doc.hash_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 </Button>
               )}
             </div>
@@ -1760,9 +1786,9 @@ function ChangeRequestTab({ vendorId, vendor, categories, plants }: {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
-  const [expandedCR, setExpandedCR] = useState<number | null>(null)
-  const [submittingCR, setSubmittingCR] = useState<number | null>(null)
-  const [selectingMatrixCR, setSelectingMatrixCR] = useState<number | null>(null)
+  const [expandedCR, setExpandedCR] = useState<string | null>(null)
+  const [submittingCR, setSubmittingCR] = useState<string | null>(null)
+  const [selectingMatrixCR, setSelectingMatrixCR] = useState<string | null>(null)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
 
@@ -1793,14 +1819,14 @@ function ChangeRequestTab({ vendorId, vendor, categories, plants }: {
       toast({ title: 'Change request created.' })
       setShowForm(false)
       refetch()
-      setExpandedCR(cr.id)
+      setExpandedCR(cr.hash_id)
     },
     onError: (err: any) => {
       toast({ title: 'Failed', description: err?.response?.data?.error || 'Could not create change request.', variant: 'destructive' })
     },
   })
 
-  const handleSubmitForApproval = async (crId: number, matrixId?: number) => {
+  const handleSubmitForApproval = async (crId: string, matrixId?: number) => {
     setSubmittingCR(crId)
     try {
       const payload: any = {}
@@ -1870,16 +1896,16 @@ function ChangeRequestTab({ vendorId, vendor, categories, plants }: {
       )}
 
       {(changeRequests ?? []).map((cr: any) => (
-        <Card key={cr.id} className="overflow-hidden">
+        <Card key={cr.hash_id} className="overflow-hidden">
           <div
             className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
-            onClick={() => setExpandedCR(expandedCR === cr.id ? null : cr.id)}
+            onClick={() => setExpandedCR(expandedCR === cr.hash_id ? null : cr.hash_id)}
           >
             <div className="flex items-center gap-3 min-w-0">
-              {expandedCR === cr.id ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+              {expandedCR === cr.hash_id ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium">CR-{cr.id}</span>
+                  <span className="text-sm font-medium">CR-{cr.hash_id}</span>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${crStatusCls(cr.status)}`}>
                     {cr.status.replace('_', ' ')}
                   </span>
@@ -1896,21 +1922,21 @@ function ChangeRequestTab({ vendorId, vendor, categories, plants }: {
                   className="gap-1 h-7 text-xs"
                   onClick={(e) => {
                     e.stopPropagation()
-                    setSelectingMatrixCR(selectingMatrixCR === cr.id ? null : cr.id)
+                    setSelectingMatrixCR(selectingMatrixCR === cr.hash_id ? null : cr.hash_id)
                     setSelectedMatrix(null)
                     setExpandedMatrix(null)
                   }}
-                  disabled={submittingCR === cr.id}
+                  disabled={submittingCR === cr.hash_id}
                 >
-                  {submittingCR === cr.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
-                  {selectingMatrixCR === cr.id ? 'Cancel' : 'Submit'}
+                  {submittingCR === cr.hash_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
+                  {selectingMatrixCR === cr.hash_id ? 'Cancel' : 'Submit'}
                 </Button>
               )}
             </div>
           </div>
 
           {/* ── Expanded Detail ── */}
-          {expandedCR === cr.id && crDetail && (
+          {expandedCR === cr.hash_id && crDetail && (
             <div className="border-t px-4 py-3 bg-slate-50/50 space-y-3">
               <div className="text-xs text-muted-foreground">
                 Requested by <span className="font-medium text-slate-700">{crDetail.created_by_name}</span> on {formatDateTime(crDetail.created_at)}
@@ -1941,7 +1967,7 @@ function ChangeRequestTab({ vendorId, vendor, categories, plants }: {
           )}
 
           {/* ── Matrix Selector for Submit ── */}
-          {selectingMatrixCR === cr.id && (
+          {selectingMatrixCR === cr.hash_id && (
             <div className="border-t px-4 py-4 bg-blue-50/40 space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Select Approval Matrix</p>
               {matrices === undefined && (
@@ -1967,11 +1993,11 @@ function ChangeRequestTab({ vendorId, vendor, categories, plants }: {
                   className="gap-1.5"
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleSubmitForApproval(cr.id, selectedMatrix ?? undefined)
+                    handleSubmitForApproval(cr.hash_id, selectedMatrix ?? undefined)
                   }}
-                  disabled={submittingCR === cr.id || (matrices && matrices.length > 0 && !selectedMatrix)}
+                  disabled={submittingCR === cr.hash_id || (matrices && matrices.length > 0 && !selectedMatrix)}
                 >
-                  {submittingCR === cr.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
+                  {submittingCR === cr.hash_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
                   Submit for Approval
                 </Button>
               </div>

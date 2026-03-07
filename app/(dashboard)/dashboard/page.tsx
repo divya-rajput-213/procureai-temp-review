@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ShoppingCart, Building2, CheckSquare, TrendingUp, AlertCircle, Wallet, ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,6 +16,11 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  PieChart,
+  Pie,
+  Cell,
+  Bar,
+  ComposedChart,
 } from 'recharts'
 import Link from 'next/link'
 
@@ -42,6 +48,22 @@ function StatCard({ title, value, subtitle, icon: Icon, color }: {
       </CardContent>
     </Card>
   )
+}
+
+// ─── Chart colors ────────────────────────────────────────────────────────────
+const CHART_COLORS = ['#1e3a5f', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#f97316']
+
+const STATUS_COLORS: Record<string, string> = {
+  draft: '#94a3b8',
+  pending_approval: '#f59e0b',
+  pending_finance: '#f97316',
+  approved: '#10b981',
+  rejected: '#ef4444',
+  cancelled: '#6b7280',
+  vendor_selected: '#3b82f6',
+  synced_to_sap: '#8b5cf6',
+  po_created: '#1e3a5f',
+  blocked: '#dc2626',
 }
 
 // ─── Activity type config ─────────────────────────────────────────────────────
@@ -110,6 +132,24 @@ export default function DashboardPage() {
     staleTime: 5 * 60 * 1000, // 5 min
   })
 
+  const { data: allPRs } = useQuery({
+    queryKey: ['all-prs-dashboard'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/procurement/?page_size=500')
+      return (data.results ?? data ?? []) as any[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: allBudgets } = useQuery({
+    queryKey: ['all-budgets-dashboard'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/budget/tracking-ids/?page_size=500')
+      return (data.results ?? data ?? []) as any[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+
   const pendingCount = pendingApprovals?.length || 0
   const stats = analytics?.stats
   const monthlySpend: any[] = analytics?.monthly_spend ?? []
@@ -118,6 +158,38 @@ export default function DashboardPage() {
 
   // Max spend for bar width calculation
   const maxSpend = topVendors.reduce((m, v) => Math.max(m, v.total_spend), 1)
+
+  // ── Report data ──
+  const prs = allPRs ?? []
+  const budgets = allBudgets ?? []
+
+  const prStatusData = useMemo(() => {
+    const map: Record<string, number> = {}
+    prs.forEach((pr: any) => { map[pr.status] = (map[pr.status] || 0) + 1 })
+    return Object.entries(map).map(([name, value]) => ({ name, value }))
+  }, [prs])
+
+  const budgetStatusData = useMemo(() => {
+    const map: Record<string, number> = {}
+    budgets.forEach((b: any) => { map[b.status] = (map[b.status] || 0) + 1 })
+    return Object.entries(map).map(([name, value]) => ({ name, value }))
+  }, [budgets])
+
+  const monthlyPRData = useMemo(() => {
+    const map: Record<string, { month: string; count: number; value: number }> = {}
+    prs.forEach((pr: any) => {
+      const d = new Date(pr.created_at)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = d.toLocaleString('default', { month: 'short' }) + " '" + String(d.getFullYear()).slice(2)
+      if (!map[key]) map[key] = { month: label, count: 0, value: 0 }
+      map[key].count++
+      map[key].value += Number.parseFloat(pr.total_amount || 0)
+    })
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v)
+  }, [prs])
+
+  const prTotal = prStatusData.reduce((s, d) => s + d.value, 0)
+  const budgetTotal = budgetStatusData.reduce((s, d) => s + d.value, 0)
 
   return (
     <div className="space-y-6">
@@ -226,6 +298,129 @@ export default function DashboardPage() {
                 />
               </LineChart>
             </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Status Distributions (donut + legend) ────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">PR Status Distribution</CardTitle>
+            <CardDescription>Purchase requisitions by status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {prStatusData.length > 0 ? (
+              <div className="flex items-center gap-4">
+                <ResponsiveContainer width="50%" height={180}>
+                  <PieChart>
+                    <Pie
+                      data={prStatusData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%" cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      paddingAngle={2}
+                    >
+                      {prStatusData.map((entry, i) => (
+                        <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v: any) => [v, 'Count']} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex-1 space-y-1.5">
+                  {prStatusData.map((entry, i) => (
+                    <div key={entry.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: STATUS_COLORS[entry.name] ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+                        <span className="text-muted-foreground capitalize">{entry.name.replace(/_/g, ' ')}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{entry.value}</span>
+                        <span className="text-muted-foreground w-8 text-right">{prTotal > 0 ? `${Math.round((entry.value / prTotal) * 100)}%` : ''}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[180px] text-sm text-muted-foreground">No data yet</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Budget Status Distribution</CardTitle>
+            <CardDescription>Tracking IDs by status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {budgetStatusData.length > 0 ? (
+              <div className="flex items-center gap-4">
+                <ResponsiveContainer width="50%" height={180}>
+                  <PieChart>
+                    <Pie
+                      data={budgetStatusData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%" cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      paddingAngle={2}
+                    >
+                      {budgetStatusData.map((entry, i) => (
+                        <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v: any) => [v, 'Count']} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex-1 space-y-1.5">
+                  {budgetStatusData.map((entry, i) => (
+                    <div key={entry.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: STATUS_COLORS[entry.name] ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+                        <span className="text-muted-foreground capitalize">{entry.name.replace(/_/g, ' ')}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{entry.value}</span>
+                        <span className="text-muted-foreground w-8 text-right">{budgetTotal > 0 ? `${Math.round((entry.value / budgetTotal) * 100)}%` : ''}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[180px] text-sm text-muted-foreground">No data yet</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Monthly PR Trend ──────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Monthly PR Trend</CardTitle>
+          <CardDescription>Count and total value per month</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {monthlyPRData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={230}>
+              <ComposedChart data={monthlyPRData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="count" orientation="left" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <YAxis yAxisId="value" orientation="right" tick={{ fontSize: 10 }} tickFormatter={v => formatCurrency(v)} width={90} />
+                <Tooltip formatter={(v: any, name: string) => name === 'Total Value' ? [formatCurrency(Number(v)), name] : [v, name]} />
+                <Legend />
+                <Bar yAxisId="count" dataKey="count" name="PR Count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Line yAxisId="value" type="monotone" dataKey="value" name="Total Value" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[230px] text-sm text-muted-foreground">No PRs found yet</div>
           )}
         </CardContent>
       </Card>
@@ -349,7 +544,7 @@ export default function DashboardPage() {
           ) : (
             <div className="divide-y">
               {recentPRs.slice(0, 10).map((pr: any) => (
-                <Link key={pr.id} href={`/procurement/${pr.id}`} className="py-3 flex items-center justify-between gap-4 hover:bg-muted/40 -mx-2 px-2 rounded transition-colors">
+                <Link key={pr.hash_id ?? pr.id} href={`/procurement/${pr.hash_id}`} className="py-3 flex items-center justify-between gap-4 hover:bg-muted/40 -mx-2 px-2 rounded transition-colors">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{pr.pr_number}</span>

@@ -122,7 +122,7 @@ export default function BudgetPage() {
                     <tr
                       key={t.id}
                       className="hover:bg-slate-50 transition-colors cursor-pointer"
-                      onClick={() => router.push(`/budget/${t.id}`)}
+                      onClick={() => router.push(`/budget/${t.hash_id}`)}
                     >
                       <td className="px-4 py-3 font-medium text-primary">{t.tracking_code}</td>
                       <td className="px-4 py-3 max-w-xs">

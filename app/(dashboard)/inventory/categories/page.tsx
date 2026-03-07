@@ -17,7 +17,7 @@ import apiClient from '@/lib/api/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Category { id: number; name: string; description: string; is_active: boolean; created_at: string }
+interface Category { id: number; hash_id: string; name: string; description: string; is_active: boolean; created_at: string }
 interface CategoryFormData { name: string; description: string; is_active: boolean }
 
 const EMPTY_FORM: CategoryFormData = { name: '', description: '', is_active: true }
@@ -87,7 +87,7 @@ function CategoryModal({ category, onClose }: Readonly<{ category: Category | nu
 
   const saveMutation = useMutation({
     mutationFn: async (data: CategoryFormData) =>
-      isEdit ? (await apiClient.patch(`/procurement/categories/${category.id}/`, data)).data
+      isEdit ? (await apiClient.patch(`/procurement/categories/${category.hash_id}/`, data)).data
              : (await apiClient.post('/procurement/categories/', data)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['item-categories'] })
@@ -154,7 +154,7 @@ function DeleteConfirm({ category, onClose }: Readonly<{ category: Category; onC
   const queryClient = useQueryClient()
 
   const deleteMutation = useMutation({
-    mutationFn: async () => apiClient.delete(`/procurement/categories/${category.id}/`),
+    mutationFn: async () => apiClient.delete(`/procurement/categories/${category.hash_id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['item-categories'] })
       toast({ title: 'Category deleted' })
@@ -429,7 +429,7 @@ export default function ItemCategoriesPage() {
   })
 
   const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, is_active }: { id: number; is_active: boolean }) =>
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) =>
       apiClient.patch(`/procurement/categories/${id}/`, { is_active }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['item-categories'] })
@@ -523,7 +523,7 @@ export default function ItemCategoriesPage() {
                         <Badge
                           variant={cat.is_active ? 'default' : 'secondary'}
                           className="text-xs cursor-pointer"
-                          onClick={() => toggleActiveMutation.mutate({ id: cat.id, is_active: !cat.is_active })}
+                          onClick={() => toggleActiveMutation.mutate({ id: cat.hash_id, is_active: !cat.is_active })}
                         >
                           {cat.is_active ? 'Active' : 'Inactive'}
                         </Badge>

@@ -135,7 +135,7 @@ export default function NewVendorPage() {
   const queryClient = useQueryClient()
 
   const [step, setStep] = useState(0)
-  const [vendorId, setVendorId] = useState<number | null>(null)
+  const [vendorId, setVendorId] = useState<string | null>(null)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const [submitError, setSubmitError] = useState('')
@@ -186,7 +186,7 @@ export default function NewVendorPage() {
   const watchedIsSez    = watch('is_sez')
 
   // ── Upload docs helper ───────────────────────────────────────────────────────
-  const uploadDocs = async (vid: number) => {
+  const uploadDocs = async (vid: string) => {
     for (const doc of pendingDocs) {
       const fd = new FormData(); fd.append('file', doc.file); fd.append('doc_type', doc.doc_type)
       try { await apiClient.post(`/vendors/${vid}/documents/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }) } catch { /* non-fatal */ }
@@ -219,7 +219,7 @@ export default function NewVendorPage() {
       })
       return vendor
     },
-    onSuccess: (vendor) => { setVendorId(vendor.id); queryClient.invalidateQueries({ queryKey: ['vendors'] }); setStep(1) },
+    onSuccess: (vendor) => { setVendorId(vendor.hash_id); queryClient.invalidateQueries({ queryKey: ['vendors'] }); setStep(1) },
     onError: (err: any) => toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' }),
   })
 

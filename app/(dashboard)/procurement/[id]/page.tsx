@@ -124,13 +124,15 @@ function ApprovalTimeline({ actions, currentLevel, requestedAt }: { actions: any
 
 // ─── My Action Panel ───────────────────────────────────────────────────────────
 
-function MyActionPanel({ pendingAction, onProcess }: {
+function MyActionPanel({ pendingAction, onProcess, onReleaseHold }: {
   pendingAction: any
   onProcess: (action: string, comments: string) => void
+  onReleaseHold: () => void
 }) {
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState('')
   const busy = loading !== ''
+  const isHeld = pendingAction?.action_status === 'held'
 
   const handle = async (act: string) => {
     setLoading(act)
@@ -139,30 +141,44 @@ function MyActionPanel({ pendingAction, onProcess }: {
     setComments('')
   }
 
+  if (isHeld) {
+    return (
+      <div className="px-4 py-3 border-t space-y-2">
+        <p className="text-xs font-medium text-amber-700">This item is on hold — Level {pendingAction?.level}</p>
+        <Button size="sm" variant="outline" className="gap-1" onClick={onReleaseHold} disabled={busy}>
+          <Clock className="w-3.5 h-3.5" /> Release Hold
+        </Button>
+      </div>
+    )
+  }
+
   return (
-    <div className="pt-4 mt-4 border-t space-y-3">
+    <div className="px-4 py-3 border-t space-y-2">
       <p className="text-xs font-medium text-muted-foreground">
         Your action required — Level {pendingAction?.level}
       </p>
-      <textarea
-        className="w-full border rounded-md p-2 text-sm resize-none h-16"
-        placeholder="Comments (required for Reject / Hold)…"
-        value={comments}
-        onChange={e => setComments(e.target.value)}
-      />
+      <div>
+        <label className="text-xs font-medium">Comments <span className="text-red-500">*</span></label>
+        <textarea
+          className="mt-1 w-full border rounded-md p-2 text-sm resize-none h-16"
+          placeholder="Add your comments…"
+          value={comments}
+          onChange={e => setComments(e.target.value)}
+        />
+      </div>
       <div className="flex gap-2">
         <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1"
-          onClick={() => handle('approved')} disabled={busy}>
+          onClick={() => handle('approved')} disabled={busy || !comments.trim()}>
           {loading === 'approved' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
           Approve
         </Button>
         <Button size="sm" variant="destructive" className="gap-1"
-          onClick={() => handle('rejected')} disabled={busy || !comments}>
+          onClick={() => handle('rejected')} disabled={busy || !comments.trim()}>
           {loading === 'rejected' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
           Reject
         </Button>
         <Button size="sm" variant="outline" className="gap-1 text-amber-600 border-amber-300"
-          onClick={() => handle('held')} disabled={busy || !comments}>
+          onClick={() => handle('held')} disabled={busy || !comments.trim()}>
           {loading === 'held' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
           Hold
         </Button>
@@ -216,6 +232,17 @@ function ApprovalProgressPanel({ prId, onStatusChange }: {
     }
   }
 
+  const releaseHold = async () => {
+    if (!myPendingAction) return
+    try {
+      await apiClient.post(`/approvals/actions/${myPendingAction.action_id}/release-hold/`)
+      toast({ title: 'Hold released. You can now approve or reject.' })
+      invalidateAll()
+    } catch (err: any) {
+      toast({ title: 'Failed to release hold', description: err?.response?.data?.error, variant: 'destructive' })
+    }
+  }
+
   const pct = myPendingAction ? getSLAPercentage(myPendingAction.sla_deadline) : 100
   const slaLabel = pct <= 0 ? 'SLA Breached' : `SLA: ${Math.round(pct)}% remaining`
   const reqStatus = approvalRequest?.status
@@ -266,7 +293,7 @@ function ApprovalProgressPanel({ prId, onStatusChange }: {
         <div className="">
           <ApprovalTimeline actions={approvalRequest.actions ?? []} currentLevel={approvalRequest.current_level} requestedAt={approvalRequest.created_at} />
           {myPendingAction && (
-            <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} />
+            <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} onReleaseHold={releaseHold} />
           )}
         </div>
       )}
@@ -528,47 +555,10 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
 
   return (
     <div className="space-y-4">
-      {/* Tracking ID */}
+      {/* Tracking ID (read-only) */}
       <div className="space-y-1">
         <Label className="text-xs">Budget / Tracking ID</Label>
-        <div className="relative">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search by tracking code or title..."
-              value={showTrackingDropdown ? trackingSearch : (selectedTrackingObj?.tracking_code ?? '')}
-              onChange={(e) => { setTrackingSearch(e.target.value); setShowTrackingDropdown(true) }}
-              onFocus={() => { if (trackingSearch.length > 0) setShowTrackingDropdown(true) }}
-              onBlur={() => setTimeout(() => setShowTrackingDropdown(false), 200)}
-              className="h-8 pl-8"
-            />
-            {selectedTrackingObj && (
-              <button type="button" onClick={() => { set('tracking_id', ''); setTrackingSearch('') }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-          {showTrackingDropdown && trackingSearch && (
-            <div className="absolute z-20 top-full mt-1 left-0 right-0 border rounded-md bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
-              {trackingIds
-                .filter((t: any) => `${t.tracking_code} ${t.title}`.toLowerCase().includes(trackingSearch.toLowerCase()))
-                .map((t: any) => (
-                  <button key={t.id} type="button" onMouseDown={e => e.preventDefault()}
-                    onClick={() => { set('tracking_id', t.id); setTrackingSearch(''); setShowTrackingDropdown(false) }}
-                    className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-medium">{t.tracking_code}</span>
-                      <span className="text-xs text-muted-foreground">{formatCurrency(t.approved_amount)}</span>
-                    </div>
-                    {t.title && <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.title}</p>}
-                  </button>
-                ))}
-              {trackingIds.filter((t: any) => `${t.tracking_code} ${t.title}`.toLowerCase().includes(trackingSearch.toLowerCase())).length === 0 && (
-                <p className="px-3 py-2.5 text-sm text-muted-foreground">No tracking IDs found</p>
-              )}
-            </div>
-          )}
-        </div>
+        <Input value={pr.tracking_code ?? selectedTrackingObj?.tracking_code ?? '—'} disabled readOnly className="h-8 bg-muted cursor-not-allowed text-muted-foreground font-mono" />
       </div>
 
       {/* Budget Details — compact inline */}
@@ -598,17 +588,11 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Plant</Label>
-          <select disabled className="w-full h-8 border rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground" value={form.plant}>
-            <option value="">— none —</option>
-            {plants.map((p: any) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-          </select>
+          <Input value={pr.plant_name ?? '—'} disabled readOnly className="h-8 bg-muted cursor-not-allowed text-muted-foreground" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Department</Label>
-          <select disabled className="w-full h-8 border rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground" value={form.department}>
-            <option value="">— none —</option>
-            {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          <Input value={pr.department_name ?? '—'} disabled readOnly className="h-8 bg-muted cursor-not-allowed text-muted-foreground" />
         </div>
       </div>
 
@@ -1310,7 +1294,7 @@ function EditBidModal({ bid, prId, onClose, onSuccess }: {
       fd.append('notes', form.notes)
       fd.append('change_reason', form.change_reason)
       if (bidFile) fd.append('bid_document', bidFile)
-      await apiClient.patch(`/procurement/${prId}/bids/${bid.id}/`, fd, {
+      await apiClient.patch(`/procurement/${prId}/bids/${bid.hash_id}/`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
     },
@@ -1643,8 +1627,8 @@ function BidApprovalModal({ bid, pr, onClose, onSuccess }: {
     }
     setSubmitting(true)
     try {
-      await apiClient.post(`/procurement/${pr.id}/submit-bid-for-approval/`, {
-        bid_id: bid.id,
+      await apiClient.post(`/procurement/${pr.hash_id}/submit-bid-for-approval/`, {
+        bid_id: bid.hash_id,
         matrix_id: selectedMatrix,
       })
       toast({ title: `Bid from ${bid.vendor_name} submitted for approval.` })
@@ -1851,10 +1835,10 @@ function bidActionStyle(action: string, isCurrent: boolean) {
 
 function BidApprovalProgress({ bid }: { bid: any }) {
   const { data: approvalRequest, isLoading } = useQuery({
-    queryKey: ['bid-approval', bid.id],
+    queryKey: ['bid-approval', bid.hash_id],
     queryFn: async () => {
       const res = await apiClient.get('/approvals/requests/', {
-        params: { entity_type: 'vendorbid', object_id: bid.id },
+        params: { entity_type: 'vendorbid', object_id: bid.hash_id },
       })
       const list: any[] = res.data.results ?? res.data
       return list.find(r => ['pending', 'in_progress'].includes(r.status)) ?? list[0] ?? null
@@ -1993,7 +1977,7 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
   const handleReject = async (reason?: string) => {
     if (!confirmReject) return
     try {
-      await apiClient.post(`/procurement/${id}/reject-bid/`, { bid_id: confirmReject.id, reason })
+      await apiClient.post(`/procurement/${id}/reject-bid/`, { bid_id: confirmReject.hash_id, reason })
       toast({ title: `Bid from ${confirmReject.vendor_name} rejected.` })
       setConfirmReject(null)
       refetchBids()
@@ -2134,10 +2118,11 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
     0,
   )
   const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
-  const grandTotal = Number(pr.total_amount || (subtotal + taxTotal))
-  const currency = pr.currency_code ?? ''
+  const grandTotal = subtotal + taxTotal
+  const currency = pr.currency_code ?? 'INR'
   const fmt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const dateStr = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  const dateStr = (d: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+  const dateTimeStr = (d: string) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 
   // ── Status badge ─────────────────────────────────────────────────────────────
 
@@ -2147,22 +2132,27 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
     approved:         'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
     rejected:         'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
     vendor_selected:  'background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe',
+    synced_to_sap:    'background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe',
     po_created:       'background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe',
+    cancelled:        'background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0',
   }
   const sstyle = statusStyles[pr.status] ?? statusStyles.draft
-  const statusLabel = (pr.status ?? '').replace(/_/g, ' ').toUpperCase()
+  const statusLabel = (pr.status ?? '').replaceAll('_', ' ').toUpperCase()
 
   // ── Line item rows ────────────────────────────────────────────────────────────
 
   const lineRows = lineItems.length === 0
     ? `<tr><td colspan="7" style="padding:10px;text-align:center;color:#94a3b8;font-style:italic">No line items</td></tr>`
     : lineItems.map((item, idx) => {
+        const detail = item.item_code_detail ?? {}
+        const code = detail.code ?? item.item_code ?? '—'
+        const desc = detail.description ?? item.description ?? '—'
         const total = Number(item.quantity || 0) * Number(item.unit_rate || 0)
         const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
         return `<tr style="${bg}">
           <td style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${idx + 1}</td>
-          <td style="padding:5px 8px;font-family:Courier New,monospace;font-size:9px;border:1px solid #e2e8f0">${item.item_code || '—'}</td>
-          <td style="padding:5px 8px;border:1px solid #e2e8f0">${item.description || '—'}</td>
+          <td style="padding:5px 8px;font-family:Courier New,monospace;font-size:9px;border:1px solid #e2e8f0">${code}</td>
+          <td style="padding:5px 8px;border:1px solid #e2e8f0">${desc}</td>
           <td style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0">${Number(item.quantity).toLocaleString()}</td>
           <td style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${item.unit_of_measure || 'EA'}</td>
           <td style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0">${fmt(Number(item.unit_rate))}</td>
@@ -2184,23 +2174,60 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
       <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">${rows}</table>
     </div>`
 
-  const invitedVendors = (pr.invited_vendors_detail ?? []).map((v: any) => v.company_name).join(', ') || '—'
+  const invitedVendors = (pr.invited_vendors_detail ?? []).map((v: any) => {
+    const loc = [v.city, v.state].filter(Boolean).join(', ')
+    return v.company_name + (loc ? ` (${loc})` : '')
+  }).join(', ') || '—'
   const selectedVendor = pr.selected_vendor_name || '—'
-  const createdAt = pr.created_at ? dateStr(pr.created_at) : '—'
+  const createdAt = dateStr(pr.created_at)
+  const approvedAt = dateStr(pr.approved_at)
+
+  // Budget info
+  const budget = pr.budget_info
+  const trackingCode = budget?.tracking_code ?? pr.tracking_code ?? '—'
 
   const detailRows = [
-    frow('Title',       pr.title),
-    frow('Description', pr.description),
-    frow('Department',  pr.department_name),
-    frow('Plant',       pr.plant_name),
-    frow('Type',        pr.purchase_type),
-    frow('Currency',    pr.currency_code),
+    frow('PR Number',    pr.pr_number),
+    frow('Title',        pr.title),
+    frow('Description',  pr.description),
+    frow('Department',   pr.department_name),
+    frow('Plant',        pr.plant_name),
+    frow('Purchase Type', pr.purchase_type),
+    frow('Currency',     currency),
+    frow('Created By',   pr.created_by_name),
+    frow('Created On',   createdAt),
+    frow('Approved On',  pr.approved_at ? approvedAt : null),
   ].join('')
 
   const vendorRows = [
     frow('Invited Vendors',  invitedVendors),
     frow('Selected Vendor',  selectedVendor),
+    frow('SAP PR Number',    pr.sap_pr_number || null),
+    frow('SAP PO Number',    pr.sap_po_number || null),
   ].join('')
+
+  // Budget section
+  const budgetRows = budget ? [
+    frow('Tracking ID',     trackingCode),
+    frow('Approved Budget', `${currency} ${fmt(Number(budget.approved_amount))}`),
+    frow('Consumed',        `${currency} ${fmt(Number(budget.consumed_amount))}`),
+    frow('Remaining',       `${currency} ${fmt(Number(budget.remaining_amount))}`),
+  ].join('') : null
+
+  // Invited vendors table
+  const vendorDetailRows = (pr.invited_vendors_detail ?? []).length > 0
+    ? (pr.invited_vendors_detail as any[]).map((v: any, idx: number) => {
+        const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
+        const loc = [v.city, v.state].filter(Boolean).join(', ') || '—'
+        return `<tr style="${bg}">
+          <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center;color:#64748b">${idx + 1}</td>
+          <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:500">${v.company_name}</td>
+          <td style="padding:5px 8px;border:1px solid #e2e8f0">${v.category_name || '—'}</td>
+          <td style="padding:5px 8px;border:1px solid #e2e8f0">${loc}</td>
+          <td style="padding:5px 8px;border:1px solid #e2e8f0">${v.contact_email || '—'}</td>
+        </tr>`
+      }).join('')
+    : null
 
   // ── HTML ───────────────────────────────────────────────────────────────────────
 
@@ -2216,6 +2243,7 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
   </style>
 </head>
 <body>
+  <div style="max-width:800px;margin:0 auto;padding:20px">
 
   <!-- ═══ HEADER ═══ -->
   <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #1e3a5f;padding-bottom:10px;margin-bottom:12px">
@@ -2229,11 +2257,12 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
       </td>
       <td style="text-align:right;vertical-align:top;white-space:nowrap">
         <div style="font-size:9px;color:#64748b;line-height:1.9">
-          ${pr.tracking_code ? `<div><strong style="color:#1e293b">Tracking ID:</strong> ${pr.tracking_code}</div>` : ''}
+          <div><strong style="color:#1e293b">Tracking ID:</strong> ${trackingCode}</div>
           <div><strong style="color:#1e293b">Created:</strong> ${createdAt}</div>
           ${pr.created_by_name ? `<div><strong style="color:#1e293b">By:</strong> ${pr.created_by_name}</div>` : ''}
+          ${pr.approved_at ? `<div><strong style="color:#1e293b">Approved:</strong> ${approvedAt}</div>` : ''}
           <div style="margin-top:4px;font-size:18px;font-weight:700;color:#1e3a5f">${currency} ${fmt(grandTotal)}</div>
-          <div style="font-size:8.5px;color:#94a3b8">Grand Total</div>
+          <div style="font-size:8.5px;color:#94a3b8">Grand Total (incl. taxes)</div>
         </div>
       </td>
     </tr>
@@ -2243,20 +2272,24 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
   <table style="width:100%;border-collapse:separate;border-spacing:8px;margin-bottom:4px">
     <tr>
       <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;text-align:center">
-        <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Total Value</div>
-        <div style="font-size:15px;font-weight:700;color:#1e3a5f">${currency} ${fmt(grandTotal)}</div>
+        <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Subtotal</div>
+        <div style="font-size:14px;font-weight:700;color:#1e3a5f">${currency} ${fmt(subtotal)}</div>
+      </td>
+      <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;text-align:center">
+        <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Tax</div>
+        <div style="font-size:14px;font-weight:700;color:#1e3a5f">${currency} ${fmt(taxTotal)}</div>
+      </td>
+      <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;text-align:center">
+        <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Grand Total</div>
+        <div style="font-size:14px;font-weight:700;color:#1e3a5f">${currency} ${fmt(grandTotal)}</div>
       </td>
       <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;text-align:center">
         <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Line Items</div>
-        <div style="font-size:15px;font-weight:700;color:#1e3a5f">${lineItems.length}</div>
+        <div style="font-size:14px;font-weight:700;color:#1e3a5f">${lineItems.length}</div>
       </td>
       <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;text-align:center">
         <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Purchase Type</div>
-        <div style="font-size:15px;font-weight:700;color:#1e3a5f">${pr.purchase_type || 'General'}</div>
-      </td>
-      <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;text-align:center">
-        <div style="font-size:8.5px;color:#64748b;margin-bottom:3px">Invited Vendors</div>
-        <div style="font-size:15px;font-weight:700;color:#1e3a5f">${(pr.invited_vendors_detail ?? []).length}</div>
+        <div style="font-size:14px;font-weight:700;color:#1e3a5f">${pr.purchase_type || 'General'}</div>
       </td>
     </tr>
   </table>
@@ -2265,9 +2298,29 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
   <table style="width:100%;border-collapse:collapse;margin-bottom:2px">
     <tr>
       <td style="width:55%;padding-right:8px;vertical-align:top">${section('Requisition Details', detailRows)}</td>
-      <td style="width:45%;padding-left:8px;vertical-align:top">${section('Vendor Information', vendorRows)}</td>
+      <td style="width:45%;padding-left:8px;vertical-align:top">
+        ${section('Vendor & SAP Info', vendorRows)}
+        ${budgetRows ? section('Budget Information', budgetRows) : ''}
+      </td>
     </tr>
   </table>
+
+  <!-- ═══ INVITED VENDORS TABLE ═══ -->
+  ${vendorDetailRows ? `
+  <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Invited Vendors</div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+    <thead>
+      <tr style="background:#f1f5f9">
+        <th style="padding:6px 8px;text-align:center;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:28px">#</th>
+        <th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b">Vendor Name</th>
+        <th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b">Category</th>
+        <th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b">Location</th>
+        <th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b">Email</th>
+      </tr>
+    </thead>
+    <tbody>${vendorDetailRows}</tbody>
+  </table>
+  ` : ''}
 
   <!-- ═══ LINE ITEMS ═══ -->
   <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Line Items</div>
@@ -2289,8 +2342,8 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
   <!-- ═══ TOTALS ═══ -->
   <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
     <tr>
-      <td style="width:60%"></td>
-      <td style="width:40%">
+      <td style="width:55%"></td>
+      <td style="width:45%">
         <table style="width:100%;border-collapse:collapse">
           <tr>
             <td style="padding:5px 12px;color:#64748b;border:1px solid #e2e8f0">Subtotal</td>
@@ -2324,10 +2377,12 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
     </tr>
   </table>
 
+  </div>
 </body>
 </html>`
 
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8;' })
+  // Open print dialog in the same page via hidden iframe
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const iframe = document.createElement('iframe')
   iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none'

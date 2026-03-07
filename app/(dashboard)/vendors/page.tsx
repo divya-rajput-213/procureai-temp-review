@@ -397,7 +397,7 @@ export default function VendorsPage() {
                   {vendors.map((v: any) => (
                     <tr
                       key={v.id}
-                      onClick={() => router.push(`/vendors/${v.id}`)}
+                      onClick={() => router.push(`/vendors/${v.hash_id}`)}
                       className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
                     >
                       {/* Company */}

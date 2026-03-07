@@ -116,7 +116,7 @@ export default function ProcurementPage() {
                   {prs.map((pr: any) => (
                     <tr
                       key={pr.id}
-                      onClick={() => router.push(`/procurement/${pr.id}`)}
+                      onClick={() => router.push(`/procurement/${pr.hash_id}`)}
                       className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
                     >
                       <td className="px-4 py-3 font-medium">{pr.pr_number}</td>
