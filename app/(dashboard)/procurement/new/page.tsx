@@ -717,7 +717,7 @@ export default function NewPRPage() {
                 const data = watch()
                 saveDraftMutation.mutate(data, {
                   onSuccess: (pr) => {
-                    setSavedPrId(pr.hash_id)
+                    setSavedPrId(pr.hash_id ?? pr.id)
                     queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
                     toast({ title: 'PR saved as draft.' })
                     setActiveTab('matrix')

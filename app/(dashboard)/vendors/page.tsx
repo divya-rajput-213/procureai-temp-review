@@ -52,7 +52,7 @@ function SortableTh({
 
 function exportCSV(vendors: any[]) {
   const headers = [
-    'Company', 'Vendor Code', 'GST No.', 'PAN No.', 'Category', 'Plant', 'SAP Code',
+    'Company', 'Vendor Code', 'GST No.', 'PAN No.', 'Category', 'Plant',
     'Status', 'Risk Score', 'MSME', 'MSME No.', 'SEZ', 'International',
     'Contact Name', 'Contact Email', 'Contact Phone',
     'Address', 'City', 'State', 'PIN', 'Country',
@@ -68,7 +68,6 @@ function exportCSV(vendors: any[]) {
     v.pan_number ?? '',
     v.category_name ?? '',
     v.plant_name ?? '',
-    v.sap_vendor_code ?? '',
     v.status ?? '',
     v.risk_score?.toFixed(1) ?? '',
     v.is_msme ? 'Yes' : 'No',
@@ -117,7 +116,6 @@ function exportPDF(vendors: any[]) {
       <td>${v.pan_number ?? ''}</td>
       <td>${v.category_name ?? ''}</td>
       <td>${v.plant_name ?? ''}</td>
-      <td>${v.sap_vendor_code ?? ''}</td>
       <td>${v.status ?? ''}</td>
       <td>${v.risk_score?.toFixed(1) ?? '—'}</td>
       <td>${v.is_msme ? 'Yes' : 'No'}</td>
@@ -176,7 +174,7 @@ function exportPDF(vendors: any[]) {
   <table>
     <thead><tr>
       <th>Company</th><th>Code</th><th>GST No.</th><th>PAN No.</th>
-      <th>Category</th><th>Plant</th><th>SAP Code</th>
+      <th>Category</th><th>Plant</th>
       <th>Status</th><th>Risk</th><th>MSME</th><th>SEZ</th><th>Created</th>
     </tr></thead>
     <tbody>${infoRows}</tbody>
