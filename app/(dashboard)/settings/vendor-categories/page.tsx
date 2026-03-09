@@ -22,16 +22,6 @@ interface CategoryFormData { series_code: string; name: string; is_active: boole
 
 const EMPTY_FORM: CategoryFormData = { series_code: '', name: '', is_active: true }
 
-const SERIES_OPTIONS = [
-  { value: '15', label: 'CapEx - Series 15' },
-  { value: '45', label: 'Productive - Series 45' },
-  { value: '50', label: 'Non-Productive - Series 50' },
-  { value: '60', label: 'Service - Series 60' },
-  { value: 'import', label: 'Import' },
-  { value: 'others', label: 'Others' },
-  { value: 'tooling', label: 'Tooling' },
-]
-
 const CATEGORY_FIELDS = [
   { key: 'series_code', label: 'Series Code', required: true },
   { key: 'name',        label: 'Name',        required: true },
@@ -85,8 +75,8 @@ function autoDetectMapping(csvHeaders: string[]): Record<string, string> {
 
 // ─── Add / Edit Modal ─────────────────────────────────────────────────────────
 
-function CategoryModal({ category, existingCodes, onClose }: Readonly<{
-  category: VendorCategory | null; existingCodes: string[]; onClose: () => void
+function CategoryModal({ category, onClose }: Readonly<{
+  category: VendorCategory | null; onClose: () => void
 }>) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -96,10 +86,6 @@ function CategoryModal({ category, existingCodes, onClose }: Readonly<{
     isEdit ? { series_code: category.series_code, name: category.name, is_active: category.is_active } : { ...EMPTY_FORM }
   )
   const [errors, setErrors] = useState<Partial<Record<keyof CategoryFormData, string>>>({})
-
-  const availableSeries = SERIES_OPTIONS.filter(
-    o => isEdit ? (o.value === category.series_code || !existingCodes.includes(o.value)) : !existingCodes.includes(o.value)
-  )
 
   const saveMutation = useMutation({
     mutationFn: async (data: CategoryFormData) =>
@@ -150,17 +136,12 @@ function CategoryModal({ category, existingCodes, onClose }: Readonly<{
           <div className="px-6 py-4 space-y-4">
             <div className="space-y-1">
               <Label>Series Code <span className="text-destructive">*</span></Label>
-              <select
-                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+              <Input
                 value={form.series_code}
                 onChange={e => set('series_code', e.target.value)}
+                placeholder="e.g. 15, 45, 50"
                 disabled={isEdit}
-              >
-                <option value="">Select series…</option>
-                {availableSeries.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+              />
               {errors.series_code && <p className="text-xs text-destructive">{errors.series_code}</p>}
             </div>
             <div className="space-y-1">
@@ -467,7 +448,6 @@ export default function VendorCategoriesPage() {
     },
   })
 
-  const existingCodes = (categories ?? []).map(c => c.series_code)
 
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) =>
@@ -589,7 +569,7 @@ export default function VendorCategoriesPage() {
       </Card>
 
       {modalOpen && (
-        <CategoryModal category={editingCategory} existingCodes={existingCodes} onClose={() => { setModalOpen(false); setEditingCategory(null) }} />
+        <CategoryModal category={editingCategory} onClose={() => { setModalOpen(false); setEditingCategory(null) }} />
       )}
       {deletingCategory && (
         <DeleteConfirm category={deletingCategory} onClose={() => setDeletingCategory(null)} />
