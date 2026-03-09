@@ -267,9 +267,9 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
             <th className="text-left py-1.5 font-medium w-12">Level</th>
             <th className="text-left py-1.5 font-medium">Approver</th>
             <th className="text-left py-1.5 font-medium w-28">Status</th>
-            <th className="text-left py-1.5 font-medium">Comments</th>
             <th className="text-left py-1.5 font-medium whitespace-nowrap">Due Date</th>
-            <th className="text-right py-1.5 font-medium whitespace-nowrap">Acted At</th>
+            <th className="text-left py-1.5 font-medium whitespace-nowrap">Acted At</th>
+            <th className="text-left py-1.5 font-medium">Comments</th>
           </tr>
         </thead>
         <tbody>
@@ -301,14 +301,14 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
                     {actionLabel}
                   </span>
                 </td>
-                <td className="py-2 text-muted-foreground italic">
-                  {a.comments ? `"${a.comments}"` : '—'}
-                </td>
                 <td className="py-2 text-muted-foreground whitespace-nowrap">
                   {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
                 </td>
-                <td className="py-2 text-right text-muted-foreground whitespace-nowrap">
+                <td className="py-2 text-muted-foreground whitespace-nowrap">
                   {a.acted_at ? formatDateTime(a.acted_at) : '—'}
+                </td>
+                <td className="py-2 text-muted-foreground italic">
+                  {a.comments ? `"${a.comments}"` : '—'}
                 </td>
               </tr>
             )
@@ -897,6 +897,74 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
   )
 }
 
+// ─── Budget KPI Cards (read-only) ───────────────────────────────────────────────
+
+function BudgetKPICards({ budget }: { budget: any }) {
+  const approved = Number(budget.approved_amount || 0)
+  const requested = Number(budget.requested_amount || 0)
+  const consumed = Number(budget.consumed_amount || 0)
+  const budgetAmt = approved || requested
+  const remaining = approved ? approved - consumed : null
+  const utilPct = approved > 0 ? Math.round((consumed / approved) * 100) : 0
+
+  const utilColor = utilPct > 90 ? 'text-red-600' : utilPct > 70 ? 'text-amber-600' : 'text-green-600'
+  const barColor = utilPct > 90 ? 'bg-red-500' : utilPct > 70 ? 'bg-amber-500' : 'bg-green-500'
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[10px] text-muted-foreground uppercase font-medium">Requested</p>
+            <p className="text-lg font-bold mt-1">{formatCurrency(requested)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[10px] text-muted-foreground uppercase font-medium">Approved</p>
+            <p className="text-lg font-bold mt-1">{approved ? formatCurrency(approved) : '—'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[10px] text-muted-foreground uppercase font-medium">Consumed</p>
+            <p className="text-lg font-bold mt-1">{formatCurrency(consumed)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[10px] text-muted-foreground uppercase font-medium">Remaining</p>
+            <p className={`text-lg font-bold mt-1 ${remaining !== null && remaining < 0 ? 'text-red-600' : ''}`}>
+              {remaining !== null ? formatCurrency(remaining) : '—'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {budget.status === 'approved' && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium">Budget Utilisation</p>
+              <span className={`text-sm font-bold ${utilColor}`}>{utilPct}%</span>
+            </div>
+            <div className="h-3 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${barColor}`}
+                style={{ width: `${Math.min(utilPct, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
+              <span>{formatCurrency(consumed)} consumed</span>
+              <span>{formatCurrency(budgetAmt)} budget</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function BudgetDetailPage() {
@@ -1035,6 +1103,8 @@ export default function BudgetDetailPage() {
             />
           ) : (
             <>
+              <BudgetKPICards budget={budget} />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card>
                   <CardHeader><CardTitle className="text-sm">Budget Details</CardTitle></CardHeader>

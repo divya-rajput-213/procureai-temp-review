@@ -171,7 +171,10 @@ export default function DashboardPage() {
 
   const budgetStatusData = useMemo(() => {
     const map: Record<string, number> = {}
-    budgets.forEach((b: any) => { map[b.status] = (map[b.status] || 0) + 1 })
+    budgets.forEach((b: any) => {
+      const amount = Number.parseFloat(b.approved_amount || b.requested_amount || 0)
+      map[b.status] = (map[b.status] || 0) + amount
+    })
     return Object.entries(map).map(([name, value]) => ({ name, value }))
   }, [budgets])
 
@@ -354,7 +357,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Budget Status Distribution</CardTitle>
-            <CardDescription>Tracking IDs by status</CardDescription>
+            <CardDescription>Budget amount by status</CardDescription>
           </CardHeader>
           <CardContent>
             {budgetStatusData.length > 0 ? (
@@ -374,7 +377,7 @@ export default function DashboardPage() {
                         <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? CHART_COLORS[i % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(v: any) => [v, 'Count']} />
+                    <Tooltip formatter={(v: any) => [formatCurrency(v), 'Amount']} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex-1 space-y-1.5">
@@ -385,7 +388,7 @@ export default function DashboardPage() {
                         <span className="text-muted-foreground capitalize">{entry.name.replace(/_/g, ' ')}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">{entry.value}</span>
+                        <span className="font-semibold">{formatCurrency(entry.value)}</span>
                         <span className="text-muted-foreground w-8 text-right">{budgetTotal > 0 ? `${Math.round((entry.value / budgetTotal) * 100)}%` : ''}</span>
                       </div>
                     </div>
@@ -434,7 +437,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base">Recent Activity</CardTitle>
-                <CardDescription className="mt-0.5">Latest events across PRs, vendors &amp; budget</CardDescription>
+                <CardDescription className="mt-0.5">Latest events across PRs, vendors & budget</CardDescription>
               </div>
             </div>
           </CardHeader>

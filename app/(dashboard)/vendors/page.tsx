@@ -243,6 +243,8 @@ const PAGE_SIZE = 20
 export default function VendorsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [plantFilter, setPlantFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [page, setPage] = useState(1)
   const [sortField, setSortField] = useState<SortField>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -250,8 +252,20 @@ export default function VendorsPage() {
   const ordering = sortDir === 'asc' ? sortField : `-${sortField}`
   const router = useRouter()
 
+  // Fetch plants & categories for filter dropdowns
+  const { data: plants } = useQuery({
+    queryKey: ['plants'],
+    queryFn: async () => (await apiClient.get('/users/plants/')).data,
+  })
+  const { data: categories } = useQuery({
+    queryKey: ['vendor-categories'],
+    queryFn: async () => (await apiClient.get('/vendors/categories/')).data,
+  })
+  const plantList: any[] = plants?.results ?? (Array.isArray(plants) ? plants : [])
+  const categoryList: any[] = categories?.results ?? (Array.isArray(categories) ? categories : [])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['vendors', search, statusFilter, page, ordering],
+    queryKey: ['vendors', search, statusFilter, plantFilter, categoryFilter, page, ordering],
     queryFn: async () => {
       const params: Record<string, string> = {
         page: String(page),
@@ -260,6 +274,8 @@ export default function VendorsPage() {
       }
       if (search) params.search = search
       if (statusFilter) params.status = statusFilter
+      if (plantFilter) params.plant = plantFilter
+      if (categoryFilter) params.category = categoryFilter
       const { data } = await apiClient.get('/vendors/', { params })
       return data
     },
@@ -271,9 +287,11 @@ export default function VendorsPage() {
     const params: Record<string, string> = { page_size: '9999', ordering }
     if (search) params.search = search
     if (statusFilter) params.status = statusFilter
+    if (plantFilter) params.plant = plantFilter
+    if (categoryFilter) params.category = categoryFilter
     const { data } = await apiClient.get('/vendors/', { params })
     return (data?.results ?? data) as any[]
-  }, [search, statusFilter, ordering])
+  }, [search, statusFilter, plantFilter, categoryFilter, ordering])
 
   const vendors: any[] = data?.results ?? (Array.isArray(data) ? data : [])
   const totalCount: number = data?.count ?? vendors.length
@@ -296,6 +314,16 @@ export default function VendorsPage() {
 
   const handleStatus = (val: string) => {
     setStatusFilter(val)
+    setPage(1)
+  }
+
+  const handlePlant = (val: string) => {
+    setPlantFilter(val)
+    setPage(1)
+  }
+
+  const handleCategory = (val: string) => {
+    setCategoryFilter(val)
     setPage(1)
   }
 
@@ -337,6 +365,26 @@ export default function VendorsPage() {
             <option value="rejected">Rejected</option>
             <option value="blocked">Blocked</option>
           </select>
+          <select
+            className="h-10 border rounded-md px-3 text-sm bg-background shrink-0"
+            value={plantFilter}
+            onChange={e => handlePlant(e.target.value)}
+          >
+            <option value="">All Plants</option>
+            {plantList.map((p: any) => (
+              <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+            ))}
+          </select>
+          <select
+            className="h-10 border rounded-md px-3 text-sm bg-background shrink-0"
+            value={categoryFilter}
+            onChange={e => handleCategory(e.target.value)}
+          >
+            <option value="">All Categories</option>
+            {categoryList.map((c: any) => (
+              <option key={c.id} value={c.series_code}>{c.name}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -364,7 +412,7 @@ export default function VendorsPage() {
       {!isLoading && (
         <p className="text-xs text-muted-foreground">
           {totalCount} vendor{totalCount === 1 ? '' : 's'}
-          {(search || statusFilter) && ' matching filters'}
+          {(search || statusFilter || plantFilter || categoryFilter) && ' matching filters'}
         </p>
       )}
 

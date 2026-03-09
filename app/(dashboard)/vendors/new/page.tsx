@@ -661,7 +661,7 @@ export default function NewVendorPage() {
             <div className="flex justify-end">
               <Button type="button" onClick={handleStep0Next} disabled={step0Mutation.isPending} className="gap-1">
                 {step0Mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                Save &amp; Next
+                Save & Next
               </Button>
             </div>
           </CardContent>
@@ -672,7 +672,7 @@ export default function NewVendorPage() {
       {!showSrfMatch && step === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Compliance &amp; Documents</CardTitle>
+            <CardTitle>Compliance & Documents</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               All fields are optional here. GST, PAN and bank details will be required before submitting for approval.
             </p>
@@ -844,7 +844,7 @@ export default function NewVendorPage() {
               </Button>
               <Button type="button" onClick={handleStep1Next} disabled={step1Mutation.isPending} className="gap-1">
                 {step1Mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                Save &amp; Next
+                Save & Next
               </Button>
             </div>
           </CardContent>
@@ -855,7 +855,8 @@ export default function NewVendorPage() {
       {!showSrfMatch && step === 2 && (
         <Card>
           <CardHeader>
-            <CardTitle>Review &amp; Submit</CardTitle>
+            <CardTitle>Review & Submit</CardTitle>
+
             <p className="text-sm text-muted-foreground mt-1">
               Save as draft to continue editing later, or select an approval matrix and submit for approval.
               <span className="font-medium text-foreground"> GST, PAN and bank details are required before submitting for approval.</span>

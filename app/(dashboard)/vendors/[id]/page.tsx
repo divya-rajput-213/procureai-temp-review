@@ -300,9 +300,10 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
           <tr className="text-muted-foreground border-b">
             <th className="text-left py-1.5 font-medium w-12">Level</th>
             <th className="text-left py-1.5 font-medium">Approver</th>
-            <th className="text-left py-1.5 font-medium">Status</th>
+            <th className="text-left py-1.5 font-medium w-28">Status</th>
             <th className="text-left py-1.5 font-medium whitespace-nowrap">Due Date</th>
-            <th className="text-right py-1.5 font-medium whitespace-nowrap">Acted At</th>
+            <th className="text-left py-1.5 font-medium whitespace-nowrap">Acted At</th>
+            <th className="text-left py-1.5 font-medium">Comments</th>
           </tr>
         </thead>
         <tbody>
@@ -334,8 +335,11 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
                 <td className="py-2 text-muted-foreground whitespace-nowrap">
                   {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
                 </td>
-                <td className="py-2 text-right text-muted-foreground whitespace-nowrap">
+                <td className="py-2 text-muted-foreground whitespace-nowrap">
                   {a.acted_at ? formatDateTime(a.acted_at) : '—'}
+                </td>
+                <td className="py-2 text-muted-foreground italic">
+                  {a.comments ? `"${a.comments}"` : '—'}
                 </td>
               </tr>
             )
@@ -2145,7 +2149,7 @@ export default function VendorDetailPage() {
       const r = await apiClient.get('/vendors/categories/')
       return r.data.results ?? r.data
     },
-    enabled: isEditing || activeTab === 'change requests',
+    enabled: isEditing,
   })
 
   const { data: plants } = useQuery({
@@ -2154,7 +2158,7 @@ export default function VendorDetailPage() {
       const r = await apiClient.get('/users/plants/')
       return r.data.results ?? r.data
     },
-    enabled: isEditing || activeTab === 'change requests',
+    enabled: isEditing,
   })
 
   const editMutation = useMutation({
@@ -2246,9 +2250,8 @@ export default function VendorDetailPage() {
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
   if (!vendor) return <div className="p-8 text-center text-muted-foreground">Vendor not found.</div>
 
-  const isDraft = vendor.status === 'draft'
-  const showChangeRequests = ['pending_approval', 'approved', 'blocked'].includes(vendor.status)
-  const tabs = ['dashboard', 'details', 'documents', 'approval', ...(showChangeRequests ? ['change requests'] : [])]
+  const canEdit = ['draft', 'pending_approval'].includes(vendor.status)
+  const tabs = ['dashboard', 'details', 'documents', 'approval']
 
   return (
     <div className="space-y-4">
@@ -2267,7 +2270,7 @@ export default function VendorDetailPage() {
           <Button variant="outline" size="sm" onClick={() => { void exportVendorPDF(vendor, id) }} className="gap-1.5">
             <Download className="w-3.5 h-3.5" /> Download PDF
           </Button>
-          {isDraft && !isEditing && (
+          {canEdit && !isEditing && (
             <Button variant="outline" size="sm" onClick={() => {
               if (activeTab !== 'details' && activeTab !== 'documents') setActiveTab('details')
               if (activeTab === 'documents') initDocFields()
@@ -2311,6 +2314,26 @@ export default function VendorDetailPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
+                <CardHeader><CardTitle className="text-sm">Contact & Bank Details</CardTitle></CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {[
+                    ['Contact', vendor.contact_name],
+                    ['Email', vendor.contact_email],
+                    ['Phone', vendor.contact_phone],
+                    ['Address', [vendor.city, vendor.state, vendor.pincode].filter(Boolean).join(', ') || '—'],
+                    ['Bank', vendor.bank_name],
+                    ['Account', vendor.bank_account],
+                    ['IFSC', vendor.bank_ifsc],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex justify-between">
+                      <span className="text-muted-foreground">{label}</span>
+                      <span className="font-medium">{value || '—'}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
                 <CardHeader><CardTitle className="text-sm">Business Information</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   {[
@@ -2322,27 +2345,7 @@ export default function VendorDetailPage() {
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between">
                       <span className="text-muted-foreground">{label}</span>
-                      <span className="font-medium">{value}</span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader><CardTitle className="text-sm">Contact & Bank Details</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  {[
-                    ['Contact', vendor.contact_name],
-                    ['Email', vendor.contact_email],
-                    ['Phone', vendor.contact_phone],
-                    ['Address', `${vendor.city}, ${vendor.state} - ${vendor.pincode}`],
-                    ['Bank', vendor.bank_name],
-                    ['Account', vendor.bank_account],
-                    ['IFSC', vendor.bank_ifsc],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex justify-between">
-                      <span className="text-muted-foreground">{label}</span>
-                      <span className="font-medium">{value}</span>
+                      <span className="font-medium">{value || '—'}</span>
                     </div>
                   ))}
                 </CardContent>
@@ -2377,7 +2380,7 @@ export default function VendorDetailPage() {
       {activeTab === 'documents' && (
         <Card>
           <CardHeader>
-            <CardTitle>Compliance &amp; Documents</CardTitle>
+            <CardTitle>Compliance & Documents</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               {isEditing ? 'You can upload, replace, or remove documents.' : 'View regulatory documents and compliance information. Click "Edit Details" to make changes.'}
             </p>
@@ -2397,7 +2400,7 @@ export default function VendorDetailPage() {
                     <ComplianceFieldInput
                       value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
                       placeholder="e.g. 27AAAAA0000A1Z5"
-                      canEdit={isDraft && isEditing}
+                      canEdit={canEdit && isEditing}
                       onChange={v => setDocField('gst_number', v)}
                       onSave={v => setDocField('gst_number', v)}
                     />
@@ -2406,7 +2409,7 @@ export default function VendorDetailPage() {
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700">GST Certificate</Label>
                     <DocUploadInline vendorId={id} docType="gst_certificate"
-                      doc={docOf('gst_certificate')} editable={isDraft && isEditing}
+                      doc={docOf('gst_certificate')} editable={canEdit && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                     {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
                   </div>
@@ -2419,7 +2422,7 @@ export default function VendorDetailPage() {
                     <ComplianceFieldInput
                       value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
                       placeholder="e.g. AAAAA9999A"
-                      canEdit={isDraft && isEditing}
+                      canEdit={canEdit && isEditing}
                       onChange={v => setDocField('pan_number', v)}
                       onSave={v => setDocField('pan_number', v)}
                     />
@@ -2428,7 +2431,7 @@ export default function VendorDetailPage() {
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700">PAN Card</Label>
                     <DocUploadInline vendorId={id} docType="pan_card"
-                      doc={docOf('pan_card')} editable={isDraft && isEditing}
+                      doc={docOf('pan_card')} editable={canEdit && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                     {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
                   </div>
@@ -2447,7 +2450,7 @@ export default function VendorDetailPage() {
                         <ComplianceFieldInput
                           value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
                           placeholder={placeholder}
-                          canEdit={isDraft && isEditing}
+                          canEdit={canEdit && isEditing}
                           onChange={v => setDocField(key, v)}
                           onSave={v => setDocField(key, v)}
                         />
@@ -2458,7 +2461,7 @@ export default function VendorDetailPage() {
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque</Label>
                     <DocUploadInline vendorId={id} docType="bank_details"
-                      doc={docOf('bank_details')} editable={isDraft && isEditing}
+                      doc={docOf('bank_details')} editable={canEdit && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                     {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
                   </div>
@@ -2470,7 +2473,7 @@ export default function VendorDetailPage() {
                     <input
                       type="checkbox"
                       checked={!!vendor.is_msme}
-                      disabled={!(isDraft && isEditing)}
+                      disabled={!(canEdit && isEditing)}
                       onChange={async e => handleFieldUpdate('is_msme', e.target.checked)}
                       className="rounded"
                     />
@@ -2480,7 +2483,7 @@ export default function VendorDetailPage() {
                     <input
                       type="checkbox"
                       checked={!!vendor.is_sez}
-                      disabled={!(isDraft && isEditing)}
+                      disabled={!(canEdit && isEditing)}
                       onChange={async e => handleFieldUpdate('is_sez', e.target.checked)}
                       className="rounded"
                     />
@@ -2496,7 +2499,7 @@ export default function VendorDetailPage() {
                       <ComplianceFieldInput
                         value={isEditing ? (docFields.msme_number ?? '') : (vendor.msme_number ?? '')}
                         placeholder="e.g. UDYAM-MH-00-0000000"
-                        canEdit={isDraft && isEditing}
+                        canEdit={canEdit && isEditing}
                         onChange={v => setDocField('msme_number', v)}
                         onSave={v => setDocField('msme_number', v)}
                       />
@@ -2505,7 +2508,7 @@ export default function VendorDetailPage() {
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-700">MSME Certificate</Label>
                       <DocUploadInline vendorId={id} docType="msme_certificate"
-                        doc={docOf('msme_certificate')} editable={isDraft && isEditing}
+                        doc={docOf('msme_certificate')} editable={canEdit && isEditing}
                         onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                       {complianceErrors['doc_msme_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_msme_certificate']}</p>}
                     </div>
@@ -2522,7 +2525,7 @@ export default function VendorDetailPage() {
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-700">SEZ Certificate</Label>
                       <DocUploadInline vendorId={id} docType="sez_certificate"
-                        doc={docOf('sez_certificate')} editable={isDraft && isEditing}
+                        doc={docOf('sez_certificate')} editable={canEdit && isEditing}
                         onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                     </div>
                   </div>
@@ -2537,7 +2540,7 @@ export default function VendorDetailPage() {
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700">Upload Document</Label>
                     <DocUploadInline vendorId={id} docType="incorporation"
-                      doc={docOf('incorporation')} editable={isDraft && isEditing}
+                      doc={docOf('incorporation')} editable={canEdit && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
                   </div>
                 </div>
@@ -2550,11 +2553,11 @@ export default function VendorDetailPage() {
                 vendorId={id}
                 existingDocs={(vendor.documents ?? []).filter((d: any) => OTHER_DOC_TYPES.has(d.doc_type))}
                 onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })}
-                editable={isDraft && isEditing}
+                editable={canEdit && isEditing}
               />
             </div>
 
-            {isDraft && isEditing && (
+            {canEdit && isEditing && (
               <div className="flex justify-end gap-2 pt-4 border-t mt-2">
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setIsEditing(false)}>
                   <X className="w-3.5 h-3.5" /> Cancel
@@ -2570,15 +2573,6 @@ export default function VendorDetailPage() {
         </Card>
       )}
 
-      {/* Change Requests Tab */}
-      {activeTab === 'change requests' && showChangeRequests && (
-        <ChangeRequestTab
-          vendorId={id}
-          vendor={vendor}
-          categories={categories ?? []}
-          plants={plants ?? []}
-        />
-      )}
 
     </div>
   )

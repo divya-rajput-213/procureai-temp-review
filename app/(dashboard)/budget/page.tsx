@@ -113,36 +113,61 @@ export default function BudgetPage() {
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Title</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Priority</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Requested</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Approved</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Utilised</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {trackingIds.map((t: any) => (
-                    <tr
-                      key={t.id}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer"
-                      onClick={() => router.push(`/budget/${t.hash_id}`)}
-                    >
-                      <td className="px-4 py-3 font-medium text-primary">{t.tracking_code}</td>
-                      <td className="px-4 py-3 max-w-xs">
-                        <p className="font-medium truncate">{t.title || t.description}</p>
-                        {t.title && t.description && (
-                          <p className="text-xs text-muted-foreground truncate">{t.description}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {t.priority ? (
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${PRIORITY_COLORS[t.priority] ?? PRIORITY_COLORS.medium}`}>
-                            {t.priority}
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td className="px-4 py-3 font-semibold">{formatCurrency(t.requested_amount, t.currency_code)}</td>
-                      <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{formatDate(t.created_at)}</td>
-                    </tr>
-                  ))}
+                  {trackingIds.map((t: any) => {
+                    const approved = Number(t.approved_amount || 0)
+                    const consumed = Number(t.consumed_amount || 0)
+                    const utilPct = approved > 0 ? Math.round((consumed / approved) * 100) : 0
+                    return (
+                      <tr
+                        key={t.id}
+                        className="hover:bg-slate-50 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/budget/${t.hash_id}`)}
+                      >
+                        <td className="px-4 py-3 font-medium text-primary">{t.tracking_code}</td>
+                        <td className="px-4 py-3 max-w-xs">
+                          <p className="font-medium truncate">{t.title || t.description}</p>
+                          {t.title && t.description && (
+                            <p className="text-xs text-muted-foreground truncate">{t.description}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {t.priority ? (
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${PRIORITY_COLORS[t.priority] ?? PRIORITY_COLORS.medium}`}>
+                              {t.priority}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-4 py-3 font-semibold">{formatCurrency(t.requested_amount, t.currency_code)}</td>
+                        <td className="px-4 py-3 font-semibold">{approved ? formatCurrency(approved) : '—'}</td>
+                        <td className="px-4 py-3 hidden lg:table-cell">
+                          {t.status === 'approved' ? (
+                            <div className="min-w-[100px]">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className={`text-xs font-semibold ${utilPct > 90 ? 'text-red-600' : utilPct > 70 ? 'text-amber-600' : 'text-green-600'}`}>
+                                  {utilPct}%
+                                </span>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${utilPct > 90 ? 'bg-red-500' : utilPct > 70 ? 'bg-amber-500' : 'bg-green-500'}`}
+                                  style={{ width: `${Math.min(utilPct, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          ) : '—'}
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{formatDate(t.created_at)}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

@@ -6,6 +6,7 @@ interface CompanyInfo {
   id: number
   name: string
   schema_name: string
+  logo?: string | null
 }
 
 interface AuthState {
@@ -31,6 +32,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.setItem('access_token', access)
           localStorage.setItem('refresh_token', refresh)
+          document.cookie = 'auth_session=1; path=/; SameSite=Lax'
         }
         set({ accessToken: access, refreshToken: refresh, user, company: company ?? null })
       },
@@ -39,6 +41,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
+          document.cookie = 'auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         }
         set({ accessToken: null, refreshToken: null, user: null, company: null })
       },

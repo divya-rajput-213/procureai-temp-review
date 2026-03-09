@@ -129,7 +129,7 @@ export default function NewBudgetPage() {
         title:
           mode === 'approval'
             ? `Budget submitted for approval.`
-            : `Budget  saved as draft.`,
+            : `Budget saved as draft.`,
       })
   
       router.push('/budget')
@@ -543,7 +543,7 @@ export default function NewBudgetPage() {
                 {createMutation.isPending && submitModeRef.current === 'approval'
                   ? <Loader2 className="w-4 h-4 animate-spin" />
                   : <Send className="w-4 h-4" />}
-                Confirm &amp; Submit
+                Confirm & Submit
               </Button>
             ) : (
               <Button

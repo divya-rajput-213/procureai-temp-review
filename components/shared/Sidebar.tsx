@@ -34,6 +34,14 @@ const NAV_ITEMS = [
       { href: '/inventory/items', label: 'Items' },
     ],
   },
+  {
+    label: 'Masters',
+    icon: Pencil,
+    children: [
+      { href: '/settings/plants', label: 'Plants' },
+      { href: '/settings/vendor-categories', label: 'Vendor Categories' },
+    ],
+  },
   { href: '/users', label: 'Users', icon: Users, indent: false },
   { href: '/settings', label: 'Settings', icon: Settings, indent: false },
 ]
@@ -142,7 +150,7 @@ export function Sidebar() {
 
   const pathname = usePathname()
   const router = useRouter()
-  const { user, logout } = useAuthStore()
+  const { user, company, logout } = useAuthStore()
 
   const handleLogout = () => {
     logout()
@@ -154,29 +162,34 @@ export function Sidebar() {
       {/* Logo */}
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-
-          {/* Logo Box */}
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4 text-black"
-            >
-              <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
-            </svg>
-          </div>
-
-          <div>
-            <p className="text-lg font-bold leading-tight">
-              ProcureAI
+          {company?.logo ? (
+            <img
+              src={company.logo}
+              alt={company.name}
+              className="w-8 h-8 rounded-lg object-contain bg-white"
+            />
+          ) : (
+            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shrink-0">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4 text-black"
+              >
+                <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
+              </svg>
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-lg font-bold leading-tight truncate">
+              {company?.name || 'ProcureAI'}
             </p>
+            <p className="text-[10px] font-medium text-white/50 leading-tight">ProcureAI</p>
           </div>
-
         </div>
       </div>
 

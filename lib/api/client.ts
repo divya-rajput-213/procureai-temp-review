@@ -34,9 +34,10 @@ apiClient.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${access}`
         return apiClient(originalRequest)
       } catch {
-        // Refresh failed — clear tokens and redirect to login
+        // Refresh failed — clear tokens, cookie, and redirect to login
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
+        document.cookie = 'auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         window.location.href = '/login'
       }
     }
