@@ -1430,11 +1430,13 @@ function EditBidModal({ bid, prId, onClose, onSuccess }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
-        <h3 className="font-semibold text-sm flex items-center gap-2">
-          <Pencil className="w-4 h-4" /> Edit Bid — {bid.vendor_name}
-        </h3>
-        <div className="space-y-3">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+        <div className="px-6 pt-6 pb-3">
+          <h3 className="font-semibold text-sm flex items-center gap-2">
+            <Pencil className="w-4 h-4" /> Edit Bid — {bid.vendor_name}
+          </h3>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-3">
           <div className="space-y-1">
             <Label className="text-xs">Bid Amount *</Label>
             <Input type="number" step="0.01" value={form.bid_amount}
@@ -1471,7 +1473,7 @@ function EditBidModal({ bid, prId, onClose, onSuccess }: {
               onChange={e => setForm(f => ({ ...f, change_reason: e.target.value }))} />
           </div>
         </div>
-        <div className="flex gap-2 justify-end pt-1">
+        <div className="flex gap-2 justify-end px-6 py-4 border-t shrink-0">
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
           <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending || !form.bid_amount || !form.delivery_days || !form.change_reason.trim()}
             className="gap-1">

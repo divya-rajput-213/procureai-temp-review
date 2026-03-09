@@ -222,8 +222,8 @@ export default function UsersPage() {
       <div className="border-b flex gap-1">
         {([
           ['users', 'All Users'],
-          ['azure', 'Azure AD Sync'],
-          ['import', 'Bulk Import'],
+          // ['azure', 'Azure AD Sync'],
+          // ['import', 'Bulk Import'],
         ] as const).map(([tab, label]) => (
           <button
             key={tab}
@@ -554,13 +554,13 @@ export default function UsersPage() {
       {/* Assign Role Modal */}
       {showAssignModal && selectedRole && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
+          <Card className="w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+            <CardHeader className="shrink-0">
               <CardTitle className="text-base">
                 Assign <span className="text-primary">{selectedRole.display_name}</span> to User
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 flex-1 overflow-y-auto">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -608,11 +608,11 @@ export default function UsersPage() {
       {/* Edit User Modal */}
       {editUser && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
+          <Card className="w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+            <CardHeader className="shrink-0">
               <CardTitle className="text-base">Edit User</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 flex-1 overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">First Name</Label>
@@ -740,17 +740,17 @@ export default function UsersPage() {
       {/* Add User Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
+          <Card className="w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+            <CardHeader className="shrink-0">
               <CardTitle>Add New User</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 flex-1 overflow-y-auto">
               {[
                 { label: 'First Name *', key: 'first_name', placeholder: 'John' },
                 { label: 'Last Name *', key: 'last_name', placeholder: 'Doe' },
                 { label: 'Email *', key: 'email', placeholder: 'john@company.com' },
-                { label: 'Designation', key: 'designation', placeholder: 'Manager' },
                 { label: 'Phone', key: 'phone', placeholder: '+91 98765 43210' },
+                { label: 'Designation *', key: 'designation', placeholder: 'Manager' },
               ].map(({ label, key, placeholder }) => (
                 <div key={key} className="space-y-1">
                   <Label className="text-xs">{label}</Label>
@@ -779,7 +779,7 @@ export default function UsersPage() {
 
               {/* Roles multiselect */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Roles</Label>
+                <Label className="text-xs">Roles *</Label>
                 {addForm.role_ids.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-1">
                     {addForm.role_ids.map(id => {
@@ -848,7 +848,7 @@ export default function UsersPage() {
                 </Button>
                 <Button
                   onClick={() => createUserMutation.mutate()}
-                  disabled={createUserMutation.isPending || !addForm.email || !addForm.first_name}
+                  disabled={createUserMutation.isPending || !addForm.email || !addForm.first_name || !addForm.designation.trim() || addForm.role_ids.length === 0}
                   className="flex-1 gap-2"
                 >
                   {createUserMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}

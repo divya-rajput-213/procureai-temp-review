@@ -111,14 +111,14 @@ function CategoryModal({ category, onClose }: Readonly<{ category: Category | nu
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
           <h2 className="text-base font-semibold">{isEdit ? 'Edit Category' : 'Add Category'}</h2>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <form onSubmit={e => { e.preventDefault(); if (validate()) saveMutation.mutate(form) }}>
+        <form onSubmit={e => { e.preventDefault(); if (validate()) saveMutation.mutate(form) }} className="flex flex-col flex-1 overflow-hidden">
           <div className="px-6 py-4 space-y-4">
             <div className="space-y-1">
               <Label>Name <span className="text-destructive">*</span></Label>

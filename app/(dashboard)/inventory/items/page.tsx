@@ -134,15 +134,15 @@ function ItemModal({ item, onClose }: { item: Item | null; onClose: () => void }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
           <h2 className="text-base font-semibold">{isEdit ? 'Edit Item' : 'Add Item'}</h2>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <form onSubmit={e => { e.preventDefault(); if (validate()) saveMutation.mutate(form) }}>
-          <div className="px-6 py-4 space-y-4">
+        <form onSubmit={e => { e.preventDefault(); if (validate()) saveMutation.mutate(form) }} className="flex flex-col flex-1 overflow-hidden">
+          <div className="px-6 py-4 space-y-4 flex-1 overflow-y-auto">
             <div className="space-y-1">
               <Label>Description <span className="text-destructive">*</span></Label>
               <Input value={form.description} onChange={e => set('description', e.target.value)} placeholder="Full item description" />
@@ -182,7 +182,7 @@ function ItemModal({ item, onClose }: { item: Item | null; onClose: () => void }
               <Label htmlFor="is_active" className="cursor-pointer">Active</Label>
             </div>
           </div>
-          <div className="flex justify-end gap-2 px-6 py-4 border-t">
+          <div className="flex justify-end gap-2 px-6 py-4 border-t shrink-0">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saveMutation.isPending} className="gap-2">
               {saveMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
