@@ -261,60 +261,62 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
       {requestedAt && (
         <p className="text-[11px] text-muted-foreground mb-2">Requested for approval: <span className="font-medium text-slate-700">{formatDateTime(requestedAt)}</span></p>
       )}
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="text-muted-foreground border-b">
-            <th className="text-left py-1.5 font-medium w-12">Level</th>
-            <th className="text-left py-1.5 font-medium">Approver</th>
-            <th className="text-left py-1.5 font-medium w-28">Status</th>
-            <th className="text-left py-1.5 font-medium whitespace-nowrap">Due Date</th>
-            <th className="text-left py-1.5 font-medium whitespace-nowrap">Acted At</th>
-            <th className="text-left py-1.5 font-medium">Comments</th>
-          </tr>
-        </thead>
-        <tbody>
-          {actions.map((a: any) => {
-            const isPending = !a.action || a.action === 'pending'
-            const isCurrent = isPending && a.level_number === currentLevel
-            const effectiveAction = a.action ?? 'pending'
-            let actionLabel = 'Pending'
-            if (effectiveAction === 'approved') actionLabel = 'Approved'
-            else if (effectiveAction === 'rejected') actionLabel = 'Rejected'
-            else if (effectiveAction === 'held') actionLabel = 'On Hold'
-            return (
-              <tr key={a.id} className={`border-t ${isCurrent ? 'bg-amber-50' : ''}`}>
-                <td className="py-2">
-                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full font-bold ${levelBubbleCls(effectiveAction, isCurrent)}`}>
-                    {a.level_number}
-                  </span>
-                </td>
-                <td className="py-2 font-medium text-slate-700">
-                  {a.approver_name ?? '—'}
-                  {a.is_delegated && <span className="ml-1.5 text-xs font-normal text-blue-500">(delegated)</span>}
-                  {isCurrent && (
-                    <span className="ml-1.5 text-xs font-normal text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">awaiting</span>
-                  )}
-                </td>
-                <td className="py-2">
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${actionStepClass(effectiveAction)}`}>
-                    <ActionStepIcon action={effectiveAction} />
-                    {actionLabel}
-                  </span>
-                </td>
-                <td className="py-2 text-muted-foreground whitespace-nowrap">
-                  {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
-                </td>
-                <td className="py-2 text-muted-foreground whitespace-nowrap">
-                  {a.acted_at ? formatDateTime(a.acted_at) : '—'}
-                </td>
-                <td className="py-2 text-muted-foreground italic">
-                  {a.comments ? `"${a.comments}"` : '—'}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs" style={{ minWidth: 640 }}>
+          <thead>
+            <tr className="text-muted-foreground border-b">
+              <th className="text-left px-3 py-2 font-medium w-12">Level</th>
+              <th className="text-left px-3 py-2 font-medium">Approver</th>
+              <th className="text-left px-3 py-2 font-medium w-28">Status</th>
+              <th className="text-left px-3 py-2 font-medium whitespace-nowrap">Due Date</th>
+              <th className="text-left px-3 py-2 font-medium whitespace-nowrap">Acted At</th>
+              <th className="text-left px-3 py-2 font-medium">Comments</th>
+            </tr>
+          </thead>
+          <tbody>
+            {actions.map((a: any) => {
+              const isPending = !a.action || a.action === 'pending'
+              const isCurrent = isPending && a.level_number === currentLevel
+              const effectiveAction = a.action ?? 'pending'
+              let actionLabel = 'Pending'
+              if (effectiveAction === 'approved') actionLabel = 'Approved'
+              else if (effectiveAction === 'rejected') actionLabel = 'Rejected'
+              else if (effectiveAction === 'held') actionLabel = 'On Hold'
+              return (
+                <tr key={a.id} className={`border-t ${isCurrent ? 'bg-amber-50' : ''}`}>
+                  <td className="px-3 py-2.5">
+                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full font-bold ${levelBubbleCls(effectiveAction, isCurrent)}`}>
+                      {a.level_number}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap">
+                    {a.approver_name ?? '—'}
+                    {a.is_delegated && <span className="ml-1.5 text-xs font-normal text-blue-500">(delegated)</span>}
+                    {isCurrent && (
+                      <span className="ml-1.5 text-xs font-normal text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">awaiting</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${actionStepClass(effectiveAction)}`}>
+                      <ActionStepIcon action={effectiveAction} />
+                      {actionLabel}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
+                    {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
+                    {a.acted_at ? formatDateTime(a.acted_at) : '—'}
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground italic max-w-[200px] truncate">
+                    {a.comments ? `"${a.comments}"` : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
