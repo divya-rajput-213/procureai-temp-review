@@ -475,7 +475,7 @@ export default function ApprovalDetailPage() {
                       <td className="px-5 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
                         {a.acted_at ? formatDateTime(a.acted_at) : '—'}
                       </td>
-                      <td className="px-5 py-3.5 text-xs text-muted-foreground max-w-[240px] truncate">
+                      <td className="px-5 py-3.5 text-xs text-muted-foreground max-w-[240px] truncate" title={a.comments || undefined}>
                         {a.comments || '—'}
                       </td>
                     </tr>

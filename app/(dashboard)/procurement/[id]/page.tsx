@@ -110,7 +110,7 @@ function ApprovalTimeline({ actions, currentLevel, requestedAt }: { actions: any
                   <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
                     {a.acted_at ? formatDateTime(a.acted_at) : '—'}
                   </td>
-                  <td className="px-3 py-2.5 text-muted-foreground italic max-w-[200px] truncate">
+                  <td className="px-3 py-2.5 text-muted-foreground italic max-w-[200px] truncate" title={a.comments || undefined}>
                     {a.comments ? `"${a.comments}"` : '—'}
                   </td>
                 </tr>
@@ -1210,8 +1210,8 @@ function BidHighlightCards({ bids, pr, aiRec }: { bids: any[]; pr: any; aiRec: a
       ) : !rec && (
         <div className="border border-dashed border-purple-200 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-2 bg-purple-50/20">
           <Sparkles className="w-6 h-6 text-purple-400" />
-          <p className="text-sm font-medium text-purple-700">Run AI Analysis</p>
-          <p className="text-xs text-muted-foreground">Get recommendations across 6 dimensions</p>
+          <p className="text-sm font-medium text-purple-700">AI Analysis</p>
+          <p className="text-xs text-muted-foreground">AI recommendations will appear here after bids are recorded</p>
         </div>
       )}
     </div>
@@ -1254,6 +1254,110 @@ function AIRecommendationBanner({ aiRec }: { aiRec: any }) {
           ))}
         </ul>
       </div>
+    </div>
+  )
+}
+
+// ─── AI Vendor Comparison Table ──────────────────────────────────────────────
+
+function AIVendorComparisonTable({ aiRec, bids, pr }: { aiRec: any; bids: any[]; pr: any }) {
+  const ranked: any[] = aiRec?.ranked_vendors ?? []
+  if (ranked.length < 2) return null
+
+  const DIMS = [
+    { key: 'price_score', label: 'Price', weight: '30%' },
+    { key: 'delivery_score', label: 'Delivery', weight: '20%' },
+    { key: 'past_record_score', label: 'Past Record', weight: '20%' },
+    { key: 'quality_score', label: 'Quality', weight: '15%' },
+    { key: 'distance_score', label: 'Distance', weight: '10%' },
+    { key: 'communication_score', label: 'Comms', weight: '5%' },
+  ]
+
+  function scoreColor(s: number) {
+    if (s >= 80) return 'text-green-700 bg-green-50'
+    if (s >= 60) return 'text-amber-700 bg-amber-50'
+    return 'text-red-700 bg-red-50'
+  }
+
+  return (
+    <div className="border rounded-xl overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-50 to-violet-50 border-b">
+        <Sparkles className="w-4 h-4 text-purple-600" />
+        <p className="text-xs font-semibold text-purple-800 uppercase tracking-wide">AI Vendor Comparison</p>
+        <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full ml-auto">{ranked.length} vendors analysed</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs" style={{ minWidth: 680 }}>
+          <thead>
+            <tr className="bg-slate-50 border-b">
+              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Rank</th>
+              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Vendor</th>
+              <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">Bid Amount</th>
+              <th className="text-center px-4 py-2.5 font-medium text-muted-foreground">AI Score</th>
+              {DIMS.map(d => (
+                <th key={d.key} className="text-center px-3 py-2.5 font-medium text-muted-foreground whitespace-nowrap">
+                  {d.label}
+                  <span className="block text-[10px] font-normal text-muted-foreground/70">{d.weight}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {ranked.map((rv: any) => {
+              const bid = bids.find((b: any) => b.vendor === rv.vendor_id)
+              const isRecommended = aiRec.recommendation?.recommended_vendor_id === rv.vendor_id
+              const breakdown = rv.score_breakdown ?? {}
+              return (
+                <tr key={rv.vendor_id} className={isRecommended ? 'bg-purple-50/40' : ''}>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                      rv.rank === 1 ? 'bg-yellow-100 text-yellow-800' :
+                      rv.rank === 2 ? 'bg-slate-200 text-slate-700' :
+                      'bg-slate-100 text-slate-500'
+                    }`}>
+                      {rv.rank}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-sm">{rv.vendor_name}</span>
+                      {isRecommended && (
+                        <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-semibold rounded">TOP PICK</span>
+                      )}
+                    </div>
+                    {rv.notes && <p className="text-muted-foreground mt-0.5 max-w-[200px] truncate" title={rv.notes}>{rv.notes}</p>}
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-sm">
+                    {bid ? formatCurrency(bid.bid_amount, pr.currency_code) : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`inline-block px-2 py-1 rounded-lg font-bold text-sm ${scoreColor(rv.ai_score)}`}>
+                      {rv.ai_score}
+                    </span>
+                  </td>
+                  {DIMS.map(d => {
+                    const val = breakdown[d.key]
+                    return (
+                      <td key={d.key} className="px-3 py-3 text-center">
+                        {val != null ? (
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${scoreColor(val)}`}>
+                            {val}
+                          </span>
+                        ) : '—'}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      {aiRec.summary && (
+        <div className="px-4 py-3 border-t bg-slate-50 text-xs text-muted-foreground">
+          <span className="font-medium text-slate-700">Summary: </span>{aiRec.summary}
+        </div>
+      )}
     </div>
   )
 }
@@ -2051,6 +2155,9 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
 
           {/* ── AI Recommendation Banner ── */}
           <AIRecommendationBanner aiRec={aiRec} />
+
+          {/* ── AI Vendor Comparison Table ── */}
+          <AIVendorComparisonTable aiRec={aiRec} bids={bids ?? []} pr={pr} />
 
           {/* ── Anomalies ── */}
           {(aiRec.anomalies ?? []).length > 0 && (
