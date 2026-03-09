@@ -67,9 +67,9 @@ function ApprovalTimeline({ actions, currentLevel, requestedAt }: { actions: any
             <th className="text-left py-1.5 font-medium w-12">Level</th>
             <th className="text-left py-1.5 font-medium">Approver</th>
             <th className="text-left py-1.5 font-medium w-28">Status</th>
-            <th className="text-left py-1.5 font-medium">Comments</th>
             <th className="text-left py-1.5 font-medium whitespace-nowrap">Due Date</th>
-            <th className="text-right py-1.5 font-medium whitespace-nowrap">Acted At</th>
+            <th className="text-left py-1.5 font-medium whitespace-nowrap">Acted At</th>
+            <th className="text-left py-1.5 font-medium">Comments</th>
           </tr>
         </thead>
         <tbody>
@@ -103,14 +103,14 @@ function ApprovalTimeline({ actions, currentLevel, requestedAt }: { actions: any
                     {actionLabel}
                   </span>
                 </td>
-                <td className="py-2 text-muted-foreground italic">
-                  {a.comments ? `"${a.comments}"` : '—'}
-                </td>
                 <td className="py-2 text-muted-foreground whitespace-nowrap">
                   {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
                 </td>
-                <td className="py-2 text-right text-muted-foreground whitespace-nowrap">
+                <td className="py-2 text-muted-foreground whitespace-nowrap">
                   {a.acted_at ? formatDateTime(a.acted_at) : '—'}
+                </td>
+                <td className="py-2 text-muted-foreground italic">
+                  {a.comments ? `"${a.comments}"` : '—'}
                 </td>
               </tr>
             );
@@ -424,6 +424,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
   onCancel: () => void
   saving: boolean
 }) {
+  const { toast } = useToast()
   const [form, setForm] = useState({
     plant: pr.plant ?? '',
     department: pr.department ?? '',
@@ -497,6 +498,12 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
     setLineItems(prev => prev.map((li, i) => i === idx ? { ...li, [k]: v } : li))
 
   const selectItem = (idx: number, item: any) => {
+    const duplicateIdx = lineItems.findIndex((li, i) => i !== idx && li.item_code === item.id)
+    if (duplicateIdx !== -1) {
+      toast({ title: 'Duplicate item', description: `"${item.code} — ${item.description}" is already added in row ${duplicateIdx + 1}.`, variant: 'destructive' })
+      setShowItemDropdown(null)
+      return
+    }
     setLI(idx, 'item_code', item.id)
     setLI(idx, 'code', item.code)
     setLI(idx, 'description', item.description)
@@ -514,6 +521,10 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
   const removeVendor = (id: number) => setInvitedVendors(prev => prev.filter((v: any) => v.id !== id))
 
   const handleSave = () => {
+    if (budgetExceeded) {
+      toast({ title: 'Budget exceeded', description: `PR total (${formatCurrency(grandTotal)}) exceeds remaining budget (${formatCurrency(budgetRemaining)}).`, variant: 'destructive' })
+      return
+    }
     onSave({
       ...form,
       plant: form.plant || null,
@@ -2456,7 +2467,22 @@ export default function PRDetailPage() {
       setIsEditing(false)
     },
     onError: (err: any) => {
-      toast({ title: 'Save failed', description: err?.response?.data?.error ?? 'Update failed.', variant: 'destructive' })
+      const detail = err?.response?.data
+      let msg = ''
+      if (typeof detail === 'object' && detail !== null) {
+        if (detail.error) msg = detail.error
+        else {
+          for (const val of Object.values(detail)) {
+            if (Array.isArray(val)) msg = (val as string[])[0]
+            else if (typeof val === 'string') msg = val
+            if (msg) break
+          }
+        }
+        if (!msg) msg = JSON.stringify(detail)
+      } else {
+        msg = String(detail ?? 'Update failed.')
+      }
+      toast({ title: 'Save failed', description: msg, variant: 'destructive' })
     },
   })
 

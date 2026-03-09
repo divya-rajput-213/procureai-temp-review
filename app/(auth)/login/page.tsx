@@ -47,7 +47,8 @@ export default function LoginPage() {
     try {
       const resp = await login(data)
       setTokens(resp.access, resp.refresh, resp.user, resp.company)
-      router.push('/dashboard')
+      const redirect = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
+      router.push(redirect)
     } catch (err: any) {
       toast({
         title: 'Login failed',
@@ -73,7 +74,8 @@ export default function LoginPage() {
       })
       const resp = await azureCallback(result.accessToken)
       setTokens(resp.access, resp.refresh, resp.user, resp.company)
-      router.push('/dashboard')
+      const redirect = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
+      router.push(redirect)
     } catch (err: any) {
       toast({
         title: 'Azure login failed',

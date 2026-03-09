@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Bell, Check, CheckCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import apiClient from '@/lib/api/client'
@@ -14,6 +14,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/approvals': 'Approvals',
   '/inventory': "Inventory",
   '/users': 'User Management',
+  '/settings/plants': 'Plants',
+  '/settings/vendor-categories': 'Vendor Categories',
   '/settings': 'Settings',
   '/profile': 'Profile',
 }
@@ -42,6 +44,7 @@ function notifTypeLabel(type: string): string {
 
 export function TopBar() {
   const pathname = usePathname()
+  const router = useRouter()
 
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
@@ -143,7 +146,7 @@ export function TopBar() {
                     className={`px-4 py-3 cursor-pointer transition-colors ${n.is_read ? 'hover:bg-slate-50' : 'bg-blue-50/40 hover:bg-blue-50'}`}
                     onClick={() => {
                       if (!n.is_read) markRead(n.hash_id ?? n.id)
-                      if (n.link) window.location.href = n.link
+                      if (n.link) router.push(n.link)
                     }}
                   >
                     <div className="flex items-start justify-between gap-2">

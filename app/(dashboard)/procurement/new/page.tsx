@@ -319,20 +319,32 @@ export default function NewPRPage() {
     },
     onError: (err: any) => {
       const detail = err?.response?.data
+      let msg = ''
+      if (typeof detail === 'object' && detail !== null) {
+        // Extract first meaningful error message from DRF response
+        for (const val of Object.values(detail)) {
+          if (Array.isArray(val)) msg = val[0]
+          else if (typeof val === 'string') msg = val
+          if (msg) break
+        }
+        if (!msg) msg = JSON.stringify(detail)
+      } else {
+        msg = String(detail ?? 'Something went wrong.')
+      }
       toast({
         title: 'Failed to save PR',
-        description: typeof detail === 'object' ? JSON.stringify(detail) : String(detail ?? ''),
+        description: msg,
         variant: 'destructive',
       })
     },
   })
 
-  // Submit for approval (update existing draft)
+  // Submit for approval (use dedicated submit endpoint)
   const submitApprovalMutation = useMutation({
     mutationFn: async () => {
-      const payload: any = { status: 'pending_approval' }
+      const payload: any = {}
       if (selectedMatrix) payload.matrix_id = selectedMatrix
-      const { data: pr } = await apiClient.patch(`/procurement/${savedPrId}/`, payload)
+      const { data: pr } = await apiClient.post(`/procurement/${savedPrId}/submit/`, payload)
       return pr
     },
     onSuccess: () => {
@@ -342,9 +354,12 @@ export default function NewPRPage() {
     },
     onError: (err: any) => {
       const detail = err?.response?.data
+      const msg = typeof detail === 'object'
+        ? (detail.error || detail.detail || JSON.stringify(detail))
+        : String(detail ?? '')
       toast({
         title: 'Failed to submit PR',
-        description: typeof detail === 'object' ? JSON.stringify(detail) : String(detail ?? ''),
+        description: msg,
         variant: 'destructive',
       })
     },
@@ -599,11 +614,7 @@ export default function NewPRPage() {
                             onSelect={item => {
                               const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
                               if (duplicateIdx !== -1) {
-                                remove(duplicateIdx)
-                                const newIdx = duplicateIdx < idx ? idx - 1 : idx
-                                setValue(`line_items.${newIdx}.item_code`, item.id)
-                                setValue(`line_items.${newIdx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                                if (item.unit_rate) setValue(`line_items.${newIdx}.unit_rate`, Number(item.unit_rate))
+                                toast({ title: 'Duplicate item', description: `"${item.code} — ${item.description}" is already added in row ${duplicateIdx + 1}.`, variant: 'destructive' })
                                 return
                               }
                               setValue(`line_items.${idx}.item_code`, item.id)
@@ -780,7 +791,7 @@ export default function NewPRPage() {
                 }}
               >
                 <Save className="w-4 h-4" />
-                Keep as Draft
+                Save as Draft
               </Button>
               <Button
                 type="button"

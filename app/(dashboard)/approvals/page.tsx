@@ -572,15 +572,19 @@ export default function ApprovalsPage() {
                     <thead className="bg-slate-50 border-b">
                       <tr>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Entity</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">First Approver</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Request Date</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Due Date</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Approved Date</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Acted At</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Comments</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
                       {all.map((req: any) => {
-                        const firstAction = (req.actions ?? []).find((a: any) => a.level_number === 1)
+                        const latestAction = (req.actions ?? [])
+                          .filter((a: any) => a.action !== 'pending')
+                          .sort((a: any, b: any) => (b.acted_at ?? '').localeCompare(a.acted_at ?? ''))[0]
+                        const currentAction = (req.actions ?? []).find((a: any) => a.level_number === req.current_level)
+                        const slaDeadline = currentAction?.sla_deadline || (req.actions ?? [])[0]?.sla_deadline
                         return (
                         <tr
                           key={req.id}
@@ -591,27 +595,24 @@ export default function ApprovalsPage() {
                             <div className="flex items-center gap-2 min-w-0">
                               <EntityTypeIcon type={req.entity_type} />
                               <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-medium truncate max-w-[160px]">{req.entity_label}</span>
-                                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${historyStatusBadge(req.status)}`}>
-                                    {req.status.replaceAll('_', ' ')}
-                                  </span>
-                                </div>
+                                <span className="font-medium truncate block max-w-[200px]">{req.entity_label}</span>
                                 <span className="text-xs text-muted-foreground">{entityTypeLabel(req.entity_type)}</span>
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 hidden md:table-cell text-xs text-muted-foreground">
-                            {firstAction?.approver_name ?? '—'}
+                          <td className="px-4 py-3">
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize whitespace-nowrap ${historyStatusBadge(req.status)}`}>
+                              {req.status.replaceAll('_', ' ')}
+                            </span>
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
-                            {formatDateTime(req.created_at)}
+                            {slaDeadline ? formatDateTime(slaDeadline) : '—'}
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
-                            {firstAction?.sla_deadline ? formatDateTime(firstAction.sla_deadline) : '—'}
+                            {latestAction?.acted_at ? formatDateTime(latestAction.acted_at) : '—'}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
-                            {req.completed_at ? formatDateTime(req.completed_at) : '—'}
+                          <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell max-w-[200px]">
+                            <p className="truncate">{latestAction?.comments || '—'}</p>
                           </td>
                         </tr>
                         )
