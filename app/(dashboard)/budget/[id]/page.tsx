@@ -308,7 +308,7 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
                   <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
                     {a.acted_at ? formatDateTime(a.acted_at) : '—'}
                   </td>
-                  <td className="px-3 py-2.5 text-muted-foreground italic max-w-[200px] truncate">
+                  <td className="px-3 py-2.5 text-muted-foreground italic max-w-[200px] truncate" title={a.comments || undefined}>
                     {a.comments ? `"${a.comments}"` : '—'}
                   </td>
                 </tr>
