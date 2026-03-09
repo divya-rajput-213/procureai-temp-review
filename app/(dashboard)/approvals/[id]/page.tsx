@@ -437,50 +437,52 @@ export default function ApprovalDetailPage() {
           {sortedActions.length === 0 ? (
             <div className="p-6 text-center text-muted-foreground text-sm">No approval actions yet.</div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b">
-                <tr>
-                  {['Level', 'Approver / Role', 'Status', 'Due Date', 'Acted At', 'Comments'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {sortedActions.map((a: any) => (
-                  <tr key={a.id} className={a.action === 'pending' ? 'bg-amber-50' : ''}>
-                    <td className="px-4 py-3 font-medium text-xs">L{a.level_number}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <div>
-                          <span className="text-sm font-medium">{a.approver_name || `User #${a.approver}`}</span>
-                          {a.role_name && (
-                            <p className="text-xs text-muted-foreground">{a.role_name}</p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <ActionIcon action={a.action} />
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${actionStatusClass(a.action)}`}>
-                          {a.action}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                      {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                      {a.acted_at ? formatDateTime(a.acted_at) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground max-w-[200px] truncate">
-                      {a.comments || '—'}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" style={{ minWidth: 700 }}>
+                <thead className="bg-slate-50 border-b">
+                  <tr>
+                    {['Level', 'Approver / Role', 'Status', 'Due Date', 'Acted At', 'Comments'].map(h => (
+                      <th key={h} className="text-left px-5 py-3 font-medium text-muted-foreground text-xs whitespace-nowrap">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y">
+                  {sortedActions.map((a: any) => (
+                    <tr key={a.id} className={a.action === 'pending' ? 'bg-amber-50' : ''}>
+                      <td className="px-5 py-3.5 font-medium text-xs whitespace-nowrap">L{a.level_number}</td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <span className="text-sm font-medium whitespace-nowrap">{a.approver_name || `User #${a.approver}`}</span>
+                            {a.role_name && (
+                              <p className="text-xs text-muted-foreground whitespace-nowrap">{a.role_name}</p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <ActionIcon action={a.action} />
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${actionStatusClass(a.action)}`}>
+                            {a.action}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {a.acted_at ? formatDateTime(a.acted_at) : '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-muted-foreground max-w-[240px] truncate">
+                        {a.comments || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>

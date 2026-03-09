@@ -76,7 +76,7 @@ export default function NewBudgetPage() {
       const r = await apiClient.get(`/vendors/?${params}`)
       return r.data.results ?? r.data
     },
-    enabled: showVendorSearch,
+    enabled: showVendorSearch && vendorSearch.trim().length >= 2,
   })
   const { data: matrices } = useQuery({
     queryKey: ['approval-matrices', 'budget_approval'],
@@ -415,7 +415,7 @@ export default function NewBudgetPage() {
                 onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
                 className="h-10"
               />
-              {showVendorSearch && (
+              {showVendorSearch && vendorSearch.trim().length >= 2 && (
                 <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
                   {(vendors || []).filter((v: any) => !selectedVendors.some((s: any) => s.id === v.id)).map((v: any) => (
                     <button
