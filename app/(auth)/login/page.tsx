@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Building2, Loader2 } from 'lucide-react'
+import { Building2, Loader2, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,6 +35,7 @@ export default function LoginPage() {
   const setTokens = useAuthStore((s) => s.setTokens)
   const [loading, setLoading] = useState(false)
   const [azureLoading, setAzureLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const {
     register,
@@ -48,7 +49,7 @@ export default function LoginPage() {
       const resp = await login(data)
       setTokens(resp.access, resp.refresh, resp.user, resp.company)
       const redirect = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
-      router.push(redirect)
+      router.replace(redirect)
     } catch (err: any) {
       toast({
         title: 'Login failed',
@@ -75,7 +76,7 @@ export default function LoginPage() {
       const resp = await azureCallback(result.accessToken)
       setTokens(resp.access, resp.refresh, resp.user, resp.company)
       const redirect = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
-      router.push(redirect)
+      router.replace(redirect)
     } catch (err: any) {
       toast({
         title: 'Azure login failed',
@@ -144,13 +145,23 @@ export default function LoginPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                {...register('password')}
-                aria-invalid={!!errors.password}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  {...register('password')}
+                  aria-invalid={!!errors.password}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
             </div>
 

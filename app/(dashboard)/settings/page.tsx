@@ -396,8 +396,8 @@ function MatrixConfigTab() {
             />
           ))}
           {deleteTarget && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-md p-6">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
                 <h2 className="text-lg font-semibold mb-2">Delete Matrix</h2>
 
                 <p className="text-sm text-muted-foreground mb-6">
