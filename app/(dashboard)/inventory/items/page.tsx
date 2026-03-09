@@ -94,7 +94,7 @@ function ItemModal({ item, onClose }: { item: Item | null; onClose: () => void }
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ['item-categories-active'],
-    queryFn: async () => (await apiClient.get('/procurement/categories/?active_only=true')).data.results ?? (await apiClient.get('/procurement/categories/?active_only=true')).data,
+    queryFn: async () => { const r = await apiClient.get('/procurement/categories/?active_only=true'); return r.data.results ?? r.data },
   })
 
   const [form, setForm] = useState<ItemFormData>(

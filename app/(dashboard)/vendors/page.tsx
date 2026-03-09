@@ -297,14 +297,14 @@ export default function VendorsPage() {
   // Fetch plants & categories for filter dropdowns
   const { data: plants } = useQuery({
     queryKey: ['plants'],
-    queryFn: async () => (await apiClient.get('/users/plants/')).data,
+    queryFn: async () => { const r = await apiClient.get('/users/plants/'); return r.data.results ?? r.data },
   })
   const { data: categories } = useQuery({
     queryKey: ['vendor-categories'],
-    queryFn: async () => (await apiClient.get('/vendors/categories/')).data,
+    queryFn: async () => { const r = await apiClient.get('/vendors/categories/'); return r.data.results ?? r.data },
   })
-  const plantList: any[] = plants?.results ?? (Array.isArray(plants) ? plants : [])
-  const categoryList: any[] = categories?.results ?? (Array.isArray(categories) ? categories : [])
+  const plantList: any[] = Array.isArray(plants) ? plants : []
+  const categoryList: any[] = Array.isArray(categories) ? categories : []
 
   const { data, isLoading } = useQuery({
     queryKey: ['vendors', search, statusFilter, plantFilter, categoryFilter, page, ordering],
