@@ -1152,6 +1152,46 @@ export default function BudgetDetailPage() {
               </div>
 
               <PreferredVendorsCard vendors={budget.preferred_vendors ?? []} />
+
+              {/* Linked PRs */}
+              {budget.linked_prs?.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm flex items-center justify-between">
+                      <span>Linked Purchase Requisitions</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {budget.linked_prs.filter((p: any) => p.selected_vendor_name).length} / {budget.linked_prs.length} vendor selected
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 border-b">
+                          <tr className="text-xs text-muted-foreground">
+                            <th className="text-left px-4 py-2 font-medium">PR Number</th>
+                            <th className="text-left px-4 py-2 font-medium">Status</th>
+                            <th className="text-right px-4 py-2 font-medium">Amount</th>
+                            <th className="text-left px-4 py-2 font-medium">Vendor</th>
+                            <th className="text-left px-4 py-2 font-medium">Created</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {budget.linked_prs.map((pr: any) => (
+                            <tr key={pr.id} className="hover:bg-slate-50/50 cursor-pointer" onClick={() => router.push(`/procurement/${pr.hash_id}`)}>
+                              <td className="px-4 py-2.5 font-medium text-blue-700">{pr.pr_number}</td>
+                              <td className="px-4 py-2.5"><StatusBadge status={pr.status} /></td>
+                              <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(pr.total_amount)}</td>
+                              <td className="px-4 py-2.5 text-muted-foreground">{pr.selected_vendor_name || '—'}</td>
+                              <td className="px-4 py-2.5 text-muted-foreground text-xs">{formatDate(pr.created_at)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </>
           )}
         </div>

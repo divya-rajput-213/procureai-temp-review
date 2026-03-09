@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ShoppingCart, Building2, CheckSquare, TrendingUp, AlertCircle, Wallet, ArrowRight } from 'lucide-react'
+import { ShoppingCart, Building2, CheckSquare, TrendingUp, AlertCircle, Wallet, ArrowRight, IndianRupee } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
@@ -198,7 +198,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
 
       {/* ── Stats ──────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
         <StatCard
           title="Pending Approvals"
           value={pendingCount}
@@ -219,6 +219,13 @@ export default function DashboardPage() {
           subtitle="On-boarded & active"
           icon={Building2}
           color="bg-green-600"
+        />
+        <StatCard
+          title="Total Spend (YTD)"
+          value={stats ? formatCurrency(stats.total_spend_ytd) : '—'}
+          subtitle="Vendor-selected PRs this year"
+          icon={IndianRupee}
+          color="bg-teal-600"
         />
         <StatCard
           title="Budget Utilised"
