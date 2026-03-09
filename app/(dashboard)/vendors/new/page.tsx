@@ -229,11 +229,11 @@ export default function NewVendorPage() {
 
   const { data: categories } = useQuery({
     queryKey: ['vendor-categories'],
-    queryFn: async () => { const r = await apiClient.get('/vendors/categories/'); return r.data.results ?? r.data },
+    queryFn: async () => { const r = await apiClient.get('/vendors/categories/'); return Array.isArray(r.data) ? r.data : r.data.results ?? [] },
   })
   const { data: plants } = useQuery({
     queryKey: ['plants'],
-    queryFn: async () => { const r = await apiClient.get('/users/plants/'); return r.data.results ?? r.data },
+    queryFn: async () => { const r = await apiClient.get('/users/plants/'); return Array.isArray(r.data) ? r.data : r.data.results ?? [] },
   })
   // Fetch vendor documents once vendor is created (step >= 1)
   const { data: vendorDocs } = useQuery({
