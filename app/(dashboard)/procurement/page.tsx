@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { Plus, Search, X } from 'lucide-react'
+import { Plus, Search, X, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { useToast } from '@/components/ui/use-toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
@@ -16,7 +17,23 @@ export default function ProcurementPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [trackingFilter, setTrackingFilter] = useState('')
+  const [deletingPR, setDeletingPR] = useState<any>(null)
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+
+  const deleteMutation = useMutation({
+    mutationFn: async (hashId: string) => apiClient.delete(`/procurement/${hashId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
+      toast({ title: 'Purchase requisition deleted' })
+      setDeletingPR(null)
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error ?? 'Failed to delete purchase requisition'
+      toast({ title: msg, variant: 'destructive' })
+    },
+  })
 
   const { data, isLoading } = useQuery({
     queryKey: ['purchase-requisitions', search, statusFilter],
@@ -111,6 +128,7 @@ export default function ProcurementPage() {
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Vendor</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Created</th>
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -138,6 +156,18 @@ export default function ProcurementPage() {
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={pr.status} /></td>
                       <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{formatDate(pr.created_at)}</td>
+                      <td className="px-4 py-3 text-right">
+                        {pr.status === 'draft' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            onClick={e => { e.stopPropagation(); setDeletingPR(pr) }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -151,6 +181,25 @@ export default function ProcurementPage() {
           )}
         </CardContent>
       </Card>
+
+      {deletingPR && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6 space-y-4">
+            <h2 className="text-base font-semibold">Delete Purchase Requisition</h2>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete <span className="font-medium text-foreground">{deletingPR.pr_number}</span>?
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeletingPR(null)}>Cancel</Button>
+              <Button variant="destructive" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(deletingPR.hash_id)} className="gap-2">
+                {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

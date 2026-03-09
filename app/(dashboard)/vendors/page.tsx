@@ -1,17 +1,18 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Upload, Search, Download, FileText,
+  Plus, Search, Download, Trash2, Loader2,
   ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { useToast } from '@/components/ui/use-toast'
 import { formatDate } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
@@ -236,6 +237,31 @@ function RiskBadge({ score }: Readonly<{ score: number }>) {
   )
 }
 
+// ─── Delete Confirm Modal ────────────────────────────────────────────────────
+
+function DeleteConfirmModal({ name, onClose, onConfirm, isPending }: Readonly<{
+  name: string; onClose: () => void; onConfirm: () => void; isPending: boolean
+}>) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6 space-y-4">
+        <h2 className="text-base font-semibold">Delete Vendor</h2>
+        <p className="text-sm text-muted-foreground">
+          Are you sure you want to delete <span className="font-medium text-foreground">{name}</span>?
+          This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="destructive" disabled={isPending} onClick={onConfirm} className="gap-2">
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            Delete
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20
@@ -248,9 +274,25 @@ export default function VendorsPage() {
   const [page, setPage] = useState(1)
   const [sortField, setSortField] = useState<SortField>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [deletingVendor, setDeletingVendor] = useState<any>(null)
 
   const ordering = sortDir === 'asc' ? sortField : `-${sortField}`
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+
+  const deleteMutation = useMutation({
+    mutationFn: async (hashId: string) => apiClient.delete(`/vendors/${hashId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] })
+      toast({ title: 'Vendor deleted' })
+      setDeletingVendor(null)
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error ?? 'Failed to delete vendor'
+      toast({ title: msg, variant: 'destructive' })
+    },
+  })
 
   // Fetch plants & categories for filter dropdowns
   const { data: plants } = useQuery({
@@ -437,6 +479,7 @@ export default function VendorsPage() {
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Risk</th>
                     <SortableTh field="performance_score" label="Rating" {...sortProps} />
                     <SortableTh field="created_at" label="Since" {...sortProps} />
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -505,6 +548,20 @@ export default function VendorsPage() {
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                         {formatDate(v.created_at)}
                       </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-3 text-right">
+                        {v.status === 'draft' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            onClick={e => { e.stopPropagation(); setDeletingVendor(v) }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -513,6 +570,15 @@ export default function VendorsPage() {
           )}
         </CardContent>
       </Card>
+
+      {deletingVendor && (
+        <DeleteConfirmModal
+          name={deletingVendor.company_name}
+          onClose={() => setDeletingVendor(null)}
+          onConfirm={() => deleteMutation.mutate(deletingVendor.hash_id)}
+          isPending={deleteMutation.isPending}
+        />
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (

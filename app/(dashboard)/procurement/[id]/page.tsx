@@ -1952,7 +1952,7 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
   const [confirmReject, setConfirmReject] = useState<any>(null)
 
   const canCollectBids = ['approved', 'vendor_selected', 'synced_to_sap', 'po_created'].includes(pr.status)
-  const canAct = ['approved', 'vendor_selected'].includes(pr.status)
+  const canAct = pr.status === 'approved'
 
   const { data: bids, refetch: refetchBids } = useQuery({
     queryKey: ['pr-bids', id],
