@@ -19,11 +19,11 @@ export function middleware(request: NextRequest) {
   // Check for auth session cookie (set by auth store on login)
   const hasSession = request.cookies.get('auth_session')
 
-  // if (!hasSession) {
-  //   const loginUrl = new URL('/login', request.url)
-  //   loginUrl.searchParams.set('redirect', pathname)
-  //   return NextResponse.redirect(loginUrl)
-  // }
+  if (!hasSession) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('redirect', pathname)
+    return NextResponse.redirect(loginUrl)
+  }
 
   return NextResponse.next()
 }
