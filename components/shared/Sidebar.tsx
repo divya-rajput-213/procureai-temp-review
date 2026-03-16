@@ -161,7 +161,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
     <aside className="w-64 bg-black text-white flex flex-col h-full shrink-0">
       {/* Logo */}
       <div className="p-5 border-b border-white/10">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={()=> router.push('/dashboard')}>
           {company?.logo ? (
             <img
               src={company.logo}
