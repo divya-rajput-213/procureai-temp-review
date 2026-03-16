@@ -161,17 +161,31 @@ function DocUploadWidget({ vendorId, docType, doc, onRefresh }: {
 }
 
 // ── Schema ────────────────────────────────────────────────────────────────────
+const ALPHANUM_WITH_SPACES = /^[a-z0-9 ]+$/i
+const ALPHANUM_ONLY = /^[a-z0-9]+$/i
+const DIGITS_ONLY = /^[0-9]+$/
+
 // Compliance fields (GST, PAN, bank) are optional at creation.
 // They are enforced by the backend only at submit-for-approval time.
 const schema = z.object({
   company_name:  z.string().min(2, 'Company name is required'),
   contact_name:  z.string().min(2, 'Contact person is required'),
   contact_email: z.string().email('Valid email required'),
-  contact_phone: z.string().min(10, 'Phone is required'),
+  contact_phone: z.string()
+    .min(10, 'Contact phone must be at least 10 digits')
+    .regex(DIGITS_ONLY, 'Contact phone must contain only numbers'),
   address:       z.string().min(5, 'Address is required'),
-  city:          z.string().min(2, 'City is required'),
-  state:         z.string().min(2, 'State is required'),
-  pincode:       z.string().length(6, 'PIN must be 6 digits'),
+  city:          z.string()
+    .min(1, 'City is required')
+    .max(50, 'City must be at most 50 characters')
+    .regex(ALPHANUM_WITH_SPACES, 'City must be alphanumeric'),
+  state:         z.string()
+    .min(1, 'State is required')
+    .max(50, 'State must be at most 50 characters')
+    .regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
+  pincode:       z.string()
+    .min(1, 'PIN Code is required')
+    .regex(ALPHANUM_ONLY, 'PIN Code must be alphanumeric'),
   category:      z.number({ required_error: 'Category is required' }),
   plant:         z.number({ required_error: 'Plant is required' }),
   // Optional at creation, required before approval
@@ -257,7 +271,11 @@ export default function NewVendorPage() {
   })
 
   const { register, handleSubmit, setValue, watch, trigger, getValues, formState: { errors } } =
-    useForm<VendorForm>({ resolver: zodResolver(schema) })
+    useForm<VendorForm>({
+      resolver: zodResolver(schema),
+      mode: 'onChange',
+      reValidateMode: 'onChange',
+    })
 
   const watchedCategory = watch('category')
   const watchedPlant    = watch('plant')
@@ -620,16 +638,16 @@ export default function NewVendorPage() {
               </div>
 
               {[
-                { name: 'city',         label: 'City',         placeholder: 'e.g. Mumbai' },
-                { name: 'state',        label: 'State',        placeholder: 'e.g. Maharashtra' },
-                { name: 'pincode',      label: 'PIN Code',     placeholder: 'e.g. 400001' },
-              ].map(({ name, label, placeholder }) => (
+                { name: 'city',    label: 'City',     placeholder: 'e.g. Mumbai' },
+                { name: 'state',   label: 'State',    placeholder: 'e.g. Maharashtra' },
+                { name: 'pincode', label: 'PIN Code', placeholder: 'e.g. 400001', autoComplete: 'postal-code' },
+              ].map(({ name, label, placeholder, autoComplete }) => (
                 <div key={name} className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-700">
                     {label} <span className="text-destructive">*</span>
                     {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                   </Label>
-                  <Input placeholder={placeholder} {...register(name as keyof VendorForm)}
+                  <Input placeholder={placeholder} autoComplete={autoComplete} {...register(name as keyof VendorForm)}
                     className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
                   {errors[name as keyof VendorForm] && (
                     <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
@@ -641,15 +659,15 @@ export default function NewVendorPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
                 { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe' },
-                { name: 'contact_email', label: 'Contact Email',   placeholder: 'e.g. john@acme.com' },
-                { name: 'contact_phone', label: 'Contact Phone',   placeholder: 'e.g. +91 98765 43210' },
-              ].map(({ name, label, placeholder }) => (
+                { name: 'contact_email', label: 'Contact Email',  placeholder: 'e.g. john@acme.com' },
+                { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', inputMode: 'numeric', pattern: '[0-9]*' },
+              ].map(({ name, label, placeholder, inputMode, pattern }) => (
                 <div key={name} className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-700">
                     {label} <span className="text-destructive">*</span>
                     {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                   </Label>
-                  <Input placeholder={placeholder} {...register(name as keyof VendorForm)}
+                  <Input placeholder={placeholder} inputMode={inputMode} pattern={pattern} {...register(name as keyof VendorForm)}
                     className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
                   {errors[name as keyof VendorForm] && (
                     <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>

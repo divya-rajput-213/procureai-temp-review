@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download } from 'lucide-react'
 import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
@@ -2134,6 +2135,7 @@ function ChangeRequestForm({ vendor, categories, plants, saving, onSubmit, onCan
 
 export default function VendorDetailPage() {
   const { id } = useParams()
+  const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -2281,6 +2283,9 @@ export default function VendorDetailPage() {
               <Pencil className="w-3.5 h-3.5" /> Edit Details
             </Button>
           )}
+          <Button variant="ghost" size="sm" onClick={() => router.push('/vendors')} className="gap-1">
+                <ArrowLeft className="w-4 h-4" /> Back
+          </Button>
         </div>
       </div>
 
