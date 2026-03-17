@@ -16,6 +16,7 @@ import { formatCurrency } from '@/lib/utils'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
+import { normalizeLeadingWhitespace } from '@/lib/utils'
 
 const schema = z.object({
   title: z.string().trim().min(3, 'Title is required'),
@@ -43,9 +44,9 @@ function getAmountInputCls(hasError: boolean, amount: number) {
   return 'h-10 pl-7'
 }
 
-function normalizeLeadingWhitespace(value: string) {
-  return value.replace(/^\s+/, '')
-}
+// function normalizeLeadingWhitespace(value: string) {
+//   return value.replace(/^\s+/, '')
+// }
 
 
 export default function NewBudgetPage() {
@@ -97,9 +98,12 @@ export default function NewBudgetPage() {
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
+    mode: 'onChange',
+    reValidateMode: 'onChange',
     defaultValues: { priority: 'medium' },
   })
-
+  
+  
   const watchedPriority = watch('priority')
   const watchedAmount = watch('requested_amount')
 
