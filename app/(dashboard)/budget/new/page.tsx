@@ -43,12 +43,6 @@ function getAmountInputCls(hasError: boolean, amount: number) {
   if (amount >= 1000) return 'h-10 pl-7 border-emerald-400 focus-visible:ring-emerald-300/40'
   return 'h-10 pl-7'
 }
-
-// function normalizeLeadingWhitespace(value: string) {
-//   return value.replace(/^\s+/, '')
-// }
-
-
 export default function NewBudgetPage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -404,7 +398,15 @@ export default function NewBudgetPage() {
                     placeholder="0"
                     className={amountInputCls}
                     {...register('requested_amount', {
-                      valueAsNumber: true,
+                      setValueAs: value => {
+                        const raw = String(value ?? '').trim()
+                        if (!raw) return undefined
+                        const intPart = raw.split('.')[0] || '0'
+                        const intVal = Number(intPart)
+                        if (Number.isNaN(intVal)) return undefined
+                        if (intVal < 1000) return intVal
+                        return Number(raw)
+                      },
                       max: { value: 100_000_000, message: 'Maximum budget is ₹10 Crore' },
                     })}
                     onInput={e => {
