@@ -90,7 +90,9 @@ function PRDetail({ d }: { d: any }) {
       {d.description && (
         <div className="col-span-2 sm:col-span-3">
           <span className="text-muted-foreground">Description</span>
-          <p className="mt-0.5 text-foreground">{d.description}</p>
+          <p className="mt-0.5 text-foreground cursor-pointer line-clamp-3">
+            {d.description}
+          </p>
         </div>
       )}
     </div>
@@ -218,6 +220,8 @@ function PendingCard({
   submitting: boolean
 }) {
   const [comments, setComments] = useState('')
+  const hasValidComment = /[a-zA-Z0-9]/.test(comments);
+
   const [loadingAct, setLoadingAct] = useState('')
   const isHeld = item.action_status === 'held'
 
@@ -305,6 +309,12 @@ function PendingCard({
                     className="mt-1 w-full border rounded-md p-2 text-sm resize-none h-20 bg-white"
                     placeholder="Add your comments…"
                     value={comments}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                      }
+                    }}
+
                     onChange={e => setComments(e.target.value)}
                   />
                 </div>
@@ -313,7 +323,7 @@ function PendingCard({
                     size="sm"
                     className="bg-green-600 hover:bg-green-700 gap-1"
                     onClick={() => handle('approved')}
-                    disabled={busy || !comments.trim()}
+                    disabled={busy || !hasValidComment}
                   >
                     {loadingAct === 'approved' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                     Approve
@@ -323,7 +333,7 @@ function PendingCard({
                     variant="destructive"
                     className="gap-1"
                     onClick={() => handle('rejected')}
-                    disabled={busy || !comments.trim()}
+                    disabled={busy || !hasValidComment}
                   >
                     {loadingAct === 'rejected' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
                     Reject
@@ -333,7 +343,7 @@ function PendingCard({
                     variant="outline"
                     className="gap-1 text-amber-600 border-amber-300"
                     onClick={() => handle('held')}
-                    disabled={busy || !comments.trim()}
+                    disabled={busy || !hasValidComment}
                   >
                     {loadingAct === 'held' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PauseCircle className="w-3.5 h-3.5" />}
                     Hold
@@ -380,9 +390,9 @@ function historyStatusBadge(status: string) {
   const map: Record<string, string> = {
     approved: 'bg-green-100 text-green-700',
     rejected: 'bg-red-100 text-red-700',
-    held:     'bg-amber-100 text-amber-700',
-    cancelled:'bg-slate-100 text-slate-500',
-    pending:  'bg-blue-100 text-blue-700',
+    held: 'bg-amber-100 text-amber-700',
+    cancelled: 'bg-slate-100 text-slate-500',
+    pending: 'bg-blue-100 text-blue-700',
   }
   return map[status] ?? 'bg-slate-100 text-slate-600'
 }
@@ -454,9 +464,9 @@ export default function ApprovalsPage() {
   // Client-side text search on entity label + matrix name
   const all = histSearch.trim()
     ? allRaw.filter(r =>
-        r.entity_label?.toLowerCase().includes(histSearch.toLowerCase()) ||
-        r.matrix_name?.toLowerCase().includes(histSearch.toLowerCase())
-      )
+      r.entity_label?.toLowerCase().includes(histSearch.toLowerCase()) ||
+      r.matrix_name?.toLowerCase().includes(histSearch.toLowerCase())
+    )
     : allRaw
 
   const TABS: Array<['mine' | 'all', string]> = [
@@ -586,35 +596,35 @@ export default function ApprovalsPage() {
                         const currentAction = (req.actions ?? []).find((a: any) => a.level_number === req.current_level)
                         const slaDeadline = currentAction?.sla_deadline || (req.actions ?? [])[0]?.sla_deadline
                         return (
-                        <tr
-                          key={req.id}
-                          className="hover:bg-slate-50 cursor-pointer transition-colors"
-                          onClick={() => router.push(`/approvals/${req.hash_id}`)}
-                        >
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <EntityTypeIcon type={req.entity_type} />
-                              <div className="min-w-0">
-                                <span className="font-medium truncate block max-w-[200px]">{req.entity_label}</span>
-                                <span className="text-xs text-muted-foreground">{entityTypeLabel(req.entity_type)}</span>
+                          <tr
+                            key={req.id}
+                            className="hover:bg-slate-50 cursor-pointer transition-colors"
+                            onClick={() => router.push(`/approvals/${req.hash_id}`)}
+                          >
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <EntityTypeIcon type={req.entity_type} />
+                                <div className="min-w-0">
+                                  <span className="font-medium truncate block max-w-[200px]">{req.entity_label}</span>
+                                  <span className="text-xs text-muted-foreground">{entityTypeLabel(req.entity_type)}</span>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize whitespace-nowrap ${historyStatusBadge(req.status)}`}>
-                              {req.status.replaceAll('_', ' ')}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
-                            {slaDeadline ? formatDateTime(slaDeadline) : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
-                            {latestAction?.acted_at ? formatDateTime(latestAction.acted_at) : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell max-w-[200px]">
-                            <p className="truncate">{latestAction?.comments || '—'}</p>
-                          </td>
-                        </tr>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize whitespace-nowrap ${historyStatusBadge(req.status)}`}>
+                                {req.status.replaceAll('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
+                              {slaDeadline ? formatDateTime(slaDeadline) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
+                              {latestAction?.acted_at ? formatDateTime(latestAction.acted_at) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell max-w-[200px]">
+                              <p className="truncate">{latestAction?.comments || '—'}</p>
+                            </td>
+                          </tr>
                         )
                       })}
                     </tbody>
