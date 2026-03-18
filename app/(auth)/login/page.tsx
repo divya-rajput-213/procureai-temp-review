@@ -55,6 +55,7 @@ export default function LoginPage() {
         title: 'Login failed',
         description: err?.response?.data?.error || 'Invalid credentials.',
         variant: 'destructive',
+        duration: 5000,
       })
     } finally {
       setLoading(false)
