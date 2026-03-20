@@ -27,7 +27,7 @@ export default function UsersPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showClientSecret, setShowClientSecret] = useState(false)
   const [addForm, setAddForm] = useState({ first_name: '', last_name: '', email: '', designation: '', phone: '', plant: '' as string | number, role_ids: [] as number[] })
-  const [addErrors, setAddErrors] = useState<{ phone?: string }>({})
+  const [addErrors, setAddErrors] = useState<{ phone?: string; first_name?: string; last_name?: string; designation?: string }>({})
   const [addRoleSearch, setAddRoleSearch] = useState('')
   const [showAddRoleDropdown, setShowAddRoleDropdown] = useState(false)
 
@@ -767,11 +767,49 @@ export default function UsersPage() {
                     value={addForm[key as keyof typeof addForm] as string}
                     onChange={(e) => {
                       if (key === 'phone') setAddErrors((prev) => ({ ...prev, phone: undefined }))
-                      setAddForm((f) => ({ ...f, [key]: e.target.value }))
+                      const raw = e.target.value
+                      const isNameField = key === 'first_name' || key === 'last_name'
+                      const isDesignationField = key === 'designation'
+                      const isAlphabetOnlyField = isNameField || isDesignationField
+                      const hasInvalidChars = isAlphabetOnlyField && /[^A-Za-z]/.test(raw)
+                      if (isAlphabetOnlyField) {
+                        setAddErrors((prev) => ({
+                          ...prev,
+                          [key]: hasInvalidChars ? 'Only alphabets allowed.' : undefined,
+                        }))
+                      }
+                      const hasInvalidPhoneChars = key === 'phone' && (
+                        /[^0-9+]/.test(raw) ||
+                        (raw.includes('+') && raw.indexOf('+') > 0) ||
+                        (raw.match(/\+/g) || []).length > 1
+                      )
+                      if (key === 'phone') {
+                        setAddErrors((prev) => ({
+                          ...prev,
+                          phone: hasInvalidPhoneChars ? "Only numbers and '+' allowed." : undefined,
+                        }))
+                      }
+                      const nextValue = isAlphabetOnlyField
+                        ? raw.replace(/[^A-Za-z]/g, '')
+                        : key === 'phone'
+                          ? (() => {
+                            const cleaned = raw.replace(/[^0-9+]/g, '')
+                            const hasPlus = cleaned.includes('+')
+                            const digits = cleaned.replace(/\+/g, '')
+                            return hasPlus ? `+${digits}` : digits
+                          })()
+                          : raw
+                      setAddForm((f) => ({ ...f, [key]: nextValue }))
                     }}
                   />
                   {key === 'phone' && addErrors.phone && (
                     <p className="text-xs text-destructive mt-1">{addErrors.phone}</p>
+                  )}
+                  {(key === 'first_name' || key === 'last_name') && addErrors[key] && (
+                    <p className="text-xs text-destructive mt-1">{addErrors[key]}</p>
+                  )}
+                  {key === 'designation' && addErrors.designation && (
+                    <p className="text-xs text-destructive mt-1">{addErrors.designation}</p>
                   )}
                 </div>
               ))}
