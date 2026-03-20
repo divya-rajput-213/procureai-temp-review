@@ -27,6 +27,7 @@ export default function UsersPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showClientSecret, setShowClientSecret] = useState(false)
   const [addForm, setAddForm] = useState({ first_name: '', last_name: '', email: '', designation: '', phone: '', plant: '' as string | number, role_ids: [] as number[] })
+  const [addErrors, setAddErrors] = useState<{ phone?: string }>({})
   const [addRoleSearch, setAddRoleSearch] = useState('')
   const [showAddRoleDropdown, setShowAddRoleDropdown] = useState(false)
 
@@ -88,10 +89,17 @@ export default function UsersPage() {
       })
       setShowAddModal(false)
       setAddForm({ first_name: '', last_name: '', email: '', designation: '', phone: '', plant: '', role_ids: [] })
+      setAddErrors({})
       setAddRoleSearch('')
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
-    onError: (err: any) => toast({ title: 'Failed to create user', description: err?.response?.data?.email?.[0], variant: 'destructive' }),
+    onError: (err: any) => {
+      const data = err?.response?.data
+      setAddErrors({ phone: data?.phone?.[0] })
+      if (data?.email?.[0]) {
+        toast({ title: 'Failed to create user', description: data.email[0], variant: 'destructive' })
+      }
+    },
   })
 
   const editUserMutation = useMutation({
@@ -757,8 +765,14 @@ export default function UsersPage() {
                   <Input
                     placeholder={placeholder}
                     value={addForm[key as keyof typeof addForm] as string}
-                    onChange={(e) => setAddForm((f) => ({ ...f, [key]: e.target.value }))}
+                    onChange={(e) => {
+                      if (key === 'phone') setAddErrors((prev) => ({ ...prev, phone: undefined }))
+                      setAddForm((f) => ({ ...f, [key]: e.target.value }))
+                    }}
                   />
+                  {key === 'phone' && addErrors.phone && (
+                    <p className="text-xs text-destructive mt-1">{addErrors.phone}</p>
+                  )}
                 </div>
               ))}
 
