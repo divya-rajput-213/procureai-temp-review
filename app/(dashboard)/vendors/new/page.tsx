@@ -705,7 +705,7 @@ export default function NewVendorPage() {
       )}
 
       {/* ── Step 1: Compliance & Docs (all optional) ───────────────────────────── */}
-      {!showSrfMatch && step === 1 && (
+      {!showSrfMatch && step === 1 && ( 
         <Card>
           <CardHeader>
             <CardTitle>Compliance & Documents</CardTitle>
