@@ -136,14 +136,23 @@ export default function NewBudgetPage() {
     },
   
     onError: (err: any) => {
+      const errors = err?.response?.data
+    
+      let message = 'Something went wrong'
+    
+      if (errors && typeof errors === 'object') {
+        message = Object.entries(errors)
+          .map(([field, msgs]: any) => `${field}: ${msgs.join(', ')}`)
+          .join('\n')
+      }
+    
       toast({
         title: 'Submission failed',
-        description:
-          err?.response?.data?.message ||
-          'Something went wrong',
+        description: message,
         variant: 'destructive',
       })
-    },
+    }
+    
   })
   
   const addVendor = (v: any) => {
