@@ -79,3 +79,4 @@ export const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-gray-100 text-gray-500',
   exhausted: 'bg-orange-100 text-orange-700',
 }
+export   const nameRegex = /^[A-Za-z]{2,}$/

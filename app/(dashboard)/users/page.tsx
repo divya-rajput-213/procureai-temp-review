@@ -13,7 +13,7 @@ import {
   Plus, Search, UserCheck, UserX, RefreshCw, Loader2,
   CheckCircle, XCircle, AlertCircle, Eye, EyeOff, Shield, Trash2, Pencil, X,
 } from 'lucide-react'
-import { formatDateTime } from '@/lib/utils'
+import { formatDateTime, nameRegex } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
 const EXCLUDED_ROLE_NAMES = new Set(['super_admin', 'vendor_external'])
@@ -217,7 +217,7 @@ export default function UsersPage() {
   const totalUsers = users?.length || 0
   const adSynced = users?.filter((u: any) => u.is_ad_synced).length || 0
   const inactive = users?.filter((u: any) => !u.is_active).length || 0
-  const nameRegex = /^[A-Za-z]{2,}$/
+
 
   const validateName = (name: string) => {
     if (!name.trim()) return 'This field is required'
