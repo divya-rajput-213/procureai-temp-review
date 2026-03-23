@@ -40,6 +40,8 @@ export default function UsersPage() {
   const [selectedRole, setSelectedRole] = useState<any | null>(null)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assignSearch, setAssignSearch] = useState('')
+  const [addErrors, setAddErrors] = useState({ first_name: '', last_name: '' })
+  const [editErrors, setEditErrors] = useState({ first_name: '', last_name: '' })
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users', search, roleFilter],
@@ -215,6 +217,13 @@ export default function UsersPage() {
   const totalUsers = users?.length || 0
   const adSynced = users?.filter((u: any) => u.is_ad_synced).length || 0
   const inactive = users?.filter((u: any) => !u.is_active).length || 0
+  const nameRegex = /^[A-Za-z]{2,}$/
+
+  const validateName = (name: string) => {
+    if (!name.trim()) return 'This field is required'
+    if (!nameRegex.test(name.trim())) return 'Only letters, min 2 characters'
+    return ''
+  }
 
   return (
     <div className="space-y-4">
@@ -620,18 +629,33 @@ export default function UsersPage() {
                   </Label>
                   <Input
                     value={editForm.first_name}
-                    onChange={e => setEditForm(f => ({ ...f, first_name: e.target.value }))}
+                    onChange={e => {
+                      const value = e.target.value
+                      setEditForm(f => ({ ...f, first_name: value }))
+                      setEditErrors(err => ({ ...err, first_name: validateName(value) }))
+                    }}
                   />
+                  {editErrors.first_name && (
+                    <p className="text-xs text-red-500">{editErrors.first_name}</p>
+                  )}
+
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">
                     Last Name <span className="text-destructive">*</span>
                   </Label>
-
                   <Input
                     value={editForm.last_name}
-                    onChange={e => setEditForm(f => ({ ...f, last_name: e.target.value }))}
+                    onChange={e => {
+                      const value = e.target.value
+                      setEditForm(f => ({ ...f, last_name: value }))
+                      setEditErrors(err => ({ ...err, last_name: validateName(value) }))
+                    }}
                   />
+                  {editErrors.last_name && (
+                    <p className="text-xs text-red-500">{editErrors.last_name}</p>
+                  )}
+
                 </div>
               </div>
               <div className="space-y-1">
@@ -723,8 +747,8 @@ export default function UsersPage() {
                         !editForm.role_ids.includes(r.id) &&
                         (r.display_name.toLowerCase().includes(editRoleSearch.toLowerCase()) || !editRoleSearch)
                       ).length === 0 && (
-                        <p className="px-3 py-2 text-sm text-muted-foreground">No more roles available.</p>
-                      )}
+                          <p className="px-3 py-2 text-sm text-muted-foreground">No more roles available.</p>
+                        )}
                     </div>
                   )}
                 </div>
@@ -738,11 +762,14 @@ export default function UsersPage() {
                   onClick={() => editUserMutation.mutate()}
                   disabled={
                     editUserMutation.isPending ||
+                    !!editErrors.first_name ||
+                    !!editErrors.last_name ||
                     !editForm.first_name.trim() ||
                     !editForm.last_name.trim() ||
                     !editForm.designation.trim() ||
                     editForm.role_ids.length === 0
-                  }                  
+                  }
+
                   className="flex-1 gap-2"
                 >
                   {editUserMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -776,8 +803,26 @@ export default function UsersPage() {
                   <Input
                     placeholder={placeholder}
                     value={addForm[key as keyof typeof addForm] as string}
-                    onChange={(e) => setAddForm((f) => ({ ...f, [key]: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setAddForm((f) => ({ ...f, [key]: value }))
+
+                      if (key === 'first_name' || key === 'last_name') {
+                        setAddErrors(err => ({
+                          ...err,
+                          [key]: validateName(value)
+                        }))
+                      }
+                    }}
                   />
+
+                  {(key === 'first_name' || key === 'last_name') &&
+                    addErrors[key as 'first_name' | 'last_name'] && (
+                      <p className="text-xs text-red-500">
+                        {addErrors[key as 'first_name' | 'last_name']}
+                      </p>
+                    )}
+
                 </div>
               ))}
               {/* Plant dropdown */}
@@ -855,8 +900,8 @@ export default function UsersPage() {
                         !addForm.role_ids.includes(r.id) &&
                         (r.display_name.toLowerCase().includes(addRoleSearch.toLowerCase()) || !addRoleSearch)
                       ).length === 0 && (
-                        <p className="px-3 py-2 text-sm text-muted-foreground">No more roles available.</p>
-                      )}
+                          <p className="px-3 py-2 text-sm text-muted-foreground">No more roles available.</p>
+                        )}
                     </div>
                   )}
                 </div>
@@ -868,7 +913,16 @@ export default function UsersPage() {
                 </Button>
                 <Button
                   onClick={() => createUserMutation.mutate()}
-                  disabled={createUserMutation.isPending || !addForm.email || !addForm.first_name || !addForm.designation.trim() || addForm.role_ids.length === 0}
+                  disabled={
+                    createUserMutation.isPending ||
+                    !!addErrors.first_name ||
+                    !!addErrors.last_name ||
+                    !addForm.email ||
+                    !addForm.first_name.trim() ||
+                    !addForm.last_name.trim() ||
+                    !addForm.designation.trim() ||
+                    addForm.role_ids.length === 0
+                  }
                   className="flex-1 gap-2"
                 >
                   {createUserMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
