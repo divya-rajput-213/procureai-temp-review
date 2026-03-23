@@ -615,14 +615,19 @@ export default function UsersPage() {
             <CardContent className="space-y-3 flex-1 overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">First Name</Label>
+                  <Label className="text-xs">
+                    First Name <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     value={editForm.first_name}
                     onChange={e => setEditForm(f => ({ ...f, first_name: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Last Name</Label>
+                  <Label className="text-xs">
+                    Last Name <span className="text-destructive">*</span>
+                  </Label>
+
                   <Input
                     value={editForm.last_name}
                     onChange={e => setEditForm(f => ({ ...f, last_name: e.target.value }))}
@@ -630,7 +635,10 @@ export default function UsersPage() {
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Designation</Label>
+                <Label className="text-xs">
+                  Designation <span className="text-destructive">*</span>
+                </Label>
+
                 <Input
                   value={editForm.designation}
                   onChange={e => setEditForm(f => ({ ...f, designation: e.target.value }))}
@@ -654,7 +662,10 @@ export default function UsersPage() {
 
               {/* Roles multi-select */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Roles</Label>
+                <Label className="text-xs">
+                  Roles <span className="text-destructive">*</span>
+                </Label>
+
                 {/* Selected role chips */}
                 {editForm.role_ids.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-1">
@@ -725,7 +736,13 @@ export default function UsersPage() {
                 </Button>
                 <Button
                   onClick={() => editUserMutation.mutate()}
-                  disabled={editUserMutation.isPending}
+                  disabled={
+                    editUserMutation.isPending ||
+                    !editForm.first_name.trim() ||
+                    !editForm.last_name.trim() ||
+                    !editForm.designation.trim() ||
+                    editForm.role_ids.length === 0
+                  }                  
                   className="flex-1 gap-2"
                 >
                   {editUserMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -746,14 +763,16 @@ export default function UsersPage() {
             </CardHeader>
             <CardContent className="space-y-3 flex-1 overflow-y-auto">
               {[
-                { label: 'First Name *', key: 'first_name', placeholder: 'John' },
-                { label: 'Last Name *', key: 'last_name', placeholder: 'Doe' },
-                { label: 'Email *', key: 'email', placeholder: 'john@company.com' },
+                { label: 'First Name', key: 'first_name', placeholder: 'John', required: true },
+                { label: 'Last Name', key: 'last_name', placeholder: 'Doe', required: true },
+                { label: 'Email', key: 'email', placeholder: 'john@company.com', required: true },
                 { label: 'Phone', key: 'phone', placeholder: '+91 98765 43210' },
-                { label: 'Designation *', key: 'designation', placeholder: 'Manager' },
-              ].map(({ label, key, placeholder }) => (
+                { label: 'Designation', key: 'designation', placeholder: 'Manager', required: true },
+              ].map(({ label, key, placeholder, required }) => (
                 <div key={key} className="space-y-1">
-                  <Label className="text-xs">{label}</Label>
+                  <Label className="text-xs">
+                    {label} {required && <span className="text-destructive">*</span>}
+                  </Label>
                   <Input
                     placeholder={placeholder}
                     value={addForm[key as keyof typeof addForm] as string}
@@ -761,7 +780,6 @@ export default function UsersPage() {
                   />
                 </div>
               ))}
-
               {/* Plant dropdown */}
               <div className="space-y-1">
                 <Label className="text-xs">Plant</Label>
@@ -779,7 +797,9 @@ export default function UsersPage() {
 
               {/* Roles multiselect */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Roles *</Label>
+                <Label className="text-xs">
+                  Roles <span className="text-destructive">*</span>
+                </Label>
                 {addForm.role_ids.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-1">
                     {addForm.role_ids.map(id => {
