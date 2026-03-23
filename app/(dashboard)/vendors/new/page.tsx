@@ -173,7 +173,7 @@ const DIGITS_ONLY = /^[0-9]+$/
 // Compliance fields (GST, PAN, bank) are optional at creation.
 // They are enforced by the backend only at submit-for-approval time.
 const schema = z.object({
-  company_name:  z.string().min(2, 'Company name is required').regex(ALPHANUM_ONLY, 'Company Name must be alphanumeric'),
+  company_name:  z.string().min(2, 'Company name is required').regex(ALPHANUM_WITH_SPACES, 'Company Name must be alphanumeric'),
   contact_name:  z.string().min(2, 'Contact person is required'),
   contact_email: z.string().email('Valid email required'),
   contact_phone: z.string()
