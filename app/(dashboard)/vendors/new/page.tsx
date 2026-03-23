@@ -625,7 +625,7 @@ export default function NewVendorPage() {
                   Company Name <span className="text-destructive">*</span>
                   {extractedFields?.company_name && confidenceBadge(extractedFields.company_name.confidence)}
                 </Label>
-                <Input placeholder="e.g. Acme Pvt Ltd" {...register('company_name')}
+                <Input placeholder="e.g. Acme Pvt Ltd" maxLength={50} {...register('company_name')}
                   className={`${errors.company_name ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.company_name ? 'border-purple-200 bg-purple-50' : ''}`} />
                 {errors.company_name && <p className="text-xs text-destructive mt-1">{errors.company_name.message}</p>}
               </div>
@@ -651,16 +651,16 @@ export default function NewVendorPage() {
               </div>
 
               {[
-                { name: 'city',    label: 'City',     placeholder: 'e.g. Mumbai' },
-                { name: 'state',   label: 'State',    placeholder: 'e.g. Maharashtra' },
-                { name: 'pincode', label: 'PIN Code', placeholder: 'e.g. 400001', autoComplete: 'postal-code' },
-              ].map(({ name, label, placeholder, autoComplete }) => (
+                { name: 'city',    label: 'City',     placeholder: 'e.g. Mumbai', maxLength: 50 },
+                { name: 'state',   label: 'State',    placeholder: 'e.g. Maharashtra', maxLength: 50 },
+                { name: 'pincode', label: 'PIN Code', placeholder: 'e.g. 400001', autoComplete: 'postal-code', maxLength: 50 },
+              ].map(({ name, label, placeholder, autoComplete, maxLength }) => (
                 <div key={name} className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-700">
                     {label} <span className="text-destructive">*</span>
                     {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                   </Label>
-                  <Input placeholder={placeholder} autoComplete={autoComplete} {...register(name as keyof VendorForm)}
+                  <Input placeholder={placeholder} autoComplete={autoComplete} maxLength={maxLength} {...register(name as keyof VendorForm)}
                     className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
                   {errors[name as keyof VendorForm] && (
                     <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
@@ -671,16 +671,16 @@ export default function NewVendorPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe' },
+                { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe', maxLength: 50 },
                 { name: 'contact_email', label: 'Contact Email',  placeholder: 'e.g. john@acme.com' },
-                { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', inputMode: 'numeric', pattern: '[0-9]*' },
-              ].map(({ name, label, placeholder, inputMode, pattern }) => (
+                { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', inputMode: 'numeric', pattern: '[0-9]*', maxLength: 20},
+              ].map(({ name, label, placeholder, inputMode, pattern, maxLength }) => (
                 <div key={name} className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-700">
                     {label} <span className="text-destructive">*</span>
                     {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                   </Label>
-                  <Input placeholder={placeholder} inputMode={inputMode} pattern={pattern} {...register(name as keyof VendorForm)}
+                  <Input placeholder={placeholder} inputMode={inputMode} pattern={pattern} maxLength={maxLength} {...register(name as keyof VendorForm)}
                     className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
                   {errors[name as keyof VendorForm] && (
                     <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
