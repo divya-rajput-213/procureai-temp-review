@@ -104,6 +104,11 @@ function DocUploadWidget({ vendorId, docType, doc, onRefresh }: {
   const [deleting, setDeleting] = useState(false)
 
   const upload = async (file: File) => {
+    const maxSizeBytes = 5 * 1024 * 1024
+    if (file.size > maxSizeBytes) {
+      toast({ title: 'Max file size is 5 MB', variant: 'destructive' })
+      return
+    }
     setUploading(true)
     try {
       const fd = new FormData(); fd.append('file', file); fd.append('doc_type', docType)
@@ -281,6 +286,14 @@ export default function NewVendorPage() {
   const watchedPlant    = watch('plant')
   const watchedIsMsme   = watch('is_msme')
   const watchedIsSez    = watch('is_sez')
+  const gstNumber = watch('gst_number')
+  const isGstCertRequired = !!gstNumber?.trim()
+  const panNumber = watch('pan_number')
+  const isPanCertRequired = !!panNumber?.trim()
+  const bankNumber = watch('bank_account')
+  const isBankDocRequired = !!bankNumber?.trim()
+
+
 
   // ── Upload docs helper ───────────────────────────────────────────────────────
   const uploadDocs = async (vid: string) => {
@@ -706,9 +719,10 @@ export default function NewVendorPage() {
                 {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">GST Certificate</Label>
+                <Label className="text-xs font-semibold text-slate-700">GST Certificate {isGstCertRequired && <span className="text-destructive"> *</span>}</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="gst_certificate"
                   doc={docOf('gst_certificate')} onRefresh={refreshDocs} />
+                <p className="text-xs text-muted-foreground mt-1">· Max size: 5 MB</p>
                 {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
               </div>
             </div>
@@ -722,9 +736,10 @@ export default function NewVendorPage() {
                 {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">PAN Card</Label>
+                <Label className="text-xs font-semibold text-slate-700">PAN Card {isPanCertRequired && <span className="text-destructive"> *</span>}</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="pan_card"
                   doc={docOf('pan_card')} onRefresh={refreshDocs} />
+                  <p className="text-xs text-muted-foreground mt-1">· Max size: 5 MB</p>
                 {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
               </div>
             </div>
@@ -749,9 +764,10 @@ export default function NewVendorPage() {
                 {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_bank_account']}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque</Label>
+                <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque {isBankDocRequired  && <span className="text-destructive"> *</span>}</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="bank_details"
                   doc={docOf('bank_details')} onRefresh={refreshDocs} />
+                  <p className="text-xs text-muted-foreground mt-1">· Max size: 5 MB</p>
                 {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
               </div>
             </div>
