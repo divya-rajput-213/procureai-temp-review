@@ -21,7 +21,7 @@ import { normalizeLeadingWhitespace } from '@/lib/utils'
 const ALPHANUM_WITH_SPACES = /^[a-z0-9 ]+$/i
 
 const schema = z.object({
-  title: z.string().trim().min(3, 'Title is required').regex(ALPHANUM_WITH_SPACES, 'Title must be alphanumeric'),
+  title: z.string().trim().min(3, 'Title is required').regex(ALPHANUM_WITH_SPACES, 'Title must be alphanumeric').refine(v => /[a-z]/i.test(v), 'Title cannot contain only numeric values'),
   priority: z.enum(['low', 'medium', 'high']),
   plant: z.number({ required_error: 'Plant is required' }),
   department: z.number({ required_error: 'Department is required' }),
