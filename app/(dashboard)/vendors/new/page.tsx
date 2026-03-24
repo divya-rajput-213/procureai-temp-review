@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useForm, FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -305,6 +305,9 @@ export default function NewVendorPage() {
   const isPanCertRequired = !!panNumber?.trim()
   const bankNumber = watch('bank_account')
   const isBankDocRequired = !!bankNumber?.trim()
+  const bankIfsc = watch('bank_ifsc')
+  const bankName = watch('bank_name')
+  const msmeNumber = watch('msme_number')
 
 
 
@@ -410,6 +413,13 @@ export default function NewVendorPage() {
     setComplianceErrors(errs)
     return Object.keys(errs).length === 0
   }
+
+  // Keep compliance errors in sync after the user has triggered validation once
+  useEffect(() => {
+    if (Object.keys(complianceErrors).length === 0) return
+    validateCompliancePairs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorDocs, gstNumber, panNumber, bankNumber, bankIfsc, bankName, watchedIsMsme, msmeNumber])
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleStep0Next = async () => {
