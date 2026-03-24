@@ -673,14 +673,14 @@ export default function NewVendorPage() {
               {[
                 { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe', maxLength: 50 },
                 { name: 'contact_email', label: 'Contact Email',  placeholder: 'e.g. john@acme.com' },
-                { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', inputMode: 'numeric', pattern: '[0-9]*', maxLength: 20},
-              ].map(({ name, label, placeholder, inputMode, pattern, maxLength }) => (
+                { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', pattern: '[0-9]*', maxLength: 20},
+              ].map(({ name, label, placeholder, pattern, maxLength }) => (
                 <div key={name} className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-700">
                     {label} <span className="text-destructive">*</span>
                     {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                   </Label>
-                  <Input placeholder={placeholder} inputMode={inputMode} pattern={pattern} maxLength={maxLength} {...register(name as keyof VendorForm)}
+                  <Input placeholder={placeholder} pattern={pattern} maxLength={maxLength} {...register(name as keyof VendorForm)}
                     className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
                   {errors[name as keyof VendorForm] && (
                     <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
