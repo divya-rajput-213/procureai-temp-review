@@ -35,6 +35,13 @@ const SRF_FIELD_LABELS: Record<string, string> = {
 }
 
 type SrfMatchRow = { field: string; label: string; value: string; confidence: number; include: boolean }
+type FieldConfig = {
+  name: keyof VendorForm
+  label: string
+  placeholder: string
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
+  pattern?: string
+}
 
 const OTHER_DOC_TYPE_OPTIONS = [
   { value: 'quality_certificate', label: 'Quality Certificate' },
@@ -44,6 +51,11 @@ const OTHER_DOC_TYPE_OPTIONS = [
   { value: 'nda',                 label: 'NDA / Agreement' },
   { value: 'warranty',            label: 'Warranty Document' },
   { value: 'other',               label: 'Other' },
+]
+const contactFields: FieldConfig[] = [
+  { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe' },
+  { name: 'contact_email', label: 'Contact Email',  placeholder: 'e.g. john@acme.com' },
+  { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', inputMode: 'numeric', pattern: '[0-9]*' },
 ]
 
 const steps = ['Company Details', 'Compliance & Docs', 'Review & Submit']
@@ -666,28 +678,32 @@ export default function NewVendorPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe' },
-                { name: 'contact_email', label: 'Contact Email',  placeholder: 'e.g. john@acme.com' },
-                { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', inputMode: 'numeric', pattern: '[0-9]*' },
-              ].map(({ name, label, placeholder, inputMode, pattern }) => {
-                const field = register(name as keyof VendorForm)
+              {contactFields.map(({ name, label, placeholder, inputMode, pattern }) => {
+                const field = register(name)
                 return (
                   <div key={name} className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700">
                       {label} <span className="text-destructive">*</span>
                       {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                     </Label>
+
                     <Input
                       placeholder={placeholder}
                       inputMode={inputMode}
                       pattern={pattern}
                       {...field}
-                      onChange={name === 'contact_phone' ? (e) => handlePhoneChange(e, field.onChange) : field.onChange}
-                      className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`}
+                      onChange={
+                        name === 'contact_phone'
+                          ? (e) => handlePhoneChange(e, field.onChange)
+                          : field.onChange
+                      }
+                      className={`${errors[name] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`}
                     />
-                    {errors[name as keyof VendorForm] && (
-                      <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
+
+                    {errors[name] && (
+                      <p className="text-xs text-destructive mt-1">
+                        {(errors[name] as any)?.message}
+                      </p>
                     )}
                   </div>
                 )
