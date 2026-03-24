@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Input} from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -35,6 +35,14 @@ const SRF_FIELD_LABELS: Record<string, string> = {
 }
 
 type SrfMatchRow = { field: string; label: string; value: string; confidence: number; include: boolean }
+type FieldConfig = {
+  name: keyof VendorForm
+  label: string
+  placeholder: string
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
+  pattern?: string
+  maxLength?:number
+}
 
 const OTHER_DOC_TYPE_OPTIONS = [
   { value: 'quality_certificate', label: 'Quality Certificate' },
@@ -44,6 +52,11 @@ const OTHER_DOC_TYPE_OPTIONS = [
   { value: 'nda',                 label: 'NDA / Agreement' },
   { value: 'warranty',            label: 'Warranty Document' },
   { value: 'other',               label: 'Other' },
+]
+const contactFields: FieldConfig[] = [
+  { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe', maxLength: 50 },
+  { name: 'contact_email', label: 'Contact Email',  placeholder: 'e.g. john@acme.com' },
+  { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', pattern: '[0-9]*', maxLength: 20},
 ]
 
 const steps = ['Company Details', 'Compliance & Docs', 'Review & Submit']
@@ -457,6 +470,15 @@ export default function NewVendorPage() {
     : c >= 0.5 ? <Badge variant="warning" className="text-xs">Check</Badge>
     : <Badge variant="secondary" className="text-xs">Low</Badge>
 
+    const handlePhoneChange = (
+      e: React.ChangeEvent<HTMLInputElement>,
+      onChange: (...event: any[]) => void
+    ) => {
+      const digitsOnly = e.target.value.replace(/\D/g, '')
+      e.target.value = digitsOnly
+      onChange(e)
+    }
+    
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
@@ -670,11 +692,7 @@ export default function NewVendorPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe', maxLength: 50 },
-                { name: 'contact_email', label: 'Contact Email',  placeholder: 'e.g. john@acme.com' },
-                { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', pattern: '[0-9]*', maxLength: 20},
-              ].map(({ name, label, placeholder, pattern, maxLength }) => (
+              {contactFields.map(({ name, label, placeholder, pattern, maxLength }) => (
                 <div key={name} className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-700">
                     {label} <span className="text-destructive">*</span>
@@ -700,7 +718,7 @@ export default function NewVendorPage() {
       )}
 
       {/* ── Step 1: Compliance & Docs (all optional) ───────────────────────────── */}
-      {!showSrfMatch && step === 1 && (
+      {!showSrfMatch && step === 1 && ( 
         <Card>
           <CardHeader>
             <CardTitle>Compliance & Documents</CardTitle>

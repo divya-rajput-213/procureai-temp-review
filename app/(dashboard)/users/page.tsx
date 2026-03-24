@@ -13,7 +13,7 @@ import {
   Plus, Search, UserCheck, UserX, RefreshCw, Loader2,
   CheckCircle, XCircle, AlertCircle, Eye, EyeOff, Shield, Trash2, Pencil, X,
 } from 'lucide-react'
-import { formatDateTime } from '@/lib/utils'
+import { formatDateTime, nameRegex } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
 const EXCLUDED_ROLE_NAMES = new Set(['super_admin', 'vendor_external'])
@@ -27,6 +27,7 @@ export default function UsersPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showClientSecret, setShowClientSecret] = useState(false)
   const [addForm, setAddForm] = useState({ first_name: '', last_name: '', email: '', designation: '', phone: '', plant: '' as string | number, role_ids: [] as number[] })
+  const [addErrors, setAddErrors] = useState<{ phone?: string; first_name?: string; last_name?: string; designation?: string }>({})
   const [addRoleSearch, setAddRoleSearch] = useState('')
   const [showAddRoleDropdown, setShowAddRoleDropdown] = useState(false)
 
@@ -40,6 +41,7 @@ export default function UsersPage() {
   const [selectedRole, setSelectedRole] = useState<any | null>(null)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assignSearch, setAssignSearch] = useState('')
+  const [editErrors, setEditErrors] = useState({ first_name: '', last_name: '' })
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users', search, roleFilter],
@@ -88,10 +90,17 @@ export default function UsersPage() {
       })
       setShowAddModal(false)
       setAddForm({ first_name: '', last_name: '', email: '', designation: '', phone: '', plant: '', role_ids: [] })
+      setAddErrors({})
       setAddRoleSearch('')
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
-    onError: (err: any) => toast({ title: 'Failed to create user', description: err?.response?.data?.email?.[0], variant: 'destructive' }),
+    onError: (err: any) => {
+      const data = err?.response?.data
+      setAddErrors({ phone: data?.phone?.[0] })
+      if (data?.email?.[0]) {
+        toast({ title: 'Failed to create user', description: data.email[0], variant: 'destructive' })
+      }
+    },
   })
 
   const editUserMutation = useMutation({
@@ -215,6 +224,13 @@ export default function UsersPage() {
   const totalUsers = users?.length || 0
   const adSynced = users?.filter((u: any) => u.is_ad_synced).length || 0
   const inactive = users?.filter((u: any) => !u.is_active).length || 0
+
+
+  const validateName = (name: string) => {
+    if (!name.trim()) return 'This field is required'
+    if (!nameRegex.test(name.trim())) return 'Only letters, min 2 characters'
+    return ''
+  }
 
   return (
     <div className="space-y-4">
@@ -615,22 +631,45 @@ export default function UsersPage() {
             <CardContent className="space-y-3 flex-1 overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">First Name</Label>
+                  <Label className="text-xs">
+                    First Name <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     value={editForm.first_name}
-                    onChange={e => setEditForm(f => ({ ...f, first_name: e.target.value }))}
+                    onChange={e => {
+                      const value = e.target.value
+                      setEditForm(f => ({ ...f, first_name: value }))
+                      setEditErrors(err => ({ ...err, first_name: validateName(value) }))
+                    }}
                   />
+                  {editErrors.first_name && (
+                    <p className="text-xs text-red-500">{editErrors.first_name}</p>
+                  )}
+
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Last Name</Label>
+                  <Label className="text-xs">
+                    Last Name <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     value={editForm.last_name}
-                    onChange={e => setEditForm(f => ({ ...f, last_name: e.target.value }))}
+                    onChange={e => {
+                      const value = e.target.value
+                      setEditForm(f => ({ ...f, last_name: value }))
+                      setEditErrors(err => ({ ...err, last_name: validateName(value) }))
+                    }}
                   />
+                  {editErrors.last_name && (
+                    <p className="text-xs text-red-500">{editErrors.last_name}</p>
+                  )}
+
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Designation</Label>
+                <Label className="text-xs">
+                  Designation <span className="text-destructive">*</span>
+                </Label>
+
                 <Input
                   value={editForm.designation}
                   onChange={e => setEditForm(f => ({ ...f, designation: e.target.value }))}
@@ -654,7 +693,10 @@ export default function UsersPage() {
 
               {/* Roles multi-select */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Roles</Label>
+                <Label className="text-xs">
+                  Roles <span className="text-destructive">*</span>
+                </Label>
+
                 {/* Selected role chips */}
                 {editForm.role_ids.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-1">
@@ -712,8 +754,8 @@ export default function UsersPage() {
                         !editForm.role_ids.includes(r.id) &&
                         (r.display_name.toLowerCase().includes(editRoleSearch.toLowerCase()) || !editRoleSearch)
                       ).length === 0 && (
-                        <p className="px-3 py-2 text-sm text-muted-foreground">No more roles available.</p>
-                      )}
+                          <p className="px-3 py-2 text-sm text-muted-foreground">No more roles available.</p>
+                        )}
                     </div>
                   )}
                 </div>
@@ -725,7 +767,16 @@ export default function UsersPage() {
                 </Button>
                 <Button
                   onClick={() => editUserMutation.mutate()}
-                  disabled={editUserMutation.isPending}
+                  disabled={
+                    editUserMutation.isPending ||
+                    !!editErrors.first_name ||
+                    !!editErrors.last_name ||
+                    !editForm.first_name.trim() ||
+                    !editForm.last_name.trim() ||
+                    !editForm.designation.trim() ||
+                    editForm.role_ids.length === 0
+                  }
+
                   className="flex-1 gap-2"
                 >
                   {editUserMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -746,22 +797,67 @@ export default function UsersPage() {
             </CardHeader>
             <CardContent className="space-y-3 flex-1 overflow-y-auto">
               {[
-                { label: 'First Name *', key: 'first_name', placeholder: 'John' },
-                { label: 'Last Name *', key: 'last_name', placeholder: 'Doe' },
-                { label: 'Email *', key: 'email', placeholder: 'john@company.com' },
+                { label: 'First Name', key: 'first_name', placeholder: 'John', required: true },
+                { label: 'Last Name', key: 'last_name', placeholder: 'Doe', required: true },
+                { label: 'Email', key: 'email', placeholder: 'john@company.com', required: true },
                 { label: 'Phone', key: 'phone', placeholder: '+91 98765 43210' },
-                { label: 'Designation *', key: 'designation', placeholder: 'Manager' },
-              ].map(({ label, key, placeholder }) => (
+                { label: 'Designation', key: 'designation', placeholder: 'Manager', required: true },
+              ].map(({ label, key, placeholder, required }) => (
                 <div key={key} className="space-y-1">
-                  <Label className="text-xs">{label}</Label>
+                  <Label className="text-xs">
+                    {label} {required && <span className="text-destructive">*</span>}
+                  </Label>
                   <Input
                     placeholder={placeholder}
                     value={addForm[key as keyof typeof addForm] as string}
-                    onChange={(e) => setAddForm((f) => ({ ...f, [key]: e.target.value }))}
+                    onChange={(e) => {
+                      if (key === 'phone') setAddErrors((prev) => ({ ...prev, phone: undefined }))
+                      const raw = e.target.value
+                      const isNameField = key === 'first_name' || key === 'last_name'
+                      const isDesignationField = key === 'designation'
+                      const isAlphabetOnlyField = isNameField || isDesignationField
+                      const hasInvalidChars = isAlphabetOnlyField && /[^A-Za-z]/.test(raw)
+                      if (isAlphabetOnlyField) {
+                        setAddErrors((prev) => ({
+                          ...prev,
+                          [key]: hasInvalidChars ? 'Only alphabets allowed.' : undefined,
+                        }))
+                      }
+                      const hasInvalidPhoneChars = key === 'phone' && (
+                        /[^0-9+]/.test(raw) ||
+                        (raw.includes('+') && raw.indexOf('+') > 0) ||
+                        (raw.match(/\+/g) || []).length > 1
+                      )
+                      if (key === 'phone') {
+                        setAddErrors((prev) => ({
+                          ...prev,
+                          phone: hasInvalidPhoneChars ? "Only numbers and '+' allowed." : undefined,
+                        }))
+                      }
+                      const nextValue = isAlphabetOnlyField
+                        ? raw.replace(/[^A-Za-z]/g, '')
+                        : key === 'phone'
+                          ? (() => {
+                            const cleaned = raw.replace(/[^0-9+]/g, '')
+                            const hasPlus = cleaned.includes('+')
+                            const digits = cleaned.replace(/\+/g, '')
+                            return hasPlus ? `+${digits}` : digits
+                          })()
+                          : raw
+                      setAddForm((f) => ({ ...f, [key]: nextValue }))
+                    }}
                   />
+                  {key === 'phone' && addErrors.phone && (
+                    <p className="text-xs text-destructive mt-1">{addErrors.phone}</p>
+                  )}
+                  {(key === 'first_name' || key === 'last_name') && addErrors[key] && (
+                    <p className="text-xs text-destructive mt-1">{addErrors[key]}</p>
+                  )}
+                  {key === 'designation' && addErrors.designation && (
+                    <p className="text-xs text-destructive mt-1">{addErrors.designation}</p>
+                  )}
                 </div>
               ))}
-
               {/* Plant dropdown */}
               <div className="space-y-1">
                 <Label className="text-xs">Plant</Label>
@@ -779,7 +875,9 @@ export default function UsersPage() {
 
               {/* Roles multiselect */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Roles *</Label>
+                <Label className="text-xs">
+                  Roles <span className="text-destructive">*</span>
+                </Label>
                 {addForm.role_ids.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-1">
                     {addForm.role_ids.map(id => {
@@ -835,8 +933,8 @@ export default function UsersPage() {
                         !addForm.role_ids.includes(r.id) &&
                         (r.display_name.toLowerCase().includes(addRoleSearch.toLowerCase()) || !addRoleSearch)
                       ).length === 0 && (
-                        <p className="px-3 py-2 text-sm text-muted-foreground">No more roles available.</p>
-                      )}
+                          <p className="px-3 py-2 text-sm text-muted-foreground">No more roles available.</p>
+                        )}
                     </div>
                   )}
                 </div>
@@ -848,7 +946,16 @@ export default function UsersPage() {
                 </Button>
                 <Button
                   onClick={() => createUserMutation.mutate()}
-                  disabled={createUserMutation.isPending || !addForm.email || !addForm.first_name || !addForm.designation.trim() || addForm.role_ids.length === 0}
+                  disabled={
+                    createUserMutation.isPending ||
+                    !!addErrors.first_name ||
+                    !!addErrors.last_name ||
+                    !addForm.email ||
+                    !addForm.first_name.trim() ||
+                    !addForm.last_name.trim() ||
+                    !addForm.designation.trim() ||
+                    addForm.role_ids.length === 0
+                  }
                   className="flex-1 gap-2"
                 >
                   {createUserMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
