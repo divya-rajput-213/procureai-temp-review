@@ -80,3 +80,8 @@ export const STATUS_COLORS: Record<string, string> = {
   exhausted: 'bg-orange-100 text-orange-700',
 }
 export   const nameRegex = /^[A-Za-z]{2,}$/
+
+export function normalizeLeadingWhitespace(value: string) {
+  return value.replace(/^\s+/, '')
+}
+

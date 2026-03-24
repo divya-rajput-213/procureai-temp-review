@@ -16,13 +16,14 @@ import { formatCurrency } from '@/lib/utils'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
+import { normalizeLeadingWhitespace } from '@/lib/utils'
 
 const schema = z.object({
-  title: z.string().min(3, 'Title is required'),
+  title: z.string().trim().min(3, 'Title is required'),
   priority: z.enum(['low', 'medium', 'high']),
   plant: z.number({ required_error: 'Plant is required' }),
   department: z.number({ required_error: 'Department is required' }),
-  description: z.string().min(10, 'Description must be at least 10 characters').max(500, 'Description cannot exceed 500 characters'),
+  description: z.string().trim().min(10, 'Description must be at least 10 characters').max(500, 'Description cannot exceed 500 characters'),
   requested_amount: z
     .number({ invalid_type_error: 'Enter a valid amount' })
     .min(1000, 'Minimum budget is ₹1,000')
@@ -42,8 +43,6 @@ function getAmountInputCls(hasError: boolean, amount: number) {
   if (amount >= 1000) return 'h-10 pl-7 border-emerald-400 focus-visible:ring-emerald-300/40'
   return 'h-10 pl-7'
 }
-
-
 export default function NewBudgetPage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -56,6 +55,7 @@ export default function NewBudgetPage() {
 
   const [selectedVendors, setSelectedVendors] = useState<any[]>([])
   const [vendorSearch, setVendorSearch] = useState('')
+  const normalizedVendorSearch = vendorSearch.trim()
   const [showVendorSearch, setShowVendorSearch] = useState(false)
   const [showApprovalPanel, setShowApprovalPanel] = useState(true)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
@@ -69,14 +69,14 @@ export default function NewBudgetPage() {
     queryFn: async () => { const r = await apiClient.get('/users/departments/'); return r.data.results ?? r.data },
   })
   const { data: vendors } = useQuery({
-    queryKey: ['vendors-approved', vendorSearch],
+    queryKey: ['vendors-approved', normalizedVendorSearch],
     queryFn: async () => {
       const params = new URLSearchParams({ status: 'approved' })
-      if (vendorSearch) params.set('search', vendorSearch)
+      if (normalizedVendorSearch) params.set('search', normalizedVendorSearch)
       const r = await apiClient.get(`/vendors/?${params}`)
       return r.data.results ?? r.data
     },
-    enabled: showVendorSearch && vendorSearch.trim().length >= 2,
+    enabled: showVendorSearch && normalizedVendorSearch.length >= 2,
   })
   const { data: matrices } = useQuery({
     queryKey: ['approval-matrices', 'budget_approval'],
@@ -92,9 +92,12 @@ export default function NewBudgetPage() {
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
+    mode: 'onChange',
+    reValidateMode: 'onChange',
     defaultValues: { priority: 'medium' },
   })
-
+  
+  
   const watchedPriority = watch('priority')
   const watchedAmount = watch('requested_amount')
 
@@ -274,7 +277,18 @@ export default function NewBudgetPage() {
             {/* Title */}
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
-              <Input {...register('title')} placeholder="e.g. Enterprise Laptop Procurement" className="h-10" />
+              <Input
+                {...register('title', {
+                  onChange: e => {
+                    const nextValue = normalizeLeadingWhitespace(e.target.value)
+                    if (nextValue !== e.target.value) {
+                      setValue('title', nextValue, { shouldValidate: true, shouldDirty: true })
+                    }
+                  },
+                })}
+                placeholder="e.g. Enterprise Laptop Procurement"
+                className="h-10"
+              />
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
@@ -290,7 +304,18 @@ export default function NewBudgetPage() {
                 </p>
               </div>
 
-              <textarea {...register('description')} className={textareaCls} placeholder="Brief description of what you need..." />
+              <textarea
+                {...register('description', {
+                  onChange: e => {
+                    const nextValue = normalizeLeadingWhitespace(e.target.value)
+                    if (nextValue !== e.target.value) {
+                      setValue('description', nextValue, { shouldValidate: true, shouldDirty: true })
+                    }
+                  },
+                })}
+                className={textareaCls}
+                placeholder="Brief description of what you need..."
+              />
               <div className="flex items-center justify-between">
                 {errors.description
                   ? <p className="text-xs text-destructive">{errors.description.message}</p>
@@ -382,7 +407,15 @@ export default function NewBudgetPage() {
                     placeholder="0"
                     className={amountInputCls}
                     {...register('requested_amount', {
-                      valueAsNumber: true,
+                      setValueAs: value => {
+                        const raw = String(value ?? '').trim()
+                        if (!raw) return undefined
+                        const intPart = raw.split('.')[0] || '0'
+                        const intVal = Number(intPart)
+                        if (Number.isNaN(intVal)) return undefined
+                        if (intVal < 1000) return intVal
+                        return Number(raw)
+                      },
                       max: { value: 100_000_000, message: 'Maximum budget is ₹10 Crore' },
                     })}
                     onInput={e => {
@@ -419,12 +452,16 @@ export default function NewBudgetPage() {
               <Input
                 placeholder="Search approved vendors..."
                 value={vendorSearch}
-                onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
+                onChange={e => {
+                  const nextValue = e.target.value
+                  setVendorSearch(/\S/.test(nextValue) ? nextValue : '')
+                  setShowVendorSearch(true)
+                }}
                 onFocus={() => setShowVendorSearch(true)}
                 onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
                 className="h-10"
               />
-              {showVendorSearch && vendorSearch.trim().length >= 2 && (
+              {showVendorSearch && normalizedVendorSearch.length >= 2 && (
                 <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
                   {(vendors || []).filter((v: any) => !selectedVendors.some((s: any) => s.id === v.id)).map((v: any) => (
                     <button
@@ -444,7 +481,7 @@ export default function NewBudgetPage() {
                       </div>
                     </button>
                   ))}
-                  {(vendors || []).filter((v: any) => !selectedVendors.some((s: any) => s.id === v.id)).length === 0 && vendorSearch && (
+                  {(vendors || []).filter((v: any) => !selectedVendors.some((s: any) => s.id === v.id)).length === 0 && normalizedVendorSearch && (
                     <p className="px-3 py-2.5 text-sm text-muted-foreground">No vendors found.</p>
                   )}
                 </div>

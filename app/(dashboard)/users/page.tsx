@@ -27,6 +27,7 @@ export default function UsersPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showClientSecret, setShowClientSecret] = useState(false)
   const [addForm, setAddForm] = useState({ first_name: '', last_name: '', email: '', designation: '', phone: '', plant: '' as string | number, role_ids: [] as number[] })
+  const [addErrors, setAddErrors] = useState<{ phone?: string; first_name?: string; last_name?: string; designation?: string }>({})
   const [addRoleSearch, setAddRoleSearch] = useState('')
   const [showAddRoleDropdown, setShowAddRoleDropdown] = useState(false)
 
@@ -40,7 +41,6 @@ export default function UsersPage() {
   const [selectedRole, setSelectedRole] = useState<any | null>(null)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assignSearch, setAssignSearch] = useState('')
-  const [addErrors, setAddErrors] = useState({ first_name: '', last_name: '' })
   const [editErrors, setEditErrors] = useState({ first_name: '', last_name: '' })
 
   const { data: users, isLoading } = useQuery({
@@ -90,10 +90,17 @@ export default function UsersPage() {
       })
       setShowAddModal(false)
       setAddForm({ first_name: '', last_name: '', email: '', designation: '', phone: '', plant: '', role_ids: [] })
+      setAddErrors({})
       setAddRoleSearch('')
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
-    onError: (err: any) => toast({ title: 'Failed to create user', description: err?.response?.data?.email?.[0], variant: 'destructive' }),
+    onError: (err: any) => {
+      const data = err?.response?.data
+      setAddErrors({ phone: data?.phone?.[0] })
+      if (data?.email?.[0]) {
+        toast({ title: 'Failed to create user', description: data.email[0], variant: 'destructive' })
+      }
+    },
   })
 
   const editUserMutation = useMutation({
@@ -804,25 +811,51 @@ export default function UsersPage() {
                     placeholder={placeholder}
                     value={addForm[key as keyof typeof addForm] as string}
                     onChange={(e) => {
-                      const value = e.target.value
-                      setAddForm((f) => ({ ...f, [key]: value }))
-
-                      if (key === 'first_name' || key === 'last_name') {
-                        setAddErrors(err => ({
-                          ...err,
-                          [key]: validateName(value)
+                      if (key === 'phone') setAddErrors((prev) => ({ ...prev, phone: undefined }))
+                      const raw = e.target.value
+                      const isNameField = key === 'first_name' || key === 'last_name'
+                      const isDesignationField = key === 'designation'
+                      const isAlphabetOnlyField = isNameField || isDesignationField
+                      const hasInvalidChars = isAlphabetOnlyField && /[^A-Za-z]/.test(raw)
+                      if (isAlphabetOnlyField) {
+                        setAddErrors((prev) => ({
+                          ...prev,
+                          [key]: hasInvalidChars ? 'Only alphabets allowed.' : undefined,
                         }))
                       }
+                      const hasInvalidPhoneChars = key === 'phone' && (
+                        /[^0-9+]/.test(raw) ||
+                        (raw.includes('+') && raw.indexOf('+') > 0) ||
+                        (raw.match(/\+/g) || []).length > 1
+                      )
+                      if (key === 'phone') {
+                        setAddErrors((prev) => ({
+                          ...prev,
+                          phone: hasInvalidPhoneChars ? "Only numbers and '+' allowed." : undefined,
+                        }))
+                      }
+                      const nextValue = isAlphabetOnlyField
+                        ? raw.replace(/[^A-Za-z]/g, '')
+                        : key === 'phone'
+                          ? (() => {
+                            const cleaned = raw.replace(/[^0-9+]/g, '')
+                            const hasPlus = cleaned.includes('+')
+                            const digits = cleaned.replace(/\+/g, '')
+                            return hasPlus ? `+${digits}` : digits
+                          })()
+                          : raw
+                      setAddForm((f) => ({ ...f, [key]: nextValue }))
                     }}
                   />
-
-                  {(key === 'first_name' || key === 'last_name') &&
-                    addErrors[key as 'first_name' | 'last_name'] && (
-                      <p className="text-xs text-red-500">
-                        {addErrors[key as 'first_name' | 'last_name']}
-                      </p>
-                    )}
-
+                  {key === 'phone' && addErrors.phone && (
+                    <p className="text-xs text-destructive mt-1">{addErrors.phone}</p>
+                  )}
+                  {(key === 'first_name' || key === 'last_name') && addErrors[key] && (
+                    <p className="text-xs text-destructive mt-1">{addErrors[key]}</p>
+                  )}
+                  {key === 'designation' && addErrors.designation && (
+                    <p className="text-xs text-destructive mt-1">{addErrors.designation}</p>
+                  )}
                 </div>
               ))}
               {/* Plant dropdown */}
