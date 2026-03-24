@@ -740,7 +740,7 @@ export default function NewVendorPage() {
                 <Label className="text-xs font-semibold text-slate-700">GST Certificate {isGstCertRequired && <span className="text-destructive"> *</span>}</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="gst_certificate"
                   doc={docOf('gst_certificate')} onRefresh={refreshDocs} />
-                <p className="text-xs text-muted-foreground mt-1">· Max size: 5 MB</p>
+                <p className="text-xs text-muted-foreground mt-1"> Max size: 5 MB</p>
                 {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
               </div>
             </div>
@@ -757,7 +757,7 @@ export default function NewVendorPage() {
                 <Label className="text-xs font-semibold text-slate-700">PAN Card {isPanCertRequired && <span className="text-destructive"> *</span>}</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="pan_card"
                   doc={docOf('pan_card')} onRefresh={refreshDocs} />
-                  <p className="text-xs text-muted-foreground mt-1">· Max size: 5 MB</p>
+                  <p className="text-xs text-muted-foreground mt-1"> Max size: 5 MB</p>
                 {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
               </div>
             </div>
@@ -785,7 +785,7 @@ export default function NewVendorPage() {
                 <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque {isBankDocRequired  && <span className="text-destructive"> *</span>}</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="bank_details"
                   doc={docOf('bank_details')} onRefresh={refreshDocs} />
-                  <p className="text-xs text-muted-foreground mt-1">· Max size: 5 MB</p>
+                  <p className="text-xs text-muted-foreground mt-1">Max size: 5 MB</p>
                 {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
               </div>
             </div>
