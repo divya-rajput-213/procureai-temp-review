@@ -18,8 +18,10 @@ import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { normalizeLeadingWhitespace } from '@/lib/utils'
 
+const ALPHANUM_WITH_SPACES_DASH_UNDERSCORE = /^[a-z0-9 _-]+$/i
+
 const schema = z.object({
-  title: z.string().trim().min(3, 'Title is required'),
+  title: z.string().trim().min(3, 'Title is required').regex(ALPHANUM_WITH_SPACES_DASH_UNDERSCORE, 'Title must be alphanumeric (spaces, - and _ allowed)').refine(v => /[a-z]/i.test(v), 'Title cannot contain only numeric values'),
   priority: z.enum(['low', 'medium', 'high']),
   plant: z.number({ required_error: 'Plant is required' }),
   department: z.number({ required_error: 'Department is required' }),
