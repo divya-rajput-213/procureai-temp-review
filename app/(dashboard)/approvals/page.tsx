@@ -23,7 +23,11 @@ function SLABadge({ deadline }: { deadline: string }) {
   const pct = getSLAPercentage(deadline)
   const colorClass = getSLAColor(pct)
   const label = pct <= 0 ? 'SLA Breached' : `${Math.round(pct)}% remaining`
-  return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colorClass}`}>{label}</span>
+  return (
+    <span className={`text-xs sm:text-sm font-medium px-2 py-0.5 rounded-full ${colorClass}`}>
+      {label}
+    </span>
+  )
 }
 
 // ─── Entity Detail Panel ──────────────────────────────────────────────────────
@@ -44,14 +48,14 @@ function entityTypeLabel(type: string): string {
 
 function PRDetail({ d }: { d: any }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
       <div>
         <span className="text-muted-foreground">PR Number</span>
         <p className="font-semibold text-sm mt-0.5">{d.pr_number}</p>
       </div>
       <div>
         <span className="text-muted-foreground">Total Amount</span>
-        <p className="font-bold text-sm mt-0.5 text-primary">{formatCurrency(d.total_amount)}</p>
+        <p className="font-bold text-sm sm:text-base md:text-lg mt-0.5 text-primary break-words">{formatCurrency(d.total_amount)}</p>
       </div>
       {d.purchase_type && (
         <div>
@@ -106,14 +110,14 @@ function BudgetDetail({ d }: { d: any }) {
     low: 'bg-slate-100 text-slate-600',
   }
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
       <div>
         <span className="text-muted-foreground">Tracking Code</span>
         <p className="font-semibold text-sm mt-0.5">{d.tracking_code}</p>
       </div>
       <div>
         <span className="text-muted-foreground">Requested Amount</span>
-        <p className="font-bold text-sm mt-0.5 text-primary">{formatCurrency(d.requested_amount)}</p>
+        <p className="font-bold text-sm sm:text-base md:text-lg mt-0.5 text-primary break-words">{formatCurrency(d.requested_amount)}</p>
       </div>
       {d.priority && (
         <div>
@@ -155,7 +159,7 @@ function BudgetDetail({ d }: { d: any }) {
 
 function VendorDetail({ d }: { d: any }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
       <div>
         <span className="text-muted-foreground">Company</span>
         <p className="font-semibold text-sm mt-0.5">{d.company_name}</p>
@@ -251,7 +255,9 @@ function PendingCard({
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="secondary" className="text-xs">{entityTypeLabel(item.entity_type)}</Badge>
-                <span className="font-semibold text-sm">{item.entity_label}</span>
+                <span className="font-semibold text-sm sm:text-base truncate max-w-[180px] sm:max-w-none">
+                  {item.entity_label}
+                </span>
               </div>
               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1">
