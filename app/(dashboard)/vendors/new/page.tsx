@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useForm, FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -41,6 +41,7 @@ type FieldConfig = {
   placeholder: string
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
   pattern?: string
+  maxLength?:number
 }
 
 const OTHER_DOC_TYPE_OPTIONS = [
@@ -53,9 +54,9 @@ const OTHER_DOC_TYPE_OPTIONS = [
   { value: 'other',               label: 'Other' },
 ]
 const contactFields: FieldConfig[] = [
-  { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe' },
+  { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe', maxLength: 50 },
   { name: 'contact_email', label: 'Contact Email',  placeholder: 'e.g. john@acme.com' },
-  { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', inputMode: 'numeric', pattern: '[0-9]*' },
+  { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', pattern: '[0-9]*', maxLength: 20},
 ]
 
 const steps = ['Company Details', 'Compliance & Docs', 'Review & Submit']
@@ -116,6 +117,11 @@ function DocUploadWidget({ vendorId, docType, doc, onRefresh }: {
   const [deleting, setDeleting] = useState(false)
 
   const upload = async (file: File) => {
+    const maxSizeBytes = 5 * 1024 * 1024
+    if (file.size > maxSizeBytes) {
+      toast({ title: 'Max file size is 5 MB', variant: 'destructive' })
+      return
+    }
     setUploading(true)
     try {
       const fd = new FormData(); fd.append('file', file); fd.append('doc_type', docType)
@@ -180,7 +186,7 @@ const DIGITS_ONLY = /^[0-9]+$/
 // Compliance fields (GST, PAN, bank) are optional at creation.
 // They are enforced by the backend only at submit-for-approval time.
 const schema = z.object({
-  company_name:  z.string().min(2, 'Company name is required'),
+  company_name:  z.string().min(2, 'Company name is required').regex(ALPHANUM_WITH_SPACES, 'Company Name must be alphanumeric'),
   contact_name:  z.string().min(2, 'Contact person is required'),
   contact_email: z.string().email('Valid email required'),
   contact_phone: z.string()
@@ -293,6 +299,17 @@ export default function NewVendorPage() {
   const watchedPlant    = watch('plant')
   const watchedIsMsme   = watch('is_msme')
   const watchedIsSez    = watch('is_sez')
+  const gstNumber = watch('gst_number')
+  const isGstCertRequired = !!gstNumber?.trim()
+  const panNumber = watch('pan_number')
+  const isPanCertRequired = !!panNumber?.trim()
+  const bankNumber = watch('bank_account')
+  const isBankDocRequired = !!bankNumber?.trim()
+  const bankIfsc = watch('bank_ifsc')
+  const bankName = watch('bank_name')
+  const msmeNumber = watch('msme_number')
+
+
 
   // ── Upload docs helper ───────────────────────────────────────────────────────
   const uploadDocs = async (vid: string) => {
@@ -396,6 +413,13 @@ export default function NewVendorPage() {
     setComplianceErrors(errs)
     return Object.keys(errs).length === 0
   }
+
+  // Keep compliance errors in sync after the user has triggered validation once
+  useEffect(() => {
+    if (Object.keys(complianceErrors).length === 0) return
+    validateCompliancePairs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorDocs, gstNumber, panNumber, bankNumber, bankIfsc, bankName, watchedIsMsme, msmeNumber])
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleStep0Next = async () => {
@@ -633,7 +657,7 @@ export default function NewVendorPage() {
                   Company Name <span className="text-destructive">*</span>
                   {extractedFields?.company_name && confidenceBadge(extractedFields.company_name.confidence)}
                 </Label>
-                <Input placeholder="e.g. Acme Pvt Ltd" {...register('company_name')}
+                <Input placeholder="e.g. Acme Pvt Ltd" maxLength={50} {...register('company_name')}
                   className={`${errors.company_name ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.company_name ? 'border-purple-200 bg-purple-50' : ''}`} />
                 {errors.company_name && <p className="text-xs text-destructive mt-1">{errors.company_name.message}</p>}
               </div>
@@ -659,16 +683,16 @@ export default function NewVendorPage() {
               </div>
 
               {[
-                { name: 'city',    label: 'City',     placeholder: 'e.g. Mumbai' },
-                { name: 'state',   label: 'State',    placeholder: 'e.g. Maharashtra' },
-                { name: 'pincode', label: 'PIN Code', placeholder: 'e.g. 400001', autoComplete: 'postal-code' },
-              ].map(({ name, label, placeholder, autoComplete }) => (
+                { name: 'city',    label: 'City',     placeholder: 'e.g. Mumbai', maxLength: 50 },
+                { name: 'state',   label: 'State',    placeholder: 'e.g. Maharashtra', maxLength: 50 },
+                { name: 'pincode', label: 'PIN Code', placeholder: 'e.g. 400001', autoComplete: 'postal-code', maxLength: 50 },
+              ].map(({ name, label, placeholder, autoComplete, maxLength }) => (
                 <div key={name} className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-700">
                     {label} <span className="text-destructive">*</span>
                     {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                   </Label>
-                  <Input placeholder={placeholder} autoComplete={autoComplete} {...register(name as keyof VendorForm)}
+                  <Input placeholder={placeholder} autoComplete={autoComplete} maxLength={maxLength} {...register(name as keyof VendorForm)}
                     className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
                   {errors[name as keyof VendorForm] && (
                     <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
@@ -678,36 +702,19 @@ export default function NewVendorPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {contactFields.map(({ name, label, placeholder, inputMode, pattern }) => {
-                const field = register(name)
-                return (
-                  <div key={name} className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">
-                      {label} <span className="text-destructive">*</span>
-                      {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
-                    </Label>
-
-                    <Input
-                      placeholder={placeholder}
-                      inputMode={inputMode}
-                      pattern={pattern}
-                      {...field}
-                      onChange={
-                        name === 'contact_phone'
-                          ? (e) => handlePhoneChange(e, field.onChange)
-                          : field.onChange
-                      }
-                      className={`${errors[name] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`}
-                    />
-
-                    {errors[name] && (
-                      <p className="text-xs text-destructive mt-1">
-                        {(errors[name] as any)?.message}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
+              {contactFields.map(({ name, label, placeholder, pattern, maxLength }) => (
+                <div key={name} className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    {label} <span className="text-destructive">*</span>
+                    {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
+                  </Label>
+                  <Input placeholder={placeholder} pattern={pattern} maxLength={maxLength} {...register(name as keyof VendorForm)}
+                    className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
+                  {errors[name as keyof VendorForm] && (
+                    <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
+                  )}
+                </div>
+              ))}
             </div>
 
             <div className="flex justify-end">
@@ -740,9 +747,10 @@ export default function NewVendorPage() {
                 {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">GST Certificate</Label>
+                <Label className="text-xs font-semibold text-slate-700">GST Certificate {isGstCertRequired && <span className="text-destructive"> *</span>}</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="gst_certificate"
                   doc={docOf('gst_certificate')} onRefresh={refreshDocs} />
+                <p className="text-xs text-muted-foreground mt-1"> Max size: 5 MB</p>
                 {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
               </div>
             </div>
@@ -756,9 +764,10 @@ export default function NewVendorPage() {
                 {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">PAN Card</Label>
+                <Label className="text-xs font-semibold text-slate-700">PAN Card {isPanCertRequired && <span className="text-destructive"> *</span>}</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="pan_card"
                   doc={docOf('pan_card')} onRefresh={refreshDocs} />
+                  <p className="text-xs text-muted-foreground mt-1"> Max size: 5 MB</p>
                 {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
               </div>
             </div>
@@ -783,9 +792,10 @@ export default function NewVendorPage() {
                 {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_bank_account']}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque</Label>
+                <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque {isBankDocRequired  && <span className="text-destructive"> *</span>}</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="bank_details"
                   doc={docOf('bank_details')} onRefresh={refreshDocs} />
+                  <p className="text-xs text-muted-foreground mt-1">Max size: 5 MB</p>
                 {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
               </div>
             </div>
