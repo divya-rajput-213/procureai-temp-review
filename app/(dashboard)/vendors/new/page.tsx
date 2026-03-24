@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Input} from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -444,6 +444,15 @@ export default function NewVendorPage() {
     : c >= 0.5 ? <Badge variant="warning" className="text-xs">Check</Badge>
     : <Badge variant="secondary" className="text-xs">Low</Badge>
 
+    const handlePhoneChange = (
+      e: React.ChangeEvent<HTMLInputElement>,
+      onChange: (...event: any[]) => void
+    ) => {
+      const digitsOnly = e.target.value.replace(/\D/g, '')
+      e.target.value = digitsOnly
+      onChange(e)
+    }
+    
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
@@ -661,19 +670,28 @@ export default function NewVendorPage() {
                 { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe' },
                 { name: 'contact_email', label: 'Contact Email',  placeholder: 'e.g. john@acme.com' },
                 { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', inputMode: 'numeric', pattern: '[0-9]*' },
-              ].map(({ name, label, placeholder, inputMode, pattern }) => (
-                <div key={name} className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">
-                    {label} <span className="text-destructive">*</span>
-                    {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
-                  </Label>
-                  <Input placeholder={placeholder} inputMode={inputMode} pattern={pattern} {...register(name as keyof VendorForm)}
-                    className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
-                  {errors[name as keyof VendorForm] && (
-                    <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
-                  )}
-                </div>
-              ))}
+              ].map(({ name, label, placeholder, inputMode, pattern }) => {
+                const field = register(name as keyof VendorForm)
+                return (
+                  <div key={name} className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">
+                      {label} <span className="text-destructive">*</span>
+                      {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
+                    </Label>
+                    <Input
+                      placeholder={placeholder}
+                      inputMode={inputMode}
+                      pattern={pattern}
+                      {...field}
+                      onChange={name === 'contact_phone' ? (e) => handlePhoneChange(e, field.onChange) : field.onChange}
+                      className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`}
+                    />
+                    {errors[name as keyof VendorForm] && (
+                      <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             <div className="flex justify-end">
@@ -687,7 +705,7 @@ export default function NewVendorPage() {
       )}
 
       {/* ── Step 1: Compliance & Docs (all optional) ───────────────────────────── */}
-      {!showSrfMatch && step === 1 && (
+      {!showSrfMatch && step === 1 && ( 
         <Card>
           <CardHeader>
             <CardTitle>Compliance & Documents</CardTitle>

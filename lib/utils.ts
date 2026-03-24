@@ -79,3 +79,8 @@ export const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-gray-100 text-gray-500',
   exhausted: 'bg-orange-100 text-orange-700',
 }
+
+export function normalizeLeadingWhitespace(value: string) {
+  return value.replace(/^\s+/, '')
+}
+
