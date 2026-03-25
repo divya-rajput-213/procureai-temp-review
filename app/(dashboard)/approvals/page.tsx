@@ -94,7 +94,8 @@ function PRDetail({ d }: { d: any }) {
       {d.description && (
         <div className="col-span-2 sm:col-span-3">
           <span className="text-muted-foreground">Description</span>
-          <p className="mt-0.5 text-foreground cursor-pointer line-clamp-3">
+          <p className="mt-0.5 text-foreground cursor-pointer line-clamp-3 break-words">
+
             {d.description}
           </p>
         </div>
@@ -144,13 +145,14 @@ function BudgetDetail({ d }: { d: any }) {
       {d.title && (
         <div className="col-span-2 sm:col-span-3">
           <span className="text-muted-foreground">Title</span>
-          <p className="font-medium mt-0.5">{d.title}</p>
+          <p className="font-medium mt-0.5 break-words">{d.title}</p>
         </div>
       )}
       {d.description && (
         <div className="col-span-2 sm:col-span-3">
           <span className="text-muted-foreground">Description</span>
-          <p className="mt-0.5 text-foreground">{d.description}</p>
+          <p className="mt-0.5 text-foreground cursor-pointer line-clamp-3 break-words">
+{d.description}</p>
         </div>
       )}
     </div>
@@ -255,8 +257,8 @@ function PendingCard({
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="secondary" className="text-xs">{entityTypeLabel(item.entity_type)}</Badge>
-                <span className="font-semibold text-sm sm:text-base truncate max-w-[180px] sm:max-w-none">
-                  {item.entity_label}
+                <span className="font-semibold text-sm sm:text-base break-words max-w-full">
+                {item.entity_label}
                 </span>
               </div>
               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
