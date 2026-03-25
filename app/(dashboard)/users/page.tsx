@@ -816,7 +816,7 @@ export default function UsersPage() {
                       const isNameField = key === 'first_name' || key === 'last_name'
                       const isDesignationField = key === 'designation'
                       const isAlphabetOnlyField = isNameField || isDesignationField
-                      const hasInvalidChars = isAlphabetOnlyField && /[^A-Za-z]/.test(raw)
+                      const hasInvalidChars = isNameField ? /[^A-Za-z]/.test(raw) : isDesignationField ? /[^A-Za-z ]/.test(raw) : false
                       if (isAlphabetOnlyField) {
                         setAddErrors((prev) => ({
                           ...prev,
@@ -834,16 +834,18 @@ export default function UsersPage() {
                           phone: hasInvalidPhoneChars ? "Only numbers and '+' allowed." : undefined,
                         }))
                       }
-                      const nextValue = isAlphabetOnlyField
+                      const nextValue = isNameField
                         ? raw.replace(/[^A-Za-z]/g, '')
-                        : key === 'phone'
-                          ? (() => {
-                            const cleaned = raw.replace(/[^0-9+]/g, '')
-                            const hasPlus = cleaned.includes('+')
-                            const digits = cleaned.replace(/\+/g, '')
-                            return hasPlus ? `+${digits}` : digits
-                          })()
-                          : raw
+                        : isDesignationField
+                          ? raw.replace(/[^A-Za-z ]/g, '')
+                          : key === 'phone'
+                            ? (() => {
+                              const cleaned = raw.replace(/[^0-9+]/g, '')
+                              const hasPlus = cleaned.includes('+')
+                              const digits = cleaned.replace(/\+/g, '')
+                              return hasPlus ? `+${digits}` : digits
+                            })()
+                            : raw
                       setAddForm((f) => ({ ...f, [key]: nextValue }))
                     }}
                   />
