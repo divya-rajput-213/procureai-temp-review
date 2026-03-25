@@ -13,7 +13,7 @@ import {
   Plus, Search, UserCheck, UserX, RefreshCw, Loader2,
   CheckCircle, XCircle, AlertCircle, Eye, EyeOff, Shield, Trash2, Pencil, X,
 } from 'lucide-react'
-import { formatDateTime, nameRegex } from '@/lib/utils'
+import { formatDateTime, nameRegex, REGEX_ALPHA, REGEX_ALPHA_SPACE, REGEX_PHONE_INVALID} from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
 const EXCLUDED_ROLE_NAMES = new Set(['super_admin', 'vendor_external'])
@@ -816,7 +816,7 @@ export default function UsersPage() {
                       const isNameField = key === 'first_name' || key === 'last_name'
                       const isDesignationField = key === 'designation'
                       const isAlphabetOnlyField = isNameField || isDesignationField
-                      const hasInvalidChars = isNameField ? /[^A-Za-z]/.test(raw) : isDesignationField ? /[^A-Za-z ]/.test(raw) : false
+                      const hasInvalidChars = isNameField ? REGEX_ALPHA.test(raw) : isDesignationField ? REGEX_ALPHA_SPACE.test(raw) : false
                       if (isAlphabetOnlyField) {
                         setAddErrors((prev) => ({
                           ...prev,
@@ -824,7 +824,7 @@ export default function UsersPage() {
                         }))
                       }
                       const hasInvalidPhoneChars = key === 'phone' && (
-                        /[^0-9+]/.test(raw) ||
+                        REGEX_PHONE_INVALID.test(raw) ||
                         (raw.includes('+') && raw.indexOf('+') > 0) ||
                         (raw.match(/\+/g) || []).length > 1
                       )
@@ -835,9 +835,9 @@ export default function UsersPage() {
                         }))
                       }
                       const nextValue = isNameField
-                        ? raw.replace(/[^A-Za-z]/g, '')
+                        ? raw.replace(REGEX_ALPHA, '')
                         : isDesignationField
-                          ? raw.replace(/[^A-Za-z ]/g, '')
+                          ? raw.replace(REGEX_ALPHA_SPACE, '')
                           : key === 'phone'
                             ? (() => {
                               const cleaned = raw.replace(/[^0-9+]/g, '')
