@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/use-toast'
 import {
   Plus, Search, UserCheck, UserX, RefreshCw, Loader2,
   CheckCircle, XCircle, AlertCircle, Eye, EyeOff, Shield, Trash2, Pencil, X,
+  Phone,
 } from 'lucide-react'
 import { formatDateTime, nameRegex, REGEX_ALPHA, REGEX_ALPHA_SPACE, REGEX_PHONE_INVALID} from '@/lib/utils'
 import apiClient from '@/lib/api/client'
@@ -27,7 +28,7 @@ export default function UsersPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showClientSecret, setShowClientSecret] = useState(false)
   const [addForm, setAddForm] = useState({ first_name: '', last_name: '', email: '', designation: '', phone: '', plant: '' as string | number, role_ids: [] as number[] })
-  const [addErrors, setAddErrors] = useState<{ phone?: string; first_name?: string; last_name?: string; designation?: string }>({})
+  const [addErrors, setAddErrors] = useState<{ phone?: string; first_name?: string; last_name?: string; email?: string; designation?: string; plant?: string; role_ids?: string }>({})
   const [addRoleSearch, setAddRoleSearch] = useState('')
   const [showAddRoleDropdown, setShowAddRoleDropdown] = useState(false)
 
@@ -41,7 +42,7 @@ export default function UsersPage() {
   const [selectedRole, setSelectedRole] = useState<any | null>(null)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assignSearch, setAssignSearch] = useState('')
-  const [editErrors, setEditErrors] = useState({ first_name: '', last_name: '' })
+  const [editErrors, setEditErrors] = useState({ first_name: '', last_name: '', designation: '', plant: '', role_ids: '' })
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users', search, roleFilter],
@@ -672,23 +673,38 @@ export default function UsersPage() {
 
                 <Input
                   value={editForm.designation}
-                  onChange={e => setEditForm(f => ({ ...f, designation: e.target.value }))}
+                  onChange={e => {
+                    const value = e.target.value
+                    setEditForm(f => ({ ...f, designation: value }))
+                    setEditErrors(err => ({ ...err, designation: value.trim() ? '' : 'This field is required' }))
+                  }}
                 />
+                {editErrors.designation && (
+                  <p className="text-xs text-red-500">{editErrors.designation}</p>
+                )}
               </div>
 
               {/* Plant dropdown */}
               <div className="space-y-1">
-                <Label className="text-xs">Plant</Label>
+                <Label className="text-xs">Plant <span className="text-destructive">*</span>
+                </Label>
                 <select
                   className="w-full h-10 border rounded-md px-3 text-sm bg-background"
                   value={editForm.plant}
-                  onChange={e => setEditForm(f => ({ ...f, plant: e.target.value }))}
+                  onChange={e => {
+                    const value = e.target.value
+                    setEditForm(f => ({ ...f, plant: value }))
+                    setEditErrors(err => ({ ...err, plant: value ? '' : 'This field is required' }))
+                  }}
                 >
                   <option value="">— Select Plant —</option>
                   {(plants || []).map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name} {p.code ? `(${p.code})` : ''}</option>
                   ))}
                 </select>
+                {editErrors.plant && (
+                  <p className="text-xs text-red-500">{editErrors.plant}</p>
+                )}
               </div>
 
               {/* Roles multi-select */}
@@ -743,6 +759,7 @@ export default function UsersPage() {
                             onClick={() => {
                               setEditForm(f => ({ ...f, role_ids: [...f.role_ids, r.id] }))
                               setEditRoleSearch('')
+                              setEditErrors(err => ({ ...err, role_ids: '' }))
                             }}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
                           >
@@ -759,6 +776,9 @@ export default function UsersPage() {
                     </div>
                   )}
                 </div>
+                {editErrors.role_ids && (
+                  <p className="text-xs text-red-500">{editErrors.role_ids}</p>
+                )}
               </div>
 
               <div className="flex gap-2 pt-2">
@@ -766,17 +786,16 @@ export default function UsersPage() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => editUserMutation.mutate()}
-                  disabled={
-                    editUserMutation.isPending ||
-                    !!editErrors.first_name ||
-                    !!editErrors.last_name ||
-                    !editForm.first_name.trim() ||
-                    !editForm.last_name.trim() ||
-                    !editForm.designation.trim() ||
-                    editForm.role_ids.length === 0
-                  }
-
+                  onClick={() => {
+                    const designationError = editForm.designation.trim() ? '' : 'This field is required'
+                    const plantError = editForm.plant ? '' : 'This field is required'
+                    const roleError = editForm.role_ids.length === 0 ? 'This field is required' : ''
+                    setEditErrors(err => ({ ...err, designation: designationError, plant: plantError, role_ids: roleError }))
+                    const hasBlockingErrors = !!editErrors.first_name || !!editErrors.last_name || !!designationError || !!plantError || !!roleError
+                    if (hasBlockingErrors) return
+                    editUserMutation.mutate()
+                  }}
+                  disabled={editUserMutation.isPending}
                   className="flex-1 gap-2"
                 >
                   {editUserMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -800,7 +819,7 @@ export default function UsersPage() {
                 { label: 'First Name', key: 'first_name', placeholder: 'John', required: true },
                 { label: 'Last Name', key: 'last_name', placeholder: 'Doe', required: true },
                 { label: 'Email', key: 'email', placeholder: 'john@company.com', required: true },
-                { label: 'Phone', key: 'phone', placeholder: '+91 98765 43210' },
+                { label: 'Phone', key: 'phone', placeholder: '+91 98765 43210', required: true },
                 { label: 'Designation', key: 'designation', placeholder: 'Manager', required: true },
               ].map(({ label, key, placeholder, required }) => (
                 <div key={key} className="space-y-1">
@@ -812,16 +831,18 @@ export default function UsersPage() {
                     value={addForm[key as keyof typeof addForm] as string}
                     onChange={(e) => {
                       if (key === 'phone') setAddErrors((prev) => ({ ...prev, phone: undefined }))
+                      if (key === 'email') setAddErrors((prev) => ({ ...prev, email: undefined }))
+                      if (key === 'designation') setAddErrors((prev) => ({ ...prev, designation: undefined }))
                       const raw = e.target.value
                       const isNameField = key === 'first_name' || key === 'last_name'
-                      const isDesignationField = key === 'designation'
-                      const isAlphabetOnlyField = isNameField || isDesignationField
-                      const hasInvalidChars = isNameField ? REGEX_ALPHA.test(raw) : isDesignationField ? REGEX_ALPHA_SPACE.test(raw) : false
+                      const isAlphabetOnlyField = isNameField
+                      const hasInvalidChars = isAlphabetOnlyField && REGEX_ALPHA.test(raw)
                       if (isAlphabetOnlyField) {
                         setAddErrors((prev) => ({
                           ...prev,
                           [key]: hasInvalidChars ? 'Only alphabets allowed.' : undefined,
                         }))
+                        
                       }
                       const hasInvalidPhoneChars = key === 'phone' && (
                         REGEX_PHONE_INVALID.test(raw) ||
@@ -836,11 +857,9 @@ export default function UsersPage() {
                       }
                       const nextValue = isNameField
                         ? raw.replace(REGEX_ALPHA, '')
-                        : isDesignationField
-                          ? raw.replace(REGEX_ALPHA_SPACE, '')
                           : key === 'phone'
                             ? (() => {
-                              const cleaned = raw.replace(/[^0-9+]/g, '')
+                              const cleaned = raw.replace(REGEX_PHONE_INVALID, '')
                               const hasPlus = cleaned.includes('+')
                               const digits = cleaned.replace(/\+/g, '')
                               return hasPlus ? `+${digits}` : digits
@@ -855,6 +874,9 @@ export default function UsersPage() {
                   {(key === 'first_name' || key === 'last_name') && addErrors[key] && (
                     <p className="text-xs text-destructive mt-1">{addErrors[key]}</p>
                   )}
+                  {key === 'email' && addErrors.email && (
+                    <p className="text-xs text-destructive mt-1">{addErrors.email}</p>
+                  )}
                   {key === 'designation' && addErrors.designation && (
                     <p className="text-xs text-destructive mt-1">{addErrors.designation}</p>
                   )}
@@ -862,17 +884,24 @@ export default function UsersPage() {
               ))}
               {/* Plant dropdown */}
               <div className="space-y-1">
-                <Label className="text-xs">Plant</Label>
+                <Label className="text-xs">Plant <span className="text-destructive">*</span>
+                </Label>
                 <select
                   className="w-full h-10 border rounded-md px-3 text-sm bg-background"
                   value={addForm.plant}
-                  onChange={e => setAddForm(f => ({ ...f, plant: e.target.value }))}
+                  onChange={e => {
+                    setAddForm(f => ({ ...f, plant: e.target.value }))
+                    setAddErrors(prev => ({ ...prev, plant: undefined }))
+                  }}
                 >
                   <option value="">— Select Plant —</option>
                   {(plants || []).map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name} {p.code ? `(${p.code})` : ''}</option>
                   ))}
                 </select>
+                {addErrors.plant && (
+                  <p className="text-xs text-destructive mt-1">{addErrors.plant}</p>
+                )}
               </div>
 
               {/* Roles multiselect */}
@@ -924,6 +953,7 @@ export default function UsersPage() {
                             onClick={() => {
                               setAddForm(f => ({ ...f, role_ids: [...f.role_ids, r.id] }))
                               setAddRoleSearch('')
+                              setAddErrors((prev) => ({ ...prev, role_ids: undefined }))
                             }}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
                           >
@@ -940,6 +970,9 @@ export default function UsersPage() {
                     </div>
                   )}
                 </div>
+                {addErrors.role_ids && (
+                  <p className="text-xs text-destructive mt-1">{addErrors.role_ids}</p>
+                )}
               </div>
 
               <div className="flex gap-2 pt-2">
@@ -947,17 +980,23 @@ export default function UsersPage() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => createUserMutation.mutate()}
-                  disabled={
-                    createUserMutation.isPending ||
-                    !!addErrors.first_name ||
-                    !!addErrors.last_name ||
-                    !addForm.email ||
-                    !addForm.first_name.trim() ||
-                    !addForm.last_name.trim() ||
-                    !addForm.designation.trim() ||
-                    addForm.role_ids.length === 0
-                  }
+                  onClick={() => {
+                    const requiredErrors = {
+                      first_name: !addForm.first_name.trim() ? 'This field is mandatory.' : undefined,
+                      last_name: !addForm.last_name.trim() ? 'This field is mandatory.' : undefined,
+                      email: !addForm.email.trim() ? 'This field is mandatory.' : undefined,
+                      phone: !addForm.phone.trim() ? 'This field is mandatory.' : undefined,
+                      designation: !addForm.designation.trim() ? 'This field is mandatory.' : undefined,
+                      plant: !addForm.plant ? 'This field is mandatory.' : undefined,
+                      role_ids: addForm.role_ids.length === 0 ? 'This field is mandatory.' : undefined,
+                    }
+                    setAddErrors((prev) => ({ ...prev, ...requiredErrors }))
+                    const hasRequiredErrors = Object.values(requiredErrors).some(Boolean)
+                    const hasOtherErrors = !!addErrors.phone || !!addErrors.first_name || !!addErrors.last_name || !!addErrors.email || !!addErrors.designation || !!addErrors.plant || !!addErrors.role_ids
+                    if (hasRequiredErrors || hasOtherErrors) return
+                    createUserMutation.mutate()
+                  }}
+                  disabled={createUserMutation.isPending}
                   className="flex-1 gap-2"
                 >
                   {createUserMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
