@@ -12,6 +12,7 @@ import {
   Pencil, X, Loader2, Check, Plus, ChevronDown, ChevronRight, Trash2,
   ChevronUp,
 } from 'lucide-react'
+import { ALPHANUM_WITH_SPACES } from '@/lib/utils'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import apiClient from '@/lib/api/client'
 
@@ -115,6 +116,8 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
 }) {
   const [form, setForm] = useState<MatrixDraft>(initial ?? EMPTY_DRAFT)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
+  const nameTrimmed = form.name.trim()
+  const nameInvalid = nameTrimmed.length > 0 && !ALPHANUM_WITH_SPACES.test(nameTrimmed)
 
   const { data: plants } = useQuery({
     queryKey: ['plants'],
@@ -153,7 +156,8 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
 
   const validate = () => {
     let formErrors: { [key: string]: string } = {}
-    if (!form.name) formErrors.name = 'Matrix name is required.'
+    if (!nameTrimmed) formErrors.name = 'Matrix name is required.'
+    if (nameInvalid) formErrors.name = 'Field can contain only letters, numbers, spaces, and special characters (_, -, .)'
     if (!form.matrix_type) formErrors.matrix_type = 'Matrix type is required.'
     if (form.levels.length === 0) formErrors.levels = 'At least one approval level is required.'
 
@@ -186,8 +190,10 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
             value={form.name}
             onChange={e => set('name', e.target.value)}
             placeholder="e.g. PR Approval — Standard"
+            className={nameInvalid ? 'border-destructive' : ''}
           />
-          {errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
+          {nameInvalid && <p className="text-red-500 text-xs">Field can contain only letters, numbers, spaces, and special characters (_, -, .)</p>}
+          {!nameInvalid && errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
         </div>
         <div className="space-y-1">
           <Label>Type *</Label>
@@ -257,7 +263,7 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button onClick={handleSave}>
+        <Button onClick={handleSave} disabled={saving || !nameTrimmed || nameInvalid}>
           {saving && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />} Save Matrix
         </Button>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>

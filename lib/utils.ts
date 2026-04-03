@@ -85,3 +85,4 @@ export function normalizeLeadingWhitespace(value: string) {
   return value.replace(/^\s+/, '')
 }
 
+export const ALPHANUM_WITH_SPACES = /^[a-z0-9 ]+$/i
