@@ -114,7 +114,7 @@ function CategoryModal({ category, onClose }: Readonly<{
   function validate(): boolean {
     const errs: Partial<Record<keyof CategoryFormData, string>> = {}
     if (!form.series_code) errs.series_code = 'Series code is required'
-    else if (REGEX_ALPHA_NUM.test(form.series_code)) errs.series_code = 'Series code must be alphanumeric'
+    else if (REGEX_ALPHA_NUM.test(form.series_code)) errs.series_code = 'Series Code can contain only letters, numbers, commas (,) and dots (.)'
     if (!form.name.trim()) errs.name = 'Name is required'
     else if (REGEX_ALPHA_SPACE.test(form.name)) errs.name = 'Name should contain valid characters only'
     setErrors(errs)
@@ -146,7 +146,7 @@ function CategoryModal({ category, onClose }: Readonly<{
                   setForm(prev => ({ ...prev, series_code: value }))
                   setErrors(prev => ({
                     ...prev,
-                    series_code: REGEX_ALPHA_NUM.test(value) ? 'Series code must be alphanumeric' : undefined,
+                    series_code: REGEX_ALPHA_NUM.test(value) ? 'Series Code can contain only letters, numbers, commas (,) and dots (.)' : undefined,
                   }))
                 }}
                 placeholder="e.g. 15, 45, 50"
