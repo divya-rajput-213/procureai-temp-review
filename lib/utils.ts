@@ -78,6 +78,36 @@ export const STATUS_COLORS: Record<string, string> = {
   po_created: 'bg-purple-100 text-purple-700',
   cancelled: 'bg-gray-100 text-gray-500',
   exhausted: 'bg-orange-100 text-orange-700',
+  // Contract statuses
+  internal_review: 'bg-indigo-100 text-indigo-700',
+  pending_vendor_negotiation: 'bg-cyan-100 text-cyan-700',
+  active: 'bg-green-100 text-green-800',
+  extended: 'bg-teal-100 text-teal-700',
+  closed: 'bg-gray-200 text-gray-600',
+  terminated: 'bg-red-100 text-red-700',
+  // Review / negotiation statuses
+  changes_requested: 'bg-amber-100 text-amber-700',
+  held: 'bg-amber-100 text-amber-700',
+  accepted: 'bg-green-100 text-green-700',
+  proposed: 'bg-cyan-100 text-cyan-700',
+  counter_proposed: 'bg-indigo-100 text-indigo-700',
+  requested: 'bg-amber-100 text-amber-700',
+  under_review: 'bg-blue-100 text-blue-700',
+  pending: 'bg-amber-100 text-amber-700',
+  in_progress: 'bg-blue-100 text-blue-700',
+  // PO statuses
+  issued: 'bg-blue-100 text-blue-700',
+  sent_to_vendor: 'bg-indigo-100 text-indigo-700',
+  acknowledged: 'bg-cyan-100 text-cyan-700',
+  partially_received: 'bg-amber-100 text-amber-700',
+  fully_received: 'bg-green-100 text-green-700',
+  on_hold: 'bg-amber-100 text-amber-700',
+  // Invoice statuses
+  submitted: 'bg-blue-100 text-blue-700',
+  matched: 'bg-teal-100 text-teal-700',
+  disputed: 'bg-orange-100 text-orange-700',
+  payment_initiated: 'bg-indigo-100 text-indigo-700',
+  paid: 'bg-green-100 text-green-800',
 }
 export   const nameRegex = /^[A-Za-z]{2,}$/
 

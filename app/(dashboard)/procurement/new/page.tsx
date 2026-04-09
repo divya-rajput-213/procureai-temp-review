@@ -207,6 +207,7 @@ export default function NewPRPage() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
+  const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0)
 
   const [activeTab, setActiveTab] = useState<'details' | 'matrix'>('details')
   const [selectedVendors, setSelectedVendors] = useState<any[]>([])
@@ -601,7 +602,7 @@ export default function NewPRPage() {
                       <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">Qty <span className="text-destructive">*</span></th>
                       <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">UOM</th>
                       <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Rate <span className="text-destructive">*</span></th>
-                      <th className="px-2 py-2 text-right font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Total</th>
+                      <th className="px-2 py-2 text-right font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Amount</th>
                       <th className="px-2 py-2 w-8" />
                     </tr>
                   </thead>
@@ -683,29 +684,23 @@ export default function NewPRPage() {
                 <p className="text-xs text-destructive">{errors.line_items.root.message}</p>
               )}
 
-              {/* Invoice Total */}
+              {/* Totals */}
               <div className="border border-border rounded-lg overflow-hidden mt-2">
                 <table className="w-full text-sm">
                   <tbody className="divide-y divide-border">
-                    <tr className="bg-muted/30">
-                      <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
-                      <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
+                    <tr className="bg-slate-50">
+                      <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Subtotal</td>
+                      <td className="px-3 py-2 text-right font-bold">{formatCurrency(subtotal)}</td>
                     </tr>
-                    {activeTaxes.map(tax => (
-                      <tr key={tax.id}>
-                        <td className="px-4 py-2.5 text-muted-foreground">
-                          {tax.name} <span className="text-xs">({tax.rate}%)</span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
-                      </tr>
-                    ))}
+                    <tr className="bg-slate-50">
+                      <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Tax ({combinedTaxRate}%)</td>
+                      <td className="px-3 py-2 text-right font-bold">{formatCurrency(taxTotal)}</td>
+                    </tr>
+                    <tr className="bg-slate-100 border-t-2">
+                      <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold">Total</td>
+                      <td className="px-3 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+                    </tr>
                   </tbody>
-                  <tfoot>
-                    <tr className="bg-muted/50 border-t-2 border-border">
-                      <td className="px-4 py-3 font-semibold">Grand Total</td>
-                      <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
             </CardContent>

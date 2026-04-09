@@ -7,7 +7,10 @@ import {
   Users,
   Building2,
   FileText,
+  FileSignature,
   ShoppingCart,
+  ClipboardList,
+  Receipt,
   CheckSquare,
   Settings,
   LogOut,
@@ -25,6 +28,17 @@ const NAV_ITEMS = [
   { href: '/vendors', label: 'Vendors', icon: Building2, indent: false },
   { href: '/budget', label: 'Budget & Tracking', icon: FileText, indent: false },
   { href: '/procurement', label: 'Procurement', icon: ShoppingCart, indent: false },
+  {
+    label: 'Contracts',
+    icon: FileSignature,
+    children: [
+      { href: '/contracts', label: 'All Contracts' },
+      { href: '/contracts/templates', label: 'Templates' },
+      { href: '/contracts/clauses', label: 'Clause Library' },
+    ],
+  },
+  { href: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList, indent: false },
+  { href: '/invoices', label: 'Invoices', icon: Receipt, indent: false },
   { href: '/approvals', label: 'Approvals', icon: CheckSquare, indent: false },
   {
     label: 'Inventory',
