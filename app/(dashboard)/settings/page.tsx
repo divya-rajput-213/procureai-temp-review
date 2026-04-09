@@ -108,6 +108,11 @@ const MATRIX_TYPE_OPTIONS = [
   { value: 'budget_approval',      label: 'Budget Approval' },
   { value: 'vendor_onboarding',    label: 'Vendor Onboarding' },
   { value: 'vendor_bid',           label: 'Vendor Bid Approval' },
+  { value: 'contract_review',      label: 'Contract Review' },
+  { value: 'contract_approval',    label: 'Contract Approval' },
+  { value: 'contract_amendment',   label: 'Contract Amendment' },
+  { value: 'purchase_order',       label: 'Purchase Order' },
+  { value: 'invoice_approval',     label: 'Invoice Approval' },
 ]
 
 function MatrixForm({ initial, onSave, onCancel, saving }: {

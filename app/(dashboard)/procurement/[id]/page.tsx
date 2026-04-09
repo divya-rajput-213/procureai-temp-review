@@ -470,6 +470,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
   const activeItemSearch = showItemDropdown === null ? '' : (itemSearch[showItemDropdown] ?? '')
 
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
+  const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0)
   const subtotal = lineItems.reduce(
     (sum, item) =>
       sum +
@@ -477,7 +478,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
       (Number(item.unit_rate) || 0),
     0
   )
-  const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
+  const taxTotal = subtotal * (combinedTaxRate / 100)
   const grandTotal = subtotal + taxTotal
 
 
@@ -685,7 +686,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
                 <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">Qty</th>
                 <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">UOM</th>
                 <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Rate</th>
-                <th className="px-2 py-2 text-right font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Total</th>
+                <th className="px-2 py-2 text-right font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Amount</th>
                 <th className="px-2 py-2 w-8" />
               </tr>
             </thead>
@@ -754,23 +755,19 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
         <div className="border border-border rounded-lg overflow-hidden mt-2">
           <table className="w-full text-sm">
             <tbody className="divide-y divide-border">
-              <tr className="bg-muted/30">
-                <td className="px-4 py-2 text-muted-foreground">Subtotal</td>
-                <td className="px-4 py-2 text-right font-medium">{formatCurrency(subtotal)}</td>
+              <tr className="bg-slate-50">
+                <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Subtotal</td>
+                <td className="px-3 py-2 text-right font-bold">{formatCurrency(subtotal)}</td>
               </tr>
-              {activeTaxes.map(tax => (
-                <tr key={tax.id}>
-                  <td className="px-4 py-2 text-muted-foreground">{tax.name} <span className="text-xs">({tax.rate}%)</span></td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
-                </tr>
-              ))}
+              <tr className="bg-slate-50">
+                <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Tax ({combinedTaxRate}%)</td>
+                <td className="px-3 py-2 text-right font-bold">{formatCurrency(taxTotal)}</td>
+              </tr>
+              <tr className="bg-slate-100 border-t-2">
+                <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold">Total</td>
+                <td className="px-3 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+              </tr>
             </tbody>
-            <tfoot>
-              <tr className="bg-muted/50 border-t-2 border-border">
-                <td className="px-4 py-2.5 font-semibold">Grand Total</td>
-                <td className="px-4 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       </div>
@@ -790,13 +787,22 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
 // ─── Line Items Table (read-only) ─────────────────────────────────────────────
 
 function LineItemsTable({ items, currencyCode }: { items: any[]; currencyCode?: string }) {
+  const { taxComponents } = useSettingsStore()
+  const combinedTaxRate = taxComponents
+    .filter(t => t.is_active)
+    .reduce((s, t) => s + t.rate, 0)
+
   if (!items?.length) {
     return <p className="text-sm text-muted-foreground italic">No line items.</p>
   }
-  const grandTotal = items.reduce(
+
+  const subtotal = items.reduce(
     (s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_rate) || 0),
     0,
   )
+  const totalTax = subtotal * (combinedTaxRate / 100)
+  const grandTotal = subtotal + totalTax
+
   return (
     <div className="border rounded-md overflow-hidden">
       <table className="w-full text-sm">
@@ -812,7 +818,7 @@ function LineItemsTable({ items, currencyCode }: { items: any[]; currencyCode?: 
         </thead>
         <tbody className="divide-y">
           {items.map((item, idx) => {
-            const total = (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0)
+            const amount = (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0)
             return (
               <tr key={item.id ?? idx} className="hover:bg-slate-50/50">
                 <td className="px-3 py-2.5 text-muted-foreground">{idx + 1}</td>
@@ -827,21 +833,26 @@ function LineItemsTable({ items, currencyCode }: { items: any[]; currencyCode?: 
                 <td className="px-3 py-2.5 text-right">{item.quantity}</td>
                 <td className="px-3 py-2.5 text-muted-foreground">{item.unit_of_measure}</td>
                 <td className="px-3 py-2.5 text-right">{formatCurrency(item.unit_rate, currencyCode)}</td>
-                <td className="px-3 py-2.5 text-right font-medium">{formatCurrency(total, currencyCode)}</td>
+                <td className="px-3 py-2.5 text-right font-medium">{formatCurrency(amount, currencyCode)}</td>
               </tr>
             )
           })}
         </tbody>
         <tfoot>
           <tr className="bg-slate-50 border-t">
-            <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">
-              Total
-            </td>
-            <td className="px-3 py-2 text-right font-bold">{formatCurrency(grandTotal, currencyCode)}</td>
+            <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Subtotal</td>
+            <td className="px-3 py-2 text-right font-bold">{formatCurrency(subtotal, currencyCode)}</td>
+          </tr>
+          <tr className="bg-slate-50">
+            <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Tax ({combinedTaxRate}%)</td>
+            <td className="px-3 py-2 text-right font-bold">{formatCurrency(totalTax, currencyCode)}</td>
+          </tr>
+          <tr className="bg-slate-100 border-t-2">
+            <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold">Total</td>
+            <td className="px-3 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal, currencyCode)}</td>
           </tr>
         </tfoot>
       </table>
-
     </div>
   )
 }
@@ -2122,16 +2133,19 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
   return (
     <div className="space-y-5">
 
-      {/* Vendor-selected banner */}
+      {/* Vendor-selected banner + Create PO */}
       {pr.status === 'vendor_selected' && acceptedBid && (
-        <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-          <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-green-800">Vendor selected: {acceptedBid.vendor_name}</p>
-            <p className="text-xs text-green-700">
-              Bid of {formatCurrency(acceptedBid.bid_amount, pr.currency_code)} · {acceptedBid.delivery_days}d delivery
-            </p>
+        <div className="flex items-center justify-between gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-3">
+            <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-green-800">Vendor selected: {acceptedBid.vendor_name}</p>
+              <p className="text-xs text-green-700">
+                Bid of {formatCurrency(acceptedBid.bid_amount, pr.currency_code)} · {acceptedBid.delivery_days}d delivery
+              </p>
+            </div>
           </div>
+          <CreatePOButton prId={pr.id} prNumber={pr.pr_number} />
         </div>
       )}
 
@@ -2837,30 +2851,6 @@ export default function PRDetailPage() {
             <CardHeader><CardTitle className="text-sm">Line Items</CardTitle></CardHeader>
             <CardContent>
               <LineItemsTable items={pr.line_items ?? []} currencyCode={pr.currency_code} />
-              <div className="border border-border rounded-lg overflow-hidden mt-2">
-                <table className="w-full text-sm">
-                  <tbody className="divide-y divide-border">
-                    <tr className="bg-muted/30">
-                      <td className="px-4 py-2.5 text-muted-foreground">Subtotal</td>
-                      <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(subtotal)}</td>
-                    </tr>
-                    {activeTaxes.map(tax => (
-                      <tr key={tax.id}>
-                        <td className="px-4 py-2.5 text-muted-foreground">
-                          {tax.name} <span className="text-xs">({tax.rate}%)</span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">{formatCurrency(subtotal * tax.rate / 100)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-muted/50 border-t-2 border-border">
-                      <td className="px-4 py-3 font-semibold">Grand Total</td>
-                      <td className="px-4 py-3 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
             </CardContent>
           </Card>
 
@@ -2886,5 +2876,34 @@ export default function PRDetailPage() {
       {/* ── Bids Tab ── */}
       {activeTab === 'bids' && <BidsTab pr={pr} onPRChange={invalidatePR} />}
     </div>
+  )
+}
+
+// ── Create PO from PR ───────────────────────────────────────────────────────
+
+function CreatePOButton({ prId, prNumber }: { prId: number; prNumber: string }) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
+
+  const handleCreate = async () => {
+    setLoading(true)
+    try {
+      const { data } = await apiClient.post('/purchase-orders/create-from-pr/', { pr_id: prId })
+      toast({ title: `PO ${data.po_number} created from ${prNumber}` })
+      router.push(`/purchase-orders/${data.hash_id}`)
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || 'Failed to create PO'
+      toast({ title: msg, variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Button size="sm" className="gap-1.5 shrink-0" onClick={handleCreate} disabled={loading}>
+      {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+      Create PO
+    </Button>
   )
 }
