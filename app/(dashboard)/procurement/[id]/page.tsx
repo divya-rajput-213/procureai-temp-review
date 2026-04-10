@@ -859,7 +859,7 @@ function LineItemsTable({ items, currencyCode }: { items: any[]; currencyCode?: 
 
 // ─── Add Bid Form ─────────────────────────────────────────────────────────────
 
-function AddBidForm({ prId, invitedVendors, existingBidVendorIds, onSuccess }: {
+function AddBidForm({ prId, invitedVendors: _invitedVendors, existingBidVendorIds, onSuccess }: {
   prId: string | string[]
   invitedVendors: any[]
   existingBidVendorIds: number[]
@@ -875,7 +875,19 @@ function AddBidForm({ prId, invitedVendors, existingBidVendorIds, onSuccess }: {
   })
   const [bidFile, setBidFile] = useState<File | null>(null)
 
-  const availableVendors = invitedVendors.filter(
+  const [vendorSearch, setVendorSearch] = useState('')
+  const [showVendorDropdown, setShowVendorDropdown] = useState(false)
+
+  const { data: vendorResults } = useQuery({
+    queryKey: ['vendors-pr-bid', vendorSearch],
+    queryFn: async () => {
+      const r = await apiClient.get('/vendors/', { params: { status: 'approved', search: vendorSearch, page_size: 20 } })
+      return r.data.results ?? r.data
+    },
+    enabled: showVendorDropdown,
+  })
+
+  const filteredVendorResults = (vendorResults || []).filter(
     (v: any) => !existingBidVendorIds.includes(v.id)
   )
 
@@ -904,6 +916,8 @@ function AddBidForm({ prId, invitedVendors, existingBidVendorIds, onSuccess }: {
       toast({ title: 'Bid recorded.' })
       setForm({ vendor: '', bid_amount: '', delivery_days: '30', notes: '' })
       setBidFile(null)
+      setVendorSearch('')
+      setShowVendorDropdown(false)
       setOpen(false)
       onSuccess()
     },
@@ -935,19 +949,49 @@ function AddBidForm({ prId, invitedVendors, existingBidVendorIds, onSuccess }: {
         {/* Vendor — full width */}
         <div className="space-y-1.5 sm:col-span-2">
           <Label className="text-xs font-medium">Vendor <span className="text-destructive">*</span></Label>
-          <select
-            className="w-full h-9 border rounded-md px-3 text-sm bg-white"
-            value={form.vendor}
-            onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))}
-          >
-            <option value="">Select invited vendor…</option>
-            {availableVendors.map((v: any) => (
-              <option key={v.id} value={v.id}>{v.company_name}</option>
-            ))}
-          </select>
-          {availableVendors.length === 0 && (
-            <p className="text-xs text-amber-600">All invited vendors have already submitted bids.</p>
-          )}
+          <div className="relative">
+            <Input
+              placeholder="Search approved vendors…"
+              value={vendorSearch}
+              onChange={e => {
+                setVendorSearch(e.target.value)
+                setShowVendorDropdown(true)
+                setForm(f => ({ ...f, vendor: '' }))
+              }}
+              onFocus={() => setShowVendorDropdown(true)}
+              onBlur={() => setTimeout(() => setShowVendorDropdown(false), 200)}
+              className="h-9"
+            />
+            {showVendorDropdown && vendorSearch && (
+              <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-md bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
+                {filteredVendorResults.map((v: any) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => {
+                      setForm(f => ({ ...f, vendor: String(v.id) }))
+                      setVendorSearch(v.company_name ?? '')
+                      setShowVendorDropdown(false)
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-muted/50 text-sm transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{v.company_name}</span>
+                      <span className="text-xs text-emerald-600 font-medium">{v.status}</span>
+                    </div>
+                    <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
+                      {v.category_name && <span>{v.category_name}</span>}
+                      {v.city && <span>{v.city}{v.state ? `, ${v.state}` : ''}</span>}
+                    </div>
+                  </button>
+                ))}
+                {filteredVendorResults.length === 0 && (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">No vendors found.</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Bid Amount */}
