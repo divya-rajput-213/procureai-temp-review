@@ -22,6 +22,7 @@ const SRF_FIELD_LABELS: Record<string, string> = {
   address:       'Address',
   city:          'City',
   state:         'State',
+  country:       'Country',
   pincode:       'PIN Code',
   contact_name:  'Contact Person',
   contact_email: 'Contact Email',
@@ -64,7 +65,7 @@ const steps = ['Company Details', 'Compliance & Docs', 'Review & Submit']
 // Step 0 fields — always required
 const STEP0_FIELDS: (keyof VendorForm)[] = [
   'category', 'plant', 'company_name', 'contact_name', 'contact_email',
-  'contact_phone', 'address', 'city', 'state', 'pincode',
+  'contact_phone', 'address', 'city', 'state', 'country', 'pincode',
 ]
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -200,6 +201,10 @@ const schema = z.object({
   state:         z.string()
     .min(1, 'State is required')
     .max(50, 'State must be at most 50 characters')
+    .regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
+  country:         z.string()
+    .min(1, 'Country is required')
+    .max(50, 'Country must be at most 50 characters')
     .regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
   pincode:       z.string()
     .min(1, 'PIN Code is required')
@@ -359,7 +364,7 @@ export default function NewVendorPage() {
       const { data: vendor } = await apiClient.post('/vendors/', {
         company_name: data.company_name, category: data.category, plant: data.plant,
         contact_name: data.contact_name, contact_email: data.contact_email, contact_phone: data.contact_phone,
-        address: data.address, city: data.city, state: data.state, pincode: data.pincode,
+        address: data.address, city: data.city, state: data.state, country: data.country, pincode: data.pincode,
       })
       return vendor
     },
@@ -651,7 +656,17 @@ export default function NewVendorPage() {
           <CardContent className="space-y-5 pt-6">
             <SectionTitle>General Information</SectionTitle>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">
+                  Company Name <span className="text-destructive">*</span>
+                  {extractedFields?.company_name && confidenceBadge(extractedFields.company_name.confidence)}
+                </Label>
+                <Input placeholder="e.g. Acme Pvt Ltd" maxLength={50} {...register('company_name')}
+                  className={`${errors.company_name ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.company_name ? 'border-purple-200 bg-purple-50' : ''}`} />
+                {errors.company_name && <p className="text-xs text-destructive mt-1">{errors.company_name.message}</p>}
+              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">Vendor Category <span className="text-destructive">*</span></Label>
                 <select
@@ -664,6 +679,8 @@ export default function NewVendorPage() {
                 </select>
                 {errors.category && <p className="text-xs text-destructive mt-1">{errors.category.message}</p>}
               </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">Plant <span className="text-destructive">*</span></Label>
                 <select
@@ -678,16 +695,6 @@ export default function NewVendorPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">
-                  Company Name <span className="text-destructive">*</span>
-                  {extractedFields?.company_name && confidenceBadge(extractedFields.company_name.confidence)}
-                </Label>
-                <Input placeholder="e.g. Acme Pvt Ltd" maxLength={50} {...register('company_name')}
-                  className={`${errors.company_name ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.company_name ? 'border-purple-200 bg-purple-50' : ''}`} />
-                {errors.company_name && <p className="text-xs text-destructive mt-1">{errors.company_name.message}</p>}
-              </div>
 
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs font-semibold text-slate-700">
@@ -701,6 +708,7 @@ export default function NewVendorPage() {
                     setValue('address', result.address, { shouldValidate: true })
                     if (result.city) setValue('city', result.city, { shouldValidate: true })
                     if (result.state) setValue('state', result.state, { shouldValidate: true })
+                    if (result.country) setValue('country', result.country, { shouldValidate: true })
                     if (result.pincode) setValue('pincode', result.pincode, { shouldValidate: true })
                   }}
                   placeholder="Start typing an address…"
@@ -712,6 +720,7 @@ export default function NewVendorPage() {
               {[
                 { name: 'city',    label: 'City',     placeholder: 'e.g. Mumbai', maxLength: 50 },
                 { name: 'state',   label: 'State',    placeholder: 'e.g. Maharashtra', maxLength: 50 },
+                { name: 'country', label: 'Country',  placeholder: 'e.g. India', maxlength: 50 },
                 { name: 'pincode', label: 'PIN Code', placeholder: 'e.g. 400001', autoComplete: 'postal-code', maxLength: 50 },
               ].map(({ name, label, placeholder, autoComplete, maxLength }) => (
                 <div key={name} className="space-y-1.5">
