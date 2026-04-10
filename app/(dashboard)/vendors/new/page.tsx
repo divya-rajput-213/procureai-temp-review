@@ -238,7 +238,9 @@ export default function NewVendorPage() {
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const [submitError, setSubmitError] = useState('')
-
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<() => void>(() => {})
+  
   // SRF
   const [srfExtracting, setSrfExtracting] = useState(false)
   const [extractedFields, setExtractedFields] = useState<Record<string, { value: string; confidence: number }> | null>(null)
@@ -324,6 +326,22 @@ export default function NewVendorPage() {
       fd.append('title', row.title.trim() || (row.file as File).name)
       try { await apiClient.post(`/vendors/${vid}/documents/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }) } catch { /* non-fatal */ }
     }
+  }
+  const hasStep1Data = () => {
+    const data = getValues()
+  
+    return !!(
+      data.gst_number ||
+      data.pan_number ||
+      data.bank_account ||
+      data.bank_ifsc ||
+      data.bank_name ||
+      data.is_msme ||
+      data.msme_number ||
+      data.is_sez ||
+      pendingDocs.length > 0 ||
+      otherDocRows.some(r => r.file)
+    )
   }
 
   const apiErrorMsg = (err: any): string => {
@@ -430,21 +448,30 @@ export default function NewVendorPage() {
 
   const handleStep1Next = () => {
     if (!validateCompliancePairs()) return
-    step1Mutation.mutate(getValues())
+  
+    if (hasStep1Data()) {
+      setConfirmAction(() => () => step1Mutation.mutate(getValues()))
+      setShowConfirmModal(true)
+    } else {
+      step1Mutation.mutate(getValues())
+    }
   }
-
+  
   const handleSaveAsDraft = () => { setSubmitError(''); submitMutation.mutate({ mode: 'draft' }) }
 
   const handleSubmitForApproval = () => {
     setSubmitError('')
+  
     const missing = missingComplianceFields(getValues())
     if (missing.length > 0) {
       setSubmitError(`Required before submitting: ${missing.join(', ')}.`)
       return
     }
-    submitMutation.mutate({ mode: 'approval' })
+  
+    setConfirmAction(() => () => submitMutation.mutate({ mode: 'approval' }))
+    setShowConfirmModal(true)
   }
-
+  
   const onValidationError = (errs: FieldErrors<VendorForm>) => {
     if (STEP0_FIELDS.some(f => errs[f])) setStep(0)
   }
@@ -917,12 +944,6 @@ export default function NewVendorPage() {
       {!showSrfMatch && step === 2 && (
         <Card>
           <CardHeader>
-            <CardTitle>Review & Submit</CardTitle>
-
-            <p className="text-sm text-muted-foreground mt-1">
-              Save as draft to continue editing later, or select an approval matrix and submit for approval.
-              <span className="font-medium text-foreground"> GST, PAN and bank details are required before submitting for approval.</span>
-            </p>
           </CardHeader>
           <CardContent className="space-y-6">
             {matrices === undefined && (
@@ -972,6 +993,34 @@ export default function NewVendorPage() {
           </CardContent>
         </Card>
       )}
+      {showConfirmModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-6">
+      <h2 className="text-lg font-semibold mb-2">Confirm Action</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        Are you sure you want to save these details?
+      </p>
+
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={() => setShowConfirmModal(false)}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={() => {
+            confirmAction()
+            setShowConfirmModal(false)
+          }}
+        >
+          Yes, Save
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   )
 }
