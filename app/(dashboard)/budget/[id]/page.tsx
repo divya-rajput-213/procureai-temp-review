@@ -769,9 +769,10 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
       { <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Preferred Vendors</CardTitle>
-            <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Optional</span>
-          </div>
+            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Preferred Vendors <span className="text-destructive">*</span></CardTitle>
+     <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                Required
+              </span>          </div>
         </CardHeader>
         <CardContent className="pt-5 space-y-3">
           <div className="relative">
