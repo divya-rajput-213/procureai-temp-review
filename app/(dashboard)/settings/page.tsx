@@ -30,8 +30,10 @@ type MatrixForm = {
   matrix_type: string
   plant: number | ''
   is_active: boolean
+  sla_exceeded_action: string   // ✅ ADDED
   levels: MatrixLevel[]
 }
+
 // ─── Matrix Row ───────────────────────────────────────────────────────────────
 
 function MatrixRow({ matrix, onEdit, onDelete, onToggle }: {
@@ -96,12 +98,17 @@ function MatrixRow({ matrix, onEdit, onDelete, onToggle }: {
 // ─── Matrix Form ──────────────────────────────────────────────────────────────
 
 type LevelDraft = { level_number: number; user: string; role: string; sla_hours: number }
-type MatrixDraft = { name: string; matrix_type: string; is_active: boolean; plant: string; levels: LevelDraft[] }
+type MatrixDraft = { name: string; matrix_type: string; is_active: boolean; plant: string; levels: LevelDraft[],sla_exceeded_action: string   }
 
 const EMPTY_DRAFT: MatrixDraft = {
-  name: '', matrix_type: 'purchase_requisition', is_active: true, plant: '',
+  name: '',
+  matrix_type: 'purchase_requisition',
+  is_active: true,
+  plant: '',
+  sla_exceeded_action: 'AUTO_APPROVE', // ✅ ADDED (default)
   levels: [{ level_number: 1, user: '', role: '', sla_hours: 72 }],
 }
+
 
 const MATRIX_TYPE_OPTIONS = [
   { value: 'purchase_requisition', label: 'Purchase Requisition' },
@@ -216,6 +223,18 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
             {(plants || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
+        <div className="space-y-1">
+  <Label>SLA Exceeded Action</Label>
+  <select
+    className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+    value={form.sla_exceeded_action}
+    onChange={e => set('sla_exceeded_action', e.target.value)}
+  >
+    <option value="AUTO_APPROVE">Auto-approve</option>
+    <option value="HOLD">Hold</option>
+  </select>
+</div>
+
       </div>
 
       <div className="space-y-2">
@@ -291,6 +310,7 @@ function MatrixConfigTab() {
     try {
       const payload = {
         ...data,
+         sla_exceeded_action: data.sla_exceeded_action,
         plant: data.plant || null,
         levels: data.levels.map(l => ({
           level_number: l.level_number,
@@ -341,18 +361,20 @@ function MatrixConfigTab() {
     }
   }
 
-  const toEditDraft = (m: any): MatrixDraft => ({
-    name: m.name,
-    matrix_type: m.matrix_type,
-    is_active: m.is_active,
-    plant: m.plant ? String(m.plant) : '',
-    levels: (m.levels ?? []).map((l: any) => ({
-      level_number: l.level_number,
-      user: String(l.user),
-      role: String(l.role),
-      sla_hours: l.sla_hours,
-    })),
-  })
+const toEditDraft = (m: any): MatrixDraft => ({
+  name: m.name,
+  matrix_type: m.matrix_type,
+  is_active: m.is_active,
+  plant: m.plant ? String(m.plant) : '',
+  sla_exceeded_action: m.sla_exceeded_action ?? 'AUTO_APPROVE', // ✅ ADDED
+  levels: (m.levels ?? []).map((l: any) => ({
+    level_number: l.level_number,
+    user: String(l.user),
+    role: String(l.role),
+    sla_hours: l.sla_hours,
+  })),
+})
+
 
   return (
     <div className="space-y-4">

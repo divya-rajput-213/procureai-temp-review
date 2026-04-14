@@ -21,16 +21,34 @@ import { normalizeLeadingWhitespace } from '@/lib/utils'
 const ALPHANUM_WITH_SPACES_DASH_UNDERSCORE = /^[a-z0-9 _-]+$/i
 
 const schema = z.object({
-  title: z.string().trim().min(3, 'Title is required').regex(ALPHANUM_WITH_SPACES_DASH_UNDERSCORE, 'Title must be alphanumeric (spaces, - and _ allowed)').refine(v => /[a-z]/i.test(v), 'Title cannot contain only numeric values'),
+  title: z.string().trim().min(3, 'Title is required')
+    .regex(ALPHANUM_WITH_SPACES_DASH_UNDERSCORE, 'Title must be alphanumeric (spaces, - and _ allowed)')
+    .refine(v => /[a-z]/i.test(v), 'Title cannot contain only numeric values'),
+
   priority: z.enum(['low', 'medium', 'high']),
   plant: z.number({ required_error: 'Plant is required' }),
   department: z.number({ required_error: 'Department is required' }),
-  description: z.string().trim().min(10, 'Description must be at least 10 characters').max(500, 'Description cannot exceed 500 characters'),
+
+  description: z.string().trim().min(10, 'Description must be at least 10 characters')
+    .max(500, 'Description cannot exceed 500 characters'),
+
   requested_amount: z
     .number({ invalid_type_error: 'Enter a valid amount' })
     .min(1000, 'Minimum budget is ₹1,000')
     .max(100_000_000, 'Maximum budget is ₹10 Crore'),
+  preferred_vendor_ids: z
+    .array(z.number())
+    .default([])
+    .refine(arr => arr.length > 0, {
+      message: 'Please select at least one vendor',
+    })
+    .refine(arr => arr.length <= 5, {
+      message: 'You can select maximum 5 vendors',
+    }),
+
+
 })
+
 
 type FormData = z.infer<typeof schema>
 
@@ -96,39 +114,38 @@ export default function NewBudgetPage() {
     resolver: zodResolver(schema),
     mode: 'onChange',
     reValidateMode: 'onChange',
-    defaultValues: { priority: 'medium' },
+    defaultValues: { priority: 'medium', preferred_vendor_ids: [], },
   })
-  
-  
+
   const watchedPriority = watch('priority')
   const watchedAmount = watch('requested_amount')
 
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const mode = submitModeRef.current
-  
+
       const payload: Record<string, any> = {
         ...data,
         preferred_vendor_ids: selectedVendors.map(v => v.id),
         status: mode === 'approval' ? 'pending_approval' : 'draft',
       }
-  
+
       //  send matrix only in approval mode
       if (mode === 'approval' && selectedMatrix) {
         payload.matrix_id = selectedMatrix
       }
-  
+
       const response = await apiClient.post(
         '/budget/tracking-ids/',
         payload
       )
-  
+
       const budget =
         response.data?.data ?? response.data
-  
+
       return { budget, mode }
     },
-  
+
     onSuccess: ({ budget, mode }) => {
       toast({
         title:
@@ -136,38 +153,66 @@ export default function NewBudgetPage() {
             ? `Budget submitted for approval.`
             : `Budget saved as draft.`,
       })
-  
+
       router.push('/budget')
     },
-  
+
     onError: (err: any) => {
       const errors = err?.response?.data
-    
+
       let message = 'Something went wrong'
-    
+
       if (errors && typeof errors === 'object') {
         message = Object.entries(errors)
           .map(([field, msgs]: any) => `${field}: ${msgs.join(', ')}`)
           .join('\n')
       }
-    
+
       toast({
         title: 'Submission failed',
         description: message,
         variant: 'destructive',
       })
     }
-    
+
   })
-  
+
   const addVendor = (v: any) => {
-    if (!selectedVendors.some(x => x.id === v.id)) {
-      setSelectedVendors(prev => [...prev, v])
+    if (selectedVendors.length >= 5) {
+      toast({
+        title: 'Limit reached',
+        description: 'You can select maximum 5 vendors',
+        variant: 'destructive',
+      })
+      return
     }
+
+    if (!selectedVendors.some(x => x.id === v.id)) {
+      const updated = [...selectedVendors, v]
+      setSelectedVendors(updated)
+
+      setValue(
+        'preferred_vendor_ids',
+        updated.map(v => v.id),
+        { shouldValidate: true }
+      )
+    }
+
     setShowVendorSearch(false)
     setVendorSearch('')
   }
-  const removeVendor = (id: number) => setSelectedVendors(prev => prev.filter(v => v.id !== id))
+
+
+  const removeVendor = (id: number) => {
+    const updated = selectedVendors.filter(v => v.id !== id)
+    setSelectedVendors(updated)
+
+    setValue(
+      'preferred_vendor_ids',
+      updated.map(v => v.id),
+      { shouldValidate: true }
+    )
+  }
 
   const handleDraft = handleSubmit(data => {
     submitModeRef.current = 'draft'
@@ -295,7 +340,7 @@ export default function NewBudgetPage() {
             </div>
 
             {/* Description */}
-            <div className="space-y-1.5">
+            <div className="space-y-0">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">
                   Description <span className="text-destructive">*</span>
@@ -318,16 +363,14 @@ export default function NewBudgetPage() {
                 className={textareaCls}
                 placeholder="Brief description of what you need..."
               />
-              <div className="flex items-center justify-between">
                 {errors.description
-                  ? <p className="text-xs text-destructive">{errors.description.message}</p>
+                  ? <p className="text-xs text-destructive mt-0">{errors.description.message}</p>
                   : <span />}
-              </div>
             </div>
 
             {/* Priority / Plant / Department */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-0">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Priority <span className="text-destructive">*</span></Label>
                 <div className="flex gap-2">
                   {PRIORITY_OPTS.map(p => {
@@ -345,7 +388,7 @@ export default function NewBudgetPage() {
                 </div>
               </div>
 
-              <div className="space-y-0">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Plant <span className="text-destructive">*</span></Label>
                 <select className={selectCls} onChange={e =>
                   setValue('plant', Number(e.target.value), {
@@ -361,7 +404,7 @@ export default function NewBudgetPage() {
                 {errors.plant && <p className="text-xs text-destructive">{errors.plant.message}</p>}
               </div>
 
-              <div className="space-y-0">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Department <span className="text-destructive">*</span></Label>
                 <select className={selectCls} onChange={e =>
                   setValue('department', Number(e.target.value), {
@@ -388,11 +431,10 @@ export default function NewBudgetPage() {
                     key={amt}
                     type="button"
                     onClick={() => setValue('requested_amount', amt, { shouldValidate: true })}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                      watchedAmount === amt
-                        ? 'bg-primary text-white border-primary'
-                        : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
-                    }`}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${watchedAmount === amt
+                      ? 'bg-primary text-white border-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                      }`}
                   >
                     {amt >= 100000 ? `${currencySymbol}${amt / 100000}L` : `${currencySymbol}${amt / 1000}K`}
                   </button>
@@ -442,17 +484,28 @@ export default function NewBudgetPage() {
         <Card className="shadow-sm">
           <CardHeader className="pb-4 border-b">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Preferred Vendors</CardTitle>
-              <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Optional</span>
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Preferred Vendors <span className="text-destructive">*</span>
+              </CardTitle>
+
+              <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                Required
+              </span>
+
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               List vendors you'd prefer to source from. Finance may suggest alternatives during review.
             </p>
           </CardHeader>
-          <CardContent className="pt-5 space-y-3">
+          <CardContent className="pt-5 space-y-2">
             <div className="relative">
               <Input
-                placeholder="Search approved vendors..."
+                disabled={selectedVendors.length >= 5}
+                placeholder={
+                  selectedVendors.length >= 5
+                    ? 'Maximum 5 vendors can be select'
+                    : 'Search approved vendors...'
+                }
                 value={vendorSearch}
                 onChange={e => {
                   const nextValue = e.target.value
@@ -489,6 +542,11 @@ export default function NewBudgetPage() {
                 </div>
               )}
             </div>
+            {errors.preferred_vendor_ids && (
+              <p className="text-xs text-destructive">
+                {errors.preferred_vendor_ids.message}
+              </p>
+            )}
 
             {selectedVendors.length > 0 && (
               <div className="border border-border rounded-lg overflow-hidden">
@@ -508,24 +566,25 @@ export default function NewBudgetPage() {
                       if (v.city && v.state) location = `${v.city}, ${v.state}`
                       else if (v.city) location = v.city
                       return (
-                      <tr key={v.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-3 py-2.5 font-medium text-foreground">{v.company_name}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                          {location}
-                        </td>
-                        <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{v.contact_email || '—'}</td>
-                        <td className="px-3 py-2.5 text-center">
-                          <button
-                            type="button"
-                            onClick={() => removeVendor(v.id)}
-                            className="text-muted-foreground hover:text-destructive transition-colors"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    )})}
+                        <tr key={v.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-3 py-2.5 font-medium text-foreground">{v.company_name}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
+                            {location}
+                          </td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{v.contact_email || '—'}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => removeVendor(v.id)}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
 
                   </tbody>
                 </table>

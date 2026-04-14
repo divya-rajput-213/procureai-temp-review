@@ -650,9 +650,9 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
   const selectCls = 'w-full h-10 border border-input rounded-md px-3 text-sm bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors'
   const textareaCls = 'w-full border border-input rounded-md p-3 text-sm bg-background text-foreground resize-none h-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors placeholder:text-muted-foreground'
   const amountInputCls = getAmountInputCls(!!amountError, requestedAmount)
-  const disabledCls = !isDraft
-  ? 'bg-muted cursor-not-allowed text-muted-foreground'
-  : ''
+const disabledCls = !isDraft
+  ? 'bg-muted cursor-not-allowed opacity-60'
+  : 'cursor-pointer '
 
   return (
     <div className="space-y-5">
@@ -666,7 +666,7 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
 
           <div className="space-y-1.5">
             <Label className={`text-sm font-medium `}>Title <span className="text-destructive">*</span></Label>
-            <Input disabled={!isDraft} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Enterprise Laptop Procurement" className={`h-10 ${disabledCls}`} />
+            <Input disabled={!isDraft} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Enterprise Laptop Procurement" className={`h-10`} />
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -681,7 +681,7 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
                 <p className="text-xs text-muted-foreground">{description.length} / 500</p>
               </div>
             </div>
-            <textarea disabled={!isDraft} value={description} onChange={e => setDescription(e.target.value)} className={`${textareaCls} ${disabledCls}`} placeholder="Brief description of what you need..." maxLength={500} />
+            <textarea disabled={!isDraft} value={description} onChange={e => setDescription(e.target.value)} className={`${textareaCls}`} placeholder="Brief description of what you need..." maxLength={500} />
 
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -694,7 +694,7 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
                     ? `${p.color} border-current shadow-sm`
                     : 'border-input text-muted-foreground hover:border-slate-300 hover:text-foreground'
                   return (
-                    <label key={p.value} className={`flex-1 border rounded-lg px-2 py-2.5 cursor-pointer text-center text-xs font-semibold transition-all ${cls} ${disabledCls}`}>
+                    <label key={p.value} className={`flex-1 border rounded-lg px-2 py-2.5 text-center text-xs font-semibold transition-all ${cls} ${disabledCls}`}>
                       <input disabled={!isDraft} type="radio" value={p.value} checked={priority === p.value} onChange={() => setPriority(p.value)} className="sr-only" />
                       {p.label}
                     </label>
@@ -704,14 +704,14 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
             </div>
             <div className="space-y-1.5">
               <Label className={`text-sm font-medium `}>Plant</Label>
-              <select disabled={!isDraft} className={`${selectCls} ${disabledCls}`} value={plant} onChange={e => setPlant(e.target.value ? Number(e.target.value) : '')} >
+              <select disabled={!isDraft} className={`${selectCls} `} value={plant} onChange={e => setPlant(e.target.value ? Number(e.target.value) : '')} >
                 <option value="">Select plant...</option>
                 {plants.map((p: any) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Department</Label>
-              <select disabled={!isDraft} className={`${selectCls} ${disabledCls}`} value={department} onChange={e => setDepartment(e.target.value ? Number(e.target.value) : '')}>
+              <select disabled={!isDraft} className={`${selectCls}`} value={department} onChange={e => setDepartment(e.target.value ? Number(e.target.value) : '')}>
                 <option value="">Select department...</option>
                 {departments.map((d: any) => <option key={d.id} value={d.id}>{d.code} — {d.name}</option>)}
               </select>
@@ -769,20 +769,25 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
       { <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Preferred Vendors</CardTitle>
-            <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Optional</span>
-          </div>
+            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Preferred Vendors <span className="text-destructive">*</span></CardTitle>
+     <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                Required
+              </span>          </div>
         </CardHeader>
         <CardContent className="pt-5 space-y-3">
           <div className="relative">
             <Input
-              placeholder="Search approved vendors..."
-              disabled={!isDraft}
+              disabled={selectedVendors.length >= 5 || !isDraft}
+                placeholder={
+                  selectedVendors.length >= 5
+                    ? 'Maximum 5 vendors can be select'
+                    : 'Search approved vendors...'
+                }
               value={vendorSearch}
               onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
               onFocus={() => setShowVendorSearch(true)}
               onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
-              className={`h-10 ${disabledCls}`}
+              className={`h-10`}
             />
             {showVendorSearch && (
               <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
