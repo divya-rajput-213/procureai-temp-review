@@ -81,4 +81,22 @@
   h4 {
     @apply text-base font-semibold text-foreground;
   }
+  :disabled {
+  @apply cursor-not-allowed opacity-60;
+}
+
+/* Strong override */
+button:disabled,
+input:disabled,
+textarea:disabled,
+select:disabled {
+  @apply bg-muted text-muted-foreground border-border opacity-60 !important;
+}
+
+/* Fix for variant buttons overriding disabled */
+button:disabled * {
+  @apply text-muted-foreground !important;
+}
+
+
 }
