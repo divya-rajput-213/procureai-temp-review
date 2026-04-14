@@ -37,11 +37,15 @@ const schema = z.object({
     .min(1000, 'Minimum budget is ₹1,000')
     .max(100_000_000, 'Maximum budget is ₹10 Crore'),
   preferred_vendor_ids: z
-  .array(z.number())
-  .default([]) 
-  .refine(arr => arr.length > 0, {
-    message: 'Please select at least one vendor',
-  }),
+    .array(z.number())
+    .default([])
+    .refine(arr => arr.length > 0, {
+      message: 'Please select at least one vendor',
+    })
+    .refine(arr => arr.length <= 5, {
+      message: 'You can select maximum 5 vendors',
+    }),
+
 
 })
 
@@ -174,6 +178,15 @@ export default function NewBudgetPage() {
   })
 
   const addVendor = (v: any) => {
+    if (selectedVendors.length >= 5) {
+      toast({
+        title: 'Limit reached',
+        description: 'You can select maximum 5 vendors',
+        variant: 'destructive',
+      })
+      return
+    }
+
     if (!selectedVendors.some(x => x.id === v.id)) {
       const updated = [...selectedVendors, v]
       setSelectedVendors(updated)
@@ -188,6 +201,7 @@ export default function NewBudgetPage() {
     setShowVendorSearch(false)
     setVendorSearch('')
   }
+
 
   const removeVendor = (id: number) => {
     const updated = selectedVendors.filter(v => v.id !== id)
@@ -420,8 +434,8 @@ export default function NewBudgetPage() {
                     type="button"
                     onClick={() => setValue('requested_amount', amt, { shouldValidate: true })}
                     className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${watchedAmount === amt
-                        ? 'bg-primary text-white border-primary'
-                        : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                      ? 'bg-primary text-white border-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
                       }`}
                   >
                     {amt >= 100000 ? `${currencySymbol}${amt / 100000}L` : `${currencySymbol}${amt / 1000}K`}
@@ -488,7 +502,12 @@ export default function NewBudgetPage() {
           <CardContent className="pt-5 space-y-3">
             <div className="relative">
               <Input
-                placeholder="Search approved vendors..."
+                disabled={selectedVendors.length >= 5}
+                placeholder={
+                  selectedVendors.length >= 5
+                    ? 'Maximum 5 vendors selected'
+                    : 'Search approved vendors...'
+                }
                 value={vendorSearch}
                 onChange={e => {
                   const nextValue = e.target.value
