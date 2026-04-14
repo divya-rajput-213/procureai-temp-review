@@ -651,6 +651,7 @@ export default function NewPRPage() {
                         <td className="px-2 py-1.5">
                           <Input
                             type="number" min="0.01" max="9999999.99" step="0.01" placeholder="0.00"
+                            disabled
                             className={`h-8 text-xs ${errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}`}
                             {...register(`line_items.${idx}.unit_rate`, {
                               valueAsNumber: true,

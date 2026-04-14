@@ -731,6 +731,7 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
                   </td>
                   <td className="px-2 py-1.5">
                     <Input type="number" placeholder="0.00" value={li.unit_rate}
+                    disabled
                       onChange={e => { let v = parseFloat(e.target.value); if (v > 9999999.99) v = 9999999.99; setLI(idx, 'unit_rate', isNaN(v) ? 0 : Math.round(v * 100) / 100) }}
                       className="h-8 text-xs" />
                   </td>
