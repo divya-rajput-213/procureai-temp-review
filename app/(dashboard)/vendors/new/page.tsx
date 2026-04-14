@@ -979,12 +979,6 @@ toast({title:submitError,variant: 'destructive'})
               />
             )}
 
-            {/* {submitError && (
-              <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
-                {submitError}
-              </p>
-            )} */}
-
             <div className="flex justify-between gap-3 pt-2 flex-wrap">
               <Button type="button" variant="outline" onClick={() => setStep(1)} className="gap-1">
                 <ArrowLeft className="w-4 h-4" /> Back
