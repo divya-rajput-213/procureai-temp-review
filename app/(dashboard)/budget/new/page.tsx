@@ -340,7 +340,7 @@ export default function NewBudgetPage() {
             </div>
 
             {/* Description */}
-            <div className="space-y-1.5">
+            <div className="space-y-0">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">
                   Description <span className="text-destructive">*</span>
@@ -363,16 +363,14 @@ export default function NewBudgetPage() {
                 className={textareaCls}
                 placeholder="Brief description of what you need..."
               />
-              <div className="flex items-center justify-between">
                 {errors.description
-                  ? <p className="text-xs text-destructive">{errors.description.message}</p>
+                  ? <p className="text-xs text-destructive mt-0">{errors.description.message}</p>
                   : <span />}
-              </div>
             </div>
 
             {/* Priority / Plant / Department */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-0">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Priority <span className="text-destructive">*</span></Label>
                 <div className="flex gap-2">
                   {PRIORITY_OPTS.map(p => {
@@ -390,7 +388,7 @@ export default function NewBudgetPage() {
                 </div>
               </div>
 
-              <div className="space-y-0">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Plant <span className="text-destructive">*</span></Label>
                 <select className={selectCls} onChange={e =>
                   setValue('plant', Number(e.target.value), {
@@ -406,7 +404,7 @@ export default function NewBudgetPage() {
                 {errors.plant && <p className="text-xs text-destructive">{errors.plant.message}</p>}
               </div>
 
-              <div className="space-y-0">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Department <span className="text-destructive">*</span></Label>
                 <select className={selectCls} onChange={e =>
                   setValue('department', Number(e.target.value), {
@@ -499,7 +497,7 @@ export default function NewBudgetPage() {
               List vendors you'd prefer to source from. Finance may suggest alternatives during review.
             </p>
           </CardHeader>
-          <CardContent className="pt-5 space-y-3">
+          <CardContent className="pt-5 space-y-2">
             <div className="relative">
               <Input
                 disabled={selectedVendors.length >= 5}
