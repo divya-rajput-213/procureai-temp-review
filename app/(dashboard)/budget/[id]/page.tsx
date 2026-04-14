@@ -777,8 +777,12 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
         <CardContent className="pt-5 space-y-3">
           <div className="relative">
             <Input
-              placeholder="Search approved vendors..."
-              disabled={!isDraft}
+              disabled={selectedVendors.length >= 5 || !isDraft}
+                placeholder={
+                  selectedVendors.length >= 5
+                    ? 'Maximum 5 vendors can be select'
+                    : 'Search approved vendors...'
+                }
               value={vendorSearch}
               onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
               onFocus={() => setShowVendorSearch(true)}

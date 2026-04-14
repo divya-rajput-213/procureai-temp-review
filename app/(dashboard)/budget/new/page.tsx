@@ -505,7 +505,7 @@ export default function NewBudgetPage() {
                 disabled={selectedVendors.length >= 5}
                 placeholder={
                   selectedVendors.length >= 5
-                    ? 'Maximum 5 vendors selected'
+                    ? 'Maximum 5 vendors can be select'
                     : 'Search approved vendors...'
                 }
                 value={vendorSearch}
