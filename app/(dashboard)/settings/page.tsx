@@ -74,6 +74,7 @@ function MatrixRow({ matrix, onEdit, onDelete, onToggle }: {
                 <th className="text-left pb-1 font-medium">Approver</th>
                 <th className="text-left pb-1 font-medium">Role</th>
                 <th className="text-left pb-1 font-medium">SLA</th>
+                <th className="text-left pb-1 font-medium">SLA Exceeded Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -83,6 +84,8 @@ function MatrixRow({ matrix, onEdit, onDelete, onToggle }: {
                   <td className="py-1.5 font-medium">{l.user_name || l.user}</td>
                   <td className="py-1.5 text-muted-foreground">{l.role_name || l.role}</td>
                   <td className="py-1.5">{l.sla_hours}h</td>
+                   <td className="py-1.5">{l.sla_exceeded_action}</td>
+
                 </tr>
               ))}
             </tbody>
