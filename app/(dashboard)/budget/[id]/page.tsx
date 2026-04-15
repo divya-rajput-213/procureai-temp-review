@@ -650,15 +650,15 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
   const selectCls = 'w-full h-10 border border-input rounded-md px-3 text-sm bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors'
   const textareaCls = 'w-full border border-input rounded-md p-3 text-sm bg-background text-foreground resize-none h-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors placeholder:text-muted-foreground'
   const amountInputCls = getAmountInputCls(!!amountError, requestedAmount)
-const disabledCls = !isDraft
-  ? 'bg-muted cursor-not-allowed opacity-60'
-  : 'cursor-pointer '
+  const disabledCls = !isDraft
+    ? 'bg-muted cursor-not-allowed opacity-60'
+    : 'cursor-pointer '
 
   return (
     <div className="space-y-5">
 
       {/* ── Basic Information (hidden in amount-only mode) ─────────────────── */}
-      { <Card className="shadow-sm">
+      {<Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Basic Information</CardTitle>
         </CardHeader>
@@ -725,7 +725,7 @@ const disabledCls = !isDraft
       <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            { `Estimated Budget (${currencySymbol})`}
+            {`Estimated Budget (${currencySymbol})`}
           </CardTitle>
           {/* {amountOnly && (
             <p className="text-xs text-muted-foreground mt-1">You can update the requested amount while the budget is under review.</p>
@@ -747,12 +747,33 @@ const disabledCls = !isDraft
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium select-none">{currencySymbol}</span>
               <Input
-                type="number" step="1" min={1000} max={100000000} placeholder="0"
-                className={amountInputCls}
+                type="number"
+                step="1"
+                min={1000}
+                max={100000000}
+                placeholder="0"
+                className={`
+    ${amountInputCls}
+    !ring-0
+    !ring-offset-0
+    !outline-none
+    !border-gray-300
+    focus:!ring-0
+    focus:!outline-none
+    focus:!border-gray-300
+    focus-visible:!ring-0
+    focus-visible:!outline-none
+    focus-visible:!border-gray-300
+  `}
                 value={requestedAmount || ''}
                 onChange={e => handleAmountChange(Number(e.target.value))}
-                onInput={e => { const el = e.currentTarget; if (Number(el.value) > 100_000_000) el.value = '100000000' }}
+                onInput={e => {
+                  const el = e.currentTarget
+                  if (Number(el.value) > 100_000_000) el.value = '100000000'
+                }}
               />
+
+
             </div>
             {/* {requestedAmount >= 1000 && !amountError && (
               <p className="text-xs font-semibold text-emerald-600">{formatCurrency(requestedAmount, budget.currency_code)}</p>
@@ -766,23 +787,23 @@ const disabledCls = !isDraft
       </Card>
 
       {/* ── Preferred Vendors (hidden in amount-only mode) ─────────────────── */}
-      { <Card className="shadow-sm">
+      {<Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Preferred Vendors <span className="text-destructive">*</span></CardTitle>
-     <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
-                Required
-              </span>          </div>
+            <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+              Required
+            </span>          </div>
         </CardHeader>
         <CardContent className="pt-5 space-y-3">
           <div className="relative">
             <Input
               disabled={selectedVendors.length >= 5 || !isDraft}
-                placeholder={
-                  selectedVendors.length >= 5
-                    ? 'Maximum 5 vendors can be select'
-                    : 'Search approved vendors...'
-                }
+              placeholder={
+                selectedVendors.length >= 5
+                  ? 'Maximum 5 vendors can be select'
+                  : 'Search approved vendors...'
+              }
               value={vendorSearch}
               onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
               onFocus={() => setShowVendorSearch(true)}
@@ -835,11 +856,11 @@ const disabledCls = !isDraft
                         <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{location}</td>
                         <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{v.contact_email || '—'}</td>
                         {isDraft && (
-                        <td className="px-3 py-2.5 text-center">
-                          <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
                         )}
                       </tr>
                     )

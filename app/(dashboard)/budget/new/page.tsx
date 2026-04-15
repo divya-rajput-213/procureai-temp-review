@@ -443,30 +443,31 @@ export default function NewBudgetPage() {
               <div className="max-w-xs space-y-1.5">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium select-none">{currencySymbol}</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    min={1000}
-                    max={100000000}
-                    placeholder="0"
-                    className={amountInputCls}
-                    {...register('requested_amount', {
-                      setValueAs: value => {
-                        const raw = String(value ?? '').trim()
-                        if (!raw) return undefined
-                        const intPart = raw.split('.')[0] || '0'
-                        const intVal = Number(intPart)
-                        if (Number.isNaN(intVal)) return undefined
-                        if (intVal < 1000) return intVal
-                        return Number(raw)
-                      },
-                      max: { value: 100_000_000, message: 'Maximum budget is ₹10 Crore' },
-                    })}
-                    onInput={e => {
-                      const el = e.currentTarget
-                      if (Number(el.value) > 100_000_000) el.value = '100000000'
-                    }}
-                  />
+                 <Input
+  type="number"
+  step="1"
+  min={1000}
+  max={100000000}
+  placeholder="0"
+  className={`${amountInputCls} focus:ring-0 focus:outline-none focus:border-gray-300 border-gray-300`}
+  {...register('requested_amount', {
+    setValueAs: value => {
+      const raw = String(value ?? '').trim()
+      if (!raw) return undefined
+      const intPart = raw.split('.')[0] || '0'
+      const intVal = Number(intPart)
+      if (Number.isNaN(intVal)) return undefined
+      if (intVal < 1000) return intVal
+      return Number(raw)
+    },
+    max: { value: 100_000_000, message: 'Maximum budget is ₹10 Crore' },
+  })}
+  onInput={e => {
+    const el = e.currentTarget
+    if (Number(el.value) > 100_000_000) el.value = '100000000'
+  }}
+/>
+
                 </div>
                 {errors.requested_amount && (
                   <p className="text-xs text-destructive flex items-center gap-1">
