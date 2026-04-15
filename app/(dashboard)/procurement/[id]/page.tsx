@@ -443,14 +443,23 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
   const [showTrackingDropdown, setShowTrackingDropdown] = useState(false)
   const selectedTrackingObj = trackingIds.find((t: any) => t.id === Number(form.tracking_id))
 
-  const { data: vendorResults } = useQuery({
-    queryKey: ['vendors-pr-edit', vendorSearch],
-    queryFn: async () => {
-      const r = await apiClient.get('/vendors/', { params: { status: 'approved', search: vendorSearch, page_size: 20 } })
-      return r.data.results ?? r.data
-    },
-    enabled: showVendorDropdown,
-  })
+const { data: vendorResults } = useQuery({
+  queryKey: ['vendors-pr-edit', vendorSearch, form.plant],
+  queryFn: async () => {
+    const r = await apiClient.get('/vendors/', {
+      params: {
+        status: 'approved',
+        search: vendorSearch,
+        page_size: 20,
+        ...(form.plant ? { plant: form.plant } : {}),
+      },
+    })
+
+    return r.data.results ?? r.data
+  },
+  enabled: showVendorDropdown,
+})
+
 
   // Line items
   type LineItem = { _key: string; code: string; item_code: number | ''; description: string; quantity: string; unit_of_measure: string; unit_rate: string }
