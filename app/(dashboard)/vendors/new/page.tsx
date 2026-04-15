@@ -34,11 +34,21 @@ const SRF_FIELD_LABELS: Record<string, string> = {
   bank_name: 'Bank Name',
   msme_number: 'MSME Number',
 }
-export const DOC_TYPE_LABELS: Record<string, string> = {
-  gst_certificate: 'GST',
-  pan_card: 'PAN',
-  bank_details: 'Bank',
+export const DOC_CONFIG: Record<string, { docType: string; title: string }> = {
+  gst_certificate: {
+    docType: 'GST',
+    title: 'gst_number',
+  },
+  pan_card: {
+    docType: 'PAN',
+    title: 'pan_card',
+  },
+  bank_details: {
+    docType: 'BANK',
+    title: 'bank_document',
+  },
 }
+
 
 type SrfMatchRow = { field: string; label: string; value: string; confidence: number; include: boolean }
 type FieldConfig = {
@@ -125,72 +135,63 @@ function DocUploadWidget({ vendorId, docType, doc, onRefresh, setFieldError }: {
   const [deleting, setDeleting] = useState(false)
 
   const upload = async (file: File) => {
-    const maxSizeBytes = 5 * 1024 * 1024
+  const maxSizeBytes = 5 * 1024 * 1024
 
-    if (file.size > maxSizeBytes) {
-      toast({ title: 'Max file size is 5 MB', variant: 'destructive' })
-      return
-    }
-
-    setUploading(true)
-
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('doc_type', docType)
-      const label = DOC_TYPE_LABELS[docType] || file.name
-      fd.append('title', label)
-
-      const res = await apiClient.post(
-        `/vendors/${vendorId}/documents/`,
-        fd,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      )
-
-      // SUCCESS CHECK
-      if (res?.status === 200 || res?.status === 201) {
-        const data = res.data
-
-        // If backend sends extra info (like validation result)
-        console.log('Upload response:', res.data)
-        if (data?.ai_validation_status === "invalid") {
-
-          // set field error
-          setFieldError?.(`${data?.doc_type} is invalid`)
-
-        } else {
-          // clear error if valid
-          onRefresh()
-          setFieldError?.('')
-        }
-
-      }
-
-    } catch (err: any) {
-
-      //  HANDLE BACKEND ERRORS PROPERLY
-      const errorData = err?.response?.data
-
-      let message = 'Upload failed'
-
-      if (typeof errorData === 'string') {
-        message = errorData
-      } else if (errorData?.error) {
-        message = errorData.error
-      } else if (errorData) {
-        // flatten errors like { file: ["Invalid"], doc_type: ["Required"] }
-        message = Object.values(errorData).flat().join(' ')
-      }
-
-      toast({
-        title: message,
-        variant: 'destructive',
-      })
-
-    } finally {
-      setUploading(false)
-    }
+  if (file.size > maxSizeBytes) {
+    toast({ title: 'Max file size is 5 MB', variant: 'destructive' })
+    return
   }
+
+  setUploading(true)
+
+  try {
+    const fd = new FormData()
+    const config = DOC_CONFIG[docType]
+
+    fd.append('file', file)
+    fd.append('doc_type', config?.docType.trim() || docType.trim())
+    fd.append('title', config?.title.trim() || file.name.trim())
+
+    const res = await apiClient.post(
+      `/vendors/${vendorId}/documents/`,
+      fd 
+    )
+
+    if (res?.status === 200 || res?.status === 201) {
+      const data = res.data
+
+      console.log('Upload response:', data)
+
+      if (data?.ai_validation_status === "invalid") {
+        setFieldError?.(`${data?.doc_type} is invalid`)
+      } else {
+        onRefresh()
+        setFieldError?.('')
+      }
+    }
+
+  } catch (err: any) {
+    const errorData = err?.response?.data
+
+    let message = 'Upload failed'
+
+    if (typeof errorData === 'string') {
+      message = errorData
+    } else if (errorData?.error) {
+      message = errorData.error
+    } else if (errorData) {
+      message = Object.values(errorData).flat().join(' ')
+    }
+
+    toast({
+      title: message,
+      variant: 'destructive',
+    })
+  } finally {
+    setUploading(false)
+  }
+}
+
 
   const remove = async () => {
     if (!doc) return

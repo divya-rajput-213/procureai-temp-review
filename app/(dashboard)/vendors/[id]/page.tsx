@@ -17,6 +17,7 @@ import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
+import { DOC_CONFIG } from '../new/page'
 
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -33,6 +34,11 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   nda: 'NDA / Agreement',
   warranty: 'Warranty Document',
   other: 'Other',
+}
+export const DOC_LABELS: Record<string, string> = {
+  gst_certificate: 'GST',
+  pan_card: 'PAN',
+  bank_details: 'Bank',
 }
 
 // Doc types available in the "Other Documents" upload panel
@@ -270,20 +276,20 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
               }}
             />
           )}
-            <div className="flex justify-end mt-4">
-        <Button
-          onClick={submit}
-          disabled={submitting || (matrixCount > 0 && selectedMatrix === null)}
-          className="gap-1.5"
-        >
-          {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
-          Submit for Approval
-        </Button>
-      </div>
+          <div className="flex justify-end mt-4">
+            <Button
+              onClick={submit}
+              disabled={submitting || (matrixCount > 0 && selectedMatrix === null)}
+              className="gap-1.5"
+            >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
+              Submit for Approval
+            </Button>
+          </div>
         </CardContent>
-      
+
       </Card>
-  
+
     </>
   )
 }
@@ -411,13 +417,13 @@ function ComplianceFieldInput({ value, placeholder, canEdit, onSave, onChange }:
 }
 
 // ─── Inline doc upload widget ─────────────────────────────────────────────────
-function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true }: {
+function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true , setFieldError}: {
   vendorId: string | string[]
   docType: string
   doc: any | null
   onRefresh: () => void
   editable?: boolean
-}) {
+ setFieldError?: (msg: string) => void}) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -426,13 +432,26 @@ function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true }:
     setUploading(true)
     try {
       const fd = new FormData()
+      const config = DOC_CONFIG[docType]
+
       fd.append('file', file)
-      fd.append('doc_type', docType)
-      await apiClient.post(`/vendors/${vendorId}/documents/`, fd, {
+      fd.append('doc_type', config?.docType.trim() || docType.trim())
+      fd.append('title', config?.title.trim() || file.name.trim())
+    let res=  await apiClient.post(`/vendors/${vendorId}/documents/`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
-      onRefresh()
-      toast({ title: 'Document uploaded. AI validation running...' })
+     if (res?.status === 200 || res?.status === 201) {
+      const data = res.data
+
+      console.log('Upload response:', data)
+
+      if (data?.ai_validation_status === "invalid") {
+        setFieldError?.(`${data?.doc_type} is invalid`)
+      } else {
+        onRefresh()
+        setFieldError?.('')
+      }
+    }
     } catch {
       toast({ title: 'Upload failed', variant: 'destructive' })
     } finally {
@@ -885,14 +904,14 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh, editable = true
 // ─── Vendor Dashboard ─────────────────────────────────────────────────────────
 
 const PR_STATUS_LABELS: Record<string, string> = {
-  draft:            'Draft',
+  draft: 'Draft',
   pending_approval: 'Pending Approval',
-  approved:         'Approved',
-  vendor_selected:  'Vendor Selected',
-  synced_to_sap:    'Synced to SAP',
-  po_created:       'PO Created',
-  rejected:         'Rejected',
-  cancelled:        'Cancelled',
+  approved: 'Approved',
+  vendor_selected: 'Vendor Selected',
+  synced_to_sap: 'Synced to SAP',
+  po_created: 'PO Created',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
 }
 
 function prStatusColor(s: string) {
@@ -904,15 +923,15 @@ function prStatusColor(s: string) {
 }
 
 function bidStatusColor(s: string) {
-  if (s === 'shortlisted')      return 'bg-blue-100 text-blue-700'
+  if (s === 'shortlisted') return 'bg-blue-100 text-blue-700'
   if (s === 'pending_approval') return 'bg-purple-100 text-purple-700'
-  if (s === 'pending')          return 'bg-amber-100 text-amber-700'
+  if (s === 'pending') return 'bg-amber-100 text-amber-700'
   return 'bg-slate-100 text-slate-600'
 }
 
 const BID_STATUS_LABELS: Record<string, string> = {
-  pending:          'Pending',
-  shortlisted:      'Shortlisted',
+  pending: 'Pending',
+  shortlisted: 'Shortlisted',
   pending_approval: 'In Approval',
 }
 
@@ -967,10 +986,10 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
   const activeBids: any[] = dash.active_bids ?? []
 
   // Performance + risk — freshly computed by backend on every dashboard fetch
-  const perfScore  = Math.round(dash.performance_score ?? 0)
-  const riskScore  = Math.round(dash.risk_score ?? 0)
-  const riskLabel  = riskScore < 30 ? 'Low Risk' : riskScore < 60 ? 'Medium Risk' : 'High Risk'
-  const riskColor  = riskScore < 30
+  const perfScore = Math.round(dash.performance_score ?? 0)
+  const riskScore = Math.round(dash.risk_score ?? 0)
+  const riskLabel = riskScore < 30 ? 'Low Risk' : riskScore < 60 ? 'Medium Risk' : 'High Risk'
+  const riskColor = riskScore < 30
     ? 'text-green-700 bg-green-50 border-green-200'
     : riskScore < 60
       ? 'text-amber-700 bg-amber-50 border-amber-200'
@@ -995,7 +1014,7 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
 
   const colorMap: Record<string, string> = {
     green: 'bg-green-50 border-green-200 text-green-700',
-    blue:  'bg-blue-50 border-blue-200 text-blue-700',
+    blue: 'bg-blue-50 border-blue-200 text-blue-700',
     amber: 'bg-amber-50 border-amber-200 text-amber-700',
   }
   const iconColorMap: Record<string, string> = {
@@ -1007,12 +1026,12 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KPICard label="Total Spend (YTD)"  value={stats.total_spend_ytd > 0 ? `${vendor.currency ?? ''} ${fmtSpend(stats.total_spend_ytd)}` : '—'} icon={DollarSign}    iconColor="bg-blue-50 text-blue-600" />
-        <KPICard label="Bids Won"            value={String(stats.accepted_bids)}                                                                       icon={FileText}     iconColor="bg-purple-50 text-purple-600" />
-        <KPICard label="Open PRs"            value={String(stats.open_prs)}                                                                            icon={ShoppingCart}  iconColor="bg-amber-50 text-amber-600" />
-        <KPICard label="Win Rate"            value={stats.total_bids > 0 ? `${stats.win_rate}%` : '—'}                                               icon={CheckCircle}  iconColor="bg-green-50 text-green-600" />
-        <KPICard label="Avg Lead Time"       value={stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days}d` : '—'} icon={Clock} iconColor="bg-cyan-50 text-cyan-600" />
-        <KPICard label="Performance Score"   value={perfScore > 0 ? `${perfScore}/100` : '—'}                                                          icon={Star}         iconColor="bg-rose-50 text-rose-500" />
+        <KPICard label="Total Spend (YTD)" value={stats.total_spend_ytd > 0 ? `${vendor.currency ?? ''} ${fmtSpend(stats.total_spend_ytd)}` : '—'} icon={DollarSign} iconColor="bg-blue-50 text-blue-600" />
+        <KPICard label="Bids Won" value={String(stats.accepted_bids)} icon={FileText} iconColor="bg-purple-50 text-purple-600" />
+        <KPICard label="Open PRs" value={String(stats.open_prs)} icon={ShoppingCart} iconColor="bg-amber-50 text-amber-600" />
+        <KPICard label="Win Rate" value={stats.total_bids > 0 ? `${stats.win_rate}%` : '—'} icon={CheckCircle} iconColor="bg-green-50 text-green-600" />
+        <KPICard label="Avg Lead Time" value={stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days}d` : '—'} icon={Clock} iconColor="bg-cyan-50 text-cyan-600" />
+        <KPICard label="Performance Score" value={perfScore > 0 ? `${perfScore}/100` : '—'} icon={Star} iconColor="bg-rose-50 text-rose-500" />
       </div>
 
       {/* ── Spend Trend + Transactions ── */}
@@ -1133,10 +1152,10 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
               <p className="text-xs text-muted-foreground font-medium mb-2">Vendor Profile</p>
               <div className="space-y-1.5">
                 {[
-                  { label: 'Payment Terms',   value: vendor.payment_terms?.replace('_', ' ').toUpperCase() ?? '—' },
-                  { label: 'Lead Time',        value: vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : '—' },
-                  { label: 'Pricing Model',    value: vendor.pricing_model ?? '—' },
-                  { label: 'Total Bids',       value: String(stats.total_bids ?? 0) },
+                  { label: 'Payment Terms', value: vendor.payment_terms?.replace('_', ' ').toUpperCase() ?? '—' },
+                  { label: 'Lead Time', value: vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : '—' },
+                  { label: 'Pricing Model', value: vendor.pricing_model ?? '—' },
+                  { label: 'Total Bids', value: String(stats.total_bids ?? 0) },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">{r.label}</span>
@@ -1177,10 +1196,10 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Total Bids',     value: String(stats.total_bids ?? 0),         positive: true },
-                { label: 'Bids Won',       value: String(stats.accepted_bids ?? 0),       positive: true },
-                { label: 'Win Rate',       value: stats.total_bids > 0 ? `${stats.win_rate}%` : '—', positive: (stats.win_rate ?? 0) >= 40 },
-                { label: 'Avg Lead Time',  value: stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : '—', positive: true },
+                { label: 'Total Bids', value: String(stats.total_bids ?? 0), positive: true },
+                { label: 'Bids Won', value: String(stats.accepted_bids ?? 0), positive: true },
+                { label: 'Win Rate', value: stats.total_bids > 0 ? `${stats.win_rate}%` : '—', positive: (stats.win_rate ?? 0) >= 40 },
+                { label: 'Avg Lead Time', value: stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : '—', positive: true },
               ].map(m => (
                 <div key={m.label} className="bg-slate-50 rounded-lg p-3 text-center">
                   <p className="text-xs text-muted-foreground">{m.label}</p>
@@ -1207,9 +1226,9 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
             {/* Category + Location */}
             <div className="border-t pt-3 space-y-1.5">
               {[
-                { label: 'Category',  value: vendor.category_name ?? '—' },
-                { label: 'Location',  value: vendor.city && vendor.state ? `${vendor.city}, ${vendor.state}` : '—' },
-                { label: 'Currency',  value: vendor.currency ?? '—' },
+                { label: 'Category', value: vendor.category_name ?? '—' },
+                { label: 'Location', value: vendor.city && vendor.state ? `${vendor.city}, ${vendor.state}` : '—' },
+                { label: 'Currency', value: vendor.currency ?? '—' },
                 { label: 'Incoterms', value: vendor.incoterms ?? '—' },
               ].map(r => (
                 <div key={r.label} className="flex justify-between items-center">
@@ -1276,11 +1295,11 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
   } catch { /* silently skip if unavailable */ }
 
   const statusColors: Record<string, string> = {
-    approved:         'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
-    draft:            'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0',
-    rejected:         'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
+    approved: 'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
+    draft: 'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0',
+    rejected: 'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
     pending_approval: 'background:#fef3c7;color:#92400e;border:1px solid #fde68a',
-    blocked:          'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
+    blocked: 'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
   }
   const statusStyle = statusColors[vendor.status] ?? statusColors.draft
 
@@ -1306,37 +1325,37 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
   // ── Data rows ──────────────────────────────────────────────────────────────
 
   const identityRows = [
-    frow('GST Number',     vendor.gst_number),
-    frow('PAN Number',     vendor.pan_number),
-    frow('Category',       vendor.category_name),
-    frow('Plant',          vendor.plant_name),
-    frow('Country',        vendor.country),
-    frow('MSME',           vendor.is_msme ? (vendor.msme_number ? `Yes — ${vendor.msme_number}` : 'Yes') : 'No'),
-    frow('SEZ',            vendor.is_sez ? 'Yes' : 'No'),
-    frow('International',  vendor.is_international ? 'Yes' : 'No'),
+    frow('GST Number', vendor.gst_number),
+    frow('PAN Number', vendor.pan_number),
+    frow('Category', vendor.category_name),
+    frow('Plant', vendor.plant_name),
+    frow('Country', vendor.country),
+    frow('MSME', vendor.is_msme ? (vendor.msme_number ? `Yes — ${vendor.msme_number}` : 'Yes') : 'No'),
+    frow('SEZ', vendor.is_sez ? 'Yes' : 'No'),
+    frow('International', vendor.is_international ? 'Yes' : 'No'),
   ].join('')
 
   const contactRows = [
     frow('Contact Person', vendor.contact_name),
-    frow('Email',          vendor.contact_email),
-    frow('Phone',          vendor.contact_phone),
-    frow('Address',        addr),
+    frow('Email', vendor.contact_email),
+    frow('Phone', vendor.contact_phone),
+    frow('Address', addr),
   ].join('')
 
   const bankRows = [
-    frow('Bank Name',      vendor.bank_name),
-    frow('Account No.',    vendor.bank_account),
-    frow('IFSC Code',      vendor.bank_ifsc),
+    frow('Bank Name', vendor.bank_name),
+    frow('Account No.', vendor.bank_account),
+    frow('IFSC Code', vendor.bank_ifsc),
   ].join('')
 
   const commercialRows = [
-    frow('Pricing Model',  vendor.pricing_model),
-    frow('Payment Terms',  vendor.payment_terms),
-    frow('Currency',       vendor.currency),
-    frow('Incoterms',      vendor.incoterms),
-    frow('Std Lead Time',  vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : null),
+    frow('Pricing Model', vendor.pricing_model),
+    frow('Payment Terms', vendor.payment_terms),
+    frow('Currency', vendor.currency),
+    frow('Incoterms', vendor.incoterms),
+    frow('Std Lead Time', vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : null),
     frow('Rush Lead Time', vendor.rush_lead_time_days ? `${vendor.rush_lead_time_days} days` : null),
-    frow('Min Order Qty',  vendor.min_order_quantity != null ? String(vendor.min_order_quantity) : null),
+    frow('Min Order Qty', vendor.min_order_quantity != null ? String(vendor.min_order_quantity) : null),
   ].join('')
 
   // ── Compliance documents status ──────────────────────────────────────────
@@ -1370,9 +1389,9 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
       </tr>`).join('')
     : ''
 
-  const perfScore  = vendor.performance_score != null ? `${Number(vendor.performance_score).toFixed(1)} / 100` : null
-  const riskScore  = vendor.risk_score != null ? `${Number(vendor.risk_score).toFixed(1)} / 100` : null
-  const createdAt  = vendor.created_at ? new Date(vendor.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null
+  const perfScore = vendor.performance_score != null ? `${Number(vendor.performance_score).toFixed(1)} / 100` : null
+  const riskScore = vendor.risk_score != null ? `${Number(vendor.risk_score).toFixed(1)} / 100` : null
+  const createdAt = vendor.created_at ? new Date(vendor.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null
 
   // ── HTML ───────────────────────────────────────────────────────────────────
 
@@ -1497,18 +1516,18 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
     </thead>
     <tbody>
       ${activeBids.map((bid: any, idx: number) => {
-        const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
-        const statusClr: Record<string, string> = {
-          pending:      'background:#fef3c7;color:#92400e',
-          shortlisted:  'background:#dbeafe;color:#1e40af',
-          accepted:     'background:#dcfce7;color:#166534',
-          rejected:     'background:#fee2e2;color:#991b1b',
-        }
-        const sStyle = statusClr[bid.status] ?? 'background:#f1f5f9;color:#475569'
-        const amtStr = bid.bid_amount != null
-          ? Number(bid.bid_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })
-          : '—'
-        return `<tr style="${bg}">
+    const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
+    const statusClr: Record<string, string> = {
+      pending: 'background:#fef3c7;color:#92400e',
+      shortlisted: 'background:#dbeafe;color:#1e40af',
+      accepted: 'background:#dcfce7;color:#166534',
+      rejected: 'background:#fee2e2;color:#991b1b',
+    }
+    const sStyle = statusClr[bid.status] ?? 'background:#f1f5f9;color:#475569'
+    const amtStr = bid.bid_amount != null
+      ? Number(bid.bid_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+      : '—'
+    return `<tr style="${bg}">
           <td style="padding:5px 8px;font-family:Courier New,monospace;font-size:9px;border:1px solid #e2e8f0">${bid.pr_number}</td>
           <td style="padding:5px 8px;font-size:9.5px;border:1px solid #e2e8f0">${bid.title || '—'}</td>
           <td style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0">
@@ -1517,7 +1536,7 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
           <td style="padding:5px 8px;text-align:right;font-weight:600;border:1px solid #e2e8f0;font-size:9.5px">${amtStr}</td>
           <td style="padding:5px 8px;text-align:center;color:#64748b;border:1px solid #e2e8f0;font-size:9px">${bid.submitted_at || '—'}</td>
         </tr>`
-      }).join('')}
+  }).join('')}
     </tbody>
   </table>` : ''}
 
@@ -1607,12 +1626,12 @@ export default function VendorDetailPage() {
   const [savingDocs, setSavingDocs] = useState(false)
 
   const initDocFields = () => setDocFields({
-    gst_number:   vendor?.gst_number   ?? '',
-    pan_number:   vendor?.pan_number   ?? '',
+    gst_number: vendor?.gst_number ?? '',
+    pan_number: vendor?.pan_number ?? '',
     bank_account: vendor?.bank_account ?? '',
-    bank_ifsc:    vendor?.bank_ifsc    ?? '',
-    bank_name:    vendor?.bank_name    ?? '',
-    msme_number:  vendor?.msme_number  ?? '',
+    bank_ifsc: vendor?.bank_ifsc ?? '',
+    bank_name: vendor?.bank_name ?? '',
+    msme_number: vendor?.msme_number ?? '',
   })
 
   const setDocField = (key: string, val: string) =>
@@ -1696,7 +1715,7 @@ export default function VendorDetailPage() {
             </Button>
           )}
           <Button variant="ghost" size="sm" onClick={() => router.push('/vendors')} className="gap-1">
-                <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" /> Back
           </Button>
         </div>
       </div>
@@ -1829,7 +1848,12 @@ export default function VendorDetailPage() {
                     <Label className="text-xs font-semibold text-slate-700">GST Certificate</Label>
                     <DocUploadInline vendorId={id} docType="gst_certificate"
                       doc={docOf('gst_certificate')} editable={canEdit && isEditing}
-                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })}  setFieldError={(msg) =>
+                    setComplianceErrors(prev => ({
+                      ...prev,
+                      doc_gst_certificate: msg
+                    }))
+                  } />
                     {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
                   </div>
                 </div>
@@ -1851,7 +1875,12 @@ export default function VendorDetailPage() {
                     <Label className="text-xs font-semibold text-slate-700">PAN Card</Label>
                     <DocUploadInline vendorId={id} docType="pan_card"
                       doc={docOf('pan_card')} editable={canEdit && isEditing}
-                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} setFieldError={(msg) =>
+                    setComplianceErrors(prev => ({
+                      ...prev,
+                      doc_pan_card: msg
+                    }))
+                  } />
                     {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
                   </div>
                 </div>
@@ -1881,7 +1910,12 @@ export default function VendorDetailPage() {
                     <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque</Label>
                     <DocUploadInline vendorId={id} docType="bank_details"
                       doc={docOf('bank_details')} editable={canEdit && isEditing}
-                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} setFieldError={(msg) =>
+                    setComplianceErrors(prev => ({
+                      ...prev,
+                      doc_bank_details: msg
+                    }))
+                  }/>
                     {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
                   </div>
                 </div>
