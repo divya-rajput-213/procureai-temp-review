@@ -84,20 +84,12 @@ export default function NewBudgetPage() {
     queryKey: ['plants'],
     queryFn: async () => { const r = await apiClient.get('/users/plants/'); return r.data.results ?? r.data },
   })
+
   const { data: departments } = useQuery({
     queryKey: ['departments'],
     queryFn: async () => { const r = await apiClient.get('/users/departments/'); return r.data.results ?? r.data },
   })
-  const { data: vendors } = useQuery({
-    queryKey: ['vendors-approved', normalizedVendorSearch],
-    queryFn: async () => {
-      const params = new URLSearchParams({ status: 'approved' })
-      if (normalizedVendorSearch) params.set('search', normalizedVendorSearch)
-      const r = await apiClient.get(`/vendors/?${params}`)
-      return r.data.results ?? r.data
-    },
-    enabled: showVendorSearch && normalizedVendorSearch.length >= 2,
-  })
+
   const { data: matrices } = useQuery({
     queryKey: ['approval-matrices', 'budget_approval'],
     queryFn: async () => {
@@ -116,9 +108,30 @@ export default function NewBudgetPage() {
     reValidateMode: 'onChange',
     defaultValues: { priority: 'medium', preferred_vendor_ids: [], },
   })
+  const watchedPlant = watch('plant')
 
   const watchedPriority = watch('priority')
   const watchedAmount = watch('requested_amount')
+  const { data: vendors } = useQuery({
+  queryKey: ['vendors-approved', normalizedVendorSearch, watchedPlant],
+  queryFn: async () => {
+    const params = new URLSearchParams({
+      status: 'approved',
+    })
+
+    if (watchedPlant) {
+      params.set('plant', String(watchedPlant))
+    }
+
+    if (normalizedVendorSearch) {
+      params.set('search', normalizedVendorSearch)
+    }
+
+    const r = await apiClient.get(`/vendors/?${params.toString()}`)
+    return r.data.results ?? r.data
+  },
+  enabled: showVendorSearch && normalizedVendorSearch.length >= 2,
+})
 
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
