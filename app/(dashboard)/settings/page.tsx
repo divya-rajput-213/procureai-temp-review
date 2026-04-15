@@ -30,7 +30,7 @@ type MatrixForm = {
   matrix_type: string
   plant: number | ''
   is_active: boolean
-  sla_exceeded_action: string   // ✅ ADDED
+  sla_exceeded_action: string  
   levels: MatrixLevel[]
 }
 
@@ -74,6 +74,7 @@ function MatrixRow({ matrix, onEdit, onDelete, onToggle }: {
                 <th className="text-left pb-1 font-medium">Approver</th>
                 <th className="text-left pb-1 font-medium">Role</th>
                 <th className="text-left pb-1 font-medium">SLA</th>
+                <th className="text-left pb-1 font-medium">SLA Exceeded Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -83,6 +84,8 @@ function MatrixRow({ matrix, onEdit, onDelete, onToggle }: {
                   <td className="py-1.5 font-medium">{l.user_name || l.user}</td>
                   <td className="py-1.5 text-muted-foreground">{l.role_name || l.role}</td>
                   <td className="py-1.5">{l.sla_hours}h</td>
+                   <td className="py-1.5">{l.sla_exceeded_action}</td>
+
                 </tr>
               ))}
             </tbody>
@@ -97,29 +100,35 @@ function MatrixRow({ matrix, onEdit, onDelete, onToggle }: {
 
 // ─── Matrix Form ──────────────────────────────────────────────────────────────
 
-type LevelDraft = { level_number: number; user: string; role: string; sla_hours: number }
-type MatrixDraft = { name: string; matrix_type: string; is_active: boolean; plant: string; levels: LevelDraft[],sla_exceeded_action: string   }
+type LevelDraft = { level_number: number; user: string; role: string; sla_hours: number; sla_exceeded_action: 'auto_approve' | 'hold'}
+type MatrixDraft = {
+  name: string
+  matrix_type: string
+  is_active: boolean
+  plant: string
+  levels: LevelDraft[]
+}
 
 const EMPTY_DRAFT: MatrixDraft = {
   name: '',
   matrix_type: 'purchase_requisition',
   is_active: true,
   plant: '',
-  sla_exceeded_action: 'AUTO_APPROVE', // ✅ ADDED (default)
-  levels: [{ level_number: 1, user: '', role: '', sla_hours: 72 }],
+  levels: [{ level_number: 1, user: '', role: '', sla_hours: 72,       sla_exceeded_action: 'auto_approve',
+ }],
 }
 
 
 const MATRIX_TYPE_OPTIONS = [
   { value: 'purchase_requisition', label: 'Purchase Requisition' },
-  { value: 'budget_approval',      label: 'Budget Approval' },
-  { value: 'vendor_onboarding',    label: 'Vendor Onboarding' },
-  { value: 'vendor_bid',           label: 'Vendor Bid Approval' },
-  { value: 'contract_review',      label: 'Contract Review' },
-  { value: 'contract_approval',    label: 'Contract Approval' },
-  { value: 'contract_amendment',   label: 'Contract Amendment' },
-  { value: 'purchase_order',       label: 'Purchase Order' },
-  { value: 'invoice_approval',     label: 'Invoice Approval' },
+  { value: 'budget_approval', label: 'Budget Approval' },
+  { value: 'vendor_onboarding', label: 'Vendor Onboarding' },
+  { value: 'vendor_bid', label: 'Vendor Bid Approval' },
+  { value: 'contract_review', label: 'Contract Review' },
+  { value: 'contract_approval', label: 'Contract Approval' },
+  { value: 'contract_amendment', label: 'Contract Amendment' },
+  { value: 'purchase_order', label: 'Purchase Order' },
+  { value: 'invoice_approval', label: 'Invoice Approval' },
 ]
 
 function MatrixForm({ initial, onSave, onCancel, saving }: {
@@ -158,8 +167,21 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
   }
   const setLevelSla = (i: number, v: number) =>
     setForm(f => ({ ...f, levels: f.levels.map((l, idx) => idx === i ? { ...l, sla_hours: v } : l) }))
-  const addLevel = () =>
-    setForm(f => ({ ...f, levels: [...f.levels, { level_number: f.levels.length + 1, user: '', role: '', sla_hours: 72 }] }))
+ const addLevel = () =>
+  setForm(f => ({
+    ...f,
+    levels: [
+      ...f.levels,
+      {
+        level_number: f.levels.length + 1,
+        user: '',
+        role: '',
+        sla_hours: 72,
+        sla_exceeded_action: 'auto_approve',
+      },
+    ],
+  }))
+
   const removeLevel = (i: number) =>
     setForm(f => ({ ...f, levels: f.levels.filter((_, idx) => idx !== i).map((l, idx) => ({ ...l, level_number: idx + 1 })) }))
 
@@ -223,17 +245,6 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
             {(plants || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
-        <div className="space-y-1">
-  <Label>SLA Exceeded Action</Label>
-  <select
-    className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-    value={form.sla_exceeded_action}
-    onChange={e => set('sla_exceeded_action', e.target.value)}
-  >
-    <option value="AUTO_APPROVE">Auto-approve</option>
-    <option value="HOLD">Hold</option>
-  </select>
-</div>
 
       </div>
 
@@ -244,39 +255,78 @@ function MatrixForm({ initial, onSave, onCancel, saving }: {
             <Plus className="w-3.5 h-3.5" /> Add Level
           </Button>
         </div>
-        {form.levels.map((level, idx) => (
-          <>
-            <div key={level.level_number} className="flex items-center gap-2 border rounded-lg p-3 bg-slate-50">
-              <span className="text-xs font-bold text-muted-foreground w-6 shrink-0">L{level.level_number}</span>
-              <select
-                className="flex-1 h-9 border rounded-md px-2 text-sm bg-background"
-                value={level.user && level.role ? `${level.user}:${level.role}` : ''}
-                onChange={e => setLevelApprover(idx, e.target.value)}
-              >
-                <option value="">Select approver…</option>
-                {approverOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <div className="flex items-center gap-1 shrink-0">
-                <Input
-                  type="number"
-                  className="w-20 h-9 text-sm"
-                  value={level.sla_hours}
-                  onChange={e => setLevelSla(idx, Number(e.target.value))}
-                />
-                <span className="text-xs text-muted-foreground">hrs</span>
-              </div>
-              {errors[`sla_${idx}`] && <p className="text-red-500 text-xs">{errors[`sla_${idx}`]}</p>}
-              {form.levels.length > 1 && (
-                <button type="button" onClick={() => removeLevel(idx)} className="text-red-400 hover:text-red-600 ml-1">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            {errors[`level_${idx}`] && <p className="text-red-500 text-xs">{errors[`level_${idx}`]}</p>}
-          </>
+    {form.levels.map((level, idx) => (
+  <div key={idx}>
+    <div className="flex items-center gap-2 border rounded-lg p-3 bg-slate-50">
 
+      <span className="text-xs font-bold text-muted-foreground w-6 shrink-0">
+        L{level.level_number}
+      </span>
 
+      {/* Approver */}
+      <select
+        className="flex-1 h-9 border rounded-md px-2 text-sm bg-background"
+        value={level.user && level.role ? `${level.user}:${level.role}` : ''}
+        onChange={e => setLevelApprover(idx, e.target.value)}
+      >
+        <option value="">Select approver…</option>
+        {approverOptions.map(o => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
         ))}
+      </select>
+
+      {/* SLA HOURS */}
+      <div className="flex items-center gap-1 shrink-0">
+        <Input
+          type="number"
+          className="w-20 h-9 text-sm"
+          value={level.sla_hours}
+          onChange={e => setLevelSla(idx, Number(e.target.value))}
+        />
+        <span className="text-xs text-muted-foreground">hrs</span>
+      </div>
+
+      {/* ─── SLA EXCEEDED ACTION (INLINE SAME ROW) ─── */}
+    <select
+  className="h-9 border rounded-md px-2 text-xs bg-background w-[140px]"
+  value={level.sla_exceeded_action}
+  onChange={e =>
+    setForm(f => ({
+      ...f,
+      levels: f.levels.map((l, i) =>
+        i === idx ? { ...l, sla_exceeded_action: e.target.value as any } : l
+      ),
+    }))
+  }
+>
+  <option value="auto_approve">Auto-approve</option>
+  <option value="hold">Hold</option>
+</select>
+
+
+      {/* DELETE */}
+      {form.levels.length > 1 && (
+        <button
+          type="button"
+          onClick={() => removeLevel(idx)}
+          className="text-red-400 hover:text-red-600 ml-1"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+
+    {/* ERROR */}
+    {errors[`level_${idx}`] && (
+      <p className="text-red-500 text-xs mt-1">
+        {errors[`level_${idx}`]}
+      </p>
+    )}
+  </div>
+))}
+
 
       </div>
 
@@ -308,17 +358,18 @@ function MatrixConfigTab() {
   const saveMatrix = async (data: MatrixDraft, id?: string) => {
     setSaving(true)
     try {
-      const payload = {
-        ...data,
-         sla_exceeded_action: data.sla_exceeded_action,
-        plant: data.plant || null,
-        levels: data.levels.map(l => ({
-          level_number: l.level_number,
-          user: Number(l.user),
-          role: Number(l.role),
-          sla_hours: l.sla_hours,
-        })),
-      }
+    const payload = {
+  ...data,
+  plant: data.plant || null,
+  levels: data.levels.map(l => ({
+    level_number: l.level_number,
+    user: Number(l.user),
+    role: Number(l.role),
+    sla_hours: l.sla_hours,
+    sla_exceeded_action: l.sla_exceeded_action, // ✅ FIX HERE
+  })),
+}
+
       if (id) {
         await apiClient.put(`/approvals/matrices/${id}/`, payload)
         toast({ title: 'Matrix updated.' })
@@ -361,19 +412,20 @@ function MatrixConfigTab() {
     }
   }
 
-const toEditDraft = (m: any): MatrixDraft => ({
-  name: m.name,
-  matrix_type: m.matrix_type,
-  is_active: m.is_active,
-  plant: m.plant ? String(m.plant) : '',
-  sla_exceeded_action: m.sla_exceeded_action ?? 'AUTO_APPROVE', // ✅ ADDED
-  levels: (m.levels ?? []).map((l: any) => ({
-    level_number: l.level_number,
-    user: String(l.user),
-    role: String(l.role),
-    sla_hours: l.sla_hours,
-  })),
-})
+  const toEditDraft = (m: any): MatrixDraft => ({
+    name: m.name,
+    matrix_type: m.matrix_type,
+    is_active: m.is_active,
+    plant: m.plant ? String(m.plant) : '',
+    levels: (m.levels ?? []).map((l: any) => ({
+  level_number: l.level_number,
+  user: String(l.user),
+  role: String(l.role),
+  sla_hours: l.sla_hours,
+  sla_exceeded_action: l.sla_exceeded_action ?? 'auto_approve',
+})),
+
+  })
 
 
   return (
@@ -804,7 +856,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'matrices' | 'system'>('matrices')
 
   const TABS = [
-    { key: 'matrices', label: 'Matrix Config'},
+    { key: 'matrices', label: 'Matrix Config' },
     { key: 'system', label: 'System' },
   ] as const
 

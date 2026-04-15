@@ -84,20 +84,12 @@ export default function NewBudgetPage() {
     queryKey: ['plants'],
     queryFn: async () => { const r = await apiClient.get('/users/plants/'); return r.data.results ?? r.data },
   })
+
   const { data: departments } = useQuery({
     queryKey: ['departments'],
     queryFn: async () => { const r = await apiClient.get('/users/departments/'); return r.data.results ?? r.data },
   })
-  const { data: vendors } = useQuery({
-    queryKey: ['vendors-approved', normalizedVendorSearch],
-    queryFn: async () => {
-      const params = new URLSearchParams({ status: 'approved' })
-      if (normalizedVendorSearch) params.set('search', normalizedVendorSearch)
-      const r = await apiClient.get(`/vendors/?${params}`)
-      return r.data.results ?? r.data
-    },
-    enabled: showVendorSearch && normalizedVendorSearch.length >= 2,
-  })
+
   const { data: matrices } = useQuery({
     queryKey: ['approval-matrices', 'budget_approval'],
     queryFn: async () => {
@@ -116,9 +108,30 @@ export default function NewBudgetPage() {
     reValidateMode: 'onChange',
     defaultValues: { priority: 'medium', preferred_vendor_ids: [], },
   })
+  const watchedPlant = watch('plant')
 
   const watchedPriority = watch('priority')
   const watchedAmount = watch('requested_amount')
+  const { data: vendors } = useQuery({
+  queryKey: ['vendors-approved', normalizedVendorSearch, watchedPlant],
+  queryFn: async () => {
+    const params = new URLSearchParams({
+      status: 'approved',
+    })
+
+    if (watchedPlant) {
+      params.set('plant', String(watchedPlant))
+    }
+
+    if (normalizedVendorSearch) {
+      params.set('search', normalizedVendorSearch)
+    }
+
+    const r = await apiClient.get(`/vendors/?${params.toString()}`)
+    return r.data.results ?? r.data
+  },
+  enabled: showVendorSearch && normalizedVendorSearch.length >= 2,
+})
 
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -443,30 +456,31 @@ export default function NewBudgetPage() {
               <div className="max-w-xs space-y-1.5">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium select-none">{currencySymbol}</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    min={1000}
-                    max={100000000}
-                    placeholder="0"
-                    className={amountInputCls}
-                    {...register('requested_amount', {
-                      setValueAs: value => {
-                        const raw = String(value ?? '').trim()
-                        if (!raw) return undefined
-                        const intPart = raw.split('.')[0] || '0'
-                        const intVal = Number(intPart)
-                        if (Number.isNaN(intVal)) return undefined
-                        if (intVal < 1000) return intVal
-                        return Number(raw)
-                      },
-                      max: { value: 100_000_000, message: 'Maximum budget is ₹10 Crore' },
-                    })}
-                    onInput={e => {
-                      const el = e.currentTarget
-                      if (Number(el.value) > 100_000_000) el.value = '100000000'
-                    }}
-                  />
+                 <Input
+  type="number"
+  step="1"
+  min={1000}
+  max={100000000}
+  placeholder="0"
+  className={`${amountInputCls} focus:ring-0 focus:outline-none focus:border-gray-300 border-gray-300`}
+  {...register('requested_amount', {
+    setValueAs: value => {
+      const raw = String(value ?? '').trim()
+      if (!raw) return undefined
+      const intPart = raw.split('.')[0] || '0'
+      const intVal = Number(intPart)
+      if (Number.isNaN(intVal)) return undefined
+      if (intVal < 1000) return intVal
+      return Number(raw)
+    },
+    max: { value: 100_000_000, message: 'Maximum budget is ₹10 Crore' },
+  })}
+  onInput={e => {
+    const el = e.currentTarget
+    if (Number(el.value) > 100_000_000) el.value = '100000000'
+  }}
+/>
+
                 </div>
                 {errors.requested_amount && (
                   <p className="text-xs text-destructive flex items-center gap-1">

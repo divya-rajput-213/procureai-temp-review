@@ -233,16 +233,7 @@ export default function NewPRPage() {
       return r.data.results ?? r.data
     },
   })
-  const { data: vendors } = useQuery({
-    queryKey: ['vendors-approved', vendorSearch],
-    queryFn: async () => {
-      const r = await apiClient.get('/vendors/', {
-        params: { status: 'approved', search: vendorSearch, page_size: 20 },
-      })
-      return r.data.results ?? r.data
-    },
-    enabled: vendorSearch.length >= 1,
-  })
+
 
   const addVendor = (v: any) => {
     if (!selectedVendors.some(x => x.id === v.id)) setSelectedVendors(prev => [...prev, v])
@@ -262,6 +253,23 @@ export default function NewPRPage() {
       line_items: [{ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 }],
     },
   })
+  const watchedPlant = watch('plant')
+const { data: vendors } = useQuery({
+  queryKey: ['vendors-approved', vendorSearch, watchedPlant],
+  queryFn: async () => {
+    const r = await apiClient.get('/vendors/', {
+      params: {
+        status: 'approved',
+        search: vendorSearch,
+        page_size: 20,
+        ...(watchedPlant ? { plant: watchedPlant } : {}),
+      },
+    })
+
+    return r.data.results ?? r.data
+  },
+  enabled: vendorSearch.length >= 1,
+})
 
   const { fields: lineItemFields, append, remove } = useFieldArray({ control, name: 'line_items' })
   const watchedItems = watch('line_items')
