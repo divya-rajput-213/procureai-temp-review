@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input} from '@/components/ui/input'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,21 +18,26 @@ import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 
 const SRF_FIELD_LABELS: Record<string, string> = {
-  company_name:  'Company Name',
-  address:       'Address',
-  city:          'City',
-  state:         'State',
-  country:       'Country',
-  pincode:       'PIN Code',
-  contact_name:  'Contact Person',
+  company_name: 'Company Name',
+  address: 'Address',
+  city: 'City',
+  state: 'State',
+  country: 'Country',
+  pincode: 'PIN Code',
+  contact_name: 'Contact Person',
   contact_email: 'Contact Email',
   contact_phone: 'Contact Phone',
-  gst_number:    'GST Number',
-  pan_number:    'PAN Number',
-  bank_account:  'Bank Account No',
-  bank_ifsc:     'Bank IFSC',
-  bank_name:     'Bank Name',
-  msme_number:   'MSME Number',
+  gst_number: 'GST Number',
+  pan_number: 'PAN Number',
+  bank_account: 'Bank Account No',
+  bank_ifsc: 'Bank IFSC',
+  bank_name: 'Bank Name',
+  msme_number: 'MSME Number',
+}
+export const DOC_TYPE_LABELS: Record<string, string> = {
+  gst_certificate: 'GST',
+  pan_card: 'PAN',
+  bank_details: 'Bank',
 }
 
 type SrfMatchRow = { field: string; label: string; value: string; confidence: number; include: boolean }
@@ -42,22 +47,22 @@ type FieldConfig = {
   placeholder: string
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
   pattern?: string
-  maxLength?:number
+  maxLength?: number
 }
 
 const OTHER_DOC_TYPE_OPTIONS = [
   { value: 'quality_certificate', label: 'Quality Certificate' },
-  { value: 'iso_certificate',     label: 'ISO Certificate' },
-  { value: 'trade_license',       label: 'Trade License' },
-  { value: 'insurance',           label: 'Insurance Document' },
-  { value: 'nda',                 label: 'NDA / Agreement' },
-  { value: 'warranty',            label: 'Warranty Document' },
-  { value: 'other',               label: 'Other' },
+  { value: 'iso_certificate', label: 'ISO Certificate' },
+  { value: 'trade_license', label: 'Trade License' },
+  { value: 'insurance', label: 'Insurance Document' },
+  { value: 'nda', label: 'NDA / Agreement' },
+  { value: 'warranty', label: 'Warranty Document' },
+  { value: 'other', label: 'Other' },
 ]
 const contactFields: FieldConfig[] = [
-  { name: 'contact_name',  label: 'Contact Person', placeholder: 'e.g. John Doe', maxLength: 50 },
-  { name: 'contact_email', label: 'Contact Email',  placeholder: 'e.g. john@acme.com' },
-  { name: 'contact_phone', label: 'Contact Phone',  placeholder: 'e.g. 9876543210', pattern: '[0-9]*', maxLength: 20},
+  { name: 'contact_name', label: 'Contact Person', placeholder: 'e.g. John Doe', maxLength: 50 },
+  { name: 'contact_email', label: 'Contact Email', placeholder: 'e.g. john@acme.com' },
+  { name: 'contact_phone', label: 'Contact Phone', placeholder: 'e.g. 9876543210', pattern: '[0-9]*', maxLength: 20 },
 ]
 
 const steps = ['Company Details', 'Compliance & Docs', 'Review & Submit']
@@ -107,11 +112,13 @@ function DocFileInput({ chosen, onSelect, onClear, hasError }: Readonly<{
   )
 }
 
-function DocUploadWidget({ vendorId, docType, doc, onRefresh }: {
+function DocUploadWidget({ vendorId, docType, doc, onRefresh, setFieldError }: {
   vendorId: string
   docType: string
   doc: any | null
   onRefresh: () => void
+  setFieldError?: (msg: string) => void
+
 }) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
@@ -119,19 +126,70 @@ function DocUploadWidget({ vendorId, docType, doc, onRefresh }: {
 
   const upload = async (file: File) => {
     const maxSizeBytes = 5 * 1024 * 1024
+
     if (file.size > maxSizeBytes) {
       toast({ title: 'Max file size is 5 MB', variant: 'destructive' })
       return
     }
+
     setUploading(true)
+
     try {
-      const fd = new FormData(); fd.append('file', file); fd.append('doc_type', docType)
-      await apiClient.post(`/vendors/${vendorId}/documents/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      onRefresh()
-      toast({ title: 'Document uploaded.' })
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' })
-    } finally { setUploading(false) }
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('doc_type', docType)
+      const label = DOC_TYPE_LABELS[docType] || file.name
+      fd.append('title', label)
+
+      const res = await apiClient.post(
+        `/vendors/${vendorId}/documents/`,
+        fd,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      )
+
+      // SUCCESS CHECK
+      if (res?.status === 200 || res?.status === 201) {
+        const data = res.data
+
+        // If backend sends extra info (like validation result)
+        console.log('Upload response:', res.data)
+        if (data?.ai_validation_status === "invalid") {
+
+          // set field error
+          setFieldError?.(`${data?.doc_type} is invalid`)
+
+        } else {
+          // clear error if valid
+          onRefresh()
+          setFieldError?.('')
+        }
+
+      }
+
+    } catch (err: any) {
+
+      //  HANDLE BACKEND ERRORS PROPERLY
+      const errorData = err?.response?.data
+
+      let message = 'Upload failed'
+
+      if (typeof errorData === 'string') {
+        message = errorData
+      } else if (errorData?.error) {
+        message = errorData.error
+      } else if (errorData) {
+        // flatten errors like { file: ["Invalid"], doc_type: ["Required"] }
+        message = Object.values(errorData).flat().join(' ')
+      }
+
+      toast({
+        title: message,
+        variant: 'destructive',
+      })
+
+    } finally {
+      setUploading(false)
+    }
   }
 
   const remove = async () => {
@@ -141,6 +199,8 @@ function DocUploadWidget({ vendorId, docType, doc, onRefresh }: {
       await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id ?? doc.id}/`)
       onRefresh()
       toast({ title: 'Document removed.' })
+      setFieldError?.('') //clear error
+
     } catch {
       toast({ title: 'Delete failed', variant: 'destructive' })
     } finally { setDeleting(false) }
@@ -187,47 +247,47 @@ const DIGITS_ONLY = /^[0-9]+$/
 // Compliance fields (GST, PAN, bank) are optional at creation.
 // They are enforced by the backend only at submit-for-approval time.
 const schema = z.object({
-  company_name:  z.string().min(2, 'Company name is required').regex(ALPHANUM_WITH_SPACES, 'Company Name must be alphanumeric'),
-  contact_name:  z.string().min(2, 'Contact person is required'),
+  company_name: z.string().min(2, 'Company name is required').regex(ALPHANUM_WITH_SPACES, 'Company Name must be alphanumeric'),
+  contact_name: z.string().min(2, 'Contact person is required'),
   contact_email: z.string().email('Valid email required'),
   contact_phone: z.string()
     .min(10, 'Contact phone must be at least 10 digits')
     .regex(DIGITS_ONLY, 'Contact phone must contain only numbers'),
-  address:       z.string().min(5, 'Address is required'),
-  city:          z.string()
+  address: z.string().min(5, 'Address is required'),
+  city: z.string()
     .min(1, 'City is required')
     .max(50, 'City must be at most 50 characters')
     .regex(ALPHANUM_WITH_SPACES, 'City must be alphanumeric'),
-  state:         z.string()
+  state: z.string()
     .min(1, 'State is required')
     .max(50, 'State must be at most 50 characters')
     .regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
-  country:         z.string()
+  country: z.string()
     .min(1, 'Country is required')
     .max(50, 'Country must be at most 50 characters')
     .regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
-  pincode:       z.string()
+  pincode: z.string()
     .min(1, 'PIN Code is required')
     .regex(ALPHANUM_ONLY, 'PIN Code must be alphanumeric'),
-  category:      z.number({ required_error: 'Category is required' }),
-  plant:         z.number({ required_error: 'Plant is required' }),
+  category: z.number({ required_error: 'Category is required' }),
+  plant: z.number({ required_error: 'Plant is required' }),
   // Optional at creation, required before approval
-  gst_number:    z.string().optional().or(z.literal('')),
-  pan_number:    z.string().optional().or(z.literal('')),
-  bank_account:  z.string().optional().or(z.literal('')),
-  bank_ifsc:     z.string().optional().or(z.literal('')),
-  bank_name:     z.string().optional().or(z.literal('')),
-  is_msme:       z.boolean().optional(),
-  msme_number:   z.string().optional(),
-  is_sez:        z.boolean().optional(),
+  gst_number: z.string().optional().or(z.literal('')),
+  pan_number: z.string().optional().or(z.literal('')),
+  bank_account: z.string().optional().or(z.literal('')),
+  bank_ifsc: z.string().optional().or(z.literal('')),
+  bank_name: z.string().optional().or(z.literal('')),
+  is_msme: z.boolean().optional(),
+  msme_number: z.string().optional(),
+  is_sez: z.boolean().optional(),
 })
 
 type VendorForm = z.infer<typeof schema>
 
 function missingComplianceFields(v: Partial<VendorForm>): string[] {
   const m: string[] = []
-  if (!v.gst_number)   m.push('GST Number')
-  if (!v.pan_number)   m.push('PAN Number')
+  if (!v.gst_number) m.push('GST Number')
+  if (!v.pan_number) m.push('PAN Number')
   if (!v.bank_account || !v.bank_ifsc || !v.bank_name) m.push('Bank Details')
   return m
 }
@@ -244,8 +304,8 @@ export default function NewVendorPage() {
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const [submitError, setSubmitError] = useState('')
   const [showConfirmModal, setShowConfirmModal] = useState(false)
-  const [confirmAction, setConfirmAction] = useState<() => void>(() => {})
-  
+  const [confirmAction, setConfirmAction] = useState<() => void>(() => { })
+
   // SRF
   const [srfExtracting, setSrfExtracting] = useState(false)
   const [extractedFields, setExtractedFields] = useState<Record<string, { value: string; confidence: number }> | null>(null)
@@ -303,42 +363,25 @@ export default function NewVendorPage() {
     })
 
   const watchedCategory = watch('category')
-  const watchedPlant    = watch('plant')
-  const watchedIsMsme   = watch('is_msme')
-  const watchedIsSez    = watch('is_sez')
+  const watchedPlant = watch('plant')
+  const watchedIsMsme = watch('is_msme')
+  const watchedIsSez = watch('is_sez')
   const gstNumber = watch('gst_number')
-  const isGstCertRequired = !!gstNumber?.trim()
   const panNumber = watch('pan_number')
-  const isPanCertRequired = !!panNumber?.trim()
   const bankNumber = watch('bank_account')
-  const isBankDocRequired = !!bankNumber?.trim()
   const bankIfsc = watch('bank_ifsc')
   const bankName = watch('bank_name')
   const msmeNumber = watch('msme_number')
 
-useEffect(()=>{
-  if(submitError){
-toast({title:submitError,variant: 'destructive'})
-  }
-},[submitError])
+  useEffect(() => {
+    if (submitError) {
+      toast({ title: submitError, variant: 'destructive' })
+    }
+  }, [submitError])
 
-  // ── Upload docs helper ───────────────────────────────────────────────────────
-  const uploadDocs = async (vid: string) => {
-    for (const doc of pendingDocs) {
-      const fd = new FormData(); fd.append('file', doc.file); fd.append('doc_type', doc.doc_type)
-      try { await apiClient.post(`/vendors/${vid}/documents/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }) } catch { /* non-fatal */ }
-    }
-    for (const row of otherDocRows.filter(r => r.file)) {
-      const fd = new FormData()
-      fd.append('file', row.file as File)
-      fd.append('doc_type', row.doc_type)
-      fd.append('title', row.title.trim() || (row.file as File).name)
-      try { await apiClient.post(`/vendors/${vid}/documents/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }) } catch { /* non-fatal */ }
-    }
-  }
   const hasStep1Data = () => {
     const data = getValues()
-  
+
     return !!(
       data.gst_number ||
       data.pan_number ||
@@ -411,25 +454,35 @@ toast({title:submitError,variant: 'destructive'})
 
   // ── Compliance cross-validation (field ↔ doc) ───────────────────────────────
   const [complianceErrors, setComplianceErrors] = useState<Record<string, string>>({})
+  const [validationTriggered, setValidationTriggered] = useState(false)
 
   const validateCompliancePairs = (): boolean => {
     const data = getValues()
     const errs: Record<string, string> = {}
-    const pairs: Array<{ fieldKey: string; fieldLabel: string; docType: string; docLabel: string }> = [
-      { fieldKey: 'gst_number', fieldLabel: 'GST Number', docType: 'gst_certificate', docLabel: 'GST Certificate' },
-      { fieldKey: 'pan_number', fieldLabel: 'PAN Number', docType: 'pan_card', docLabel: 'PAN Card' },
-    ]
-    for (const { fieldKey, fieldLabel, docType, docLabel } of pairs) {
-      const hasValue = !!(data as any)[fieldKey]
-      const hasDoc = !!docOf(docType)
-      if (hasValue && !hasDoc) errs[`doc_${docType}`] = `${docLabel} is required when ${fieldLabel} is provided`
-      if (hasDoc && !hasValue) errs[`field_${fieldKey}`] = `${fieldLabel} is required when ${docLabel} is uploaded`
+    // GST
+    if (!data.gst_number?.trim()) {
+      errs['field_gst_number'] = 'GST Number is required'
     }
-    // Bank: any bank field filled → bank doc required, and vice versa
-    const hasBankField = !!(data.bank_account || data.bank_ifsc || data.bank_name)
-    const hasBankDoc = !!docOf('bank_details')
-    if (hasBankField && !hasBankDoc) errs['doc_bank_details'] = 'Bank document is required when bank details are provided'
-    if (hasBankDoc && !hasBankField) errs['field_bank_account'] = 'Bank details are required when bank document is uploaded'
+    if (!docOf('gst_certificate')) {
+      errs['doc_gst_certificate'] = 'GST Certificate is mandatory'
+    }
+
+    // PAN
+    if (!data.pan_number?.trim()) {
+      errs['field_pan_number'] = 'PAN Number is required'
+    }
+    if (!docOf('pan_card')) {
+      errs['doc_pan_card'] = 'PAN Card is mandatory'
+    }
+
+    // BANK
+    if (!data.bank_account?.trim() || !data.bank_ifsc?.trim() || !data.bank_name?.trim()) {
+      errs['field_bank_account'] = 'Complete bank details are required'
+    }
+    if (!docOf('bank_details')) {
+      errs['doc_bank_details'] = 'Bank document is mandatory'
+    }
+
     // MSME
     if (data.is_msme) {
       const hasMsmeNum = !!data.msme_number
@@ -443,10 +496,16 @@ toast({title:submitError,variant: 'destructive'})
 
   // Keep compliance errors in sync after the user has triggered validation once
   useEffect(() => {
+    if (!validationTriggered) return
     if (Object.keys(complianceErrors).length === 0) return
     validateCompliancePairs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vendorDocs, gstNumber, panNumber, bankNumber, bankIfsc, bankName, watchedIsMsme, msmeNumber])
+  }, [vendorDocs, gstNumber, panNumber, bankNumber, bankIfsc, bankName, watchedIsMsme, msmeNumber, validationTriggered])
+  useEffect(() => {
+    if (step !== 1) {
+      setValidationTriggered(false)
+    }
+  }, [step])
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleStep0Next = async () => {
@@ -455,32 +514,36 @@ toast({title:submitError,variant: 'destructive'})
     handleSubmit(data => step0Mutation.mutate(data))()
   }
 
-  const handleStep1Next = () => {
-    if (!validateCompliancePairs()) return
-  
-    if (hasStep1Data()) {
-      setConfirmAction(() => () => step1Mutation.mutate(getValues()))
-      setShowConfirmModal(true)
-    } else {
-      step1Mutation.mutate(getValues())
+  const handleStep1Next = async () => {
+    setValidationTriggered(true)
+    const validDocs = validateCompliancePairs()
+
+    if (!validDocs) {
+      toast({
+        title: 'Please complete all mandatory compliance details',
+        variant: 'destructive',
+      })
+      return
     }
+
+    step1Mutation.mutate(getValues())
   }
-  
+
   const handleSaveAsDraft = () => { setSubmitError(''); submitMutation.mutate({ mode: 'draft' }) }
 
   const handleSubmitForApproval = () => {
     setSubmitError('')
-  
+
     const missing = missingComplianceFields(getValues())
     if (missing.length > 0) {
       setSubmitError(`Required before submitting: ${missing.join(', ')}.`)
       return
     }
-  
+
     setConfirmAction(() => () => submitMutation.mutate({ mode: 'approval' }))
     setShowConfirmModal(true)
   }
-  
+
   const onValidationError = (errs: FieldErrors<VendorForm>) => {
     if (STEP0_FIELDS.some(f => errs[f])) setStep(0)
   }
@@ -495,7 +558,8 @@ toast({title:submitError,variant: 'destructive'})
         .filter(([key, v]: [string, any]) => v?.value && key in SRF_FIELD_LABELS)
         .map(([key, v]: [string, any]) => ({ field: key, label: SRF_FIELD_LABELS[key], value: v.value, confidence: v.confidence ?? 0, include: true }))
       setSrfMatchRows(rows); setShowSrfMatch(true)
-    } catch { toast({ title: 'SRF extraction failed', variant: 'destructive' })
+    } catch {
+      toast({ title: 'SRF extraction failed', variant: 'destructive' })
     } finally { setSrfExtracting(false) }
   }
 
@@ -508,23 +572,23 @@ toast({title:submitError,variant: 'destructive'})
 
   const confidenceBadge = (c: number) =>
     c >= 0.8 ? <Badge variant="success" className="text-xs ml-1">High</Badge>
-    : c >= 0.5 ? <Badge variant="warning" className="text-xs ml-1">Check</Badge>
-    : null
+      : c >= 0.5 ? <Badge variant="warning" className="text-xs ml-1">Check</Badge>
+        : null
 
   const srfConfidenceBadge = (c: number) =>
     c >= 0.8 ? <Badge variant="success" className="text-xs">High</Badge>
-    : c >= 0.5 ? <Badge variant="warning" className="text-xs">Check</Badge>
-    : <Badge variant="secondary" className="text-xs">Low</Badge>
+      : c >= 0.5 ? <Badge variant="warning" className="text-xs">Check</Badge>
+        : <Badge variant="secondary" className="text-xs">Low</Badge>
 
-    const handlePhoneChange = (
-      e: React.ChangeEvent<HTMLInputElement>,
-      onChange: (...event: any[]) => void
-    ) => {
-      const digitsOnly = e.target.value.replace(/\D/g, '')
-      e.target.value = digitsOnly
-      onChange(e)
-    }
-    
+  const handlePhoneChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onChange: (...event: any[]) => void
+  ) => {
+    const digitsOnly = e.target.value.replace(/\D/g, '')
+    e.target.value = digitsOnly
+    onChange(e)
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
@@ -600,10 +664,9 @@ toast({title:submitError,variant: 'destructive'})
               </thead>
               <tbody className="divide-y">
                 {srfMatchRows.map((row, i) => (
-                  <tr key={row.field} className={`transition-colors ${
-                    !row.include ? 'opacity-40 bg-slate-50' :
+                  <tr key={row.field} className={`transition-colors ${!row.include ? 'opacity-40 bg-slate-50' :
                     row.confidence >= 0.8 ? 'bg-green-50/50' :
-                    row.confidence >= 0.5 ? 'bg-amber-50/50' : 'bg-red-50/40'}`}>
+                      row.confidence >= 0.5 ? 'bg-amber-50/50' : 'bg-red-50/40'}`}>
                     <td className="px-4 py-2.5">
                       <input type="checkbox" className="accent-purple-600 w-4 h-4" checked={row.include}
                         onChange={e => setSrfMatchRows(prev => prev.map((r, j) => j === i ? { ...r, include: e.target.checked } : r))} />
@@ -670,34 +733,34 @@ toast({title:submitError,variant: 'destructive'})
                   className={`${errors.company_name ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.company_name ? 'border-purple-200 bg-purple-50' : ''}`} />
                 {errors.company_name && <p className="text-xs text-destructive mt-1">{errors.company_name.message}</p>}
               </div>
-            <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Vendor Category <span className="text-destructive">*</span></Label>
-                <select
-                  className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.category ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-                  value={watchedCategory ?? ''}
-                  onChange={e => setValue('category', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
-                >
-                  <option value="">Select category</option>
-                  {(categories || []).map((c: any) => <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>)}
-                </select>
-                {errors.category && <p className="text-xs text-destructive mt-1">{errors.category.message}</p>}
+              <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Vendor Category <span className="text-destructive">*</span></Label>
+                  <select
+                    className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.category ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+                    value={watchedCategory ?? ''}
+                    onChange={e => setValue('category', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
+                  >
+                    <option value="">Select category</option>
+                    {(categories || []).map((c: any) => <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>)}
+                  </select>
+                  {errors.category && <p className="text-xs text-destructive mt-1">{errors.category.message}</p>}
+                </div>
               </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Plant <span className="text-destructive">*</span></Label>
-                <select
-                  className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.plant ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-                  value={watchedPlant ?? ''}
-                  onChange={e => setValue('plant', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
-                >
-                  <option value="">Select plant</option>
-                  {(plants || []).map((p: any) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-                </select>
-                {errors.plant && <p className="text-xs text-destructive mt-1">{errors.plant.message}</p>}
+              <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Plant <span className="text-destructive">*</span></Label>
+                  <select
+                    className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.plant ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+                    value={watchedPlant ?? ''}
+                    onChange={e => setValue('plant', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
+                  >
+                    <option value="">Select plant</option>
+                    {(plants || []).map((p: any) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                  </select>
+                  {errors.plant && <p className="text-xs text-destructive mt-1">{errors.plant.message}</p>}
+                </div>
               </div>
-            </div>
 
 
               <div className="space-y-1.5 sm:col-span-2">
@@ -722,9 +785,9 @@ toast({title:submitError,variant: 'destructive'})
               </div>
 
               {[
-                { name: 'city',    label: 'City',     placeholder: 'e.g. Mumbai', maxLength: 50 },
-                { name: 'state',   label: 'State',    placeholder: 'e.g. Maharashtra', maxLength: 50 },
-                { name: 'country', label: 'Country',  placeholder: 'e.g. India', maxlength: 50 },
+                { name: 'city', label: 'City', placeholder: 'e.g. Mumbai', maxLength: 50 },
+                { name: 'state', label: 'State', placeholder: 'e.g. Maharashtra', maxLength: 50 },
+                { name: 'country', label: 'Country', placeholder: 'e.g. India', maxlength: 50 },
                 { name: 'pincode', label: 'PIN Code', placeholder: 'e.g. 400001', autoComplete: 'postal-code', maxLength: 50 },
               ].map(({ name, label, placeholder, autoComplete, maxLength }) => (
                 <div key={name} className="space-y-1.5">
@@ -768,7 +831,7 @@ toast({title:submitError,variant: 'destructive'})
       )}
 
       {/* ── Step 1: Compliance & Docs (all optional) ───────────────────────────── */}
-      {!showSrfMatch && step === 1 && ( 
+      {!showSrfMatch && step === 1 && (
         <Card>
           <CardHeader>
             <CardTitle>Compliance & Documents</CardTitle>
@@ -781,15 +844,20 @@ toast({title:submitError,variant: 'destructive'})
             {/* GST */}
             <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate'] ? 'border-destructive/50' : ''}`}>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">GST Number{extractedFields?.gst_number && confidenceBadge(extractedFields.gst_number.confidence)}</Label>
+                <Label className="text-xs font-semibold text-slate-700">GST Number <span className="text-destructive"> *</span>{extractedFields?.gst_number && confidenceBadge(extractedFields.gst_number.confidence)}</Label>
                 <Input placeholder="e.g. 27AAAAA0000A1Z5" {...register('gst_number')}
                   className={`${complianceErrors['field_gst_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${inputCls(!!errors.gst_number, !!extractedFields?.gst_number)}`} />
                 {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">GST Certificate {isGstCertRequired && <span className="text-destructive"> *</span>}</Label>
+                <Label className="text-xs font-semibold text-slate-700">GST Certificate  <span className="text-destructive"> *</span></Label>
                 <DocUploadWidget vendorId={vendorId!} docType="gst_certificate"
-                  doc={docOf('gst_certificate')} onRefresh={refreshDocs} />
+                  doc={docOf('gst_certificate')} onRefresh={refreshDocs} setFieldError={(msg) =>
+                    setComplianceErrors(prev => ({
+                      ...prev,
+                      doc_gst_certificate: msg
+                    }))
+                  } />
                 <p className="text-xs text-muted-foreground mt-1"> Max size: 5 MB</p>
                 {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
               </div>
@@ -798,16 +866,21 @@ toast({title:submitError,variant: 'destructive'})
             {/* PAN */}
             <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card'] ? 'border-destructive/50' : ''}`}>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">PAN Number{extractedFields?.pan_number && confidenceBadge(extractedFields.pan_number.confidence)}</Label>
+                <Label className="text-xs font-semibold text-slate-700">PAN Number <span className="text-destructive"> *</span>{extractedFields?.pan_number && confidenceBadge(extractedFields.pan_number.confidence)}</Label>
                 <Input placeholder="e.g. AAAAA9999A" {...register('pan_number')}
                   className={`${complianceErrors['field_pan_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${inputCls(!!errors.pan_number, !!extractedFields?.pan_number)}`} />
                 {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">PAN Card {isPanCertRequired && <span className="text-destructive"> *</span>}</Label>
+                <Label className="text-xs font-semibold text-slate-700">PAN Card <span className="text-destructive"> *</span></Label>
                 <DocUploadWidget vendorId={vendorId!} docType="pan_card"
-                  doc={docOf('pan_card')} onRefresh={refreshDocs} />
-                  <p className="text-xs text-muted-foreground mt-1"> Max size: 5 MB</p>
+                  doc={docOf('pan_card')} onRefresh={refreshDocs} setFieldError={(msg) =>
+                    setComplianceErrors(prev => ({
+                      ...prev,
+                      doc_pan_card: msg
+                    }))
+                  } />
+                <p className="text-xs text-muted-foreground mt-1"> Max size: 5 MB</p>
                 {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
               </div>
             </div>
@@ -817,11 +890,11 @@ toast({title:submitError,variant: 'destructive'})
               <div className="space-y-2">
                 {[
                   { name: 'bank_account', label: 'Bank Account No', placeholder: 'e.g. 12345678901234' },
-                  { name: 'bank_ifsc',    label: 'Bank IFSC',       placeholder: 'e.g. HDFC0001234' },
-                  { name: 'bank_name',    label: 'Bank Name',       placeholder: 'e.g. HDFC Bank' },
+                  { name: 'bank_ifsc', label: 'Bank IFSC', placeholder: 'e.g. HDFC0001234' },
+                  { name: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
                 ].map(({ name, label, placeholder }) => (
                   <div key={name} className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">{label}{extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}</Label>
+                    <Label className="text-xs font-semibold text-slate-700">{label} <span className="text-destructive"> *</span>{extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}</Label>
                     <Input placeholder={placeholder} {...register(name as keyof VendorForm)}
                       className={`${complianceErrors['field_bank_account'] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${inputCls(!!errors[name as keyof VendorForm], !!extractedFields?.[name])}`} />
                     {errors[name as keyof VendorForm] && (
@@ -832,10 +905,15 @@ toast({title:submitError,variant: 'destructive'})
                 {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_bank_account']}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque {isBankDocRequired  && <span className="text-destructive"> *</span>}</Label>
+                <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque {<span className="text-destructive"> *</span>}</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="bank_details"
-                  doc={docOf('bank_details')} onRefresh={refreshDocs} />
-                  <p className="text-xs text-muted-foreground mt-1">Max size: 5 MB</p>
+                  doc={docOf('bank_details')} onRefresh={refreshDocs} setFieldError={(msg) =>
+                    setComplianceErrors(prev => ({
+                      ...prev,
+                      doc_bank_details: msg
+                    }))
+                  } />
+                <p className="text-xs text-muted-foreground mt-1">Max size: 5 MB</p>
                 {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
               </div>
             </div>
@@ -1001,32 +1079,32 @@ toast({title:submitError,variant: 'destructive'})
         </Card>
       )}
       {showConfirmModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-    <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-6">
-      <h2 className="text-lg font-semibold mb-2">Confirm Action</h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        Are you sure you want to save these details?
-      </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-6">
+            <h2 className="text-lg font-semibold mb-2">Confirm Action</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Are you sure you want to save these details?
+            </p>
 
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          onClick={() => setShowConfirmModal(false)}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={() => {
-            confirmAction()
-            setShowConfirmModal(false)
-          }}
-        >
-          Yes, Save
-        </Button>
-      </div>
-    </div>
-  </div>
-)}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowConfirmModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  confirmAction()
+                  setShowConfirmModal(false)
+                }}
+              >
+                Yes, Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
