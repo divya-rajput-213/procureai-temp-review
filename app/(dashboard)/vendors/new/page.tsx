@@ -16,6 +16,7 @@ import { ArrowLeft, ArrowRight, Loader2, Sparkles, CheckCircle, Send, Save, X, P
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
+import { DOC_CONFIG } from '@/lib/utils'
 
 const SRF_FIELD_LABELS: Record<string, string> = {
   company_name: 'Company Name',
@@ -34,21 +35,6 @@ const SRF_FIELD_LABELS: Record<string, string> = {
   bank_name: 'Bank Name',
   msme_number: 'MSME Number',
 }
-export const DOC_CONFIG: Record<string, { docType: string; title: string }> = {
-  gst_certificate: {
-    docType: 'GST',
-    title: 'gst_number',
-  },
-  pan_card: {
-    docType: 'PAN',
-    title: 'pan_card',
-  },
-  bank_details: {
-    docType: 'BANK',
-    title: 'bank_document',
-  },
-}
-
 
 type SrfMatchRow = { field: string; label: string; value: string; confidence: number; include: boolean }
 type FieldConfig = {

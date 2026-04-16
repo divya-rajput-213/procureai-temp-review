@@ -115,3 +115,18 @@ export function normalizeLeadingWhitespace(value: string) {
   return value.replace(/^\s+/, '')
 }
 
+
+export const DOC_CONFIG: Record<string, { docType: string; title: string }> = {
+  gst_certificate: {
+    docType: 'GST',
+    title: 'gst_number',
+  },
+  pan_card: {
+    docType: 'PAN',
+    title: 'pan_card',
+  },
+  bank_details: {
+    docType: 'BANK',
+    title: 'bank_document',
+  },
+}
