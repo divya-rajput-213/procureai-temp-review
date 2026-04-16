@@ -2376,8 +2376,7 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
   const hasBidPendingApproval = (bids ?? []).some((b: any) => b.status === 'pending_approval')
   const aiRec = pr.ai_recommendation ?? {}
   const aiRankedVendors: any[] = aiRec.ranked_vendors ?? []
-
-  // Called after a bid is saved — refetch bids and PR (AI analysis runs on backend)
+  // Calledc after a bid is saved — refetch bids and PR (AI analysis runs on backend)
   const handleBidAdded = async () => {
     await refetchBids()
     onPRChange()
@@ -2489,7 +2488,8 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
           )}
 
           {/* ── Bids list ── */}
-         { aiRec.length<=0 &&<div className="space-y-2">
+         { Object.entries(aiRec).length<=0 &&
+         <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Bids ({(bids ?? []).length})
@@ -2509,7 +2509,8 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
                 onBidEdited={() => { refetchBids(); onPRChange() }}
               />
             ))}
-          </div>}
+          </div>
+          } 
         </>
       ) : (
         <div className="border rounded-xl p-8 text-center space-y-1">
