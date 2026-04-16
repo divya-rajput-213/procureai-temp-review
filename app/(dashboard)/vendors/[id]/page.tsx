@@ -35,11 +35,6 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   warranty: 'Warranty Document',
   other: 'Other',
 }
-export const DOC_LABELS: Record<string, string> = {
-  gst_certificate: 'GST',
-  pan_card: 'PAN',
-  bank_details: 'Bank',
-}
 
 // Doc types available in the "Other Documents" upload panel
 const OTHER_DOC_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
