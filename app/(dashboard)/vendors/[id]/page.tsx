@@ -436,7 +436,7 @@ function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true, s
       const fd = new FormData()
       fd.append('file', file)
       fd.append('doc_type', docType)
-      fd.append('title', DOC_LABELS[docType] || docType)
+      fd.append('title', DOC_CONFIG[docType]?.title || docType)
       const res = await apiClient.post(`/vendors/${vendorId}/documents/`, fd)
       const data = res.data
       if (data?.ai_validation_status === 'invalid' || data?.ai_validation_status === 'failed') {
@@ -2011,7 +2011,7 @@ export default function VendorDetailPage() {
 
                 {/* MSME (conditional) */}
                 {vendor.is_msme && (
-                  <div className={`${blockCls()} ${complianceErrors['field_msme_number'] || complianceErrors['doc_msme_certificate'] ? 'border-destructive/50' : ''}`}>
+                  <div className={blockCls(!!(complianceErrors['field_msme_number'] || complianceErrors['doc_msme_certificate']))}>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-700">MSME Number</Label>
                       <ComplianceFieldInput
@@ -2035,7 +2035,7 @@ export default function VendorDetailPage() {
 
                 {/* SEZ (conditional) */}
                 {vendor.is_sez && (
-                  <div className={blockCls()}>
+                  <div className={blockCls(false)}>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-700">SEZ Unit</Label>
                       <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
@@ -2050,7 +2050,7 @@ export default function VendorDetailPage() {
                 )}
 
                 {/* Incorporation */}
-                <div className={blockCls()}>
+                <div className={blockCls(false)}>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700">Incorporation Certificate</Label>
                     <DocUploadInline vendorId={id} docType="incorporation"
