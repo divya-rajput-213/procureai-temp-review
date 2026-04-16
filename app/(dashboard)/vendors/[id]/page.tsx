@@ -12,12 +12,11 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download } from 'lucide-react'
-import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
+import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_CONFIG } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
-import { DOC_CONFIG } from '../new/page'
 
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -34,11 +33,6 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   nda: 'NDA / Agreement',
   warranty: 'Warranty Document',
   other: 'Other',
-}
-export const DOC_LABELS: Record<string, string> = {
-  gst_certificate: 'GST',
-  pan_card: 'PAN',
-  bank_details: 'Bank',
 }
 
 // Doc types available in the "Other Documents" upload panel
