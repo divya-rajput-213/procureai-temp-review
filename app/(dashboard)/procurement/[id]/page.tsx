@@ -1344,13 +1344,38 @@ function AIVendorComparisonTable({
   onBidEdited: () => void
 }) {
   const ranked: any[] = aiRec?.ranked_vendors ?? []
+  if (ranked.length < 2) return null
 
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({})
-  const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [editing, setEditing] = useState<any>(null)
   const [showEditTrail, setShowEditTrail] = useState(false)
 
-  if (ranked.length < 2) return null
+  const [menuPos, setMenuPos] = useState<{
+    x: number
+    y: number
+    id: string | null
+  }>({ x: 0, y: 0, id: null })
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!menuRef.current) return
+
+      if (!menuRef.current.contains(event.target as Node)) {
+        setMenuPos({ x: 0, y: 0, id: null })
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  useEffect(() => {
+    const closeMenu = () => setMenuPos({ x: 0, y: 0, id: null })
+    window.addEventListener('scroll', closeMenu)
+    return () => window.removeEventListener('scroll', closeMenu)
+  }, [])
 
   const DIMS = [
     { key: 'price_score', label: 'Price', weight: '30%' },
@@ -1381,7 +1406,7 @@ function AIVendorComparisonTable({
         </span>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto overflow-visible">
         <table className="w-full text-xs" style={{ minWidth: 680 }}>
           <thead>
             <tr className="bg-slate-50 border-b">
@@ -1500,73 +1525,30 @@ function AIVendorComparisonTable({
                     })}
 
                     {/* ACTIONS */}
-                    <td className="px-2 py-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
+                    <td className="px-2 py-3">
+                      <div className="flex items-center justify-end w-full gap-2">
 
-                        {/* DO NOT SHOW MENU IF ACCEPTED / REJECTED / PENDING_APPROVAL */}
+                        {/* MENU BUTTON */}
                         {!hideMenu && (
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setMenuOpen(menuOpen === rv.vendor_id ? null : rv.vendor_id)
-                              }
-                              className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
 
-                            {menuOpen === rv.vendor_id && (
-                              <div className="absolute right-0 mt-1 w-36 bg-white border rounded shadow z-20">
-
-                                <button
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50"
-                                  onClick={() => {
-                                    setEditing(bid)
-                                    setMenuOpen(null)
-                                  }}
-                                >
-                                  Edit
-                                </button>
-
-                                {canAct && (
-                                  <button
-                                    className="w-full text-left px-3 py-2 text-xs text-green-600 hover:bg-green-50"
-                                    onClick={() => {
-                                      onApprove(bid)
-                                      setMenuOpen(null)
-                                    }}
-                                  >
-                                    Approve
-                                  </button>
-                                )}
-
-                                {canAct && (
-                                  <button
-                                    className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
-                                    onClick={() => {
-                                      onReject(bid)
-                                      setMenuOpen(null)
-                                    }}
-                                  >
-                                    Reject
-                                  </button>
-                                )}
-                                {editCount > 0 && (
-                                  <button type="button"
-                                    onClick={() => setShowEditTrail(x => !x)}
-                                    className="h-7 flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground rounded border border-transparent hover:border-border transition-colors"
-                                    title="View edit history">
-                                    <History className="w-3.5 h-3.5" />
-                                    <span>{editCount}</span>
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                              setMenuPos({
+                                x: rect.right,
+                                y: rect.bottom,
+                                id: rv.vendor_id,
+                              })
+                            }}
+                            className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
                         )}
 
-                        {/* EXPAND BUTTON STILL ALLOWED */}
+                        {/* EXPAND BUTTON */}
                         {rv.score_breakdown && (
                           <button
                             type="button"
@@ -1588,6 +1570,7 @@ function AIVendorComparisonTable({
 
                       </div>
                     </td>
+
 
                   </tr>
                   {/* Pending approval progress */}
@@ -1651,6 +1634,71 @@ function AIVendorComparisonTable({
           onSuccess={onBidEdited}
         />
       )}
+      {menuPos.id && (
+        <div
+          ref={menuRef}
+          className="fixed z-[99999] w-40 bg-white border rounded shadow-lg"
+          style={{
+            top: menuPos.y,
+            left: menuPos.x - 160, // align right side
+          }}
+        >
+          <button
+            className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50"
+            onClick={() => {
+              const bid = bids.find(b => b.vendor === menuPos.id)
+              setEditing(bid)
+              setMenuPos({ x: 0, y: 0, id: null })
+            }}
+          >
+            Edit
+          </button>
+
+          {canAct && (
+            <button
+              className="w-full text-left px-3 py-2 text-xs text-green-600 hover:bg-green-50"
+              onClick={() => {
+                const bid = bids.find(b => b.vendor === menuPos.id)
+                onApprove(bid)
+                setMenuPos({ x: 0, y: 0, id: null })
+              }}
+            >
+              Approve
+            </button>
+          )}
+
+          {canAct && (
+            <button
+              className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+              onClick={() => {
+                const bid = bids.find(b => b.vendor === menuPos.id)
+                onReject(bid)
+                setMenuPos({ x: 0, y: 0, id: null })
+              }}
+            >
+              Reject
+            </button>
+          )}
+
+          {(() => {
+            const bid = bids.find(b => b.vendor === menuPos.id)
+            const editCount = (bid?.edit_logs ?? []).length
+
+            return editCount > 0 ? (
+              <button
+                className="w-full text-left px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setShowEditTrail(x => !x)
+                  setMenuPos({ x: 0, y: 0, id: null })
+                }}
+              >
+                Edit Trail ({editCount})
+              </button>
+            ) : null
+          })()}
+        </div>
+      )}
+
 
       {/* SUMMARY */}
       {aiRec.summary && (
@@ -2488,8 +2536,7 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
           )}
 
           {/* ── Bids list ── */}
-         { Object.entries(aiRec).length<=0 &&
-         <div className="space-y-2">
+          {!aiRec && !aiRec?.ranked_vendors?.length && <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Bids ({(bids ?? []).length})
@@ -2509,8 +2556,7 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
                 onBidEdited={() => { refetchBids(); onPRChange() }}
               />
             ))}
-          </div>
-          } 
+          </div>}
         </>
       ) : (
         <div className="border rounded-xl p-8 text-center space-y-1">
