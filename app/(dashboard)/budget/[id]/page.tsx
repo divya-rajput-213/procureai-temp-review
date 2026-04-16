@@ -579,16 +579,22 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const [submittingApproval, setSubmittingApproval] = useState(false)
 
-  const { data: vendors } = useQuery({
-    queryKey: ['vendors-approved-edit', vendorSearch],
-    queryFn: async () => {
-      const params = new URLSearchParams({ status: 'approved' })
-      if (vendorSearch) params.set('search', vendorSearch)
-      const r = await apiClient.get(`/vendors/?${params}`)
-      return r.data.results ?? r.data
-    },
-    enabled: showVendorSearch,
-  })
+const { data: vendors } = useQuery({
+  queryKey: ['vendors-approved-edit', vendorSearch, plant], // include plant
+  queryFn: async () => {
+    const params = new URLSearchParams({
+      status: 'approved',
+    })
+
+    if (vendorSearch) params.set('search', vendorSearch)
+    if (plant) params.set('plant', String(plant)) // add plant
+
+    const r = await apiClient.get(`/vendors/?${params.toString()}`)
+    return r.data.results ?? r.data
+  },
+  enabled: showVendorSearch,
+})
+
 
   const { data: matrices } = useQuery({
     queryKey: ['approval-matrices', 'budget_approval'],
