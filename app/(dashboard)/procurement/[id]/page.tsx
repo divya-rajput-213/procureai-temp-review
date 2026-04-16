@@ -1433,9 +1433,25 @@ function AIVendorComparisonTable({
               const breakdown = rv.score_breakdown ?? {}
               const isOpen = expandedMap[rv.vendor_id]
 
+              const isPending = bid?.status === 'pending'
               const isAccepted = bid?.status === 'accepted'
               const isRejected = bid?.status === 'rejected'
               const isPendingApproval = bid?.status === 'pending_approval'
+
+              // ONLY pending → edit allowed
+              const canEdit = isPending
+
+              // ONLY pending → approve/reject allowed (if canAct from PR)
+              const canApproveReject = isPending && canAct
+
+              // show menu if ANY action OR edit trail exists
+              const editCount = (bid?.edit_logs ?? []).length
+
+              const showMenu =
+                canEdit ||
+                canApproveReject ||
+                editCount > 0
+
 
               const isLocked =
                 aiRec?.lock_active && !isAccepted && !isRejected && !isPendingApproval
@@ -1444,8 +1460,6 @@ function AIVendorComparisonTable({
 
               const isRecommended =
                 aiRec?.recommendation?.recommended_vendor_id === rv.vendor_id
-
-              const editCount = (bid?.edit_logs ?? []).length
 
               const colSpan = DIMS.length + 5
 
@@ -1529,7 +1543,7 @@ function AIVendorComparisonTable({
                       <div className="flex items-center justify-end w-full gap-2">
 
                         {/* MENU BUTTON */}
-                        {!hideMenu && (
+                        {showMenu && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1634,70 +1648,77 @@ function AIVendorComparisonTable({
           onSuccess={onBidEdited}
         />
       )}
-      {menuPos.id && (
-        <div
-          ref={menuRef}
-          className="fixed z-[99999] w-40 bg-white border rounded shadow-lg"
-          style={{
-            top: menuPos.y,
-            left: menuPos.x - 160, // align right side
+ {menuPos.id && (() => {
+  const bid = bids.find(b => b.vendor === menuPos.id)
+
+  const isPending = bid?.status === 'pending'
+  const canEdit = isPending
+  const canApproveReject = isPending && canAct
+  const editCount = (bid?.edit_logs ?? []).length
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed z-[99999] w-40 bg-white border rounded shadow-lg"
+      style={{
+        top: menuPos.y,
+        left: menuPos.x - 160,
+      }}
+    >
+      {/* EDIT */}
+      {canEdit && (
+        <button
+          className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50"
+          onClick={() => {
+            setEditing(bid)
+            setMenuPos({ x: 0, y: 0, id: null })
           }}
         >
-          <button
-            className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50"
-            onClick={() => {
-              const bid = bids.find(b => b.vendor === menuPos.id)
-              setEditing(bid)
-              setMenuPos({ x: 0, y: 0, id: null })
-            }}
-          >
-            Edit
-          </button>
-
-          {canAct && (
-            <button
-              className="w-full text-left px-3 py-2 text-xs text-green-600 hover:bg-green-50"
-              onClick={() => {
-                const bid = bids.find(b => b.vendor === menuPos.id)
-                onApprove(bid)
-                setMenuPos({ x: 0, y: 0, id: null })
-              }}
-            >
-              Approve
-            </button>
-          )}
-
-          {canAct && (
-            <button
-              className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
-              onClick={() => {
-                const bid = bids.find(b => b.vendor === menuPos.id)
-                onReject(bid)
-                setMenuPos({ x: 0, y: 0, id: null })
-              }}
-            >
-              Reject
-            </button>
-          )}
-
-          {(() => {
-            const bid = bids.find(b => b.vendor === menuPos.id)
-            const editCount = (bid?.edit_logs ?? []).length
-
-            return editCount > 0 ? (
-              <button
-                className="w-full text-left px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setShowEditTrail(x => !x)
-                  setMenuPos({ x: 0, y: 0, id: null })
-                }}
-              >
-                Edit Trail ({editCount})
-              </button>
-            ) : null
-          })()}
-        </div>
+          Edit
+        </button>
       )}
+
+      {/* APPROVE */}
+      {canApproveReject && (
+        <button
+          className="w-full text-left px-3 py-2 text-xs text-green-600 hover:bg-green-50"
+          onClick={() => {
+            onApprove(bid)
+            setMenuPos({ x: 0, y: 0, id: null })
+          }}
+        >
+          Approve
+        </button>
+      )}
+
+      {/* REJECT */}
+      {canApproveReject && (
+        <button
+          className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+          onClick={() => {
+            onReject(bid)
+            setMenuPos({ x: 0, y: 0, id: null })
+          }}
+        >
+          Reject
+        </button>
+      )}
+
+      {/* EDIT TRAIL */}
+      {editCount > 0 && (
+        <button
+          className="w-full text-left px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            setShowEditTrail(x => !x)
+            setMenuPos({ x: 0, y: 0, id: null })
+          }}
+        >
+          Edit Trail ({editCount})
+        </button>
+      )}
+    </div>
+  )
+})()}
 
 
       {/* SUMMARY */}
@@ -2511,15 +2532,16 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
           <AIRecommendationBanner aiRec={aiRec} />
 
           {/* ── AI Vendor Comparison Table ── */}
-          <AIVendorComparisonTable
-            aiRec={aiRec}
-            bids={bids ?? []}
-            pr={pr}
-            canAct={canAct}
-            onApprove={b => setBidToApprove(b)}
-            onReject={b => setConfirmReject(b)}
-            onBidEdited={() => { refetchBids(); onPRChange() }}
-          />
+          {Array.isArray(aiRec?.ranked_vendors) &&
+            aiRec.ranked_vendors.length > 0 && <AIVendorComparisonTable
+              aiRec={aiRec}
+              bids={bids ?? []}
+              pr={pr}
+              canAct={canAct}
+              onApprove={b => setBidToApprove(b)}
+              onReject={b => setConfirmReject(b)}
+              onBidEdited={() => { refetchBids(); onPRChange() }}
+            />}
 
 
           {/* ── Anomalies ── */}
@@ -2536,7 +2558,7 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
           )}
 
           {/* ── Bids list ── */}
-          {!aiRec && !aiRec?.ranked_vendors?.length && <div className="space-y-2">
+          {(!aiRec?.ranked_vendors || aiRec.ranked_vendors.length === 0) && <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Bids ({(bids ?? []).length})
