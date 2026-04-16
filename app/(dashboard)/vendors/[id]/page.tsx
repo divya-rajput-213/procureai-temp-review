@@ -417,113 +417,134 @@ function ComplianceFieldInput({ value, placeholder, canEdit, onSave, onChange }:
 }
 
 // ─── Inline doc upload widget ─────────────────────────────────────────────────
-function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true , setFieldError}: {
+function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true, setFieldError }: {
   vendorId: string | string[]
   docType: string
   doc: any | null
   onRefresh: () => void
   editable?: boolean
- setFieldError?: (msg: string) => void}) {
+  setFieldError?: (msg: string) => void
+}) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const upload = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Max file size is 5 MB', variant: 'destructive' }); return
+    }
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+    if (!validTypes.includes(file.type)) {
+      toast({ title: 'Only PDF, JPG, PNG files are allowed', variant: 'destructive' }); return
+    }
     setUploading(true)
     try {
       const fd = new FormData()
-      const config = DOC_CONFIG[docType]
-
       fd.append('file', file)
-      fd.append('doc_type', config?.docType.trim() || docType.trim())
-      fd.append('title', config?.title.trim() || file.name.trim())
-    let res=  await apiClient.post(`/vendors/${vendorId}/documents/`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-     if (res?.status === 200 || res?.status === 201) {
+      fd.append('doc_type', docType)
+      fd.append('title', DOC_LABELS[docType] || docType)
+      const res = await apiClient.post(`/vendors/${vendorId}/documents/`, fd)
       const data = res.data
-
-      console.log('Upload response:', data)
-
-      if (data?.ai_validation_status === "invalid") {
-        setFieldError?.(`${data?.doc_type} is invalid`)
+      if (data?.ai_validation_status === 'invalid' || data?.ai_validation_status === 'failed') {
+        setFieldError?.(data?.ai_validation_notes || `${docType} validation failed`)
+        toast({ title: 'Document validation failed', description: data?.ai_validation_notes || '', variant: 'destructive' })
       } else {
-        onRefresh()
         setFieldError?.('')
+        toast({ title: 'Document verified by AI' })
       }
-    }
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' })
-    } finally {
-      setUploading(false)
-    }
+      onRefresh()
+    } catch (err: any) {
+      const errData = err?.response?.data
+      const notes = errData?.ai_validation_notes || errData?.error || 'Upload failed'
+      setFieldError?.(notes)
+      toast({ title: 'Document validation failed', description: notes, variant: 'destructive' })
+    } finally { setUploading(false) }
   }
 
   const remove = async () => {
     if (!doc) return
     setDeleting(true)
     try {
-      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id}/`)
+      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id ?? doc.id}/`)
       onRefresh()
       toast({ title: 'Document removed.' })
+      setFieldError?.('')
     } catch {
       toast({ title: 'Delete failed', variant: 'destructive' })
-    } finally {
-      setDeleting(false)
-    }
+    } finally { setDeleting(false) }
   }
 
-  if (doc) {
+  const extracted = doc?.ai_extracted_data || {}
+  const status = doc?.ai_validation_status
+  const isValid = status === 'passed' || status === 'valid'
+  const isFailed = status === 'failed' || status === 'invalid'
+  const hasExtracted = isValid && Object.values(extracted).some(v => v && String(v).trim())
+
+  // Validated — show extracted data
+  if (doc && hasExtracted) {
     return (
-      <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[38px]">
-        <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-        <span className="text-xs truncate flex-1 min-w-0">{doc.original_filename}</span>
-        {doc.file_url && (
-          <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0">
-            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
-          </a>
-        )}
-        {editable && (
-          <button
-            type="button"
-            onClick={remove}
-            disabled={deleting}
-            className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-50"
-            title="Remove"
-          >
-            {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-          </button>
-        )}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border-b border-green-200">
+          <CheckCircle className="w-3.5 h-3.5 text-green-600 shrink-0" />
+          <span className="text-xs font-medium text-green-700 flex-1">AI Verified</span>
+          {doc.file_url && <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-xs text-green-600 hover:underline">View</a>}
+          {editable && (
+            <button type="button" onClick={remove} disabled={deleting} className="shrink-0 text-xs text-red-400 hover:text-red-600">
+              {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Remove'}
+            </button>
+          )}
+        </div>
+        <div className="px-3 py-2 bg-green-50/30 space-y-1">
+          {extracted.gst_number && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">GSTIN:</span> <span className="font-mono font-medium">{extracted.gst_number}</span></div>}
+          {extracted.pan_number && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">PAN:</span> <span className="font-mono font-medium">{extracted.pan_number}</span></div>}
+          {extracted.bank_account_number && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">A/C:</span> <span className="font-mono font-medium">{extracted.bank_account_number}</span></div>}
+          {extracted.ifsc_code && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">IFSC:</span> <span className="font-mono font-medium">{extracted.ifsc_code}</span></div>}
+          {extracted.bank_name && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">Bank:</span> <span className="font-medium">{extracted.bank_name}</span></div>}
+          {extracted.legal_name && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">Name:</span> <span className="font-medium">{extracted.legal_name}</span></div>}
+        </div>
       </div>
     )
   }
 
-  if (!editable) {
+  // Doc exists but failed
+  if (doc && !hasExtracted) {
     return (
-      <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[38px]">
-        <span className="text-xs text-muted-foreground italic">No document</span>
+      <div className="border rounded-lg overflow-hidden">
+        <div className={`flex items-center gap-2 px-3 py-2 ${isFailed ? 'bg-red-50' : 'bg-slate-50'}`}>
+          <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <span className="text-xs truncate flex-1">{doc.original_filename}</span>
+          {isFailed && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Failed</span>}
+          {editable && (
+            <button type="button" onClick={remove} disabled={deleting} className="shrink-0 text-red-400 hover:text-red-600">
+              {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+            </button>
+          )}
+        </div>
+        {doc.ai_validation_notes && isFailed && <p className="text-[10px] text-red-600 px-3 py-1.5 bg-red-50">{doc.ai_validation_notes}</p>}
       </div>
     )
   }
+
+  // No doc — show upload
+  if (!editable) return <div className="border rounded-md px-3 py-2 min-h-[38px]"><span className="text-xs text-muted-foreground italic">No document</span></div>
 
   return (
-    <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[38px]">
-      <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">No file chosen</span>
-      <label className="cursor-pointer shrink-0">
-        <span className="inline-flex items-center gap-1 text-xs border rounded px-2 py-1 hover:bg-slate-50 transition-colors">
-          {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-          Choose
-        </span>
-        <input
-          type="file"
-          className="hidden"
-          accept=".pdf,.jpg,.jpeg,.png"
-          onChange={e => {
-            const file = e.target.files?.[0]
-            if (file) upload(file)
-            e.target.value = ''
-          }}
-        />
+    <div className="border-2 border-dashed rounded-lg px-3 py-3 text-center hover:bg-slate-50 transition-colors">
+      <label className="cursor-pointer block">
+        {uploading ? (
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <span className="text-xs text-muted-foreground">Uploading & validating...</span>
+          </div>
+        ) : (
+          <div>
+            <Upload className="w-5 h-5 mx-auto text-muted-foreground mb-1" />
+            <p className="text-xs text-muted-foreground">Drop or <span className="text-primary font-medium">browse</span> (PDF, JPG, PNG)</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Max 5 MB</p>
+          </div>
+        )}
+        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" disabled={uploading}
+          onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
       </label>
     </div>
   )
@@ -1988,13 +2009,12 @@ export default function VendorDetailPage() {
                 <div className={blockCls()}>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700">Incorporation Certificate</Label>
-                    <p className="text-sm text-muted-foreground">Company registration / MOA documents</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">Upload Document</Label>
                     <DocUploadInline vendorId={id} docType="incorporation"
                       doc={docOf('incorporation')} editable={canEdit && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground mt-6">Company registration / MOA documents. Optional.</p>
                   </div>
                 </div>
 

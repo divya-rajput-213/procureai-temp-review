@@ -2217,17 +2217,13 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
 
       {hasBids ? (
         <>
-          {/* ── KPI Cards ── */}
-          <BidSummaryCards bids={bids ?? []} pr={pr} />
-
-          {/* ── Highlight Cards (Lowest Price + Best Value) ── */}
-          <BidHighlightCards bids={bids ?? []} pr={pr} aiRec={aiRec} />
-
-          {/* ── AI Recommendation Banner ── */}
-          <AIRecommendationBanner aiRec={aiRec} />
-
-          {/* ── AI Vendor Comparison Table ── */}
-          <AIVendorComparisonTable aiRec={aiRec} bids={bids ?? []} pr={pr} />
+          {/* ── AI Recommendation ── */}
+          {aiRec.summary && (
+            <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
+              <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+              <div className="text-sm text-purple-800">{aiRec.summary}</div>
+            </div>
+          )}
 
           {/* ── Anomalies ── */}
           {(aiRec.anomalies ?? []).length > 0 && (
@@ -2242,27 +2238,100 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
             </div>
           )}
 
-          {/* ── Bids list ── */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
+          {/* ── Unified Bids Comparison Table ── */}
+          <div className="border rounded-xl overflow-hidden">
+            <div className="px-4 py-3 bg-slate-50 border-b flex items-center justify-between">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Bids ({(bids ?? []).length})
+                Bid Comparison ({sortedBids.length} vendors)
               </p>
             </div>
-            {sortedBids.map((bid: any, idx: number) => (
-              <BidRow
-                key={bid.id}
-                bid={bid}
-                pr={pr}
-                rank={idx + 1}
-                aiRankedVendors={aiRankedVendors}
-                canAct={canAct}
-                hasBidPendingApproval={hasBidPendingApproval}
-                onApprove={b => setBidToApprove(b)}
-                onReject={b => setConfirmReject(b)}
-                onBidEdited={() => { refetchBids(); onPRChange() }}
-              />
-            ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" style={{ minWidth: 700 }}>
+                <thead className="bg-slate-50/50 border-b">
+                  <tr className="text-xs text-muted-foreground">
+                    <th className="text-left px-4 py-2.5 font-medium w-8">#</th>
+                    <th className="text-left px-4 py-2.5 font-medium">Vendor</th>
+                    <th className="text-right px-4 py-2.5 font-medium">Bid Amount</th>
+                    <th className="text-center px-4 py-2.5 font-medium">Delivery</th>
+                    <th className="text-center px-4 py-2.5 font-medium">AI Score</th>
+                    <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                    {canAct && <th className="text-center px-4 py-2.5 font-medium">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {sortedBids.map((bid: any, idx: number) => {
+                    const aiVendor = aiRankedVendors.find((rv: any) => rv.vendor_id === bid.vendor)
+                    const isRecommended = aiRec.recommendation?.recommended_vendor_id === bid.vendor
+                    const isAccepted = bid.status === 'accepted'
+                    const isRejected = bid.status === 'rejected'
+                    const isPendingApproval = bid.status === 'pending_approval'
+
+                    return (
+                      <tr key={bid.id} className={
+                        isAccepted ? 'bg-green-50/50' :
+                        isRecommended ? 'bg-purple-50/30' :
+                        isRejected ? 'bg-slate-50/50 opacity-60' : ''
+                      }>
+                        <td className="px-4 py-3 text-muted-foreground">{idx + 1}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium">{bid.vendor_name}</span>
+                            {isRecommended && <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-semibold rounded">AI TOP PICK</span>}
+                            {isAccepted && <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-semibold rounded">ACCEPTED</span>}
+                          </div>
+                          {bid.vendor_city && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {bid.vendor_city}{bid.vendor_state ? `, ${bid.vendor_state}` : ''}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="font-bold text-base">{formatCurrency(bid.bid_amount, pr.currency_code)}</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="text-sm">{bid.delivery_days}d</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {aiVendor?.ai_score != null ? (
+                            <span className={`inline-block px-2 py-1 rounded-lg font-bold text-sm ${
+                              aiVendor.ai_score >= 80 ? 'text-green-700 bg-green-50' :
+                              aiVendor.ai_score >= 60 ? 'text-amber-700 bg-amber-50' :
+                              'text-red-700 bg-red-50'
+                            }`}>
+                              {aiVendor.ai_score}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <StatusBadge status={bid.status} />
+                        </td>
+                        {canAct && (
+                          <td className="px-4 py-3 text-center">
+                            {!isAccepted && !isRejected && !isPendingApproval && (
+                              <div className="flex items-center gap-1 justify-center">
+                                <Button size="sm" className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
+                                  onClick={() => setBidToApprove(bid)}>
+                                  <ThumbsUp className="w-3 h-3" /> Accept
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600 hover:bg-red-50"
+                                  onClick={() => setConfirmReject(bid)}>
+                                  <ThumbsDown className="w-3 h-3" /> Reject
+                                </Button>
+                              </div>
+                            )}
+                            {isRejected && bid.rejection_reason && (
+                              <p className="text-[10px] text-red-500 italic">{bid.rejection_reason}</p>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       ) : (

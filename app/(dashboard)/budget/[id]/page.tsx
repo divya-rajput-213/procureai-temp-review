@@ -687,20 +687,13 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Priority <span className="text-destructive">*</span></Label>
-              <div className="flex gap-2">
-                {PRIORITY_OPTS.map(p => {
-                  const isSelected = priority === p.value
-                  const cls = isSelected
-                    ? `${p.color} border-current shadow-sm`
-                    : 'border-input text-muted-foreground hover:border-slate-300 hover:text-foreground'
-                  return (
-                    <label key={p.value} className={`flex-1 border rounded-lg px-2 py-2.5 text-center text-xs font-semibold transition-all ${cls} ${disabledCls}`}>
-                      <input disabled={!isDraft} type="radio" value={p.value} checked={priority === p.value} onChange={() => setPriority(p.value)} className="sr-only" />
-                      {p.label}
-                    </label>
-                  )
-                })}
-              </div>
+              <select disabled={!isDraft} className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                value={priority} onChange={e => setPriority(e.target.value)}>
+                <option value="">Select priority</option>
+                {PRIORITY_OPTS.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label className={`text-sm font-medium `}>Plant</Label>
@@ -891,13 +884,63 @@ function EditBudgetForm({ budget, plants, departments, onSave, onCancel, saving,
               </p>
             )}
             {matrices && matrices.length > 0 && (
-              <MatrixSelectorTable
-                matrices={matrices}
-                selectedMatrix={selectedMatrix}
-                expandedMatrix={expandedMatrix}
-                onSelect={id => { setSelectedMatrix(id); setExpandedMatrix(id) }}
-                onToggleExpand={id => setExpandedMatrix(prev => (prev === id ? null : id))}
-              />
+              <>
+                <div>
+                  <Label className="text-sm font-medium">Approval Matrix <span className="text-destructive">*</span></Label>
+                  <select
+                    className="w-full h-10 border rounded-md px-3 text-sm bg-background mt-1"
+                    value={selectedMatrix ?? ''}
+                    onChange={e => {
+                      const id = Number(e.target.value) || null
+                      setSelectedMatrix(id)
+                      setExpandedMatrix(id)
+                    }}>
+                    <option value="">Select approval matrix</option>
+                    {matrices.map((m: any) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.levels?.length ?? 0} level{(m.levels?.length ?? 0) === 1 ? '' : 's'})
+                        {m.plant_name ? ` — ${m.plant_name}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedMatrix && (() => {
+                  const matrix = matrices.find((m: any) => m.id === selectedMatrix)
+                  if (!matrix?.levels?.length) return null
+                  return (
+                    <div className="border rounded-lg overflow-hidden bg-muted/30 mt-3">
+                      <div className="px-4 py-2.5 border-b bg-slate-50">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Approval Levels — {matrix.name}</p>
+                      </div>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-muted-foreground border-b">
+                            <th className="text-left px-4 py-2 font-semibold w-12">Level</th>
+                            <th className="text-left px-4 py-2 font-semibold">Approver</th>
+                            <th className="text-left px-4 py-2 font-semibold">Role</th>
+                            <th className="text-right px-4 py-2 font-semibold w-16">SLA</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/60">
+                          {matrix.levels.map((lv: any) => (
+                            <tr key={lv.id}>
+                              <td className="px-4 py-2">
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs">
+                                  {lv.level_number}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 font-medium">{lv.user_name ?? '—'}</td>
+                              <td className="px-4 py-2 text-muted-foreground">{lv.role_name ?? '—'}</td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">{lv.sla_hours ? `${lv.sla_hours}h` : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                })()}
+              </>
             )}
           </CardContent>
         </Card>
