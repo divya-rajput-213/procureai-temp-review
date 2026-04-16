@@ -2561,7 +2561,7 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
           {(!aiRec?.ranked_vendors || aiRec.ranked_vendors.length === 0) && <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Bids ({(bids ?? []).length})
+                Bid Comparison ({sortedBids.length} vendors)
               </p>
             </div>
             {sortedBids.map((bid: any, idx: number) => (

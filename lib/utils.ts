@@ -118,15 +118,19 @@ export function normalizeLeadingWhitespace(value: string) {
 
 export const DOC_CONFIG: Record<string, { docType: string; title: string }> = {
   gst_certificate: {
-    docType: 'GST',
-    title: 'gst_number',
+    docType: 'gst_certificate',
+    title: 'GST Certificate',
   },
   pan_card: {
-    docType: 'PAN',
-    title: 'pan_card',
+    docType: 'pan_card',
+    title: 'PAN Card',
   },
   bank_details: {
-    docType: 'BANK',
-    title: 'bank_document',
+    docType: 'bank_details',
+    title: 'Bank Details',
+  },
+  msme_certificate: {
+    docType: 'msme_certificate',
+    title: 'MSME Certificate',
   },
 }

@@ -108,76 +108,117 @@ function DocFileInput({ chosen, onSelect, onClear, hasError }: Readonly<{
   )
 }
 
+// Reusable two-column compliance row: left = upload/verified text, right = editable field
+function ComplianceDocRow({ label, fieldLabel, doc, extractedKey, extraExtractedKey, vendorId, docType,
+  onRefresh, fieldProps, fieldPlaceholder, fieldError, docError, onDocError, hasError }: {
+  label: string; fieldLabel: string; doc: any; extractedKey: string; extraExtractedKey?: string
+  vendorId: string; docType: string; onRefresh: () => void
+  fieldProps: any; fieldPlaceholder: string
+  fieldError?: string; docError?: string; onDocError: (msg: string) => void; hasError: boolean
+}) {
+  const { toast } = useToast()
+  const [deleting, setDeleting] = useState(false)
+  const verified = doc?.ai_validation_status === 'passed' || doc?.ai_validation_status === 'valid'
+  const extractedValue = doc?.ai_extracted_data?.[extractedKey]
+  const extraValue = extraExtractedKey ? doc?.ai_extracted_data?.[extraExtractedKey] : null
+
+  const remove = async () => {
+    if (!doc) return
+    setDeleting(true)
+    try {
+      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id ?? doc.id}/`)
+      onRefresh()
+      onDocError('')
+    } catch { toast({ title: 'Delete failed', variant: 'destructive' }) }
+    finally { setDeleting(false) }
+  }
+
+  return (
+    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${hasError ? 'border-destructive/50' : ''}`}>
+      {/* Left: upload or verified text */}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-700">{label} <span className="text-destructive">*</span></Label>
+        {verified ? (
+          <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
+            <FileText className="w-4 h-4 text-green-600 shrink-0" />
+            <span className="text-xs truncate flex-1 min-w-0 text-green-800">{doc?.original_filename}</span>
+            <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Verified</span>
+            {doc?.file_url && <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-[10px] text-green-600 hover:underline">View</a>}
+            <button type="button" onClick={remove} disabled={deleting} className="shrink-0 text-[10px] text-red-400 hover:text-red-600">
+              {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        ) : (
+          <>
+            <DocUploadWidget vendorId={vendorId} docType={docType} doc={doc} onRefresh={onRefresh} setFieldError={onDocError} />
+            {docError && <p className="text-xs text-destructive mt-1">{docError}</p>}
+          </>
+        )}
+      </div>
+      {/* Right: editable text field */}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-700">
+          {fieldLabel} <span className="text-destructive">*</span>
+          {verified && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+        </Label>
+        <Input placeholder={fieldPlaceholder} {...fieldProps}
+          className={fieldError ? 'border-destructive ring-1 ring-destructive/30' : ''} />
+        {fieldError && <p className="text-xs text-destructive mt-1">{fieldError}</p>}
+      </div>
+    </div>
+  )
+}
+
 function DocUploadWidget({ vendorId, docType, doc, onRefresh, setFieldError }: {
   vendorId: string
   docType: string
   doc: any | null
   onRefresh: () => void
   setFieldError?: (msg: string) => void
-
 }) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const upload = async (file: File) => {
-  const maxSizeBytes = 5 * 1024 * 1024
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Max file size is 5 MB', variant: 'destructive' })
+      return
+    }
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+    if (!validTypes.includes(file.type)) {
+      toast({ title: 'Only PDF, JPG, PNG files are allowed', variant: 'destructive' })
+      return
+    }
 
-  if (file.size > maxSizeBytes) {
-    toast({ title: 'Max file size is 5 MB', variant: 'destructive' })
-    return
-  }
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      const config = DOC_CONFIG[docType]
+      fd.append('file', file)
+      fd.append('doc_type', config?.docType.trim() || docType.trim())
+      fd.append('title', config?.title.trim() || file.name.trim())
 
-  setUploading(true)
-
-  try {
-    const fd = new FormData()
-    const config = DOC_CONFIG[docType]
-
-    fd.append('file', file)
-    fd.append('doc_type', config?.docType.trim() || docType.trim())
-    fd.append('title', config?.title.trim() || file.name.trim())
-
-    const res = await apiClient.post(
-      `/vendors/${vendorId}/documents/`,
-      fd 
-    )
-
-    if (res?.status === 200 || res?.status === 201) {
+      const res = await apiClient.post(`/vendors/${vendorId}/documents/`, fd)
       const data = res.data
 
-      console.log('Upload response:', data)
-
-      if (data?.ai_validation_status === "invalid") {
-        setFieldError?.(`${data?.doc_type} is invalid`)
+      if (data?.ai_validation_status === 'invalid' || data?.ai_validation_status === 'failed') {
+        setFieldError?.(data?.ai_validation_notes || `${docType} validation failed`)
+        toast({ title: 'Document validation failed', description: data?.ai_validation_notes || '', variant: 'destructive' })
       } else {
-        onRefresh()
         setFieldError?.('')
+        toast({ title: 'Document verified by AI' })
       }
+      onRefresh()
+    } catch (err: any) {
+      const errData = err?.response?.data
+      const notes = errData?.ai_validation_notes || errData?.error || 'Upload failed'
+      setFieldError?.(notes)
+      toast({ title: 'Document validation failed', description: notes, variant: 'destructive' })
+    } finally {
+      setUploading(false)
     }
-
-  } catch (err: any) {
-    const errorData = err?.response?.data
-
-    let message = 'Upload failed'
-
-    if (typeof errorData === 'string') {
-      message = errorData
-    } else if (errorData?.error) {
-      message = errorData.error
-    } else if (errorData) {
-      message = Object.values(errorData).flat().join(' ')
-    }
-
-    toast({
-      title: message,
-      variant: 'destructive',
-    })
-  } finally {
-    setUploading(false)
   }
-}
-
 
   const remove = async () => {
     if (!doc) return
@@ -186,40 +227,54 @@ function DocUploadWidget({ vendorId, docType, doc, onRefresh, setFieldError }: {
       await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id ?? doc.id}/`)
       onRefresh()
       toast({ title: 'Document removed.' })
-      setFieldError?.('') //clear error
-
+      setFieldError?.('')
     } catch {
       toast({ title: 'Delete failed', variant: 'destructive' })
     } finally { setDeleting(false) }
   }
 
+  const status = doc?.ai_validation_status
+  const isFailed = status === 'failed' || status === 'invalid'
+
+  // State: Doc exists (failed or unprocessed) — show filename + remove
   if (doc) {
     return (
-      <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[36px]">
-        <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-        <span className="text-xs truncate flex-1 min-w-0">{doc.original_filename}</span>
-        {doc.file_url && (
-          <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0">
-            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
-          </a>
+      <div className="border rounded-lg overflow-hidden">
+        <div className={`flex items-center gap-2 px-3 py-2 ${isFailed ? 'bg-red-50 border-b border-red-200' : 'bg-slate-50'}`}>
+          <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <span className="text-xs truncate flex-1 min-w-0">{doc.original_filename}</span>
+          {isFailed && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Failed</span>}
+          <button type="button" onClick={remove} disabled={deleting}
+            className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-50">
+            {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+        {doc.ai_validation_notes && isFailed && (
+          <p className="text-[10px] text-red-600 px-3 py-1.5 bg-red-50">{doc.ai_validation_notes}</p>
         )}
-        <button type="button" onClick={remove} disabled={deleting}
-          className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-50">
-          {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
-        </button>
       </div>
     )
   }
 
+  // State: No doc — show upload
   return (
-    <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[36px]">
-      <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">No file chosen</span>
-      <label className="cursor-pointer shrink-0">
-        <span className="inline-flex items-center gap-1 text-xs border rounded px-2 py-1 hover:bg-slate-50 transition-colors">
-          {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-          Choose
-        </span>
-        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png"
+    <div className="border-2 border-dashed rounded-lg px-3 py-3 text-center hover:bg-slate-50 transition-colors">
+      <label className="cursor-pointer block">
+        {uploading ? (
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <span className="text-xs text-muted-foreground">Uploading & validating with AI...</span>
+          </div>
+        ) : (
+          <div>
+            <Upload className="w-5 h-5 mx-auto text-muted-foreground mb-1" />
+            <p className="text-xs text-muted-foreground">
+              Drop or <span className="text-primary font-medium">browse</span> (PDF, JPG, PNG)
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Max 5 MB</p>
+          </div>
+        )}
+        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" disabled={uploading}
           onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
       </label>
     </div>
@@ -330,7 +385,21 @@ export default function NewVendorPage() {
     },
     enabled: !!vendorId && step >= 1,
   })
-  const refreshDocs = () => queryClient.invalidateQueries({ queryKey: ['vendor-docs', vendorId] })
+  const refreshDocs = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['vendor-docs', vendorId] })
+    // Fetch updated vendor — AI may have filled PAN/GST/bank fields
+    if (vendorId) {
+      try {
+        const { data: v } = await apiClient.get(`/vendors/${vendorId}/`)
+        if (v.gst_number) setValue('gst_number', v.gst_number)
+        if (v.pan_number) setValue('pan_number', v.pan_number)
+        if (v.bank_account) setValue('bank_account', v.bank_account)
+        if (v.bank_ifsc) setValue('bank_ifsc', v.bank_ifsc)
+        if (v.bank_name) setValue('bank_name', v.bank_name)
+        if (v.msme_number) setValue('msme_number', v.msme_number)
+      } catch { /* silent */ }
+    }
+  }
   const docOf = (type: string) => (vendorDocs ?? []).find((d: any) => d.doc_type === type) ?? null
 
   const { data: matrices } = useQuery({
@@ -502,17 +571,7 @@ export default function NewVendorPage() {
   }
 
   const handleStep1Next = async () => {
-    setValidationTriggered(true)
-    const validDocs = validateCompliancePairs()
-
-    if (!validDocs) {
-      toast({
-        title: 'Please complete all mandatory compliance details',
-        variant: 'destructive',
-      })
-      return
-    }
-
+    // Save compliance fields without requiring docs — docs are only mandatory at approval
     step1Mutation.mutate(getValues())
   }
 
@@ -520,6 +579,14 @@ export default function NewVendorPage() {
 
   const handleSubmitForApproval = () => {
     setSubmitError('')
+
+    // Validate compliance docs + fields only at approval time
+    setValidationTriggered(true)
+    const validDocs = validateCompliancePairs()
+    if (!validDocs) {
+      setSubmitError('Please complete all mandatory compliance details (GST, PAN, Bank documents) before submitting for approval.')
+      return
+    }
 
     const missing = missingComplianceFields(getValues())
     if (missing.length > 0) {
@@ -823,87 +890,107 @@ export default function NewVendorPage() {
           <CardHeader>
             <CardTitle>Compliance & Documents</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              All fields are optional here. GST, PAN and bank details will be required before submitting for approval.
+              Upload documents to auto-fill details via AI. Documents are optional while saving — only required when submitting for approval.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
 
             {/* GST */}
-            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate'] ? 'border-destructive/50' : ''}`}>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">GST Number <span className="text-destructive"> *</span>{extractedFields?.gst_number && confidenceBadge(extractedFields.gst_number.confidence)}</Label>
-                <Input placeholder="e.g. 27AAAAA0000A1Z5" {...register('gst_number')}
-                  className={`${complianceErrors['field_gst_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${inputCls(!!errors.gst_number, !!extractedFields?.gst_number)}`} />
-                {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">GST Certificate  <span className="text-destructive"> *</span></Label>
-                <DocUploadWidget vendorId={vendorId!} docType="gst_certificate"
-                  doc={docOf('gst_certificate')} onRefresh={refreshDocs} setFieldError={(msg) =>
-                    setComplianceErrors(prev => ({
-                      ...prev,
-                      doc_gst_certificate: msg
-                    }))
-                  } />
-                <p className="text-xs text-muted-foreground mt-1"> Max size: 5 MB</p>
-                {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
-              </div>
-            </div>
+            <ComplianceDocRow
+              label="GST Certificate"
+              fieldLabel="GST Number"
+              doc={docOf('gst_certificate')}
+              extractedKey="gst_number"
+              extraExtractedKey="legal_name"
+              vendorId={vendorId!}
+              docType="gst_certificate"
+              onRefresh={refreshDocs}
+              fieldProps={register('gst_number')}
+              fieldPlaceholder="e.g. 27AAAAA0000A1Z5"
+              fieldError={complianceErrors['field_gst_number']}
+              docError={complianceErrors['doc_gst_certificate']}
+              onDocError={(msg) => setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))}
+              hasError={!!(complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate'])}
+            />
 
             {/* PAN */}
-            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card'] ? 'border-destructive/50' : ''}`}>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">PAN Number <span className="text-destructive"> *</span>{extractedFields?.pan_number && confidenceBadge(extractedFields.pan_number.confidence)}</Label>
-                <Input placeholder="e.g. AAAAA9999A" {...register('pan_number')}
-                  className={`${complianceErrors['field_pan_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${inputCls(!!errors.pan_number, !!extractedFields?.pan_number)}`} />
-                {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">PAN Card <span className="text-destructive"> *</span></Label>
-                <DocUploadWidget vendorId={vendorId!} docType="pan_card"
-                  doc={docOf('pan_card')} onRefresh={refreshDocs} setFieldError={(msg) =>
-                    setComplianceErrors(prev => ({
-                      ...prev,
-                      doc_pan_card: msg
-                    }))
-                  } />
-                <p className="text-xs text-muted-foreground mt-1"> Max size: 5 MB</p>
-                {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
-              </div>
-            </div>
+            <ComplianceDocRow
+              label="PAN Card"
+              fieldLabel="PAN Number"
+              doc={docOf('pan_card')}
+              extractedKey="pan_number"
+              vendorId={vendorId!}
+              docType="pan_card"
+              onRefresh={refreshDocs}
+              fieldProps={register('pan_number')}
+              fieldPlaceholder="e.g. AAAAA9999A"
+              fieldError={complianceErrors['field_pan_number']}
+              docError={complianceErrors['doc_pan_card']}
+              onDocError={(msg) => setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))}
+              hasError={!!(complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card'])}
+            />
 
             {/* Bank Details */}
-            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details'] ? 'border-destructive/50' : ''}`}>
-              <div className="space-y-2">
-                {[
-                  { name: 'bank_account', label: 'Bank Account No', placeholder: 'e.g. 12345678901234' },
-                  { name: 'bank_ifsc', label: 'Bank IFSC', placeholder: 'e.g. HDFC0001234' },
-                  { name: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
-                ].map(({ name, label, placeholder }) => (
-                  <div key={name} className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">{label} <span className="text-destructive"> *</span>{extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}</Label>
-                    <Input placeholder={placeholder} {...register(name as keyof VendorForm)}
-                      className={`${complianceErrors['field_bank_account'] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${inputCls(!!errors[name as keyof VendorForm], !!extractedFields?.[name])}`} />
-                    {errors[name as keyof VendorForm] && (
-                      <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
+            {(() => {
+              const bankDoc = docOf('bank_details')
+              const bankVerified = bankDoc?.ai_validation_status === 'passed' || bankDoc?.ai_validation_status === 'valid'
+              const bankHasError = !!(complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details'])
+
+              const bankRemove = async () => {
+                if (!bankDoc) return
+                try {
+                  await apiClient.delete(`/vendors/${vendorId}/documents/${bankDoc.hash_id ?? bankDoc.id}/`)
+                  refreshDocs()
+                  setComplianceErrors(prev => ({ ...prev, doc_bank_details: '' }))
+                } catch { /* silent */ }
+              }
+
+              return (
+                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${bankHasError ? 'border-destructive/50' : ''}`}>
+                  {/* Left: upload or file */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
+                    {bankVerified ? (
+                      <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
+                        <FileText className="w-4 h-4 text-green-600 shrink-0" />
+                        <span className="text-xs truncate flex-1 min-w-0 text-green-800">{bankDoc?.original_filename}</span>
+                        <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Verified</span>
+                        {bankDoc?.file_url && <a href={bankDoc.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-[10px] text-green-600 hover:underline">View</a>}
+                        <button type="button" onClick={bankRemove} className="shrink-0 text-red-400 hover:text-red-600">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <DocUploadWidget vendorId={vendorId!} docType="bank_details"
+                          doc={bankDoc} onRefresh={refreshDocs} setFieldError={(msg) =>
+                            setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
+                          } />
+                        {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
+                      </>
                     )}
                   </div>
-                ))}
-                {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_bank_account']}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque {<span className="text-destructive"> *</span>}</Label>
-                <DocUploadWidget vendorId={vendorId!} docType="bank_details"
-                  doc={docOf('bank_details')} onRefresh={refreshDocs} setFieldError={(msg) =>
-                    setComplianceErrors(prev => ({
-                      ...prev,
-                      doc_bank_details: msg
-                    }))
-                  } />
-                <p className="text-xs text-muted-foreground mt-1">Max size: 5 MB</p>
-                {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
-              </div>
-            </div>
+                  {/* Right: text fields */}
+                  <div className="space-y-2">
+                    {[
+                      { name: 'bank_account', label: 'Account No', placeholder: 'e.g. 12345678901234' },
+                      { name: 'bank_ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234' },
+                      { name: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
+                    ].map(({ name, label, placeholder }) => (
+                      <div key={name} className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-700">
+                          {label} <span className="text-destructive">*</span>
+                          {bankVerified && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                        </Label>
+                        <Input placeholder={placeholder} {...register(name as keyof VendorForm)}
+                          className={complianceErrors['field_bank_account'] ? 'border-destructive ring-1 ring-destructive/30' : ''} />
+                      </div>
+                    ))}
+                    {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive">{complianceErrors['field_bank_account']}</p>}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* MSME / SEZ */}
             <div className="flex items-center gap-4 pt-1">
@@ -920,16 +1007,19 @@ export default function NewVendorPage() {
             {watchedIsMsme && (
               <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_msme_number'] || complianceErrors['doc_msme_certificate'] ? 'border-destructive/50' : ''}`}>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">MSME Number</Label>
-                  <Input placeholder="e.g. UDYAM-MH-00-0000000" {...register('msme_number')}
-                    className={complianceErrors['field_msme_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} />
-                  {complianceErrors['field_msme_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_msme_number']}</p>}
-                </div>
-                <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-700">MSME Certificate</Label>
                   <DocUploadWidget vendorId={vendorId!} docType="msme_certificate"
                     doc={docOf('msme_certificate')} onRefresh={refreshDocs} />
                   {complianceErrors['doc_msme_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_msme_certificate']}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    MSME Number
+                    {docOf('msme_certificate')?.ai_extracted_data?.msme_number && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                  </Label>
+                  <Input placeholder="e.g. UDYAM-MH-00-0000000" {...register('msme_number')}
+                    className={complianceErrors['field_msme_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} />
+                  {complianceErrors['field_msme_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_msme_number']}</p>}
                 </div>
               </div>
             )}
@@ -937,13 +1027,12 @@ export default function NewVendorPage() {
             {watchedIsSez && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">SEZ Unit</Label>
-                  <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
-                </div>
-                <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-700">SEZ Certificate</Label>
                   <DocUploadWidget vendorId={vendorId!} docType="sez_certificate"
                     doc={docOf('sez_certificate')} onRefresh={refreshDocs} />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground mt-6">SEZ registered vendor certificate.</p>
                 </div>
               </div>
             )}
@@ -952,12 +1041,11 @@ export default function NewVendorPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">Incorporation Certificate</Label>
-                <p className="text-sm text-muted-foreground">Company registration / MOA documents</p>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Upload Document</Label>
                 <DocUploadWidget vendorId={vendorId!} docType="incorporation"
                   doc={docOf('incorporation')} onRefresh={refreshDocs} />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground mt-6">Company registration / MOA documents. Optional — not required for approval.</p>
               </div>
             </div>
 
