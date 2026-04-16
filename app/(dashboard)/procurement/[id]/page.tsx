@@ -16,6 +16,7 @@ import {
   MapPin, Star, AlertTriangle, ThumbsUp, ThumbsDown, Trophy,
   Users, TrendingUp, TrendingDown, BarChart3, PiggyBank, Download,
   History, FileText, Search, Trash2,
+  MoreVertical,
 } from 'lucide-react'
 import {
   formatCurrency, formatDate, formatDateTime, getSLAPercentage, getSLAColor,
@@ -398,7 +399,7 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess }: {
 
           <Button
             onClick={submit}
-            disabled={submitting}            
+            disabled={submitting}
             className="gap-2 min-w-[160px]"
           >
             {submitting ? (
@@ -443,22 +444,22 @@ function EditPRForm({ pr, plants, departments, trackingIds, onSave, onCancel, sa
   const [showTrackingDropdown, setShowTrackingDropdown] = useState(false)
   const selectedTrackingObj = trackingIds.find((t: any) => t.id === Number(form.tracking_id))
 
-const { data: vendorResults } = useQuery({
-  queryKey: ['vendors-pr-edit', vendorSearch, form.plant],
-  queryFn: async () => {
-    const r = await apiClient.get('/vendors/', {
-      params: {
-        status: 'approved',
-        search: vendorSearch,
-        page_size: 20,
-        ...(form.plant ? { plant: form.plant } : {}),
-      },
-    })
+  const { data: vendorResults } = useQuery({
+    queryKey: ['vendors-pr-edit', vendorSearch, form.plant],
+    queryFn: async () => {
+      const r = await apiClient.get('/vendors/', {
+        params: {
+          status: 'approved',
+          search: vendorSearch,
+          page_size: 20,
+          ...(form.plant ? { plant: form.plant } : {}),
+        },
+      })
 
-    return r.data.results ?? r.data
-  },
-  enabled: showVendorDropdown,
-})
+      return r.data.results ?? r.data
+    },
+    enabled: showVendorDropdown,
+  })
 
 
   // Line items
@@ -740,7 +741,7 @@ const { data: vendorResults } = useQuery({
                   </td>
                   <td className="px-2 py-1.5">
                     <Input type="number" placeholder="0.00" value={li.unit_rate}
-                    disabled
+                      disabled
                       onChange={e => { let v = parseFloat(e.target.value); if (v > 9999999.99) v = 9999999.99; setLI(idx, 'unit_rate', isNaN(v) ? 0 : Math.round(v * 100) / 100) }}
                       className="h-8 text-xs" />
                   </td>
@@ -1325,9 +1326,56 @@ function AIRecommendationBanner({ aiRec }: { aiRec: any }) {
 
 // ─── AI Vendor Comparison Table ──────────────────────────────────────────────
 
-function AIVendorComparisonTable({ aiRec, bids, pr }: { aiRec: any; bids: any[]; pr: any }) {
+function AIVendorComparisonTable({
+  aiRec,
+  bids,
+  pr,
+  canAct,
+  onApprove,
+  onReject,
+  onBidEdited,
+}: {
+  aiRec: any
+  bids: any[]
+  pr: any
+  canAct: boolean
+  onApprove: (bid: any) => void
+  onReject: (bid: any) => void
+  onBidEdited: () => void
+}) {
   const ranked: any[] = aiRec?.ranked_vendors ?? []
   if (ranked.length < 2) return null
+
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({})
+  const [editing, setEditing] = useState<any>(null)
+  const [showEditTrail, setShowEditTrail] = useState(false)
+
+  const [menuPos, setMenuPos] = useState<{
+    x: number
+    y: number
+    id: string | null
+  }>({ x: 0, y: 0, id: null })
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!menuRef.current) return
+
+      if (!menuRef.current.contains(event.target as Node)) {
+        setMenuPos({ x: 0, y: 0, id: null })
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  useEffect(() => {
+    const closeMenu = () => setMenuPos({ x: 0, y: 0, id: null })
+    window.addEventListener('scroll', closeMenu)
+    return () => window.removeEventListener('scroll', closeMenu)
+  }, [])
 
   const DIMS = [
     { key: 'price_score', label: 'Price', weight: '30%' },
@@ -1338,7 +1386,7 @@ function AIVendorComparisonTable({ aiRec, bids, pr }: { aiRec: any; bids: any[];
     { key: 'communication_score', label: 'Comms', weight: '5%' },
   ]
 
-  function scoreColor(s: number) {
+  const scoreColor = (s: number) => {
     if (s >= 80) return 'text-green-700 bg-green-50'
     if (s >= 60) return 'text-amber-700 bg-amber-50'
     return 'text-red-700 bg-red-50'
@@ -1346,86 +1394,344 @@ function AIVendorComparisonTable({ aiRec, bids, pr }: { aiRec: any; bids: any[];
 
   return (
     <div className="border rounded-xl overflow-hidden">
+
+      {/* HEADER */}
       <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-50 to-violet-50 border-b">
         <Sparkles className="w-4 h-4 text-purple-600" />
-        <p className="text-xs font-semibold text-purple-800 uppercase tracking-wide">AI Vendor Comparison</p>
-        <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full ml-auto">{ranked.length} vendors analysed</span>
+        <p className="text-xs font-semibold text-purple-800 uppercase tracking-wide">
+          AI Vendor Comparison
+        </p>
+        <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full ml-auto">
+          {ranked.length} vendors analysed
+        </span>
       </div>
-      <div className="overflow-x-auto">
+
+      <div className="overflow-x-auto overflow-visible">
         <table className="w-full text-xs" style={{ minWidth: 680 }}>
           <thead>
             <tr className="bg-slate-50 border-b">
-              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Rank</th>
-              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Vendor</th>
-              <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">Bid Amount</th>
-              <th className="text-center px-4 py-2.5 font-medium text-muted-foreground">AI Score</th>
+              <th className="text-left px-4 py-2.5">Rank</th>
+              <th className="text-left px-4 py-2.5">Vendor</th>
+              <th className="text-right px-4 py-2.5">Bid Amount</th>
+              <th className="text-center px-4 py-2.5">AI Score</th>
+
               {DIMS.map(d => (
-                <th key={d.key} className="text-center px-3 py-2.5 font-medium text-muted-foreground whitespace-nowrap">
+                <th key={d.key} className="text-center px-3 py-2.5 whitespace-nowrap">
                   {d.label}
-                  <span className="block text-[10px] font-normal text-muted-foreground/70">{d.weight}</span>
+                  <span className="block text-[10px]">{d.weight}</span>
                 </th>
               ))}
+
+              <th className="px-2 py-2.5"></th>
             </tr>
           </thead>
+
           <tbody className="divide-y">
+
             {ranked.map((rv: any) => {
               const bid = bids.find((b: any) => b.vendor === rv.vendor_id)
-              const isRecommended = aiRec.recommendation?.recommended_vendor_id === rv.vendor_id
               const breakdown = rv.score_breakdown ?? {}
+              const isOpen = expandedMap[rv.vendor_id]
+
+              const isPending = bid?.status === 'pending'
+              const isAccepted = bid?.status === 'accepted'
+              const isRejected = bid?.status === 'rejected'
+              const isPendingApproval = bid?.status === 'pending_approval'
+
+              // ONLY pending → edit allowed
+              const canEdit = isPending
+
+              // ONLY pending → approve/reject allowed (if canAct from PR)
+              const canApproveReject = isPending && canAct
+
+              // show menu if ANY action OR edit trail exists
+              const editCount = (bid?.edit_logs ?? []).length
+
+              const showMenu =
+                canEdit ||
+                canApproveReject ||
+                editCount > 0
+
+
+              const isLocked =
+                aiRec?.lock_active && !isAccepted && !isRejected && !isPendingApproval
+
+              const hideMenu = isAccepted || isRejected || isPendingApproval
+
+              const isRecommended =
+                aiRec?.recommendation?.recommended_vendor_id === rv.vendor_id
+
+              const colSpan = DIMS.length + 5
+
+
               return (
-                <tr key={rv.vendor_id} className={isRecommended ? 'bg-purple-50/40' : ''}>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                      rv.rank === 1 ? 'bg-yellow-100 text-yellow-800' :
-                      rv.rank === 2 ? 'bg-slate-200 text-slate-700' :
-                      'bg-slate-100 text-slate-500'
-                    }`}>
-                      {rv.rank}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-medium text-sm">{rv.vendor_name}</span>
-                      {isRecommended && (
-                        <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-semibold rounded">TOP PICK</span>
-                      )}
-                    </div>
-                    {rv.notes && <p className="text-muted-foreground mt-0.5 max-w-[200px] truncate" title={rv.notes}>{rv.notes}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-sm">
-                    {bid ? formatCurrency(bid.bid_amount, pr.currency_code) : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`inline-block px-2 py-1 rounded-lg font-bold text-sm ${scoreColor(rv.ai_score)}`}>
-                      {rv.ai_score}
-                    </span>
-                  </td>
-                  {DIMS.map(d => {
-                    const val = breakdown[d.key]
-                    return (
-                      <td key={d.key} className="px-3 py-3 text-center">
-                        {val != null ? (
-                          <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${scoreColor(val)}`}>
-                            {val}
+                <>
+                  <tr
+                    key={rv.vendor_id}
+                    className={`transition-all ${isAccepted
+                      ? 'bg-green-50/60 border-green-300'
+                      : isRejected
+                        ? 'bg-red-50/20 border-red-200 opacity-60'
+                        : isPendingApproval
+                          ? 'bg-amber-50/40 border-amber-300'
+                          : isLocked
+                            ? 'border-slate-200 opacity-50'
+                            : isRecommended
+                              ? 'bg-purple-50/30 border-purple-300'
+                              : 'bg-white'
+                      }`}
+                  >
+
+
+                    {/* Rank */}
+                    <td className="px-4 py-3">
+                      <span className="w-6 h-6 inline-flex items-center justify-center rounded-full text-xs font-bold bg-slate-100">
+                        {rv.rank}
+                      </span>
+                    </td>
+
+                    {/* Vendor */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{rv.vendor_name}</span>
+                        <BidStatusBadge status={bid.status} />
+
+                        {isRecommended && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
+                            TOP PICK
                           </span>
-                        ) : '—'}
+                        )}
+
+                        {isAccepted && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
+                            SELECTED
+                          </span>
+                        )}
+                      </div>
+                      {rv.notes && <p className="text-muted-foreground mt-0.5 max-w-[200px] truncate" title={rv.notes}>{rv.notes}</p>}
+
+                    </td>
+
+                    {/* Amount */}
+                    <td className="px-4 py-3 text-right font-semibold">
+                      {bid ? formatCurrency(bid.bid_amount, pr.currency_code) : '—'}
+                    </td>
+
+                    {/* AI SCORE */}
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-1 rounded font-bold ${scoreColor(rv.ai_score)}`}>
+                        {rv.ai_score}
+                      </span>
+                    </td>
+
+                    {/* DIMENSIONS */}
+                    {DIMS.map(d => {
+                      const val = breakdown[d.key]
+                      return (
+                        <td key={d.key} className="px-3 py-3 text-center">
+                          {val != null ? (
+                            <span className={`px-1.5 py-0.5 rounded text-xs ${scoreColor(val)}`}>
+                              {val}
+                            </span>
+                          ) : '—'}
+                        </td>
+                      )
+                    })}
+
+                    {/* ACTIONS */}
+                    <td className="px-2 py-3">
+                      <div className="flex items-center justify-end w-full gap-2">
+
+                        {/* MENU BUTTON */}
+                        {showMenu && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+
+                              setMenuPos({
+                                x: rect.right,
+                                y: rect.bottom,
+                                id: rv.vendor_id,
+                              })
+                            }}
+                            className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {/* EXPAND BUTTON */}
+                        {rv.score_breakdown && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedMap(prev => ({
+                                ...prev,
+                                [rv.vendor_id]: !prev[rv.vendor_id],
+                              }))
+                            }
+                            className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground"
+                          >
+                            {expandedMap[rv.vendor_id] ? (
+                              <ChevronDown className="w-4 h-4" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+
+                      </div>
+                    </td>
+
+
+                  </tr>
+                  {/* Pending approval progress */}
+
+                  {/* EXPANDED */}
+                  {isOpen && (
+                    <tr>
+                      <td colSpan={colSpan} className="p-0">
+                        <div className="px-4 pb-4 bg-slate-50 border-t">
+                          <ScoreDimensionGrid scoreBreakdown={rv.score_breakdown} />
+                        </div>
                       </td>
-                    )
-                  })}
-                </tr>
+                    </tr>
+                  )}
+                  <tr>
+                    <td colSpan={colSpan} className="p-0">
+                      <BidApprovalProgress bid={bid} />
+                    </td>
+                  </tr>
+                  {/* Edit trail */}
+                  {showEditTrail && bid?.edit_logs?.length > 0 && (
+                    <tr>
+                      <td colSpan={colSpan} className="p-0">
+                        <BidEditTrail
+                          logs={bid.edit_logs}
+                          currencyCode={pr.currency_code}
+                        />
+                      </td>
+                    </tr>
+                  )}
+
+
+
+                  {/* Rejection reason */}
+                  {isRejected && bid?.rejection_reason && (
+                    <tr>
+                      <td colSpan={colSpan} className="p-0">
+                        <div className="px-4 pb-3 bg-red-50/30 border-t border-red-100">
+                          <p className="text-xs text-red-600 mt-2">
+                            Reason: {bid.rejection_reason}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                </>
+
               )
             })}
           </tbody>
         </table>
       </div>
+
+      {/* EDIT MODAL */}
+      {editing && (
+        <EditBidModal
+          bid={editing}
+          prId={pr.id}
+          onClose={() => setEditing(null)}
+          onSuccess={onBidEdited}
+        />
+      )}
+ {menuPos.id && (() => {
+  const bid = bids.find(b => b.vendor === menuPos.id)
+
+  const isPending = bid?.status === 'pending'
+  const canEdit = isPending
+  const canApproveReject = isPending && canAct
+  const editCount = (bid?.edit_logs ?? []).length
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed z-[99999] w-40 bg-white border rounded shadow-lg"
+      style={{
+        top: menuPos.y,
+        left: menuPos.x - 160,
+      }}
+    >
+      {/* EDIT */}
+      {canEdit && (
+        <button
+          className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50"
+          onClick={() => {
+            setEditing(bid)
+            setMenuPos({ x: 0, y: 0, id: null })
+          }}
+        >
+          Edit
+        </button>
+      )}
+
+      {/* APPROVE */}
+      {canApproveReject && (
+        <button
+          className="w-full text-left px-3 py-2 text-xs text-green-600 hover:bg-green-50"
+          onClick={() => {
+            onApprove(bid)
+            setMenuPos({ x: 0, y: 0, id: null })
+          }}
+        >
+          Approve
+        </button>
+      )}
+
+      {/* REJECT */}
+      {canApproveReject && (
+        <button
+          className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+          onClick={() => {
+            onReject(bid)
+            setMenuPos({ x: 0, y: 0, id: null })
+          }}
+        >
+          Reject
+        </button>
+      )}
+
+      {/* EDIT TRAIL */}
+      {editCount > 0 && (
+        <button
+          className="w-full text-left px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            setShowEditTrail(x => !x)
+            setMenuPos({ x: 0, y: 0, id: null })
+          }}
+        >
+          Edit Trail ({editCount})
+        </button>
+      )}
+    </div>
+  )
+})()}
+
+
+      {/* SUMMARY */}
       {aiRec.summary && (
         <div className="px-4 py-3 border-t bg-slate-50 text-xs text-muted-foreground">
-          <span className="font-medium text-slate-700">Summary: </span>{aiRec.summary}
+          <span className="font-semibold">Summary: </span>
+          {aiRec.summary}
         </div>
       )}
     </div>
   )
 }
+
 
 // ─── Score Dimension Grid ─────────────────────────────────────────────────────
 
@@ -1631,10 +1937,10 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
 
   return (
     <div className={`border rounded-xl overflow-hidden transition-all ${isAccepted ? 'border-green-300' :
-        isRejected ? 'border-red-200 opacity-60' :
-          isPendingApproval ? 'border-amber-300' :
-            isLocked ? 'border-slate-200 opacity-50' :
-              isRecommended ? 'border-purple-300' : 'border-border'
+      isRejected ? 'border-red-200 opacity-60' :
+        isPendingApproval ? 'border-amber-300' :
+          isLocked ? 'border-slate-200 opacity-50' :
+            isRecommended ? 'border-purple-300' : 'border-border'
       }`}>
       {/* Lock banner */}
       {isLocked && (
@@ -1649,9 +1955,9 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
 
       {/* Main row */}
       <div className={`flex items-center gap-3 px-4 py-3 ${isAccepted ? 'bg-green-50/60' :
-          isRejected ? 'bg-red-50/20' :
-            isPendingApproval ? 'bg-amber-50/40' :
-              isRecommended ? 'bg-purple-50/30' : 'bg-white'
+        isRejected ? 'bg-red-50/20' :
+          isPendingApproval ? 'bg-amber-50/40' :
+            isRecommended ? 'bg-purple-50/30' : 'bg-white'
         }`}>
         {/* Rank */}
         <span className="text-xs font-bold text-muted-foreground w-6 shrink-0 text-center">#{rank}</span>
@@ -1705,10 +2011,10 @@ function BidRow({ bid, pr, rank, aiRankedVendors, canAct, hasBidPendingApproval,
         {/* AI Score pill */}
         {bid.ai_score != null && (
           <div className={`shrink-0 hidden sm:flex flex-col items-center justify-center w-14 h-12 rounded-lg border ${bid.ai_score >= 75 ? 'border-green-200 bg-green-50' :
-              bid.ai_score >= 50 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50'
+            bid.ai_score >= 50 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50'
             }`}>
             <span className={`text-base font-bold leading-none ${bid.ai_score >= 75 ? 'text-green-700' :
-                bid.ai_score >= 50 ? 'text-amber-700' : 'text-red-700'
+              bid.ai_score >= 50 ? 'text-amber-700' : 'text-red-700'
               }`}>{bid.ai_score}</span>
             <span className="text-[10px] text-muted-foreground mt-0.5">AI Score</span>
           </div>
@@ -2139,8 +2445,7 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
   const hasBidPendingApproval = (bids ?? []).some((b: any) => b.status === 'pending_approval')
   const aiRec = pr.ai_recommendation ?? {}
   const aiRankedVendors: any[] = aiRec.ranked_vendors ?? []
-
-  // Called after a bid is saved — refetch bids and PR (AI analysis runs on backend)
+  // Calledc after a bid is saved — refetch bids and PR (AI analysis runs on backend)
   const handleBidAdded = async () => {
     await refetchBids()
     onPRChange()
@@ -2217,13 +2522,27 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
 
       {hasBids ? (
         <>
-          {/* ── AI Recommendation ── */}
-          {aiRec.summary && (
-            <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
-              <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-              <div className="text-sm text-purple-800">{aiRec.summary}</div>
-            </div>
-          )}
+          {/* ── KPI Cards ── */}
+          <BidSummaryCards bids={bids ?? []} pr={pr} />
+
+          {/* ── Highlight Cards (Lowest Price + Best Value) ── */}
+          <BidHighlightCards bids={bids ?? []} pr={pr} aiRec={aiRec} />
+
+          {/* ── AI Recommendation Banner ── */}
+          <AIRecommendationBanner aiRec={aiRec} />
+
+          {/* ── AI Vendor Comparison Table ── */}
+          {Array.isArray(aiRec?.ranked_vendors) &&
+            aiRec.ranked_vendors.length > 0 && <AIVendorComparisonTable
+              aiRec={aiRec}
+              bids={bids ?? []}
+              pr={pr}
+              canAct={canAct}
+              onApprove={b => setBidToApprove(b)}
+              onReject={b => setConfirmReject(b)}
+              onBidEdited={() => { refetchBids(); onPRChange() }}
+            />}
+
 
           {/* ── Anomalies ── */}
           {(aiRec.anomalies ?? []).length > 0 && (
@@ -2238,101 +2557,28 @@ function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
             </div>
           )}
 
-          {/* ── Unified Bids Comparison Table ── */}
-          <div className="border rounded-xl overflow-hidden">
-            <div className="px-4 py-3 bg-slate-50 border-b flex items-center justify-between">
+          {/* ── Bids list ── */}
+          {(!aiRec?.ranked_vendors || aiRec.ranked_vendors.length === 0) && <div className="space-y-2">
+            <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Bid Comparison ({sortedBids.length} vendors)
               </p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm" style={{ minWidth: 700 }}>
-                <thead className="bg-slate-50/50 border-b">
-                  <tr className="text-xs text-muted-foreground">
-                    <th className="text-left px-4 py-2.5 font-medium w-8">#</th>
-                    <th className="text-left px-4 py-2.5 font-medium">Vendor</th>
-                    <th className="text-right px-4 py-2.5 font-medium">Bid Amount</th>
-                    <th className="text-center px-4 py-2.5 font-medium">Delivery</th>
-                    <th className="text-center px-4 py-2.5 font-medium">AI Score</th>
-                    <th className="text-center px-4 py-2.5 font-medium">Status</th>
-                    {canAct && <th className="text-center px-4 py-2.5 font-medium">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {sortedBids.map((bid: any, idx: number) => {
-                    const aiVendor = aiRankedVendors.find((rv: any) => rv.vendor_id === bid.vendor)
-                    const isRecommended = aiRec.recommendation?.recommended_vendor_id === bid.vendor
-                    const isAccepted = bid.status === 'accepted'
-                    const isRejected = bid.status === 'rejected'
-                    const isPendingApproval = bid.status === 'pending_approval'
-
-                    return (
-                      <tr key={bid.id} className={
-                        isAccepted ? 'bg-green-50/50' :
-                        isRecommended ? 'bg-purple-50/30' :
-                        isRejected ? 'bg-slate-50/50 opacity-60' : ''
-                      }>
-                        <td className="px-4 py-3 text-muted-foreground">{idx + 1}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-medium">{bid.vendor_name}</span>
-                            {isRecommended && <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-semibold rounded">AI TOP PICK</span>}
-                            {isAccepted && <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-semibold rounded">ACCEPTED</span>}
-                          </div>
-                          {bid.vendor_city && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {bid.vendor_city}{bid.vendor_state ? `, ${bid.vendor_state}` : ''}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="font-bold text-base">{formatCurrency(bid.bid_amount, pr.currency_code)}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="text-sm">{bid.delivery_days}d</span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {aiVendor?.ai_score != null ? (
-                            <span className={`inline-block px-2 py-1 rounded-lg font-bold text-sm ${
-                              aiVendor.ai_score >= 80 ? 'text-green-700 bg-green-50' :
-                              aiVendor.ai_score >= 60 ? 'text-amber-700 bg-amber-50' :
-                              'text-red-700 bg-red-50'
-                            }`}>
-                              {aiVendor.ai_score}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <StatusBadge status={bid.status} />
-                        </td>
-                        {canAct && (
-                          <td className="px-4 py-3 text-center">
-                            {!isAccepted && !isRejected && !isPendingApproval && (
-                              <div className="flex items-center gap-1 justify-center">
-                                <Button size="sm" className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
-                                  onClick={() => setBidToApprove(bid)}>
-                                  <ThumbsUp className="w-3 h-3" /> Accept
-                                </Button>
-                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600 hover:bg-red-50"
-                                  onClick={() => setConfirmReject(bid)}>
-                                  <ThumbsDown className="w-3 h-3" /> Reject
-                                </Button>
-                              </div>
-                            )}
-                            {isRejected && bid.rejection_reason && (
-                              <p className="text-[10px] text-red-500 italic">{bid.rejection_reason}</p>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            {sortedBids.map((bid: any, idx: number) => (
+              <BidRow
+                key={bid.id}
+                bid={bid}
+                pr={pr}
+                rank={idx + 1}
+                aiRankedVendors={aiRankedVendors}
+                canAct={canAct}
+                hasBidPendingApproval={hasBidPendingApproval}
+                onApprove={b => setBidToApprove(b)}
+                onReject={b => setConfirmReject(b)}
+                onBidEdited={() => { refetchBids(); onPRChange() }}
+              />
+            ))}
+          </div>}
         </>
       ) : (
         <div className="border rounded-xl p-8 text-center space-y-1">
@@ -2386,14 +2632,14 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
   // ── Status badge ─────────────────────────────────────────────────────────────
 
   const statusStyles: Record<string, string> = {
-    draft:            'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0',
+    draft: 'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0',
     pending_approval: 'background:#fef3c7;color:#92400e;border:1px solid #fde68a',
-    approved:         'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
-    rejected:         'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
-    vendor_selected:  'background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe',
-    synced_to_sap:    'background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe',
-    po_created:       'background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe',
-    cancelled:        'background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0',
+    approved: 'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
+    rejected: 'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
+    vendor_selected: 'background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe',
+    synced_to_sap: 'background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe',
+    po_created: 'background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe',
+    cancelled: 'background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0',
   }
   const sstyle = statusStyles[pr.status] ?? statusStyles.draft
   const statusLabel = (pr.status ?? '').replaceAll('_', ' ').toUpperCase()
@@ -2403,12 +2649,12 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
   const lineRows = lineItems.length === 0
     ? `<tr><td colspan="7" style="padding:10px;text-align:center;color:#94a3b8;font-style:italic">No line items</td></tr>`
     : lineItems.map((item, idx) => {
-        const detail = item.item_code_detail ?? {}
-        const code = detail.code ?? item.item_code ?? '—'
-        const desc = detail.description ?? item.description ?? '—'
-        const total = Number(item.quantity || 0) * Number(item.unit_rate || 0)
-        const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
-        return `<tr style="${bg}">
+      const detail = item.item_code_detail ?? {}
+      const code = detail.code ?? item.item_code ?? '—'
+      const desc = detail.description ?? item.description ?? '—'
+      const total = Number(item.quantity || 0) * Number(item.unit_rate || 0)
+      const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
+      return `<tr style="${bg}">
           <td style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${idx + 1}</td>
           <td style="padding:5px 8px;font-family:Courier New,monospace;font-size:9px;border:1px solid #e2e8f0">${code}</td>
           <td style="padding:5px 8px;border:1px solid #e2e8f0">${desc}</td>
@@ -2417,7 +2663,7 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
           <td style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0">${fmt(Number(item.unit_rate))}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:600;border:1px solid #e2e8f0">${fmt(total)}</td>
         </tr>`
-      }).join('')
+    }).join('')
 
   // ── Info field row ────────────────────────────────────────────────────────────
 
@@ -2446,46 +2692,46 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
   const trackingCode = budget?.tracking_code ?? pr.tracking_code ?? '—'
 
   const detailRows = [
-    frow('PR Number',    pr.pr_number),
-    frow('Title',        pr.title),
-    frow('Description',  pr.description),
-    frow('Department',   pr.department_name),
-    frow('Plant',        pr.plant_name),
+    frow('PR Number', pr.pr_number),
+    frow('Title', pr.title),
+    frow('Description', pr.description),
+    frow('Department', pr.department_name),
+    frow('Plant', pr.plant_name),
     frow('Purchase Type', pr.purchase_type),
-    frow('Currency',     currency),
-    frow('Created By',   pr.created_by_name),
-    frow('Created On',   createdAt),
-    frow('Approved On',  pr.approved_at ? approvedAt : null),
+    frow('Currency', currency),
+    frow('Created By', pr.created_by_name),
+    frow('Created On', createdAt),
+    frow('Approved On', pr.approved_at ? approvedAt : null),
   ].join('')
 
   const vendorRows = [
-    frow('Invited Vendors',  invitedVendors),
-    frow('Selected Vendor',  selectedVendor),
-    frow('SAP PR Number',    pr.sap_pr_number || null),
-    frow('SAP PO Number',    pr.sap_po_number || null),
+    frow('Invited Vendors', invitedVendors),
+    frow('Selected Vendor', selectedVendor),
+    frow('SAP PR Number', pr.sap_pr_number || null),
+    frow('SAP PO Number', pr.sap_po_number || null),
   ].join('')
 
   // Budget section
   const budgetRows = budget ? [
-    frow('Tracking ID',     trackingCode),
+    frow('Tracking ID', trackingCode),
     frow('Approved Budget', `${currency} ${fmt(Number(budget.approved_amount))}`),
-    frow('Consumed',        `${currency} ${fmt(Number(budget.consumed_amount))}`),
-    frow('Remaining',       `${currency} ${fmt(Number(budget.remaining_amount))}`),
+    frow('Consumed', `${currency} ${fmt(Number(budget.consumed_amount))}`),
+    frow('Remaining', `${currency} ${fmt(Number(budget.remaining_amount))}`),
   ].join('') : null
 
   // Invited vendors table
   const vendorDetailRows = (pr.invited_vendors_detail ?? []).length > 0
     ? (pr.invited_vendors_detail as any[]).map((v: any, idx: number) => {
-        const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
-        const loc = [v.city, v.state].filter(Boolean).join(', ') || '—'
-        return `<tr style="${bg}">
+      const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
+      const loc = [v.city, v.state].filter(Boolean).join(', ') || '—'
+      return `<tr style="${bg}">
           <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center;color:#64748b">${idx + 1}</td>
           <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:500">${v.company_name}</td>
           <td style="padding:5px 8px;border:1px solid #e2e8f0">${v.category_name || '—'}</td>
           <td style="padding:5px 8px;border:1px solid #e2e8f0">${loc}</td>
           <td style="padding:5px 8px;border:1px solid #e2e8f0">${v.contact_email || '—'}</td>
         </tr>`
-      }).join('')
+    }).join('')
     : null
 
   // ── HTML ───────────────────────────────────────────────────────────────────────
@@ -2609,12 +2855,12 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
             <td style="padding:5px 12px;text-align:right;font-weight:600;border:1px solid #e2e8f0">${currency} ${fmt(subtotal)}</td>
           </tr>
           ${activeTaxes.map(t => {
-            const amt = subtotal * t.rate / 100
-            return `<tr>
+    const amt = subtotal * t.rate / 100
+    return `<tr>
               <td style="padding:5px 12px;color:#64748b;border:1px solid #e2e8f0">${t.name} (${t.rate}%)</td>
               <td style="padding:5px 12px;text-align:right;border:1px solid #e2e8f0">${currency} ${fmt(amt)}</td>
             </tr>`
-          }).join('')}
+  }).join('')}
           ${activeTaxes.length > 0 ? `<tr style="background:#f8fafc">
             <td style="padding:5px 12px;color:#475569;font-weight:600;border:1px solid #e2e8f0">Total Tax</td>
             <td style="padding:5px 12px;text-align:right;font-weight:600;border:1px solid #e2e8f0">${currency} ${fmt(taxTotal)}</td>

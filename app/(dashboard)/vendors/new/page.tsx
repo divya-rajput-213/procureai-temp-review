@@ -16,6 +16,7 @@ import { ArrowLeft, ArrowRight, Loader2, Sparkles, CheckCircle, Send, Save, X, P
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
+import { DOC_CONFIG } from '@/lib/utils'
 
 const SRF_FIELD_LABELS: Record<string, string> = {
   company_name: 'Company Name',
@@ -34,25 +35,6 @@ const SRF_FIELD_LABELS: Record<string, string> = {
   bank_name: 'Bank Name',
   msme_number: 'MSME Number',
 }
-export const DOC_CONFIG: Record<string, { docType: string; title: string }> = {
-  gst_certificate: {
-    docType: 'gst_certificate',
-    title: 'GST Certificate',
-  },
-  pan_card: {
-    docType: 'pan_card',
-    title: 'PAN Card',
-  },
-  bank_details: {
-    docType: 'bank_details',
-    title: 'Bank Details',
-  },
-  msme_certificate: {
-    docType: 'msme_certificate',
-    title: 'MSME Certificate',
-  },
-}
-
 
 type SrfMatchRow = { field: string; label: string; value: string; confidence: number; include: boolean }
 type FieldConfig = {
@@ -126,6 +108,67 @@ function DocFileInput({ chosen, onSelect, onClear, hasError }: Readonly<{
   )
 }
 
+// Reusable two-column compliance row: left = upload/verified text, right = editable field
+function ComplianceDocRow({ label, fieldLabel, doc, extractedKey, extraExtractedKey, vendorId, docType,
+  onRefresh, fieldProps, fieldPlaceholder, fieldError, docError, onDocError, hasError }: {
+  label: string; fieldLabel: string; doc: any; extractedKey: string; extraExtractedKey?: string
+  vendorId: string; docType: string; onRefresh: () => void
+  fieldProps: any; fieldPlaceholder: string
+  fieldError?: string; docError?: string; onDocError: (msg: string) => void; hasError: boolean
+}) {
+  const { toast } = useToast()
+  const [deleting, setDeleting] = useState(false)
+  const verified = doc?.ai_validation_status === 'passed' || doc?.ai_validation_status === 'valid'
+  const extractedValue = doc?.ai_extracted_data?.[extractedKey]
+  const extraValue = extraExtractedKey ? doc?.ai_extracted_data?.[extraExtractedKey] : null
+
+  const remove = async () => {
+    if (!doc) return
+    setDeleting(true)
+    try {
+      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id ?? doc.id}/`)
+      onRefresh()
+      onDocError('')
+    } catch { toast({ title: 'Delete failed', variant: 'destructive' }) }
+    finally { setDeleting(false) }
+  }
+
+  return (
+    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${hasError ? 'border-destructive/50' : ''}`}>
+      {/* Left: upload or verified text */}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-700">{label} <span className="text-destructive">*</span></Label>
+        {verified ? (
+          <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
+            <FileText className="w-4 h-4 text-green-600 shrink-0" />
+            <span className="text-xs truncate flex-1 min-w-0 text-green-800">{doc?.original_filename}</span>
+            <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Verified</span>
+            {doc?.file_url && <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-[10px] text-green-600 hover:underline">View</a>}
+            <button type="button" onClick={remove} disabled={deleting} className="shrink-0 text-[10px] text-red-400 hover:text-red-600">
+              {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        ) : (
+          <>
+            <DocUploadWidget vendorId={vendorId} docType={docType} doc={doc} onRefresh={onRefresh} setFieldError={onDocError} />
+            {docError && <p className="text-xs text-destructive mt-1">{docError}</p>}
+          </>
+        )}
+      </div>
+      {/* Right: editable text field */}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-700">
+          {fieldLabel} <span className="text-destructive">*</span>
+          {verified && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+        </Label>
+        <Input placeholder={fieldPlaceholder} {...fieldProps}
+          className={fieldError ? 'border-destructive ring-1 ring-destructive/30' : ''} />
+        {fieldError && <p className="text-xs text-destructive mt-1">{fieldError}</p>}
+      </div>
+    </div>
+  )
+}
+
 function DocUploadWidget({ vendorId, docType, doc, onRefresh, setFieldError }: {
   vendorId: string
   docType: string
@@ -190,60 +233,11 @@ function DocUploadWidget({ vendorId, docType, doc, onRefresh, setFieldError }: {
     } finally { setDeleting(false) }
   }
 
-  const extracted = doc?.ai_extracted_data || {}
   const status = doc?.ai_validation_status
-  const isValid = status === 'passed' || status === 'valid'
   const isFailed = status === 'failed' || status === 'invalid'
-  const hasExtracted = isValid && Object.values(extracted).some(v => v && String(v).trim())
 
-  // State: Validated — show extracted data as text
-  if (doc && hasExtracted) {
-    return (
-      <div className="border rounded-lg overflow-hidden">
-        {/* Header — status + actions */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border-b border-green-200">
-          <CheckCircle className="w-3.5 h-3.5 text-green-600 shrink-0" />
-          <span className="text-xs font-medium text-green-700 flex-1">AI Verified</span>
-          {doc.file_url && (
-            <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-xs text-green-600 hover:underline">
-              View
-            </a>
-          )}
-          <button type="button" onClick={remove} disabled={deleting}
-            className="shrink-0 text-xs text-red-400 hover:text-red-600 disabled:opacity-50">
-            {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Remove'}
-          </button>
-        </div>
-        {/* Extracted data */}
-        <div className="px-3 py-2 bg-green-50/30 space-y-1">
-          {extracted.gst_number && (
-            <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">GSTIN:</span> <span className="font-mono font-medium">{extracted.gst_number}</span></div>
-          )}
-          {extracted.pan_number && (
-            <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">PAN:</span> <span className="font-mono font-medium">{extracted.pan_number}</span></div>
-          )}
-          {extracted.bank_account_number && (
-            <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">A/C:</span> <span className="font-mono font-medium">{extracted.bank_account_number}</span></div>
-          )}
-          {extracted.ifsc_code && (
-            <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">IFSC:</span> <span className="font-mono font-medium">{extracted.ifsc_code}</span></div>
-          )}
-          {extracted.bank_name && (
-            <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">Bank:</span> <span className="font-medium">{extracted.bank_name}</span></div>
-          )}
-          {extracted.msme_number && (
-            <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">MSME:</span> <span className="font-mono font-medium">{extracted.msme_number}</span></div>
-          )}
-          {extracted.legal_name && (
-            <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">Name:</span> <span className="font-medium">{extracted.legal_name}</span></div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // State: Doc exists but failed / no extracted data
-  if (doc && !hasExtracted) {
+  // State: Doc exists (failed or unprocessed) — show filename + remove
+  if (doc) {
     return (
       <div className="border rounded-lg overflow-hidden">
         <div className={`flex items-center gap-2 px-3 py-2 ${isFailed ? 'bg-red-50 border-b border-red-200' : 'bg-slate-50'}`}>
@@ -391,7 +385,21 @@ export default function NewVendorPage() {
     },
     enabled: !!vendorId && step >= 1,
   })
-  const refreshDocs = () => queryClient.invalidateQueries({ queryKey: ['vendor-docs', vendorId] })
+  const refreshDocs = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['vendor-docs', vendorId] })
+    // Fetch updated vendor — AI may have filled PAN/GST/bank fields
+    if (vendorId) {
+      try {
+        const { data: v } = await apiClient.get(`/vendors/${vendorId}/`)
+        if (v.gst_number) setValue('gst_number', v.gst_number)
+        if (v.pan_number) setValue('pan_number', v.pan_number)
+        if (v.bank_account) setValue('bank_account', v.bank_account)
+        if (v.bank_ifsc) setValue('bank_ifsc', v.bank_ifsc)
+        if (v.bank_name) setValue('bank_name', v.bank_name)
+        if (v.msme_number) setValue('msme_number', v.msme_number)
+      } catch { /* silent */ }
+    }
+  }
   const docOf = (type: string) => (vendorDocs ?? []).find((d: any) => d.doc_type === type) ?? null
 
   const { data: matrices } = useQuery({
@@ -888,146 +896,98 @@ export default function NewVendorPage() {
           <CardContent className="space-y-4">
 
             {/* GST */}
-            {(() => {
-              const gstDoc = docOf('gst_certificate')
-              const gstVerified = gstDoc?.ai_validation_status === 'passed' || gstDoc?.ai_validation_status === 'valid'
-              const gstExtracted = gstDoc?.ai_extracted_data?.gst_number
-              return (
-                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate'] ? 'border-destructive/50' : ''}`}>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">GST Certificate <span className="text-destructive">*</span></Label>
-                    {gstVerified ? (
-                      <div className="border rounded-lg bg-green-50 px-3 py-2.5 space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                          <span className="text-xs font-medium text-green-700">AI Verified</span>
-                        </div>
-                        {gstExtracted && <p className="font-mono text-sm font-bold text-green-800">{gstExtracted}</p>}
-                        {gstDoc?.ai_extracted_data?.legal_name && <p className="text-xs text-green-700">{gstDoc.ai_extracted_data.legal_name}</p>}
-                        <DocUploadWidget vendorId={vendorId!} docType="gst_certificate"
-                          doc={gstDoc} onRefresh={refreshDocs} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))
-                          } />
-                      </div>
-                    ) : (
-                      <>
-                        <DocUploadWidget vendorId={vendorId!} docType="gst_certificate"
-                          doc={gstDoc} onRefresh={refreshDocs} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))
-                          } />
-                        {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
-                      </>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">
-                      GST Number <span className="text-destructive">*</span>
-                      {gstVerified && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                    </Label>
-                    <Input placeholder="e.g. 27AAAAA0000A1Z5" {...register('gst_number')}
-                      className={complianceErrors['field_gst_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} />
-                    {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
-                  </div>
-                </div>
-              )
-            })()}
+            <ComplianceDocRow
+              label="GST Certificate"
+              fieldLabel="GST Number"
+              doc={docOf('gst_certificate')}
+              extractedKey="gst_number"
+              extraExtractedKey="legal_name"
+              vendorId={vendorId!}
+              docType="gst_certificate"
+              onRefresh={refreshDocs}
+              fieldProps={register('gst_number')}
+              fieldPlaceholder="e.g. 27AAAAA0000A1Z5"
+              fieldError={complianceErrors['field_gst_number']}
+              docError={complianceErrors['doc_gst_certificate']}
+              onDocError={(msg) => setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))}
+              hasError={!!(complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate'])}
+            />
 
             {/* PAN */}
-            {(() => {
-              const panDoc = docOf('pan_card')
-              const panVerified = panDoc?.ai_validation_status === 'passed' || panDoc?.ai_validation_status === 'valid'
-              const panExtracted = panDoc?.ai_extracted_data?.pan_number
-              return (
-                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card'] ? 'border-destructive/50' : ''}`}>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">PAN Card <span className="text-destructive">*</span></Label>
-                    {panVerified ? (
-                      <div className="border rounded-lg bg-green-50 px-3 py-2.5 space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                          <span className="text-xs font-medium text-green-700">AI Verified</span>
-                        </div>
-                        {panExtracted && <p className="font-mono text-sm font-bold text-green-800">{panExtracted}</p>}
-                        <DocUploadWidget vendorId={vendorId!} docType="pan_card"
-                          doc={panDoc} onRefresh={refreshDocs} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))
-                          } />
-                      </div>
-                    ) : (
-                      <>
-                        <DocUploadWidget vendorId={vendorId!} docType="pan_card"
-                          doc={panDoc} onRefresh={refreshDocs} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))
-                          } />
-                        {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
-                      </>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">
-                      PAN Number <span className="text-destructive">*</span>
-                      {panVerified && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                    </Label>
-                    <Input placeholder="e.g. AAAAA9999A" {...register('pan_number')}
-                      className={complianceErrors['field_pan_number'] ? 'border-destructive ring-1 ring-destructive/30' : ''} />
-                    {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
-                  </div>
-                </div>
-              )
-            })()}
+            <ComplianceDocRow
+              label="PAN Card"
+              fieldLabel="PAN Number"
+              doc={docOf('pan_card')}
+              extractedKey="pan_number"
+              vendorId={vendorId!}
+              docType="pan_card"
+              onRefresh={refreshDocs}
+              fieldProps={register('pan_number')}
+              fieldPlaceholder="e.g. AAAAA9999A"
+              fieldError={complianceErrors['field_pan_number']}
+              docError={complianceErrors['doc_pan_card']}
+              onDocError={(msg) => setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))}
+              hasError={!!(complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card'])}
+            />
 
             {/* Bank Details */}
             {(() => {
               const bankDoc = docOf('bank_details')
               const bankVerified = bankDoc?.ai_validation_status === 'passed' || bankDoc?.ai_validation_status === 'valid'
-              const bankData = bankDoc?.ai_extracted_data || {}
+              const bankHasError = !!(complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details'])
+
+              const bankRemove = async () => {
+                if (!bankDoc) return
+                try {
+                  await apiClient.delete(`/vendors/${vendorId}/documents/${bankDoc.hash_id ?? bankDoc.id}/`)
+                  refreshDocs()
+                  setComplianceErrors(prev => ({ ...prev, doc_bank_details: '' }))
+                } catch { /* silent */ }
+              }
+
               return (
-                <div className={`border rounded-lg p-4 space-y-3 ${complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details'] ? 'border-destructive/50' : ''}`}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
-                      {bankVerified ? (
-                        <div className="border rounded-lg bg-green-50 px-3 py-2.5 space-y-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                            <span className="text-xs font-medium text-green-700">AI Verified</span>
-                          </div>
-                          {bankData.bank_account_number && <div className="text-xs"><span className="text-green-600">A/C:</span> <span className="font-mono font-bold text-green-800">{bankData.bank_account_number}</span></div>}
-                          {bankData.ifsc_code && <div className="text-xs"><span className="text-green-600">IFSC:</span> <span className="font-mono font-bold text-green-800">{bankData.ifsc_code}</span></div>}
-                          {bankData.bank_name && <div className="text-xs"><span className="text-green-600">Bank:</span> <span className="font-bold text-green-800">{bankData.bank_name}</span></div>}
-                          <DocUploadWidget vendorId={vendorId!} docType="bank_details"
-                            doc={bankDoc} onRefresh={refreshDocs} setFieldError={(msg) =>
-                              setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
-                            } />
-                        </div>
-                      ) : (
-                        <>
-                          <DocUploadWidget vendorId={vendorId!} docType="bank_details"
-                            doc={bankDoc} onRefresh={refreshDocs} setFieldError={(msg) =>
-                              setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
-                            } />
-                          {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
-                        </>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      {[
-                        { name: 'bank_account', label: 'Account No', placeholder: 'e.g. 12345678901234', extracted: 'bank_account_number' },
-                        { name: 'bank_ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234', extracted: 'ifsc_code' },
-                        { name: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank', extracted: 'bank_name' },
-                      ].map(({ name, label, placeholder, extracted }) => (
-                        <div key={name} className="space-y-1">
-                          <Label className="text-xs font-semibold text-slate-700">
-                            {label} <span className="text-destructive">*</span>
-                            {bankVerified && bankData[extracted] && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                          </Label>
-                          <Input placeholder={placeholder} {...register(name as keyof VendorForm)}
-                            className={complianceErrors['field_bank_account'] ? 'border-destructive ring-1 ring-destructive/30' : ''} />
-                        </div>
-                      ))}
-                    </div>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${bankHasError ? 'border-destructive/50' : ''}`}>
+                  {/* Left: upload or file */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
+                    {bankVerified ? (
+                      <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
+                        <FileText className="w-4 h-4 text-green-600 shrink-0" />
+                        <span className="text-xs truncate flex-1 min-w-0 text-green-800">{bankDoc?.original_filename}</span>
+                        <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Verified</span>
+                        {bankDoc?.file_url && <a href={bankDoc.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-[10px] text-green-600 hover:underline">View</a>}
+                        <button type="button" onClick={bankRemove} className="shrink-0 text-red-400 hover:text-red-600">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <DocUploadWidget vendorId={vendorId!} docType="bank_details"
+                          doc={bankDoc} onRefresh={refreshDocs} setFieldError={(msg) =>
+                            setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
+                          } />
+                        {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
+                      </>
+                    )}
                   </div>
-                  {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive">{complianceErrors['field_bank_account']}</p>}
+                  {/* Right: text fields */}
+                  <div className="space-y-2">
+                    {[
+                      { name: 'bank_account', label: 'Account No', placeholder: 'e.g. 12345678901234' },
+                      { name: 'bank_ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234' },
+                      { name: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
+                    ].map(({ name, label, placeholder }) => (
+                      <div key={name} className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-700">
+                          {label} <span className="text-destructive">*</span>
+                          {bankVerified && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                        </Label>
+                        <Input placeholder={placeholder} {...register(name as keyof VendorForm)}
+                          className={complianceErrors['field_bank_account'] ? 'border-destructive ring-1 ring-destructive/30' : ''} />
+                      </div>
+                    ))}
+                    {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive">{complianceErrors['field_bank_account']}</p>}
+                  </div>
                 </div>
               )
             })()}

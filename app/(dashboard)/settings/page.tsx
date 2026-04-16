@@ -84,7 +84,7 @@ function MatrixRow({ matrix, onEdit, onDelete, onToggle }: {
                   <td className="py-1.5 font-medium">{l.user_name || l.user}</td>
                   <td className="py-1.5 text-muted-foreground">{l.role_name || l.role}</td>
                   <td className="py-1.5">{l.sla_hours}h</td>
-                   <td className="py-1.5">{l.sla_exceeded_action}</td>
+                   <td className="py-1.5">{l.sla_exceeded_action_display}</td>
 
                 </tr>
               ))}
@@ -366,7 +366,7 @@ function MatrixConfigTab() {
     user: Number(l.user),
     role: Number(l.role),
     sla_hours: l.sla_hours,
-    sla_exceeded_action: l.sla_exceeded_action, // ✅ FIX HERE
+    sla_exceeded_action: l.sla_exceeded_action, 
   })),
 }
 

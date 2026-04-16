@@ -12,12 +12,11 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download } from 'lucide-react'
-import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
+import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_CONFIG } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
-import { DOC_CONFIG } from '../new/page'
 
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -34,11 +33,6 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   nda: 'NDA / Agreement',
   warranty: 'Warranty Document',
   other: 'Other',
-}
-export const DOC_LABELS: Record<string, string> = {
-  gst_certificate: 'GST',
-  pan_card: 'PAN',
-  bank_details: 'Bank',
 }
 
 // Doc types available in the "Other Documents" upload panel
@@ -1848,14 +1842,64 @@ export default function VendorDetailPage() {
 
             {(() => {
               const docOf = (type: string) => vendor.documents?.find((d: any) => d.doc_type === type) ?? null
-              const blockCls = () =>
-                'grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start'
+              const refreshVendor = async () => {
+                await queryClient.invalidateQueries({ queryKey: ['vendor', id] })
+              }
+              const blockCls = (hasErr: boolean) =>
+                `grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${hasErr ? 'border-destructive/50' : ''}`
+
+              const VerifiedFile = ({ doc: d, onRemove }: { doc: any; onRemove: () => void }) => (
+                <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
+                  <FileText className="w-4 h-4 text-green-600 shrink-0" />
+                  <span className="text-xs truncate flex-1 min-w-0 text-green-800">{d?.original_filename}</span>
+                  <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Verified</span>
+                  {d?.file_url && <a href={d.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-[10px] text-green-600 hover:underline">View</a>}
+                  {canEdit && isEditing && (
+                    <button type="button" onClick={onRemove} className="shrink-0 text-red-400 hover:text-red-600">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )
+
+              const removeDoc = async (d: any) => {
+                if (!d) return
+                try {
+                  await apiClient.delete(`/vendors/${id}/documents/${d.hash_id ?? d.id}/`)
+                  refreshVendor()
+                } catch { /* silent */ }
+              }
+
+              const isVerified = (d: any) => d?.ai_validation_status === 'passed' || d?.ai_validation_status === 'valid'
+
+              const gstDoc = docOf('gst_certificate')
+              const panDoc = docOf('pan_card')
+              const bankDoc = docOf('bank_details')
+
               return <>
 
                 {/* GST */}
-                <div className={`${blockCls()} ${complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate'] ? 'border-destructive/50' : ''}`}>
+                <div className={blockCls(!!(complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate']))}>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">GST Number</Label>
+                    <Label className="text-xs font-semibold text-slate-700">GST Certificate <span className="text-destructive">*</span></Label>
+                    {isVerified(gstDoc) ? (
+                      <VerifiedFile doc={gstDoc} onRemove={() => removeDoc(gstDoc)} />
+                    ) : (
+                      <>
+                        <DocUploadInline vendorId={id} docType="gst_certificate"
+                          doc={gstDoc} editable={canEdit && isEditing}
+                          onRefresh={refreshVendor} setFieldError={(msg) =>
+                            setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))
+                          } />
+                        {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
+                      </>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">
+                      GST Number <span className="text-destructive">*</span>
+                      {isVerified(gstDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                    </Label>
                     <ComplianceFieldInput
                       value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
                       placeholder="e.g. 27AAAAA0000A1Z5"
@@ -1865,24 +1909,30 @@ export default function VendorDetailPage() {
                     />
                     {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">GST Certificate</Label>
-                    <DocUploadInline vendorId={id} docType="gst_certificate"
-                      doc={docOf('gst_certificate')} editable={canEdit && isEditing}
-                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })}  setFieldError={(msg) =>
-                    setComplianceErrors(prev => ({
-                      ...prev,
-                      doc_gst_certificate: msg
-                    }))
-                  } />
-                    {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
-                  </div>
                 </div>
 
                 {/* PAN */}
-                <div className={`${blockCls()} ${complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card'] ? 'border-destructive/50' : ''}`}>
+                <div className={blockCls(!!(complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card']))}>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">PAN Number</Label>
+                    <Label className="text-xs font-semibold text-slate-700">PAN Card <span className="text-destructive">*</span></Label>
+                    {isVerified(panDoc) ? (
+                      <VerifiedFile doc={panDoc} onRemove={() => removeDoc(panDoc)} />
+                    ) : (
+                      <>
+                        <DocUploadInline vendorId={id} docType="pan_card"
+                          doc={panDoc} editable={canEdit && isEditing}
+                          onRefresh={refreshVendor} setFieldError={(msg) =>
+                            setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))
+                          } />
+                        {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
+                      </>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">
+                      PAN Number <span className="text-destructive">*</span>
+                      {isVerified(panDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                    </Label>
                     <ComplianceFieldInput
                       value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
                       placeholder="e.g. AAAAA9999A"
@@ -1892,30 +1942,36 @@ export default function VendorDetailPage() {
                     />
                     {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">PAN Card</Label>
-                    <DocUploadInline vendorId={id} docType="pan_card"
-                      doc={docOf('pan_card')} editable={canEdit && isEditing}
-                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} setFieldError={(msg) =>
-                    setComplianceErrors(prev => ({
-                      ...prev,
-                      doc_pan_card: msg
-                    }))
-                  } />
-                    {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
-                  </div>
                 </div>
 
                 {/* Bank Details */}
-                <div className={`${blockCls()} ${complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details'] ? 'border-destructive/50' : ''}`}>
+                <div className={blockCls(!!(complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details']))}>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
+                    {isVerified(bankDoc) ? (
+                      <VerifiedFile doc={bankDoc} onRemove={() => removeDoc(bankDoc)} />
+                    ) : (
+                      <>
+                        <DocUploadInline vendorId={id} docType="bank_details"
+                          doc={bankDoc} editable={canEdit && isEditing}
+                          onRefresh={refreshVendor} setFieldError={(msg) =>
+                            setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
+                          } />
+                        {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
+                      </>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     {[
-                      { key: 'bank_account', label: 'Bank Account No', placeholder: 'e.g. 12345678901234' },
-                      { key: 'bank_ifsc', label: 'Bank IFSC', placeholder: 'e.g. HDFC0001234' },
+                      { key: 'bank_account', label: 'Account No', placeholder: 'e.g. 12345678901234' },
+                      { key: 'bank_ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234' },
                       { key: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
                     ].map(({ key, label, placeholder }) => (
-                      <div key={key} className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-slate-700">{label}</Label>
+                      <div key={key} className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-700">
+                          {label} <span className="text-destructive">*</span>
+                          {isVerified(bankDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                        </Label>
                         <ComplianceFieldInput
                           value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
                           placeholder={placeholder}
@@ -1925,19 +1981,7 @@ export default function VendorDetailPage() {
                         />
                       </div>
                     ))}
-                    {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_bank_account']}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque</Label>
-                    <DocUploadInline vendorId={id} docType="bank_details"
-                      doc={docOf('bank_details')} editable={canEdit && isEditing}
-                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} setFieldError={(msg) =>
-                    setComplianceErrors(prev => ({
-                      ...prev,
-                      doc_bank_details: msg
-                    }))
-                  }/>
-                    {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
+                    {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive">{complianceErrors['field_bank_account']}</p>}
                   </div>
                 </div>
 

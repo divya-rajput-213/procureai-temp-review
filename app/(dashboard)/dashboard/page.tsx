@@ -74,7 +74,7 @@ export default function DashboardPage() {
   })
 
   const { data: recentPOs } = useQuery({
-    queryKey: ['recent-pos'],
+    queryKey: ['recent-pos', dateRange],
     queryFn: async () => {
       const r = await apiClient.get('/purchase-orders/?page_size=5')
       return r.data.results ?? r.data
@@ -82,7 +82,7 @@ export default function DashboardPage() {
   })
 
   const { data: recentPRs } = useQuery({
-    queryKey: ['recent-prs'],
+    queryKey: ['recent-prs', dateRange],
     queryFn: async () => {
       const r = await apiClient.get('/procurement/?ordering=-created_at&page_size=5')
       return r.data.results ?? r.data
@@ -117,19 +117,25 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI Cards — Row 1 */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-        <StatCard title="Active PRs" value={recentPRs?.length || '—'} subtitle="Purchase requisitions"
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <StatCard title="PRs Created" value={stats?.pr_count ?? '—'}
+          subtitle={formatCurrency(stats?.pr_total || 0)}
           icon={ShoppingCart} color="bg-blue-600" href="/procurement" />
-        <StatCard title="Purchase Orders" value={poStats.total || 0} subtitle={`${formatCurrency(poStats.total_value || 0)} total`}
+        <StatCard title="Purchase Orders" value={stats?.po_count ?? poStats.total ?? 0}
+          subtitle={formatCurrency(stats?.po_total || poStats.total_value || 0)}
           icon={Package} color="bg-indigo-600" href="/purchase-orders" />
-        <StatCard title="GRN Pending" value={poStats.grn_pending || 0} subtitle="Awaiting goods receipt"
+        <StatCard title="GRN Pending" value={poStats.grn_pending || 0}
+          subtitle="Awaiting goods receipt"
           icon={Truck} color="bg-cyan-600" href="/purchase-orders" />
         <StatCard title="Invoices" value={invStats.total || 0}
           subtitle={invStats.overdue ? `${invStats.overdue} overdue` : `${invStats.paid || 0} paid`}
           icon={FileText} color="bg-teal-600" href="/invoices" />
-        <StatCard title="Budget Utilised" value={stats ? `${stats.budget_utilization_pct}%` : '—'}
-          subtitle={stats ? formatCurrency(stats.total_consumed) : '—'}
+        <StatCard title="Vendors" value={stats?.approved_vendors ?? '—'}
+          subtitle="Approved & active"
+          icon={ShoppingCart} color="bg-green-600" href="/vendors" />
+        <StatCard title="Budget Used" value={stats ? `${stats.budget_utilization_pct}%` : '—'}
+          subtitle={stats ? `${formatCurrency(stats.total_consumed)} of ${formatCurrency(stats.total_budget_approved)}` : '—'}
           icon={TrendingUp} color="bg-purple-600" href="/budget" />
       </div>
 
