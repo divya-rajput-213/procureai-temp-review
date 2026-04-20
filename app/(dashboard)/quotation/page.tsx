@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { formatDate } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
+import UploadQuotationModal from './components/UploadQuotationModal'
 
 const DUMMY_QUOTATIONS = [
     {
@@ -47,6 +48,7 @@ export default function QuotationPage() {
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
     const [trackingFilter, setTrackingFilter] = useState('')
+    const [isUploadQuotationModalOpen, setIsUploadQuotationModalOpen] = useState(false)
 
     const router = useRouter()
 
@@ -116,7 +118,8 @@ export default function QuotationPage() {
                 </div>
 
                 {/* Upload Button */}
-                <Button type="button" className="gap-2">
+                <Button type="button" className="gap-2" onClick={() => setIsUploadQuotationModalOpen(true)}
+                >
                     <Plus className="w-4 h-4" />
                     Upload Quotation
                 </Button>
@@ -170,6 +173,14 @@ export default function QuotationPage() {
                     )}
                 </CardContent>
             </Card>
+            <UploadQuotationModal
+                isOpen={isUploadQuotationModalOpen}
+                onClose={() => setIsUploadQuotationModalOpen(false)}
+                onSave={(data) => {
+                    console.log("FINAL DATA:", data)
+                    setIsUploadQuotationModalOpen(false)
+                }}
+            />
         </div>
     )
 }
