@@ -11,6 +11,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/vendors': 'Vendor Management',
   '/budget': 'Budget & Tracking IDs',
   '/procurement': 'Purchase Requisitions',
+  '/quotation': 'Quotation',
   '/contracts': 'Contract Management',
   '/contracts/templates': 'Contract Templates',
   '/contracts/clauses': 'Clause Library',

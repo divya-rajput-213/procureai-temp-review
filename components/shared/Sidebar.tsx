@@ -28,6 +28,8 @@ const NAV_ITEMS = [
   { href: '/vendors', label: 'Vendors', icon: Building2, indent: false },
   { href: '/budget', label: 'Budget & Tracking', icon: FileText, indent: false },
   { href: '/procurement', label: 'Procurement', icon: ShoppingCart, indent: false },
+  { href: '/quotation', label: 'Quotation', icon: FileText, indent: false },
+
   {
     label: 'Contracts',
     icon: FileSignature,
