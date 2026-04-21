@@ -333,7 +333,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                       alignItems: 'center',
                       padding: '14px 16px',
                       borderBottom: idx === lineItems.length - 1 ? 'none' : '0.5px solid #f0f0f0',
-                      background: '#fff',
+                      background: item.hasMatch ? '#fff' : '#e8f5e9',
                     }}
                   >
                     <div>
@@ -350,11 +350,9 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                           Matched
                         </span>
                       ) : (
-                        <span style={{ ...styles.matchBadge, background: '#fdecea', color: '#c62828' }}>
-                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <line x1="3" y1="3" x2="9" y2="9" /><line x1="9" y1="3" x2="3" y2="9" />
-                          </svg>
-                          No match
+                        <span style={{ ...styles.matchBadge, background: '#fff6f6', color: '#111' }}>
+                       
+                          New Item
                         </span>
                       )}
                     </div>
