@@ -14,7 +14,7 @@ type LineItem = {
 type Props = {
   isOpen: boolean
   onClose: () => void
-  onSave: (data: { file: File; lineItems: LineItem[] }) => void
+  onSave: (data: { files: File[]; lineItems: LineItem[] }) => void
 }
 
 const VENDORS = [
@@ -30,12 +30,21 @@ const INITIAL_LINE_ITEMS: LineItem[] = [
 ]
 
 const STEP_SUBTITLES = [
-  'Step 1 of 3 — Attach file',
+  'Step 1 of 3 — Attach files',
   'Step 2 of 3 — Review vendors',
   'Step 3 of 3 — Verify line items',
 ]
 
 const PROGRESS = ['33%', '66%', '100%']
+
+function FileIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  )
+}
 
 function VendorInitials({ name }: { name: string }) {
   const parts = name.trim().split(' ')
@@ -54,14 +63,16 @@ function VendorInitials({ name }: { name: string }) {
 
 export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props) {
   const [step, setStep] = useState(1)
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [lineItems, setLineItems] = useState<LineItem[]>(INITIAL_LINE_ITEMS)
+  const [dragging, setDragging] = useState(false)
 
   useEffect(() => {
     if (!isOpen) {
       setStep(1)
-      setFile(null)
+      setFiles([])
       setLineItems(INITIAL_LINE_ITEMS)
+      setDragging(false)
       const input = document.getElementById('quotation-file') as HTMLInputElement
       if (input) input.value = ''
     }
@@ -69,16 +80,31 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
 
   if (!isOpen) return null
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (f) setFile(f)
+  const addFiles = (incoming: FileList | null) => {
+    if (!incoming) return
+    const arr = Array.from(incoming)
+    setFiles(prev => {
+      const existingNames = new Set(prev.map(f => f.name))
+      const fresh = arr.filter(f => !existingNames.has(f.name))
+      return [...prev, ...fresh]
+    })
   }
 
-  const removeFile = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setFile(null)
-    const input = document.getElementById('quotation-file') as HTMLInputElement
-    if (input) input.value = ''
+  const removeFile = (name: string) => {
+    setFiles(prev => prev.filter(f => f.name !== name))
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragging(true)
+  }
+
+  const handleDragLeave = () => setDragging(false)
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+    addFiles(e.dataTransfer.files)
   }
 
   const setAction = (id: number, action: 'approve' | 'create') => {
@@ -88,11 +114,17 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   }
 
   const handleSave = () => {
-    if (file) onSave({ file, lineItems })
+    if (files.length > 0) onSave({ files, lineItems })
   }
 
   const goNext = () => setStep(s => Math.min(s + 1, 3))
   const goBack = () => setStep(s => Math.max(s - 1, 1))
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
 
   return (
     <div style={styles.overlay}>
@@ -155,38 +187,81 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
 
           {/* Step 1 — Upload */}
           {step === 1 && (
-            <div
-              style={{ ...styles.dropZone, ...(file ? styles.dropZoneActive : {}) }}
-              onClick={() => document.getElementById('quotation-file')?.click()}
-            >
-              <div style={styles.uploadIcon}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.6" strokeLinecap="round">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-              </div>
-              <p style={{ fontSize: 16, fontWeight: 600, color: '#111', marginTop: 4 }}>
-                {file ? 'File attached' : 'Drop your file here or click to browse'}
-              </p>
-              <p style={{ fontSize: 14, color: '#888' }}>Supports PDF, Excel, CSV — up to 25 MB</p>
-              {file && (
-                <div style={styles.fileChip} onClick={e => e.stopPropagation()}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round">
-                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
+            <div>
+              {/* Drop zone */}
+              <div
+                style={{
+                  ...styles.dropZone,
+                  ...(dragging ? styles.dropZoneDragging : {}),
+                  ...(files.length > 0 ? styles.dropZoneHasFiles : {}),
+                }}
+                onClick={() => document.getElementById('quotation-file')?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div style={styles.uploadIcon}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.6" strokeLinecap="round">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
-                  <span style={{ fontSize: 14, color: '#111', fontWeight: 500 }}>{file.name}</span>
-                  <button onClick={removeFile} style={styles.removeBtn}>×</button>
+                </div>
+                <p style={{ fontSize: 16, fontWeight: 600, color: '#111', marginTop: 4 }}>
+                  {dragging ? 'Drop files here' : 'Drop files here or click to browse'}
+                </p>
+                <p style={{ fontSize: 14, color: '#888' }}>
+                  Supports PDF — up to 25 MB each
+                </p>
+                <p style={{ fontSize: 13, color: '#bbb' }}>You can select multiple files</p>
+                <input
+                  id="quotation-file"
+                  type="file"
+                  accept=".pdf,.xls,.xlsx,.csv"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={e => addFiles(e.target.files)}
+                />
+              </div>
+
+              {/* File list */}
+              {files.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <p style={styles.sectionLabel}>{files.length} file{files.length > 1 ? 's' : ''} selected</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: files.length > 3 ? 196 : 'none', overflowY: files.length > 3 ? 'auto' : 'visible', paddingRight: files.length > 3 ? 4 : 0 }}>
+                    {files.map(f => (
+                      <div key={f.name} style={styles.fileRow}>
+                        <div style={styles.fileRowIcon}>
+                          <FileIcon />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 14, fontWeight: 500, color: '#111', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {f.name}
+                          </p>
+                          <p style={{ fontSize: 12, color: '#aaa', margin: '2px 0 0' }}>{formatSize(f.size)}</p>
+                        </div>
+                        <button
+                          onClick={() => removeFile(f.name)}
+                          style={styles.fileRemoveBtn}
+                          title="Remove"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="3" y1="3" x2="9" y2="9" /><line x1="9" y1="3" x2="3" y2="9" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add more files button */}
+                  <button
+                    style={styles.addMoreBtn}
+                    onClick={() => document.getElementById('quotation-file')?.click()}
+                  >
+                    + Add more files
+                  </button>
                 </div>
               )}
-              <input
-                id="quotation-file"
-                type="file"
-                accept=".pdf,.xls,.xlsx,.csv"
-                style={{ display: 'none' }}
-                onChange={handleFile}
-              />
             </div>
           )}
 
@@ -233,9 +308,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                 </p>
               </div>
 
-              {/* Row-based layout instead of table */}
               <div style={{ border: '0.5px solid #eee', borderRadius: 12, overflow: 'hidden' }}>
-                {/* Header row */}
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: '1fr 140px 220px',
@@ -251,7 +324,6 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                   ))}
                 </div>
 
-                {/* Item rows */}
                 {lineItems.map((item, idx) => (
                   <div
                     key={item.id}
@@ -264,13 +336,11 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                       background: '#fff',
                     }}
                   >
-                    {/* Item name + code */}
                     <div>
                       <p style={{ fontWeight: 600, fontSize: 15, color: '#111', margin: 0 }}>{item.name}</p>
                       <p style={{ fontSize: 13, color: '#888', marginTop: 3, marginBottom: 0 }}>{item.code} · {item.uom}</p>
                     </div>
 
-                    {/* Match badge */}
                     <div>
                       {item.hasMatch ? (
                         <span style={{ ...styles.matchBadge, background: '#e8f5e9', color: '#2e7d32' }}>
@@ -289,25 +359,18 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                       )}
                     </div>
 
-                    {/* Action buttons */}
                     <div>
                       {item.hasMatch ? (
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button
                             onClick={() => setAction(item.id, 'approve')}
-                            style={{
-                              ...styles.actionBtn,
-                              ...(item.action === 'approve' ? styles.actionBtnFilled : {}),
-                            }}
+                            style={{ ...styles.actionBtn, ...(item.action === 'approve' ? styles.actionBtnFilled : {}) }}
                           >
                             Approve
                           </button>
                           <button
                             onClick={() => setAction(item.id, 'create')}
-                            style={{
-                              ...styles.actionBtn,
-                              ...(item.action === 'create' ? styles.actionBtnFilled : {}),
-                            }}
+                            style={{ ...styles.actionBtn, ...(item.action === 'create' ? styles.actionBtnFilled : {}) }}
                           >
                             Create new
                           </button>
@@ -336,11 +399,11 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
             {step < 3 ? (
               <button
                 onClick={goNext}
-                disabled={step === 1 && !file}
+                disabled={step === 1 && files.length === 0}
                 style={{
                   ...styles.btnPrimary,
-                  opacity: step === 1 && !file ? 0.3 : 1,
-                  cursor: step === 1 && !file ? 'not-allowed' : 'pointer',
+                  opacity: step === 1 && files.length === 0 ? 0.3 : 1,
+                  cursor: step === 1 && files.length === 0 ? 'not-allowed' : 'pointer',
                 }}
               >
                 Next →
@@ -396,12 +459,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dropZone: {
     border: '1.5px dashed #ddd', borderRadius: 14,
-    padding: '52px 24px',
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+    padding: '40px 24px',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
     cursor: 'pointer', transition: 'all 0.2s',
     background: '#fafafa',
   },
-  dropZoneActive: {
+  dropZoneHasFiles: {
+    padding: '24px',
+    borderColor: '#ccc',
+  },
+  dropZoneDragging: {
     borderColor: '#111', borderStyle: 'solid', background: '#f5f5f5',
   },
   uploadIcon: {
@@ -409,15 +476,34 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#fff', border: '0.5px solid #e5e5e5',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  fileChip: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    background: '#fff', border: '1px solid #111',
-    borderRadius: 8, padding: '8px 14px', marginTop: 6,
+  sectionLabel: {
+    fontSize: 12, fontWeight: 600, color: '#aaa',
+    textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10,
   },
-  removeBtn: {
-    background: 'none', border: 'none', color: '#111',
-    cursor: 'pointer', fontSize: 18, lineHeight: 1,
-    padding: '0 0 0 6px', opacity: 0.4,
+  fileRow: {
+    display: 'flex', alignItems: 'center', gap: 12,
+    background: '#fafafa', border: '0.5px solid #eee',
+    borderRadius: 10, padding: '10px 14px',
+  },
+  fileRowIcon: {
+    width: 34, height: 34, borderRadius: 8,
+    background: '#fff', border: '0.5px solid #e5e5e5',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  fileRemoveBtn: {
+    background: 'none', border: 'none',
+    color: '#bbb', cursor: 'pointer',
+    padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center',
+    transition: 'color 0.15s',
+    flexShrink: 0,
+  },
+  addMoreBtn: {
+    marginTop: 10,
+    background: 'none', border: '0.5px solid #ddd',
+    borderRadius: 8, padding: '7px 14px',
+    fontSize: 13, fontWeight: 500, color: '#555',
+    cursor: 'pointer', transition: 'all 0.15s',
   },
   infoNote: {
     display: 'flex', alignItems: 'flex-start', gap: 10,
@@ -425,10 +511,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '12px 14px', marginBottom: 20,
   },
   infoDot: { width: 7, height: 7, borderRadius: '50%', background: '#111', flexShrink: 0, marginTop: 5 },
-  sectionLabel: {
-    fontSize: 12, fontWeight: 600, color: '#aaa',
-    textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14,
-  },
   vendorCard: {
     background: '#fafafa', border: '0.5px solid #e8e8e8',
     borderRadius: 12, padding: '16px 20px',
