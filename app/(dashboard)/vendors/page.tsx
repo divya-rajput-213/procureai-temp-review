@@ -264,7 +264,7 @@ function DeleteConfirmModal({ name, onClose, onConfirm, isPending }: Readonly<{
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 25
 
 export default function VendorsPage() {
   const [search, setSearch] = useState('')
