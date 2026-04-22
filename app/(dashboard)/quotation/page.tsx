@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,6 +61,7 @@ export default function QuotationPage() {
     const [isUploadQuotationModalOpen, setIsUploadQuotationModalOpen] = useState(false)
 
     const router = useRouter()
+    const queryClient = useQueryClient()
 
     const { data, isLoading, isError } = useQuery({
         queryKey: ['quotations', search, statusFilter],
@@ -130,7 +131,7 @@ export default function QuotationPage() {
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="text-muted-foreground gap-1"
+                             className="text-muted-foreground gap-1"
                             onClick={() => {
                                 setSearch('')
                                 setStatusFilter('')
@@ -185,7 +186,7 @@ export default function QuotationPage() {
                                     {filtered.map((q) => (
                                         <tr
                                             key={q.id}
-                                            onClick={() => router.push(`/quotation/${q.hash_id}`)}
+                                            onClick={() => router.push(`/quotation/${q.id}`)}
                                             className="hover:bg-slate-50 cursor-pointer"
                                         >
                                             <td className="px-4 py-3 font-mono text-xs">{q.quotation_number}</td>
@@ -208,9 +209,8 @@ export default function QuotationPage() {
             <UploadQuotationModal
                 isOpen={isUploadQuotationModalOpen}
                 onClose={() => setIsUploadQuotationModalOpen(false)}
-                onSave={(data) => {
-                    console.log("FINAL DATA:", data)
-                    setIsUploadQuotationModalOpen(false)
+                onSave={async () => {
+                    await queryClient.invalidateQueries({ queryKey: ['quotations'] })
                 }}
             />
         </div>

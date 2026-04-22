@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import apiClient from '@/lib/api/client'
 
 type LineItem = {
   id: number
@@ -14,14 +16,13 @@ type LineItem = {
 type Props = {
   isOpen: boolean
   onClose: () => void
-  onSave: (data: { files: File[]; lineItems: LineItem[] }) => void
+  onSave: () => void | Promise<void>
 }
 
-const VENDORS = [
-  { id: 1, name: 'ABC Pvt Ltd', contact: 'abc@vendor.com', gstin: '29AABCU9603R1ZX' },
-  { id: 2, name: 'XYZ Industries', contact: 'info@xyz.com', gstin: '27AAPFU0939F1ZV' },
-  { id: 3, name: 'Global Supplies', contact: 'hello@global.com', gstin: '06AAHCG3683D1ZR' },
-]
+type ExtractedVendor = {
+  id: string
+  name: string
+}
 
 const INITIAL_LINE_ITEMS: LineItem[] = [
   { id: 1, name: 'Bolt M10', code: 'BOLT-M10-HT', uom: 'EA', hasMatch: true, action: null },
@@ -66,6 +67,43 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   const [files, setFiles] = useState<File[]>([])
   const [lineItems, setLineItems] = useState<LineItem[]>(INITIAL_LINE_ITEMS)
   const [dragging, setDragging] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [vendors, setVendors] = useState<ExtractedVendor[]>([])
+
+  const uploadMutation = useMutation({
+    mutationFn: async () => {
+      const uploadedData = []
+
+      for (const file of files) {
+        const formData = new FormData()
+        formData.append('file', file)
+        const { data } = await apiClient.post('/quotations/upload/', formData)
+        uploadedData.push(data)
+      }
+
+      return uploadedData
+    },
+    onSuccess: (responses: any[]) => {
+      const extractedVendors = responses.map((response, index) => ({
+        id: String(response?.id ?? index + 1),
+        name:
+          response?.vendor_name ??
+          response?.vendor?.name ??
+          response?.vendor?.company_name ??
+          `Vendor ${index + 1}`,
+      }))
+
+      setVendors(extractedVendors)
+      setStep(2)
+    },
+    onError: (error: any) => {
+      setErrorMessage(
+        error?.response?.data?.detail ??
+        error?.response?.data?.message ??
+        'Failed to upload quotation.'
+      )
+    },
+  })
 
   useEffect(() => {
     if (!isOpen) {
@@ -73,6 +111,8 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
       setFiles([])
       setLineItems(INITIAL_LINE_ITEMS)
       setDragging(false)
+      setVendors([])
+      setErrorMessage('')
       const input = document.getElementById('quotation-file') as HTMLInputElement
       if (input) input.value = ''
     }
@@ -83,6 +123,8 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   const addFiles = (incoming: FileList | null) => {
     if (!incoming) return
     const arr = Array.from(incoming)
+    setErrorMessage('')
+    setVendors([])
     setFiles(prev => {
       const existingNames = new Set(prev.map(f => f.name))
       const fresh = arr.filter(f => !existingNames.has(f.name))
@@ -91,6 +133,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   }
 
   const removeFile = (name: string) => {
+    setVendors([])
     setFiles(prev => prev.filter(f => f.name !== name))
   }
 
@@ -113,8 +156,11 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
     )
   }
 
-  const handleSave = () => {
-    if (files.length > 0) onSave({ files, lineItems })
+  const handleUploadAndExtract = () => {
+    if (files.length > 0 && !uploadMutation.isPending) {
+      setErrorMessage('')
+      uploadMutation.mutate()
+    }
   }
 
   const goNext = () => setStep(s => Math.min(s + 1, 3))
@@ -184,6 +230,9 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
 
         {/* ── Body ── */}
         <div style={styles.body}>
+          {errorMessage && (
+            <div style={styles.errorText}>{errorMessage}</div>
+          )}
 
           {/* Step 1 — Upload */}
           {step === 1 && (
@@ -217,7 +266,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                 <input
                   id="quotation-file"
                   type="file"
-                  accept=".pdf,.xls,.xlsx,.csv"
+                  accept=".pdf,application/pdf"
                   multiple
                   style={{ display: 'none' }}
                   onChange={e => addFiles(e.target.files)}
@@ -274,23 +323,13 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                   The following vendors were extracted from the uploaded quotation and will be created automatically.
                 </p>
               </div>
-              <p style={styles.sectionLabel}>{VENDORS.length} vendors detected</p>
+              <p style={styles.sectionLabel}>{vendors.length} vendor{vendors.length === 1 ? '' : 's'} detected</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {VENDORS.map(v => (
+                {vendors.map(v => (
                   <div key={v.id} style={styles.vendorCard}>
                     <VendorInitials name={v.name} />
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 15, fontWeight: 600, color: '#111', marginBottom: 5 }}>{v.name}</p>
-                      <div style={{ display: 'flex', gap: 24 }}>
-                        <span style={{ fontSize: 13, color: '#666' }}>
-                          <span style={{ color: '#aaa', marginRight: 5 }}>Email</span>
-                          {v.contact}
-                        </span>
-                        <span style={{ fontSize: 13, color: '#666' }}>
-                          <span style={{ color: '#aaa', marginRight: 5 }}>GSTIN</span>
-                          {v.gstin}
-                        </span>
-                      </div>
                     </div>
                   </div>
                 ))}
@@ -396,7 +435,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
             <button onClick={onClose} style={styles.btnGhost}>Cancel</button>
             {step < 3 ? (
               <button
-                onClick={goNext}
+                onClick={step === 1 ? handleUploadAndExtract : goNext}
                 disabled={step === 1 && files.length === 0}
                 style={{
                   ...styles.btnPrimary,
@@ -404,10 +443,21 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                   cursor: step === 1 && files.length === 0 ? 'not-allowed' : 'pointer',
                 }}
               >
-                Next →
+                {step === 1 && uploadMutation.isPending ? 'Extracting...' : 'Next →'}
               </button>
             ) : (
-              <button onClick={handleSave} style={styles.btnPrimary}>
+              <button
+                onClick={async () => {
+                  await onSave()
+                  onClose()
+                }}
+                disabled={uploadMutation.isPending}
+                style={{
+                  ...styles.btnPrimary,
+                  opacity: uploadMutation.isPending ? 0.7 : 1,
+                  cursor: uploadMutation.isPending ? 'not-allowed' : 'pointer',
+                }}
+              >
                 Save quotation
               </button>
             )}
@@ -450,6 +500,11 @@ const styles: Record<string, React.CSSProperties> = {
   progressBar: { height: 2, background: '#f0f0f0', marginTop: 18 },
   progressFill: { height: '100%', background: '#111', transition: 'width 0.35s ease' },
   body: { padding: '24px 32px' },
+  errorText: {
+    marginBottom: 12,
+    color: '#b42318',
+    fontSize: 13,
+  },
   footer: {
     padding: '18px 32px 28px',
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
