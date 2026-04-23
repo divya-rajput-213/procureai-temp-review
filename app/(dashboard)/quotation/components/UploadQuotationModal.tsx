@@ -282,7 +282,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
       const payload =
         action === 'approve'
           ? { action: 'approve', master_item_id: item.masterItemId }
-          : { action: 'create_new' }
+          : { action: 'create_new', master_item_id: item.masterItemId }
 
       await apiClient.patch(
         `/quotations/${item.quotationId}/items/${item.id}/confirm/`,
