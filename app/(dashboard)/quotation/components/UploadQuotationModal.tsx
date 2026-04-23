@@ -26,6 +26,13 @@ type Props = {
 type ExtractedVendor = {
   id: string
   name: string
+  contactName?: string
+  contactEmail?: string
+  contactPhone?: string
+  city?: string
+  state?: string
+  gstNumber?: string | null
+  vendorCreated?: boolean
 }
 
 const STEP_SUBTITLES = [
@@ -67,19 +74,11 @@ function mapLineItemsFromQuotationResponse(response: any): LineItem[] {
 
   return items
     .map((item: any, index: number) => {
-      const itemId = toNumber(item?.id) ?? toNumber(item?.item_id)
+      const itemId = toNumber(item?.quotation_item_id) ?? toNumber(item?.id) ?? toNumber(item?.item_id)
       if (!itemId) return null
 
-      const masterItemId = getMasterItemId(item)
-      const hasMatch = Boolean(
-        item?.has_match ??
-        item?.matched ??
-        item?.is_matched ??
-        masterItemId ??
-        item?.master_item ??
-        item?.matched_item ??
-        item?.match
-      )
+      const masterItemId = toNumber(item?.master_item_id) ?? getMasterItemId(item)
+      const hasMatch = Boolean(item?.master_item_matched ?? item?.has_match ?? item?.matched ?? item?.is_matched ?? masterItemId)
 
       const confirmedAction = item?.confirmed_action ?? item?.action_taken ?? item?.action
 
@@ -134,62 +133,67 @@ function VendorInitials({ name }: { name: string }) {
 export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props) {
   const { toast } = useToast()
   const [step, setStep] = useState(1)
-  const [files, setFiles] = useState<File[]>([])
+  const [file, setFile] = useState<File | null>(null)
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [dragging, setDragging] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [vendors, setVendors] = useState<ExtractedVendor[]>([])
   const [pendingActionByItemKey, setPendingActionByItemKey] = useState<Record<string, 'approve' | 'create' | null>>({})
+
   const uploadMutation = useMutation({
     mutationFn: async () => {
-      if (!files || files.length === 0) {
-        throw new Error('Please upload at least one file')
-      }
+      if (!file) throw new Error('Please upload a file')
 
-      const uploadedData: Array<{ upload: any; detail: any | null }> = []
+      const formData = new FormData()
+      formData.append('file', file)
 
-      for (const file of files) {
-        try {
-          const formData = new FormData()
-          formData.append('file', file)
+      const { data: upload } = await apiClient.post(
+        '/quotations/upload/',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      )
 
-          const { data: upload } = await apiClient.post(
-            '/quotations/upload/',
-            formData,
-            {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-              },
-            }
-          )
+      const quotationId = getQuotationId(upload)
 
-          const quotationId = getQuotationId(upload)
+      const detail = quotationId
+        ? (await apiClient.get(`/quotations/${quotationId}/`)).data
+        : null
 
-          const detail = quotationId
-            ? (await apiClient.get(`/quotations/${quotationId}/`)).data
-            : null
-
-          uploadedData.push({ upload, detail })
-        } catch (err: any) {
-          throw err // stop mutation if any file fails
-        }
-      }
-
-      return uploadedData
+      return [{ upload, detail }]
     },
 
     onSuccess: (responses: Array<{ upload: any; detail: any | null }>) => {
-      const extractedVendors = responses.map(({ upload, detail }, index) => ({
-        id: String(getQuotationId(upload) ?? getQuotationId(detail) ?? index + 1),
-        name:
-          upload?.vendor_name ??
-          upload?.vendor?.name ??
-          upload?.vendor?.company_name ??
-          detail?.vendor_name ??
-          detail?.vendor?.name ??
-          detail?.vendor?.company_name ??
-          `Vendor ${index + 1}`,
-      }))
+      const extractedVendors = responses.flatMap(({ upload, detail }) => {
+        const source = detail ?? upload
+        const vendorArray = Array.isArray(source?.vendor) ? source.vendor : []
+
+        if (vendorArray.length > 0) {
+          return vendorArray.map((v: any) => ({
+            id: String(v.vendor_id ?? v.id ?? Math.random()),
+            name: v.vendor_name ?? v.name ?? 'Unknown Vendor',
+            contactName: v.contact_name,
+            contactEmail: v.contact_email,
+            contactPhone: v.contact_phone,
+            city: v.city,
+            state: v.state,
+            gstNumber: v.gst_number,
+            vendorCreated: v.vendor_created,
+          }))
+        }
+
+        // fallback for older shape
+        return [{
+          id: String(getQuotationId(upload) ?? getQuotationId(detail) ?? Math.random()),
+          name:
+            upload?.vendor_name ??
+            upload?.vendor?.name ??
+            upload?.vendor?.company_name ??
+            detail?.vendor_name ??
+            detail?.vendor?.name ??
+            detail?.vendor?.company_name ??
+            'Vendor',
+        }]
+      })
 
       const extractedLineItems = responses.flatMap(({ upload, detail }) =>
         mapLineItemsFromQuotationResponse(detail ?? upload)
@@ -202,7 +206,6 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
 
     onError: (error: any) => {
       const data = error?.response?.data
-
       let message = 'Failed to upload quotation.'
 
       if (data) {
@@ -211,12 +214,9 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
         } else if (data.detail) {
           message = data.detail
         } else {
-          // handle field-level errors (422)
           message = Object.entries(data)
             .map(([key, value]) => {
-              if (Array.isArray(value)) {
-                return `${key}: ${value.join(', ')}`
-              }
+              if (Array.isArray(value)) return `${key}: ${value.join(', ')}`
               return `${key}: ${value}`
             })
             .join(' | ')
@@ -227,11 +227,10 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
     },
   })
 
-
   useEffect(() => {
     if (!isOpen) {
       setStep(1)
-      setFiles([])
+      setFile(null)
       setLineItems([])
       setDragging(false)
       setVendors([])
@@ -242,26 +241,22 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
     }
   }, [isOpen])
 
-  const addFiles = (incoming: FileList | null) => {
-    if (!incoming) return
-    const arr = Array.from(incoming)
+  const addFile = (incoming: FileList | null) => {
+    if (!incoming || incoming.length === 0) return
+    const selectedFile = incoming[0]
     setErrorMessage('')
     setVendors([])
     setLineItems([])
     setPendingActionByItemKey({})
-    setFiles(prev => {
-      const existingNames = new Set(prev.map(f => f.name))
-      const fresh = arr.filter(f => !existingNames.has(f.name))
-      return [...prev, ...fresh]
-    })
+    setFile(selectedFile)
   }
 
-  const removeFile = (name: string) => {
+  const removeFile = () => {
+    setFile(null)
     setVendors([])
     setLineItems([])
     setPendingActionByItemKey({})
-    setFiles(prev => prev.filter(f => f.name !== name))
-    setErrorMessage("")
+    setErrorMessage('')
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -274,7 +269,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setDragging(false)
-    addFiles(e.dataTransfer.files)
+    addFile(e.dataTransfer.files)
   }
 
   const confirmItemMutation = useMutation({
@@ -334,7 +329,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   }
 
   const handleUploadAndExtract = () => {
-    if (files.length > 0 && !uploadMutation.isPending) {
+    if (file && !uploadMutation.isPending) {
       setErrorMessage('')
       uploadMutation.mutate()
     }
@@ -348,6 +343,8 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
+
+  const isNotEmpty = (val?: string | null) => val && val !== 'N/A' && val.trim() !== ''
 
   if (!isOpen) return null
 
@@ -412,78 +409,53 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
           {/* Step 1 — Upload */}
           {step === 1 && (
             <div>
-              {/* Drop zone */}
-              <div
-                style={{
-                  ...styles.dropZone,
-                  ...(dragging ? styles.dropZoneDragging : {}),
-                  ...(files.length > 0 ? styles.dropZoneHasFiles : {}),
-                }}
-                onClick={() => document.getElementById('quotation-file')?.click()}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <div style={styles.uploadIcon}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.6" strokeLinecap="round">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                </div>
-                <p style={{ fontSize: 16, fontWeight: 600, color: '#111', marginTop: 4 }}>
-                  {dragging ? 'Drop files here' : 'Drop files here or click to browse'}
-                </p>
-                <p style={{ fontSize: 14, color: '#888' }}>
-                  Supports PDF — up to 25 MB each
-                </p>
-                <p style={{ fontSize: 13, color: '#bbb' }}>You can select multiple files</p>
-                <input
-                  id="quotation-file"
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  multiple
-                  style={{ display: 'none' }}
-                  onChange={e => addFiles(e.target.files)}
-                />
-              </div>
-
-              {/* File list */}
-              {files.length > 0 && (
-                <div style={{ marginTop: 14 }}>
-                  <p style={styles.sectionLabel}>{files.length} file{files.length > 1 ? 's' : ''} selected</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: files.length > 3 ? 196 : 'none', overflowY: files.length > 3 ? 'auto' : 'visible', paddingRight: files.length > 3 ? 4 : 0 }}>
-                    {files.map(f => (
-                      <div key={f.name} style={styles.fileRow}>
-                        <div style={styles.fileRowIcon}>
-                          <FileIcon />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 14, fontWeight: 500, color: '#111', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {f.name}
-                          </p>
-                          <p style={{ fontSize: 12, color: '#aaa', margin: '2px 0 0' }}>{formatSize(f.size)}</p>
-                        </div>
-                        <button
-                          onClick={() => removeFile(f.name)}
-                          style={styles.fileRemoveBtn}
-                          title="Remove"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
-                            <line x1="3" y1="3" x2="9" y2="9" /><line x1="9" y1="3" x2="3" y2="9" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
+              {!file && (
+                <div
+                  style={{
+                    ...styles.dropZone,
+                    ...(dragging ? styles.dropZoneDragging : {}),
+                  }}
+                  onClick={() => document.getElementById('quotation-file')?.click()}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <div style={styles.uploadIcon}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.6">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
                   </div>
+                  <p style={{ fontSize: 16, fontWeight: 600 }}>
+                    {dragging ? 'Drop file here' : 'Drop file here or click to browse'}
+                  </p>
+                  <p style={{ fontSize: 14, color: '#888' }}>
+                    Supports PDF — up to 25 MB
+                  </p>
+                  <input
+                    id="quotation-file"
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    style={{ display: 'none' }}
+                    onChange={e => addFile(e.target.files)}
+                  />
+                </div>
+              )}
 
-                  {/* Add more files button */}
-                  <button
-                    style={styles.addMoreBtn}
-                    onClick={() => document.getElementById('quotation-file')?.click()}
-                  >
-                    + Add more files
-                  </button>
+              {file && (
+                <div style={{ marginTop: 14 }}>
+                  <p style={styles.sectionLabel}>Selected file</p>
+                  <div style={styles.fileRow}>
+                    <div style={styles.fileRowIcon}>
+                      <FileIcon />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 14, fontWeight: 500 }}>{file.name}</p>
+                      <p style={{ fontSize: 12, color: '#aaa' }}>{formatSize(file.size)}</p>
+                    </div>
+                    <button onClick={removeFile} style={styles.fileRemoveBtn}>✕</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -504,7 +476,60 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                   <div key={v.id} style={styles.vendorCard}>
                     <VendorInitials name={v.name} />
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 15, fontWeight: 600, color: '#111', marginBottom: 5 }}>{v.name}</p>
+                      {/* Name row */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                        <p style={{ fontSize: 15, fontWeight: 600, color: '#111', margin: 0 }}>{v.name}</p>
+                        {v.vendorCreated === false && (
+                          <span style={styles.newBadge}>New</span>
+                        )}
+                      </div>
+                      {/* Detail rows */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '4px 20px' }}>
+                        {isNotEmpty(v.contactEmail) && (
+                          <span style={styles.vendorDetail}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                              <polyline points="22,6 12,13 2,6" />
+                            </svg>
+                            {v.contactEmail}
+                          </span>
+                        )}
+                        {isNotEmpty(v.contactPhone) && (
+                          <span style={styles.vendorDetail}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.68A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+                            </svg>
+                            {v.contactPhone}
+                          </span>
+                        )}
+                        {isNotEmpty(v.city) && (
+                          <span style={styles.vendorDetail}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                              <circle cx="12" cy="10" r="3" />
+                            </svg>
+                            {v.city}{isNotEmpty(v.state) ? `, ${v.state}` : ''}
+                          </span>
+                        )}
+                        {isNotEmpty(v.contactName) && (
+                          <span style={styles.vendorDetail}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                              <circle cx="12" cy="7" r="4" />
+                            </svg>
+                            {v.contactName}
+                          </span>
+                        )}
+                        {v.gstNumber && (
+                          <span style={styles.vendorDetail}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="2" y="5" width="20" height="14" rx="2" />
+                              <line x1="2" y1="10" x2="22" y2="10" />
+                            </svg>
+                            GST: {v.gstNumber}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -558,11 +583,8 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                           gridTemplateColumns: '1fr 140px 220px',
                           alignItems: 'center',
                           padding: '14px 16px',
-                          borderBottom:
-                            idx === lineItems.length - 1
-                              ? 'none'
-                              : '0.5px solid #f0f0f0',
-                          background: item.hasMatch ? '#fff' : '#e8f5e9',
+                          borderBottom: idx === lineItems.length - 1 ? 'none' : '0.5px solid #f0f0f0',
+                          background: item.hasMatch ? '#fff' : '#f9f9f9',
                         }}
                       >
                         <div>
@@ -625,20 +647,16 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                               </button>
                             </div>
                           ) : (
-                            <span style={{ fontSize: 13, color: '#ccc' }}>
-                              No action needed
-                            </span>
+                            <span style={{ fontSize: 13, color: '#ccc' }}>No action needed</span>
                           )}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-
               </div>
             </div>
           )}
-
         </div>
 
         {/* ── Footer ── */}
@@ -653,11 +671,11 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
             {step < 3 ? (
               <button
                 onClick={step === 1 ? handleUploadAndExtract : goNext}
-                disabled={step === 1 && files.length === 0}
+                disabled={step === 1 && !file}
                 style={{
                   ...styles.btnPrimary,
-                  opacity: step === 1 && files.length === 0 ? 0.3 : 1,
-                  cursor: step === 1 && files.length === 0 ? 'not-allowed' : 'pointer',
+                  opacity: step === 1 && !file ? 0.3 : 1,
+                  cursor: step === 1 && !file ? 'not-allowed' : 'pointer',
                 }}
               >
                 {step === 1 && uploadMutation.isPending ? 'Extracting...' : 'Next →'}
@@ -734,10 +752,6 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer', transition: 'all 0.2s',
     background: '#fafafa',
   },
-  dropZoneHasFiles: {
-    padding: '24px',
-    borderColor: '#ccc',
-  },
   dropZoneDragging: {
     borderColor: '#111', borderStyle: 'solid', background: '#f5f5f5',
   },
@@ -768,13 +782,6 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'color 0.15s',
     flexShrink: 0,
   },
-  addMoreBtn: {
-    marginTop: 10,
-    background: 'none', border: '0.5px solid #ddd',
-    borderRadius: 8, padding: '7px 14px',
-    fontSize: 13, fontWeight: 500, color: '#555',
-    cursor: 'pointer', transition: 'all 0.15s',
-  },
   infoNote: {
     display: 'flex', alignItems: 'flex-start', gap: 10,
     background: '#f7f7f7', borderRadius: 10,
@@ -784,7 +791,15 @@ const styles: Record<string, React.CSSProperties> = {
   vendorCard: {
     background: '#fafafa', border: '0.5px solid #e8e8e8',
     borderRadius: 12, padding: '16px 20px',
-    display: 'flex', alignItems: 'center', gap: 16,
+    display: 'flex', alignItems: 'flex-start', gap: 16,
+  },
+  newBadge: {
+    fontSize: 11, background: '#fff3cd', color: '#856404',
+    padding: '2px 8px', borderRadius: 20, fontWeight: 500,
+  },
+  vendorDetail: {
+    fontSize: 12, color: '#777',
+    display: 'inline-flex', alignItems: 'center', gap: 5,
   },
   matchBadge: {
     display: 'inline-flex', alignItems: 'center', gap: 5,
