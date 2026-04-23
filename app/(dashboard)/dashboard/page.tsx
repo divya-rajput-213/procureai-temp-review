@@ -136,26 +136,22 @@ export default function DashboardPage() {
         <StatCard title="Vendors" value={stats?.approved_vendors ?? '—'}
           subtitle="Approved & active"
           icon={ShoppingCart} color="bg-green-600" href="/vendors" />
-        <StatCard title="Budget Used" value={stats ? `${stats.budget_utilization_pct}%` : '—'}
-          subtitle={stats ? `${formatCurrency(stats.total_consumed)} Used` : '—'}
-          tooltip={
-            stats
-              ? `Used: ${formatCurrency(stats.total_consumed)} of ${formatCurrency(stats.total_budget_approved)}`
-              : '_'
-          }icon={TrendingUp} color="bg-purple-600" href="/budget" />
-      </div>
+	        <StatCard title="Budget Used" value={stats ? `${stats.budget_utilization_pct}%` : '—'}
+	          subtitle={stats ? `${formatCurrency(stats.total_consumed)} Used` : '—'}
+	          tooltip={
+	            stats
+	              ? `Used: ${formatCurrency(stats.total_consumed)} of ${formatCurrency(stats.total_budget_approved)}`
+	              : '_'
+	          } icon={TrendingUp} color="bg-purple-600" href="/budget" />
+	      </div>
 
-      {/* Row 2 — Spend chart + PO status pie */}     
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4"> tooltip={
-          stats
-            ? `Used: ${formatCurrency(stats.total_consumed)}`
-            : 'No budget data'
-        }
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Spend vs Budget</CardTitle>
-            <CardDescription>Monthly procurement spend — last 12 months</CardDescription>
-          </CardHeader>
+	      {/* Row 2 — Spend chart + PO status pie */}     
+	      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+	        <Card className="lg:col-span-2">
+	          <CardHeader className="pb-2">
+	            <CardTitle className="text-base">Spend vs Budget</CardTitle>
+	            <CardDescription>Monthly procurement spend — last 12 months</CardDescription>
+	          </CardHeader>
           <CardContent>
             {monthlySpend.length === 0 ? (
               <div className="h-52 flex items-center justify-center text-sm text-muted-foreground">No data yet</div>
