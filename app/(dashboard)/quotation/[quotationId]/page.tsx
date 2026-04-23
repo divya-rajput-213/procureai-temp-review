@@ -37,6 +37,8 @@ type Quotation = {
   uploaded_by: string
   created_at: string
   pdf_url?: string
+  ref_no:string
+
 }
 
 type QuotationDetails = {
@@ -97,6 +99,7 @@ function mapQuotation(raw: any): Quotation {
     uploaded_by: raw.uploaded_by ?? '—',
     created_at: raw.created_at ?? raw.uploaded_at ?? '',
     pdf_url: raw.pdf_url ?? raw.file_url ?? raw.document_url,
+    ref_no:raw?.ref_no
   }
 }
 
@@ -188,7 +191,7 @@ export default function QuotationDetailsPage({ params }: { params: { quotationId
                 <p className="mt-1 max-w-2xl text-muted-foreground">{quotation.vendor_address}</p>
               </div>
               <p>
-                <span className="font-medium">Ref:</span> {quotation.reference_person}
+                <span className="font-medium">Ref:</span> {quotation.ref_no}
               </p>
               <p>
                 <span className="font-medium">Contact No.:</span> {quotation.contact_no}
