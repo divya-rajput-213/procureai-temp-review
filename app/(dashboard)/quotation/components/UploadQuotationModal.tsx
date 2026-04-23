@@ -401,10 +401,6 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
               </div>
             ))}
           </div>
-
-          <div style={styles.progressBar}>
-            <div style={{ ...styles.progressFill, width: PROGRESS[step - 1] }} />
-          </div>
         </div>
 
         {/* ── Body ── */}
@@ -679,7 +675,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                   cursor: uploadMutation.isPending ? 'not-allowed' : 'pointer',
                 }}
               >
-                Save quotation
+               Done
               </button>
             )}
           </div>
