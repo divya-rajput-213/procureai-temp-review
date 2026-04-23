@@ -140,54 +140,97 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   const [errorMessage, setErrorMessage] = useState('')
   const [vendors, setVendors] = useState<ExtractedVendor[]>([])
   const [pendingActionByItemKey, setPendingActionByItemKey] = useState<Record<string, 'approve' | 'create' | null>>({})
+console.log('files', files)
+const uploadMutation = useMutation({
+  mutationFn: async () => {
+    if (!files || files.length === 0) {
+      throw new Error('Please upload at least one file')
+    }
 
-  const uploadMutation = useMutation({
-    mutationFn: async () => {
-      const uploadedData: Array<{ upload: any; detail: any | null }> = []
+    const uploadedData: Array<{ upload: any; detail: any | null }> = []
 
-      for (const file of files) {
+    for (const file of files) {
+      try {
         const formData = new FormData()
-        formData.append('file', file)
-        const { data: upload } = await apiClient.post('/quotations/upload/', formData)
+        formData.append('file', file) 
+
+        const { data: upload } = await apiClient.post(
+          '/quotations/upload/',
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        )
 
         const quotationId = getQuotationId(upload)
+
         const detail = quotationId
           ? (await apiClient.get(`/quotations/${quotationId}/`)).data
           : null
 
         uploadedData.push({ upload, detail })
+      } catch (err: any) {
+        console.log('Upload failed for file:', file?.name, err?.response?.data)
+        throw err // stop mutation if any file fails
       }
+    }
 
-      return uploadedData
-    },
-    onSuccess: (responses: Array<{ upload: any; detail: any | null }>) => {
-      const extractedVendors = responses.map(({ upload, detail }, index) => ({
-        id: String(getQuotationId(upload) ?? getQuotationId(detail) ?? index + 1),
-        name:
-          upload?.vendor_name ??
-          upload?.vendor?.name ??
-          upload?.vendor?.company_name ??
-          detail?.vendor_name ??
-          detail?.vendor?.name ??
-          detail?.vendor?.company_name ??
-          `Vendor ${index + 1}`,
-      }))
-      const extractedLineItems = responses.flatMap(({ upload, detail }) =>
-        mapLineItemsFromQuotationResponse(detail ?? upload)
-      )
+    return uploadedData
+  },
 
-      setVendors(extractedVendors)
-      setLineItems(extractedLineItems)
-      setStep(2)
-    },
-    onError: (error: any) => {
-      setErrorMessage(
-        error?.response?.data?.detail ??
-        error?.response?.data?.message ??
-        'Failed to upload quotation.'
-      )
-    },
-  })
+  onSuccess: (responses: Array<{ upload: any; detail: any | null }>) => {
+    const extractedVendors = responses.map(({ upload, detail }, index) => ({
+      id: String(getQuotationId(upload) ?? getQuotationId(detail) ?? index + 1),
+      name:
+        upload?.vendor_name ??
+        upload?.vendor?.name ??
+        upload?.vendor?.company_name ??
+        detail?.vendor_name ??
+        detail?.vendor?.name ??
+        detail?.vendor?.company_name ??
+        `Vendor ${index + 1}`,
+    }))
+
+    const extractedLineItems = responses.flatMap(({ upload, detail }) =>
+      mapLineItemsFromQuotationResponse(detail ?? upload)
+    )
+
+    setVendors(extractedVendors)
+    setLineItems(extractedLineItems)
+    setStep(2)
+  },
+
+  onError: (error: any) => {
+    console.log('error', error?.response?.data)
+
+    const data = error?.response?.data
+
+    let message = 'Failed to upload quotation.'
+
+    if (data) {
+      if (typeof data === 'string') {
+        message = data
+      } else if (data.detail) {
+        message = data.detail
+      } else {
+        // handle field-level errors (422)
+        message = Object.entries(data)
+          .map(([key, value]) => {
+            if (Array.isArray(value)) {
+              return `${key}: ${value.join(', ')}`
+            }
+            return `${key}: ${value}`
+          })
+          .join(' | ')
+      }
+    }
+
+    setErrorMessage(message)
+  },
+})
+
 
   useEffect(() => {
     if (!isOpen) {
@@ -222,6 +265,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
     setLineItems([])
     setPendingActionByItemKey({})
     setFiles(prev => prev.filter(f => f.name !== name))
+    setErrorMessage("")
   }
 
   const handleDragOver = (e: React.DragEvent) => {
