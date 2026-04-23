@@ -26,6 +26,13 @@ const schema = z.object({
   description: z.string().optional(),
   title: z.string().optional(),
   matrix_id: z.number().optional(),
+invited_vendor_ids: z
+  .array(z.number())
+  .min(1, 'Please select at least one vendor')
+  .max(5, 'You can select maximum 5 vendors')
+  .default([]),
+
+
   line_items: z.array(
     z.object({
       item_code: z.number({ required_error: 'Item required' }).positive('Item code is required '),
@@ -82,9 +89,9 @@ function TrackingIdSearch({
 
   const filtered = search.length > 0
     ? (trackingIds ?? []).filter(t =>
-        t.tracking_code.toLowerCase().includes(search.toLowerCase()) ||
-        (t.title ?? '').toLowerCase().includes(search.toLowerCase())
-      )
+      t.tracking_code.toLowerCase().includes(search.toLowerCase()) ||
+      (t.title ?? '').toLowerCase().includes(search.toLowerCase())
+    )
     : []
 
   return (
@@ -139,7 +146,7 @@ function TrackingIdSearch({
   )
 }
 
-function ItemSearch({ onSelect, placeholder, displayValue,hasError }: { onSelect: (item: any) => void; placeholder?: string, displayValue?: string,hasError:any }) {
+function ItemSearch({ onSelect, placeholder, displayValue, hasError }: { onSelect: (item: any) => void; placeholder?: string, displayValue?: string, hasError: any }) {
   const [search, setSearch] = useState(displayValue ?? '')
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -234,13 +241,43 @@ export default function NewPRPage() {
     },
   })
 
-
   const addVendor = (v: any) => {
-    if (!selectedVendors.some(x => x.id === v.id)) setSelectedVendors(prev => [...prev, v])
+    if (selectedVendors.length >= 5) {
+      toast({
+        title: 'Limit reached',
+        description: 'You can select maximum 5 vendors',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (!selectedVendors.some(x => x.id === v.id)) {
+      const updated = [...selectedVendors, v]
+      setSelectedVendors(updated)
+
+      setValue(
+        'invited_vendor_ids',
+        updated.map(v => v.id),
+        { shouldValidate: true, shouldDirty: true } // ✅ ADD
+      )
+    }
+
+    clearErrors('invited_vendor_ids') // ✅ ADD
+
     setShowVendorSearch(false)
     setVendorSearch('')
   }
-  const removeVendor = (id: number) => setSelectedVendors(prev => prev.filter(v => v.id !== id))
+
+  const removeVendor = (id: number) => {
+    const updated = selectedVendors.filter(v => v.id !== id)
+    setSelectedVendors(updated)
+
+    setValue(
+      'invited_vendor_ids',
+      updated.map(v => v.id),
+      { shouldValidate: true, shouldDirty: true } // ✅ ADD
+    )
+  }
 
   // ─── Form ─────────────────────────────────────────────────────────────
 
@@ -250,26 +287,27 @@ export default function NewPRPage() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
+      invited_vendor_ids: [],
       line_items: [{ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 }],
     },
   })
   const watchedPlant = watch('plant')
-const { data: vendors } = useQuery({
-  queryKey: ['vendors-approved', vendorSearch, watchedPlant],
-  queryFn: async () => {
-    const r = await apiClient.get('/vendors/', {
-      params: {
-        status: 'approved',
-        search: vendorSearch,
-        page_size: 20,
-        ...(watchedPlant ? { plant: watchedPlant } : {}),
-      },
-    })
+  const { data: vendors } = useQuery({
+    queryKey: ['vendors-approved', vendorSearch, watchedPlant],
+    queryFn: async () => {
+      const r = await apiClient.get('/vendors/', {
+        params: {
+          status: 'approved',
+          search: vendorSearch,
+          page_size: 20,
+          ...(watchedPlant ? { plant: watchedPlant } : {}),
+        },
+      })
 
-    return r.data.results ?? r.data
-  },
-  enabled: vendorSearch.length >= 1,
-})
+      return r.data.results ?? r.data
+    },
+    enabled: vendorSearch.length >= 1,
+  })
 
   const { fields: lineItemFields, append, remove } = useFieldArray({ control, name: 'line_items' })
   const watchedItems = watch('line_items')
@@ -302,9 +340,9 @@ const { data: vendors } = useQuery({
     ) {
       setSelectedVendors(trackingDetail.preferred_vendors);
     } else {
-      // clear vendors if none exist
       setSelectedVendors([]);
     }
+
 
   }, [trackingDetail, setValue]);
 
@@ -505,9 +543,10 @@ const { data: vendors } = useQuery({
           {watchedTrackingId && <Card className="shadow-sm">
             <CardHeader className="pb-4 border-b">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Invited Vendors</CardTitle>
-                <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Optional</span>
-              </div>
+                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Invited Vendors <span className="text-destructive">*</span></CardTitle>
+                <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                  Required
+                </span>              </div>
               <p className="text-xs text-muted-foreground mt-1">Search and add vendors who will be invited to bid on this requisition.</p>
             </CardHeader>
             <CardContent className="pt-5 space-y-3">
@@ -518,8 +557,9 @@ const { data: vendors } = useQuery({
                   onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
                   onFocus={() => setShowVendorSearch(true)}
                   onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
-                  className="h-10"
+                  className={`h-10 ${errors.invited_vendor_ids ? 'border-destructive' : ''}`}
                 />
+
                 {showVendorSearch && vendorSearch && (
                   <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
                     {(vendors || [])
@@ -548,7 +588,11 @@ const { data: vendors } = useQuery({
                   </div>
                 )}
               </div>
-
+              {errors.invited_vendor_ids && (
+                <p className="text-xs text-destructive">
+                  {errors.invited_vendor_ids.message}
+                </p>
+              )}
               {selectedVendors.length > 0 && (
                 <div className="border border-border rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
@@ -722,8 +766,9 @@ const { data: vendors } = useQuery({
               disabled={isSaving}
               onClick={async () => {
                 const isValid = watchedTrackingId
-                  ? await trigger(['line_items', 'tracking_id'])
+                  ? await trigger(['line_items', 'tracking_id', 'invited_vendor_ids'])
                   : await trigger('tracking_id');
+
                 if (!isValid) return
                 if (budgetExceeded) {
                   toast({ title: 'Budget exceeded', description: `PR total (${formatCurrency(grandTotal)}) exceeds remaining budget (${formatCurrency(budgetRemaining)}).`, variant: 'destructive' })
