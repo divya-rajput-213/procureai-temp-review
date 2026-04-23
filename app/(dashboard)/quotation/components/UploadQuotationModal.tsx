@@ -94,7 +94,7 @@ function mapLineItemsFromQuotationResponse(response: any): LineItem[] {
         action:
           confirmedAction === 'approve'
             ? 'approve'
-            : confirmedAction === 'create' || confirmedAction === 'create new'
+            : confirmedAction === 'create' || confirmedAction === 'create new' || confirmedAction === 'create_new'
               ? 'create'
               : null,
         isConfirmed: Boolean(item?.is_confirmed ?? item?.confirmed_at ?? confirmedAction),
@@ -242,7 +242,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
       const payload =
         action === 'approve'
           ? { action: 'approve', master_item_id: item.masterItemId }
-          : { action: 'create new' }
+          : { action: 'create_new' }
 
       await apiClient.patch(
         `/quotations/${item.quotationId}/items/${item.id}/confirm/`,
