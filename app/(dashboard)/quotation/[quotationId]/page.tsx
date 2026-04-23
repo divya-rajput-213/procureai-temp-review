@@ -221,45 +221,47 @@ export default function QuotationDetailsPage({ params }: { params: { quotationId
         </div>
 
         <Card className="overflow-hidden">
-          <CardHeader>
-            <CardTitle className="text-base">Extracted Items</CardTitle>
-          </CardHeader>
           <CardContent className="p-0">
             {items.length === 0 ? (
               <div className="p-6 text-sm text-muted-foreground">
                 No vendor items were returned for this quotation.
               </div>
             ) : (
-              <div className="overflow-x-auto border-t border-slate-200">
+              <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-b">
                     <tr>
-                      <th className="border-r border-slate-200 px-4 py-3 text-left text-xs">#</th>
-                      <th className="border-r border-slate-200 px-4 py-3 text-left text-xs">Item name</th>
-                      <th className="border-r border-slate-200 px-4 py-3 text-left text-xs">Item code</th>
-                      <th className="border-r border-slate-200 px-4 py-3 text-left text-xs">HSN/SAC</th>
-                      <th className="border-r border-slate-200 px-4 py-3 text-right text-xs">Qty</th>
-                      <th className="border-r border-slate-200 px-4 py-3 text-left text-xs">Unit</th>
-                      <th className="border-r border-slate-200 px-4 py-3 text-right text-xs">Price / Unit</th>
-                      <th className="px-4 py-3 text-right text-xs">Amount</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs w-12">#</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Item name</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Item code</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">HSN/SAC</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs">Qty</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Unit</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs">Price / Unit</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs">Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {items.map((item) => (
-                      <tr key={`${quotation.hash_id}-${item.line_no}`} className="hover:bg-slate-50">
-                        <td className="border-r border-slate-200 px-4 py-3 text-xs text-muted-foreground">{item.line_no}</td>
-                        <td className="border-r border-slate-200 px-4 py-3 font-medium">{item.item_name}</td>
-                        <td className="border-r border-slate-200 px-4 py-3 font-medium">{item.item_code}</td>
-                        <td className="border-r border-slate-200 px-4 py-3 font-mono text-xs">{item.hsn_sac}</td>
-                        <td className="border-r border-slate-200 px-4 py-3 text-right tabular-nums">{item.quantity}</td>
-                        <td className="border-r border-slate-200 px-4 py-3">{item.unit}</td>
-                        <td className="border-r border-slate-200 px-4 py-3 text-right tabular-nums">{formatINR(item.price_per_unit)}</td>
+                      <tr
+                        key={`${quotation.hash_id}-${item.line_no}`}
+                        className="hover:bg-slate-50 transition-colors select-none"
+                      >
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{item.line_no}</td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{item.item_name}</p>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{item.item_code}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{item.hsn_sac}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{item.unit}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{formatINR(item.price_per_unit)}</td>
                         <td className="px-4 py-3 text-right tabular-nums">{formatINR(item.amount)}</td>
                       </tr>
                     ))}
                     <tr className="bg-slate-50">
-                      <td className="border-r border-slate-200 px-4 py-3" />
-                      <td className="border-r border-slate-200 px-4 py-3 font-semibold" colSpan={6}>
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3 font-semibold" colSpan={6}>
                         Total
                       </td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatINR(totalAmount)}</td>
