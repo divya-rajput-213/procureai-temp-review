@@ -35,19 +35,21 @@ const DATE_RANGES = [
   { value: 'year', label: 'This Year' },
 ]
 
-function StatCard({ title, value, subtitle, icon: Icon, color, href }: {
-  title: string; value: string | number; subtitle: string; icon: any; color: string; href?: string
+function StatCard({ title, value, subtitle,tooltip, icon: Icon, color, href }: {
+  title: string; value: string | number; subtitle: string; tooltip?: string; icon: any; color: string; href?: string
 }) {
   const content = (
-    <Card className={href ? 'hover:shadow-md transition-shadow cursor-pointer' : ''}>
+    <Card className={href ? 'hover:shadow-md transition-shadow cursor-pointer' : ''}
+    title={tooltip}
+  >
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
-          <div>
+          <div title={tooltip}>
             <p className="text-xs text-muted-foreground uppercase tracking-wide">{title}</p>
             <p className="text-2xl font-bold mt-1">{value}</p>
             <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
           </div>
-          <div className={`p-2.5 rounded-xl ${color}`}>
+          <div className={`p-2.5 rounded-xl ${color}`} title={tooltip}>
             <Icon className="w-5 h-5 text-white" />
           </div>
         </div>
@@ -134,18 +136,22 @@ export default function DashboardPage() {
         <StatCard title="Vendors" value={stats?.approved_vendors ?? '—'}
           subtitle="Approved & active"
           icon={ShoppingCart} color="bg-green-600" href="/vendors" />
-        <StatCard title="Budget Used" value={stats ? `${stats.budget_utilization_pct}%` : '—'}
-          subtitle={stats ? `${formatCurrency(stats.total_consumed)} of ${formatCurrency(stats.total_budget_approved)}` : '—'}
-          icon={TrendingUp} color="bg-purple-600" href="/budget" />
-      </div>
+	        <StatCard title="Budget Used" value={stats ? `${stats.budget_utilization_pct}%` : '—'}
+	          subtitle={stats ? `${formatCurrency(stats.total_consumed)} Used` : '—'}
+	          tooltip={
+	            stats
+	              ? `Used: ${formatCurrency(stats.total_consumed)} of ${formatCurrency(stats.total_budget_approved)}`
+	              : '_'
+	          } icon={TrendingUp} color="bg-purple-600" href="/budget" />
+	      </div>
 
-      {/* Row 2 — Spend chart + PO status pie */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Spend vs Budget</CardTitle>
-            <CardDescription>Monthly procurement spend — last 12 months</CardDescription>
-          </CardHeader>
+	      {/* Row 2 — Spend chart + PO status pie */}     
+	      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+	        <Card className="lg:col-span-2">
+	          <CardHeader className="pb-2">
+	            <CardTitle className="text-base">Spend vs Budget</CardTitle>
+	            <CardDescription>Monthly procurement spend — last 12 months</CardDescription>
+	          </CardHeader>
           <CardContent>
             {monthlySpend.length === 0 ? (
               <div className="h-52 flex items-center justify-center text-sm text-muted-foreground">No data yet</div>
