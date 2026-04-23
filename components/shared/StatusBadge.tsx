@@ -51,6 +51,7 @@ const STATUS_LABELS: Record<string, string> = {
   acknowledged: 'Acknowledged',
   partially_received: 'Partially Received',
   fully_received: 'Fully Received',
+  approval_required:"Approval Required"
 }
 
 const DOT_COLORS: Record<string, string> = {
