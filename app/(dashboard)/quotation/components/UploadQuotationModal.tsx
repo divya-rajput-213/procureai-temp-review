@@ -140,7 +140,6 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   const [errorMessage, setErrorMessage] = useState('')
   const [vendors, setVendors] = useState<ExtractedVendor[]>([])
   const [pendingActionByItemKey, setPendingActionByItemKey] = useState<Record<string, 'approve' | 'create' | null>>({})
-  console.log('files', files)
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!files || files.length === 0) {
@@ -172,7 +171,6 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
 
           uploadedData.push({ upload, detail })
         } catch (err: any) {
-          console.log('Upload failed for file:', file?.name, err?.response?.data)
           throw err // stop mutation if any file fails
         }
       }
@@ -203,8 +201,6 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
     },
 
     onError: (error: any) => {
-      console.log('error', error?.response?.data)
-
       const data = error?.response?.data
 
       let message = 'Failed to upload quotation.'
