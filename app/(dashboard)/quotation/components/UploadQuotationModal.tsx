@@ -125,8 +125,8 @@ function mapLineItemsFromQuotationResponse(response: any): LineItem[] {
             : confirmedAction === 'create' ||
               confirmedAction === 'create new' ||
               confirmedAction === 'create_new'
-            ? 'create'
-            : null,
+              ? 'create'
+              : null,
         isConfirmed: Boolean(
           item?.is_confirmed ?? item?.confirmed_at ?? confirmedAction
         ),
@@ -389,11 +389,35 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   const isNotEmpty = (val?: string | null) =>
     val && val !== 'N/A' && val.trim() !== ''
 
+  const isLoading = 
+  uploadMutation.isPending ||
+  confirmItemMutation.isPending
   if (!isOpen) return null
 
   return (
     <div style={styles.overlay}>
       <div style={styles.modal}>
+        {isLoading && (
+          <div style={styles.loaderOverlay}>
+            <div style={styles.loaderBox}>
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#111"
+                strokeWidth="2"
+                className="animate-spin"
+              >
+                <circle cx="12" cy="12" r="10" strokeOpacity="0.2" />
+                <path d="M22 12a10 10 0 0 1-10 10" />
+              </svg>
+              <p style={{ marginTop: 10, fontSize: 14, color: '#555' }}>
+                Processing...
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ── Header ── */}
         <div style={styles.header}>
@@ -402,7 +426,10 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
               <h2 style={styles.title}>Upload quotation</h2>
               <p style={styles.subtitle}>{STEP_SUBTITLES[step - 1]}</p>
             </div>
-            <button onClick={onClose} style={styles.closeBtn}>×</button>
+            <button onClick={() => {
+              if (isLoading) return
+              onClose()
+            }} style={styles.closeBtn}>×</button>
           </div>
 
           {/* Stepper */}
@@ -794,7 +821,10 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
             )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onClose} style={styles.btnGhost}>Cancel</button>
+            <button onClick={() => {
+              if (isLoading) return
+              onClose()
+            }} style={styles.btnGhost}>Cancel</button>
             {step < 3 ? (
               <button
                 onClick={step === 1 ? handleUploadAndExtract : goNext}
@@ -832,6 +862,24 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  loaderOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background: 'rgba(0,0,0,0.2)',
+    zIndex: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    pointerEvents: 'all', 
+  },
+  loaderBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   overlay: {
     position: 'fixed', inset: 0, zIndex: 50,
     background: 'rgba(0,0,0,0.5)',
