@@ -26,11 +26,11 @@ const schema = z.object({
   description: z.string().optional(),
   title: z.string().optional(),
   matrix_id: z.number().optional(),
-invited_vendor_ids: z
-  .array(z.number())
-  .min(1, 'Please select at least one vendor')
-  .max(5, 'You can select maximum 5 vendors')
-  .default([]),
+  invited_vendor_ids: z
+    .array(z.number())
+    .min(1, 'Please select at least one vendor')
+    .max(5, 'You can select maximum 5 vendors')
+    .default([]),
 
 
   line_items: z.array(
@@ -225,6 +225,97 @@ export default function NewPRPage() {
   const [selectedTracking, setSelectedTracking] = useState<any>(null)
   const [itemLabels, setItemLabels] = useState<Record<number, string>>({})
   const [savedPrId, setSavedPrId] = useState<string | null>(null)
+  const [quotationSearch, setQuotationSearch] = useState('')
+  const [quotationOpen, setQuotationOpen] = useState(false)
+  const [selectedQuotationIds, setSelectedQuotationIds] = useState<number[]>([])
+  const quotationWrapperRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        quotationWrapperRef.current &&
+        !quotationWrapperRef.current.contains(e.target as Node)
+      ) {
+        setQuotationOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  const { data: quotations = [], isLoading: qLoading } = useQuery({
+    queryKey: ['quotations', quotationSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+
+      // ⚡ IMPORTANT: DO NOT restrict empty search
+      if (quotationSearch) params.set('search', quotationSearch)
+
+      const queryString = params.toString()
+
+      const { data } = await apiClient.get(
+        `/quotations/${queryString ? `?${queryString}` : ''}`
+      )
+
+      const records = data?.results || data || []
+      return records
+    },
+  })
+  const applyQuotationAggregate = (data: any) => {
+    if (!data) return
+
+    // ─── 1. VENDORS ───
+    const vendors = data.vendors ?? []
+
+    setSelectedVendors(vendors)
+
+    setValue(
+      'invited_vendor_ids',
+      vendors.map((v: any) => v.id),
+      { shouldValidate: true, shouldDirty: true }
+    )
+
+    // ─── 2. ITEMS → line_items ───
+    const items = data.items ?? []
+
+    const mappedLineItems = items.map((item: any) => ({
+      item_code: item.master_item_id ?? 0,   // adjust if needed
+      quantity: item.quantity ?? 1,
+      unit_rate: item.item_price ?? 0,
+      unit_of_measure: item.unit_of_measure ?? 'EA',
+    }))
+
+    setValue('line_items', mappedLineItems, {
+      shouldValidate: true,
+      shouldDirty: true,
+    })
+
+    // optional: labels for UI search display
+    const labels: Record<number, string> = {}
+
+    items.forEach((item: any, idx: number) => {
+      labels[idx] = `${item.item_code} — ${item.item_name}`
+    })
+
+    setItemLabels(labels)
+  }
+
+  const toggleQuotation = (id: number) => {
+    setSelectedQuotationIds(prev =>
+      prev.includes(id)
+        ? prev.filter(q => q !== id)
+        : [...prev, id]
+    )
+  }
+
+  const selectedQuotations = quotations.filter((q:any) =>
+    selectedQuotationIds.includes(q.id)
+  )
+
+  console.log('selectedQuotations', selectedQuotations)
   // ─── Remote data ──────────────────────────────────────────────────────
 
   const { data: trackingIds } = useQuery({
@@ -493,6 +584,7 @@ export default function NewPRPage() {
                 </div>
               )}
 
+
               {watchedTrackingId &&
                 <>
                   <div className="space-y-1.5">
@@ -538,6 +630,124 @@ export default function NewPRPage() {
               }
             </CardContent>
           </Card>
+          {watchedTrackingId && <Card className="shadow-sm">
+            <CardHeader className="pb-4 border-b">
+              <CardTitle className="text-sm font-semibold uppercase text-muted-foreground">
+                Select Quotations
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Select quotations to auto-fill vendors and line items.
+              </p>
+            </CardHeader>
+
+            <CardContent className="pt-5 space-y-3">
+
+              {/* SEARCH INPUT */}
+              <div ref={quotationWrapperRef} className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+
+                <Input
+                  placeholder="Search quotation ref no..."
+                  value={quotationSearch}
+                  onChange={(e) => {
+                    setQuotationSearch(e.target.value)
+                    setQuotationOpen(true)
+                  }}
+                  onFocus={() => setQuotationOpen(true)}
+                  className="pl-8"
+                />
+
+                {/* DROPDOWN ALWAYS READY (DEFAULT LIST) */}
+                {quotationOpen && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-56 overflow-auto">
+
+                    {qLoading ? (
+                      <div className="p-2 text-xs text-muted-foreground">Loading...</div>
+                    ) : quotations.length === 0 ? (
+                      <div className="p-2 text-xs text-muted-foreground">No quotations found</div>
+                    ) : (
+                      quotations.map((q: any) => (
+                        <label
+                          key={q.id}
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedQuotationIds.includes(q.id)}
+                            onChange={() => toggleQuotation(q.id)}
+                          />
+
+                          {/* ONLY REF NO */}
+                          <span className="font-medium">
+                            {q.ref_no}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+
+              {/* SELECTED CHIPS */}
+              {selectedQuotations.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedQuotations.map((q:any) => (
+                    <div
+                      key={q.id}
+                      className="flex items-center gap-1 px-2 py-1 text-xs bg-muted rounded-full"
+                    >
+                      {q.ref_no}
+                      <button
+                        onClick={() => toggleQuotation(q.id)}
+                        className="hover:text-red-500"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ACTION BUTTON */}
+              <Button
+                type="button"
+                disabled={selectedQuotationIds.length === 0}
+                onClick={async () => {
+                  try {
+                    const { data } = await apiClient.post(
+                      '/quotations/aggregate/',
+                      {
+                        quotation_ids: selectedQuotationIds,
+                      }
+                    )
+
+                    applyQuotationAggregate(data)
+
+                    toast({
+                      title: 'Quotations applied',
+                      description: 'Vendors and items auto-filled successfully.',
+                    })
+
+                    // optional: close dropdown
+                    setQuotationOpen(false)
+
+                  } catch (err) {
+                    console.error(err)
+                    toast({
+                      title: 'Failed to apply quotations',
+                      variant: 'destructive',
+                    })
+                  }
+                }}
+              >
+                Add Quotations
+              </Button>
+
+
+
+            </CardContent>
+          </Card>}
 
           {/* ── Invited Vendors ── */}
           {watchedTrackingId && <Card className="shadow-sm">
@@ -556,7 +766,6 @@ export default function NewPRPage() {
                   value={vendorSearch}
                   onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
                   onFocus={() => setShowVendorSearch(true)}
-                  onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
                   className={`h-10 ${errors.invited_vendor_ids ? 'border-destructive' : ''}`}
                 />
 
