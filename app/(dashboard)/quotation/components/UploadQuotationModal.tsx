@@ -134,6 +134,9 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   const { toast } = useToast()
   const [step, setStep] = useState(1)
   const [file, setFile] = useState<File | null>(null)
+  const [quotation, setQuotation] = useState<any>(null)
+  const [meta, setMeta] = useState<any>(null)
+
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [dragging, setDragging] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -147,62 +150,50 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
       const formData = new FormData()
       formData.append('file', file)
 
-      const { data: upload } = await apiClient.post(
+      const { data } = await apiClient.post(
         '/quotations/upload/',
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       )
 
-      const quotationId = getQuotationId(upload)
-
-      const detail = quotationId
-        ? (await apiClient.get(`/quotations/${quotationId}/`)).data
-        : null
-
-      return [{ upload, detail }]
+      return data 
     },
 
-    onSuccess: (responses: Array<{ upload: any; detail: any | null }>) => {
-      const extractedVendors = responses.flatMap(({ upload, detail }) => {
-        const source = detail ?? upload
-        const vendorArray = Array.isArray(source?.vendor) ? source.vendor : []
 
-        if (vendorArray.length > 0) {
-          return vendorArray.map((v: any) => ({
-            id: String(v.vendor_id ?? v.id ?? Math.random()),
-            name: v.vendor_name ?? v.name ?? 'Unknown Vendor',
-            contactName: v.contact_name,
-            contactEmail: v.contact_email,
-            contactPhone: v.contact_phone,
-            city: v.city,
-            state: v.state,
-            gstNumber: v.gst_number,
-            vendorCreated: v.vendor_created,
-          }))
-        }
+    onSuccess: (data: any) => {
+      // store full response
+      setQuotation(data)
 
-        // fallback for older shape
-        return [{
-          id: String(getQuotationId(upload) ?? getQuotationId(detail) ?? Math.random()),
-          name:
-            upload?.vendor_name ??
-            upload?.vendor?.name ??
-            upload?.vendor?.company_name ??
-            detail?.vendor_name ??
-            detail?.vendor?.name ??
-            detail?.vendor?.company_name ??
-            'Vendor',
-        }]
+      //  vendors mapping (correct)
+      const vendors = (data.vendor || []).map((v: any) => ({
+        id: String(v.vendor_id),
+        name: v.vendor_name,
+        contactName: v.contact_name,
+        contactEmail: v.contact_email,
+        contactPhone: v.contact_phone,
+        city: v.city,
+        state: v.state,
+        gstNumber: v.gst_number,
+        vendorCreated: v.vendor_created,
+      }))
+
+      //  USE YOUR EXISTING CLEAN MAPPER
+      const mappedLineItems = mapLineItemsFromQuotationResponse(data)
+
+      setVendors(vendors)
+      setLineItems(mappedLineItems)
+
+      // meta
+      setMeta({
+        quotationId: data.quotation_id,
+        refNo: data.ref_no,
+        totalItems: data.total_items,
+        matchedItems: data.matched_items,
       })
 
-      const extractedLineItems = responses.flatMap(({ upload, detail }) =>
-        mapLineItemsFromQuotationResponse(detail ?? upload)
-      )
-
-      setVendors(extractedVendors)
-      setLineItems(extractedLineItems)
       setStep(2)
     },
+
 
     onError: (error: any) => {
       const data = error?.response?.data
@@ -479,9 +470,9 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                       {/* Name row */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                         <p style={{ fontSize: 15, fontWeight: 600, color: '#111', margin: 0 }}>{v.name}</p>
-                        {v.vendorCreated === false && (
+                        {/* {v.vendorCreated === false && (
                           <span style={styles.newBadge}>New</span>
-                        )}
+                        )} */}
                       </div>
                       {/* Detail rows */}
                       <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '4px 20px' }}>
@@ -693,7 +684,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                   cursor: uploadMutation.isPending ? 'not-allowed' : 'pointer',
                 }}
               >
-               Done
+                Done
               </button>
             )}
           </div>
