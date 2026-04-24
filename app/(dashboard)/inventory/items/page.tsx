@@ -20,14 +20,14 @@ import apiClient from '@/lib/api/client'
 interface Category { id: number; hash_id: string; name: string; is_active: boolean }
 interface Item {
   id: number; hash_id: string; code: string; description: string; unit_of_measure: string
-  category: number | null; category_name: string; hsn_code: string; unit_rate: string; is_active: boolean
+  category: number | null; category_name: string; hsn_code: string; is_active: boolean
 }
 interface ItemFormData {
-  code: string; description: string; unit_of_measure: string
-  category: number | ''; hsn_code: string; unit_rate: string; is_active: boolean
+  description: string; unit_of_measure: string
+  category: number | ''; hsn_code: string; is_active: boolean
 }
 
-const EMPTY_FORM: ItemFormData = { code: '', description: '', unit_of_measure: 'EA', category: '', hsn_code: '', unit_rate: '', is_active: true }
+const EMPTY_FORM: ItemFormData = { description: '', unit_of_measure: 'EA', category: '', hsn_code: '', is_active: true }
 const UOM_OPTIONS = ['EA', 'KG', 'LTR', 'MTR', 'PCS', 'SET', 'BOX', 'BAG', 'TON', 'NOS']
 
 // System fields available for column mapping
@@ -37,7 +37,6 @@ const ITEM_FIELDS = [
   { key: 'unit_of_measure',   label: 'Unit of Measure',   required: true },
   { key: 'category',          label: 'Category',          required: true },
   { key: 'hsn_code',          label: 'Category',          required: true },
-  { key: 'unit_rate',         label: 'Unit Rate',         required: true },
   { key: 'is_active',         label: 'Is Active',         required: false },
 ]
 
@@ -108,7 +107,7 @@ function ItemModal({
 
   const [form, setForm] = useState<ItemFormData>(
     isEdit
-      ? { code: item.code, description: item.description, unit_of_measure: item.unit_of_measure, category: item.category ?? '', hsn_code: item.hsn_code, unit_rate: item.unit_rate ?? '', is_active: item.is_active }
+      ? { description: item.description, unit_of_measure: item.unit_of_measure, category: item.category ?? '', hsn_code: item.hsn_code, is_active: item.is_active }
       : { ...EMPTY_FORM }
   )
   const [errors, setErrors] = useState<Partial<Record<keyof ItemFormData, string>>>({})
@@ -127,7 +126,6 @@ function ItemModal({
 
   function validate(): boolean {
     const errs: Partial<Record<keyof ItemFormData, string>> = {}
-    if (!form.code.trim()) errs.code = 'Code is required'
     if (!form.description.trim()) errs.description = 'Description is required'
     if (!form.category) errs.category = 'Category is required'
     const hsn = form.hsn_code.trim()
@@ -139,7 +137,6 @@ function ItemModal({
       const duplicate = existingItems.some((i) => i.hsn_code?.trim() === hsn && i.id !== item?.id)
       if (duplicate) errs.hsn_code = 'item code with this hsn code already exists'
     }
-    if (!form.unit_rate) errs.unit_rate = 'Unit Rate is required'
     if (!form.unit_of_measure.trim()) errs.unit_of_measure = 'Unit of measure is required'
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -166,38 +163,34 @@ function ItemModal({
               <Input value={form.description} onChange={e => set('description', e.target.value)} placeholder="Full item description" />
               {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Code <span className="text-destructive">*</span></Label>
-                <Input value={form.code} onChange={e => set('code', e.target.value)} placeholder="e.g. BOLT-M10" />
-                {errors.code && <p className="text-xs text-destructive">{errors.code}</p>}
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Unit of Measure <span className="text-destructive">*</span></Label>
-                <select className="w-full h-10 border rounded-md px-3 text-sm bg-background" value={form.unit_of_measure} onChange={e => set('unit_of_measure', e.target.value)}>
+                <select
+                  className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background"
+                  value={form.unit_of_measure}
+                  onChange={e => set('unit_of_measure', e.target.value)}
+                >
                   {UOM_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
                 {errors.unit_of_measure && <p className="text-xs text-destructive">{errors.unit_of_measure}</p>}
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Category <span className="text-destructive">*</span></Label>
-                <select className="w-full h-10 border rounded-md px-3 text-sm bg-background" value={form.category} onChange={e => set('category', e.target.value ? Number(e.target.value) : null)}>
+                <select
+                  className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background"
+                  value={form.category}
+                  onChange={e => set('category', e.target.value ? Number(e.target.value) : '')}
+                >
                   <option value="">Select category…</option>
                   {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                 </select>
                 {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}
               </div>
-              <div className="space-y-1">
-              <Label>HSN Code <span className="text-destructive">*</span></Label>
-              <Input value={form.hsn_code} onChange={e => set('hsn_code', e.target.value)} placeholder="e.g. 62139010" />
-              {errors.hsn_code && <p className="text-xs text-destructive">{errors.hsn_code}</p>}
-            </div>
-              <div className="space-y-1">
-                <Label>Unit Rate (₹) <span className="text-destructive">*</span></Label>
-                <Input type="number" step="0.01" min="0.01" placeholder="0.00" value={form.unit_rate} onChange={e => set('unit_rate', e.target.value)} />
-                {errors.unit_rate && <p className="text-xs text-destructive">{errors.unit_rate}</p>}
+              <div className="space-y-1 md:col-span-2">
+                <Label>HSN Code <span className="text-destructive">*</span></Label>
+                <Input value={form.hsn_code} onChange={e => set('hsn_code', e.target.value)} placeholder="e.g. 62139010" />
+                {errors.hsn_code && <p className="text-xs text-destructive">{errors.hsn_code}</p>}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -598,7 +591,6 @@ export default function ItemsInventoryPage() {
                     <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Unit</th>
                     <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Category</th>
                     <th className="px-4 py-3 text-left font-medium">HSN Code</th>
-                    <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Unit Rate</th>
                     <th className="px-4 py-3 text-left font-medium">Status</th>
                     <th className="px-4 py-3" />
                   </tr>
@@ -611,7 +603,7 @@ export default function ItemsInventoryPage() {
                       <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{item.category_name || '—'}</td>
                       <td className="px-4 py-3 font-mono text-xs">{item.hsn_code}</td>
-                      <td className="px-4 py-3 hidden lg:table-cell font-mono text-xs text-muted-foreground">{item.unit_rate || '—'}</td>
+                      {/* <td className="px-4 py-3 hidden lg:table-cell font-mono text-xs text-muted-foreground">{item.unit_rate || '—'}</td> */}
                       <td className="px-4 py-3">
                         <Badge
                           variant={item.is_active ? 'default' : 'secondary'}
