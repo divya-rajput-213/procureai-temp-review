@@ -240,10 +240,13 @@ export default function NewPRPage() {
   const [quotationSearch, setQuotationSearch] = useState('')
   const [quotationOpen, setQuotationOpen] = useState(false)
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<number[]>([])
-  // Track which line-item rows came from quotation auto-fill vs manual entry
-  const [quotationFilledRows, setQuotationFilledRows] = useState<boolean[]>([])
   const [isApplyingQuotations, setIsApplyingQuotations] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Use a ref to track which rows are quotation-filled so we never get stale closures
+  // true  = row was injected by quotation aggregate
+  // false = row was added/edited manually
+  const quotationFilledRowsRef = useRef<boolean[]>([false]) // starts with the 1 default blank row
 
   const quotationWrapperRef = useRef<HTMLDivElement>(null)
   useClickOutside(quotationWrapperRef, () => setQuotationOpen(false))
@@ -380,108 +383,128 @@ export default function NewPRPage() {
   // ─── Quotation aggregate apply / revert ───────────────────────────────
 
   /**
-   * Applies aggregate data (vendors + items) from the API into the form.
-   * Marks those rows as "quotation-filled" so we can revert them later.
+   * Reads current form values directly (no stale closure) and returns
+   * only the manually-entered rows, with their labels.
+   */
+  const getManualRows = useCallback(() => {
+    // control._formValues always returns live form state - no stale closure risk
+    const currentItems = control._formValues?.line_items ?? []
+    const flags = quotationFilledRowsRef.current
+
+    const manualItems: typeof currentItems = []
+    const manualLabels: Record<number, string> = {}
+
+    currentItems.forEach((item: any, idx: number) => {
+      const isQuotationRow = flags[idx] === true
+      // Only keep rows that were manually filled AND have a real item selected.
+      // Blank default rows (item_code falsy/0) are discarded so they don't appear
+      // as empty ghost rows when autofill runs.
+      const hasItem = item.item_code && Number(item.item_code) > 0
+      if (!isQuotationRow && hasItem) {
+        manualLabels[manualItems.length] = itemLabels[idx] ?? ''
+        manualItems.push(item)
+      }
+    })
+
+    return { manualItems, manualLabels }
+  }, [control, itemLabels])
+
+  /**
+   * Applies aggregate data (vendors + items) from the API.
+   * Manual rows already present are KEPT — quotation rows are merged in after them.
    */
   const applyQuotationAggregate = useCallback((data: any) => {
     if (!data) return
 
     // 1. Vendors
-    const vendors: any[] = data.vendors ?? []
-    setSelectedVendors(vendors)
-    setValue('invited_vendor_ids', vendors.map((v: any) => v.id), { shouldValidate: true, shouldDirty: true })
+    const newVendors: any[] = data.vendors ?? []
+    setSelectedVendors(newVendors)
+    setValue('invited_vendor_ids', newVendors.map((v: any) => v.id), { shouldValidate: true, shouldDirty: true })
 
-    // 2. Line items
+    // 2. Build new quotation rows
     const items: any[] = data.items ?? []
-    const mappedLineItems = items.map((item: any) => ({
+    const quotationRows = items.map((item: any) => ({
       item_code: item.master_item_id ? Number(item.master_item_id) : 0,
       quantity: Number(item.quantity ?? 1),
       unit_rate: Number(item.item_price ?? 0),
       unit_of_measure: item.unit_of_measure ?? 'EA',
     }))
 
-    // Replace keeps only quotation rows; manual rows are wiped intentionally
-    // when quotations are applied — they can re-add manually after.
-    replace(mappedLineItems)
+    // 3. Get existing manual rows (so we don't wipe them)
+    const { manualItems, manualLabels } = getManualRows()
 
-    // Mark all replaced rows as quotation-filled
-    setQuotationFilledRows(mappedLineItems.map(() => true))
+    // 4. Merge: manual rows first, then quotation rows
+    const merged = [...manualItems, ...quotationRows]
+    replace(merged)
 
-    // 3. Labels
-    const labels: Record<number, string> = {}
-    items.forEach((item: any, idx: number) => {
-      labels[idx] = `${item.item_code} — ${item.item_name}`
+    // 5. Update the ref: manual rows stay false, new quotation rows are true
+    quotationFilledRowsRef.current = [
+      ...manualItems.map(() => false),
+      ...quotationRows.map(() => true),
+    ]
+
+    // 6. Labels: keep manual labels, add quotation labels after them
+    const newLabels: Record<number, string> = { ...manualLabels }
+    items.forEach((item: any, i: number) => {
+      newLabels[manualItems.length + i] = `${item.item_code} — ${item.item_name}`
     })
-    setItemLabels(labels)
+    setItemLabels(newLabels)
 
-    // 4. Clear any stale validation errors on line_items
+    // 7. Clear stale validation errors and re-validate
     clearErrors('line_items')
     clearErrors('invited_vendor_ids')
-
-    // Force re-validation so Zod sees the new values
     setTimeout(() => {
       trigger('line_items')
       trigger('invited_vendor_ids')
     }, 0)
-  }, [replace, setValue, clearErrors, trigger])
+  }, [getManualRows, replace, setValue, clearErrors, trigger])
 
   /**
-   * Reverts quotation-filled rows and vendors when all quotations are deselected.
-   * Keeps any manually-added rows in place.
+   * Reverts only the quotation-injected rows; manual rows stay untouched.
+   * Also reverts vendors back to trackingDetail preferred vendors.
    */
   const revertQuotationData = useCallback(() => {
-    // Remove only the rows that were injected by quotation auto-fill
-    const currentItems = watchedItems ?? []
-    const manualItems = currentItems.filter((_, idx) => !quotationFilledRows[idx])
+    const { manualItems, manualLabels } = getManualRows()
 
     if (manualItems.length > 0) {
       replace(manualItems)
-      setQuotationFilledRows(manualItems.map(() => false))
-      // Rebuild labels for remaining manual rows (drop quotation labels)
-      setItemLabels(prev => {
-        const next: Record<number, string> = {}
-        let newIdx = 0
-        currentItems.forEach((_, oldIdx) => {
-          if (!quotationFilledRows[oldIdx]) {
-            if (prev[oldIdx]) next[newIdx] = prev[oldIdx]
-            newIdx++
-          }
-        })
-        return next
-      })
+      quotationFilledRowsRef.current = manualItems.map(() => false)
+      setItemLabels(manualLabels)
     } else {
-      // Nothing manual remains — reset to a single blank row
+      // Nothing manual — reset to one blank row
       replace([{ item_code: undefined as any, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 }])
-      setQuotationFilledRows([false])
+      quotationFilledRowsRef.current = [false]
       setItemLabels({})
     }
 
-    // Revert vendors (back to tracking detail preferred vendors or empty)
+    // Revert vendors to tracking preferred vendors (or empty)
     const preferredVendors = trackingDetail?.preferred_vendors ?? []
     setSelectedVendors(preferredVendors)
-    setValue(
-      'invited_vendor_ids',
-      preferredVendors.map((v: any) => v.id),
-      { shouldValidate: true, shouldDirty: true }
-    )
-  }, [watchedItems, quotationFilledRows, replace, setValue, trackingDetail])
+    setValue('invited_vendor_ids', preferredVendors.map((v: any) => v.id), { shouldValidate: true, shouldDirty: true })
+
+    clearErrors('line_items')
+    clearErrors('invited_vendor_ids')
+  }, [getManualRows, replace, setValue, clearErrors, trackingDetail])
 
   // ─── Debounced aggregate call on checkbox change ───────────────────────
 
   /**
-   * Called every time selectedQuotationIds changes.
-   * Debounces the API call by 400 ms so rapid checkbox clicks
-   * only result in one network request.
+   * Schedules an aggregate API call 800 ms after the last checkbox toggle.
+   * If ids drops to [] the debounce is cancelled and revert runs immediately
+   * — but only after a short delay so the user can re-check if they want.
    */
-  const fetchAndApplyAggregate = useCallback((ids: number[]) => {
+  const scheduleAggregate = useCallback((ids: number[]) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
     if (ids.length === 0) {
-      // All quotations deselected — revert immediately (no API call needed)
-      revertQuotationData()
+      // Small delay so unchecking one and rechecking another doesn't flash a revert
+      debounceRef.current = setTimeout(() => {
+        revertQuotationData()
+      }, 300)
       return
     }
 
+    // Wait 800 ms after the last toggle before hitting the API
     debounceRef.current = setTimeout(async () => {
       setIsApplyingQuotations(true)
       try {
@@ -494,16 +517,16 @@ export default function NewPRPage() {
       } finally {
         setIsApplyingQuotations(false)
       }
-    }, 400)
+    }, 800)
   }, [applyQuotationAggregate, revertQuotationData, toast])
 
-  // Cleanup debounce on unmount
+  // Cleanup on unmount
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current) }, [])
 
   const toggleQuotation = (id: number) => {
     setSelectedQuotationIds(prev => {
       const next = prev.includes(id) ? prev.filter(q => q !== id) : [...prev, id]
-      fetchAndApplyAggregate(next)
+      scheduleAggregate(next)
       return next
     })
   }
@@ -864,7 +887,7 @@ export default function NewPRPage() {
                     onClick={handleSubmit(() => {
                       append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })
                       // Mark new row as manual (not quotation-filled)
-                      setQuotationFilledRows(prev => [...prev, false])
+                      quotationFilledRowsRef.current = [...quotationFilledRowsRef.current, false]
                     })}
                     className="gap-1 shrink-0"
                   >
@@ -901,12 +924,10 @@ export default function NewPRPage() {
                                 setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
                                 if (item.unit_rate) setValue(`line_items.${idx}.unit_rate`, Number(item.unit_rate))
                                 clearErrors(`line_items.${idx}.item_code`)
-                                // Mark this row as manually edited
-                                setQuotationFilledRows(prev => {
-                                  const next = [...prev]
-                                  next[idx] = false
-                                  return next
-                                })
+                                // Mark this row as manually edited (no longer quotation-filled)
+                                quotationFilledRowsRef.current = quotationFilledRowsRef.current.map(
+                                  (v, i) => (i === idx ? false : v)
+                                )
                                 setItemLabels(prev => ({ ...prev, [idx]: `${item.code} — ${item.description}` }))
                               }}
                               placeholder="Search item…"
@@ -959,7 +980,7 @@ export default function NewPRPage() {
                                 type="button"
                                 onClick={() => {
                                   remove(idx)
-                                  setQuotationFilledRows(prev => prev.filter((_, i) => i !== idx))
+                                  quotationFilledRowsRef.current = quotationFilledRowsRef.current.filter((_, i) => i !== idx)
                                   setItemLabels(prev => {
                                     const next: Record<number, string> = {}
                                     Object.entries(prev).forEach(([k, v]) => {
