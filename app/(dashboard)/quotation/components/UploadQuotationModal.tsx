@@ -687,7 +687,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                           >
                             {suggestions.map((s, i) => (
                               <option key={s.master_item_id} value={i}>
-                                {s.code} · {s.unit_of_measure} · ₹{s.unit_rate.toLocaleString('en-IN')}
+                                {s.code} · {s.unit_of_measure} 
                               </option>
                             ))}
                           </select>
