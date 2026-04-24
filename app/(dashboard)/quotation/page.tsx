@@ -57,7 +57,6 @@ function mapQuotation(raw: any): Quotation {
 export default function QuotationPage() {
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
-    const [trackingFilter, setTrackingFilter] = useState('')
     const [isUploadQuotationModalOpen, setIsUploadQuotationModalOpen] = useState(false)
 
     const router = useRouter()
@@ -86,18 +85,13 @@ export default function QuotationPage() {
 
         const matchesStatus = statusFilter ? q.status === statusFilter : true
 
-        const matchesTracking = trackingFilter
-            ? q.pr_number.toLowerCase().includes(trackingFilter.toLowerCase())
-            : true
-
-        return matchesSearch && matchesStatus && matchesTracking
+        return matchesSearch && matchesStatus
     })
 
-    const hasFilters = search || statusFilter || trackingFilter
+    const hasFilters = search || statusFilter
 
     return (
         <div className="space-y-4">
-
             {/* Filters */}
             <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
@@ -106,7 +100,7 @@ export default function QuotationPage() {
                     <div className="relative min-w-[180px] max-w-xs flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
-                            placeholder="Search quotation or vendor"
+                            placeholder="Search quotations..."
                             className="pl-9"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
@@ -131,11 +125,10 @@ export default function QuotationPage() {
                         <Button
                             variant="ghost"
                             size="sm"
-                             className="text-muted-foreground gap-1"
+                            className="text-muted-foreground gap-1"
                             onClick={() => {
                                 setSearch('')
                                 setStatusFilter('')
-                                setTrackingFilter('')
                             }}
                         >
                             <X className="w-3.5 h-3.5" /> Clear
@@ -144,8 +137,7 @@ export default function QuotationPage() {
                 </div>
 
                 {/* Upload Button */}
-                <Button type="button" className="gap-2" onClick={() => setIsUploadQuotationModalOpen(true)}
-                >
+                <Button type="button" className="gap-2 shrink-0" onClick={() => setIsUploadQuotationModalOpen(true)}>
                     <Plus className="w-4 h-4" />
                     Upload Quotation
                 </Button>
@@ -172,13 +164,11 @@ export default function QuotationPage() {
 
                                 <thead className="bg-slate-50 border-b">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-xs">Quotation No</th>
-                                        <th className="px-4 py-3 text-left text-xs">Vendor</th>
-                                        <th className="px-4 py-3 text-left text-xs">PR</th>
-                                        <th className="px-4 py-3 text-left text-xs">Status</th>
-                                        <th className="px-4 py-3 text-left text-xs">Uploaded By</th>
-                                        <th className="px-4 py-3 text-left text-xs">Created</th>
-                                        <th className="px-4 py-3" />
+                                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Quotation No</th>
+                                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">PR Number</th>
+                                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Uploaded By</th>
+                                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
+                                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Created</th>
                                     </tr>
                                 </thead>
 
@@ -187,16 +177,18 @@ export default function QuotationPage() {
                                         <tr
                                             key={q.id}
                                             onClick={() => router.push(`/quotation/${q.id}`)}
-                                            className="hover:bg-slate-50 cursor-pointer"
+                                            className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
                                         >
-                                            <td className="px-4 py-3 font-mono text-xs">{q.quotation_number}</td>
-                                            <td className="px-4 py-3">{q.vendor_name}</td>
-                                            <td className="px-4 py-3">{q.pr_number}</td>
+                                            <td className="px-4 py-3">
+                                                <p className="font-medium">{q.quotation_number}</p>
+                                                <p className="text-xs text-muted-foreground">{q.vendor_name}</p>
+                                            </td>
+                                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{q.pr_number || '—'}</td>
+                                            <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">{q.uploaded_by}</td>
                                             <td className="px-4 py-3">
                                                 <StatusBadge status={q.status} />
                                             </td>
-                                            <td className="px-4 py-3 text-xs">{q.uploaded_by}</td>
-                                            <td className="px-4 py-3 text-xs">{formatDate(q.created_at)}</td>
+                                            <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{formatDate(q.created_at)}</td>
                                         </tr>
                                     ))}
                                 </tbody>

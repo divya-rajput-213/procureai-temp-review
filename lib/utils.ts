@@ -69,6 +69,7 @@ export function getSLAColor(percentage: number): string {
 export const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
   pending_approval: 'bg-amber-100 text-amber-700',
+  approval_required: 'bg-amber-100 text-amber-700',
   pending_finance: 'bg-amber-100 text-amber-700',
   approved: 'bg-green-100 text-green-700',
   vendor_selected: 'bg-teal-100 text-teal-700',
