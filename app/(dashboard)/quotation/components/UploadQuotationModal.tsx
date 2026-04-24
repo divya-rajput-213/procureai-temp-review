@@ -10,7 +10,7 @@ type Suggestion = {
   code: string
   description: string
   unit_of_measure: string
-  unit_rate: number
+  unit_rate?: number
   hsn_code?: string
   category?: string | null
 }
