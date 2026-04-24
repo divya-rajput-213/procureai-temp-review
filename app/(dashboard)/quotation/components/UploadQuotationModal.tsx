@@ -5,6 +5,16 @@ import { useMutation } from '@tanstack/react-query'
 import apiClient from '@/lib/api/client'
 import { useToast } from '@/components/ui/use-toast'
 
+type Suggestion = {
+  master_item_id: number
+  code: string
+  description: string
+  unit_of_measure: string
+  unit_rate: number
+  hsn_code?: string
+  category?: string | null
+}
+
 type LineItem = {
   id: number
   quotationId: number
@@ -13,6 +23,7 @@ type LineItem = {
   uom: string
   hasMatch: boolean
   masterItemId: number | null
+  suggestions: Suggestion[]
   action: 'approve' | 'create' | null
   isConfirmed: boolean
 }
@@ -40,8 +51,6 @@ const STEP_SUBTITLES = [
   'Step 2 of 3 — Review vendors',
   'Step 3 of 3 — Verify line items',
 ]
-
-const PROGRESS = ['33%', '66%', '100%']
 
 function toNumber(value: unknown): number | null {
   const parsed = Number(value)
@@ -74,29 +83,53 @@ function mapLineItemsFromQuotationResponse(response: any): LineItem[] {
 
   return items
     .map((item: any, index: number) => {
-      const itemId = toNumber(item?.quotation_item_id) ?? toNumber(item?.id) ?? toNumber(item?.item_id)
+      const itemId =
+        toNumber(item?.quotation_item_id) ??
+        toNumber(item?.id) ??
+        toNumber(item?.item_id)
       if (!itemId) return null
 
-      const masterItemId = toNumber(item?.master_item_id) ?? getMasterItemId(item)
-      const hasMatch = Boolean(item?.master_item_matched ?? item?.has_match ?? item?.matched ?? item?.is_matched ?? masterItemId)
+      const suggestions: Suggestion[] = Array.isArray(item?.suggestions)
+        ? item.suggestions
+        : []
 
-      const confirmedAction = item?.confirmed_action ?? item?.action_taken ?? item?.action
+      const masterItemId =
+        suggestions.length > 0
+          ? toNumber(suggestions[0].master_item_id)
+          : getMasterItemId(item)
+
+      const hasMatch = Boolean(
+        item?.master_item_matched ??
+        item?.has_match ??
+        item?.matched ??
+        item?.is_matched ??
+        suggestions.length > 0
+      )
+
+      const confirmedAction =
+        item?.confirmed_action ?? item?.action_taken ?? item?.action
 
       return {
         id: itemId,
         quotationId,
-        name: item?.item_name ?? item?.name ?? item?.description ?? `Item ${index + 1}`,
+        name:
+          item?.item_name ?? item?.name ?? item?.description ?? `Item ${index + 1}`,
         code: item?.item_code ?? item?.code ?? 'No code',
         uom: item?.unit_of_measure ?? item?.uom ?? item?.unit ?? '—',
         hasMatch,
         masterItemId,
+        suggestions,
         action:
           confirmedAction === 'approve'
             ? 'approve'
-            : confirmedAction === 'create' || confirmedAction === 'create new' || confirmedAction === 'create_new'
-              ? 'create'
-              : null,
-        isConfirmed: Boolean(item?.is_confirmed ?? item?.confirmed_at ?? confirmedAction),
+            : confirmedAction === 'create' ||
+              confirmedAction === 'create new' ||
+              confirmedAction === 'create_new'
+            ? 'create'
+            : null,
+        isConfirmed: Boolean(
+          item?.is_confirmed ?? item?.confirmed_at ?? confirmedAction
+        ),
       }
     })
     .filter((item: LineItem | null): item is LineItem => item !== null)
@@ -117,7 +150,8 @@ function FileIcon() {
 
 function VendorInitials({ name }: { name: string }) {
   const parts = name.trim().split(' ')
-  const initials = parts.length >= 2 ? parts[0][0] + parts[1][0] : parts[0].slice(0, 2)
+  const initials =
+    parts.length >= 2 ? parts[0][0] + parts[1][0] : parts[0].slice(0, 2)
   return (
     <div style={{
       width: 44, height: 44, borderRadius: '50%',
@@ -141,30 +175,26 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   const [dragging, setDragging] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [vendors, setVendors] = useState<ExtractedVendor[]>([])
-  const [pendingActionByItemKey, setPendingActionByItemKey] = useState<Record<string, 'approve' | 'create' | null>>({})
+  const [pendingActionByItemKey, setPendingActionByItemKey] = useState<
+    Record<string, 'approve' | 'create' | null>
+  >({})
+  const [selectedSuggIdxByKey, setSelectedSuggIdxByKey] = useState<
+    Record<string, number>
+  >({})
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error('Please upload a file')
-
       const formData = new FormData()
       formData.append('file', file)
-
-      const { data } = await apiClient.post(
-        '/quotations/upload/',
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      )
-
-      return data 
+      const { data } = await apiClient.post('/quotations/upload/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return data
     },
-
-
     onSuccess: (data: any) => {
-      // store full response
       setQuotation(data)
 
-      //  vendors mapping (correct)
       const vendors = (data.vendor || []).map((v: any) => ({
         id: String(v.vendor_id),
         name: v.vendor_name,
@@ -177,28 +207,21 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
         vendorCreated: v.vendor_created,
       }))
 
-      //  USE YOUR EXISTING CLEAN MAPPER
       const mappedLineItems = mapLineItemsFromQuotationResponse(data)
 
       setVendors(vendors)
       setLineItems(mappedLineItems)
-
-      // meta
       setMeta({
         quotationId: data.quotation_id,
         refNo: data.ref_no,
         totalItems: data.total_items,
         matchedItems: data.matched_items,
       })
-
       setStep(2)
     },
-
-
     onError: (error: any) => {
       const data = error?.response?.data
       let message = 'Failed to upload quotation.'
-
       if (data) {
         if (typeof data === 'string') {
           message = data
@@ -213,7 +236,6 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
             .join(' | ')
         }
       }
-
       setErrorMessage(message)
     },
   })
@@ -226,6 +248,7 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
       setDragging(false)
       setVendors([])
       setPendingActionByItemKey({})
+      setSelectedSuggIdxByKey({})
       setErrorMessage('')
       const input = document.getElementById('quotation-file') as HTMLInputElement
       if (input) input.value = ''
@@ -236,17 +259,21 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
     if (!incoming || incoming.length === 0) return
     const selectedFile = incoming[0]
     setErrorMessage('')
+    setQuotation(null)
     setVendors([])
     setLineItems([])
     setPendingActionByItemKey({})
+    setSelectedSuggIdxByKey({})
     setFile(selectedFile)
   }
 
   const removeFile = () => {
     setFile(null)
+    setQuotation(null)
     setVendors([])
     setLineItems([])
     setPendingActionByItemKey({})
+    setSelectedSuggIdxByKey({})
     setErrorMessage('')
   }
 
@@ -264,7 +291,13 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
   }
 
   const confirmItemMutation = useMutation({
-    mutationFn: async ({ item, action }: { item: LineItem; action: 'approve' | 'create' }) => {
+    mutationFn: async ({
+      item,
+      action,
+    }: {
+      item: LineItem
+      action: 'approve' | 'create'
+    }) => {
       const payload =
         action === 'approve'
           ? { action: 'approve', master_item_id: item.masterItemId }
@@ -278,7 +311,10 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
       return { itemId: item.id, quotationId: item.quotationId, action }
     },
     onMutate: ({ item, action }) => {
-      setPendingActionByItemKey(prev => ({ ...prev, [getLineItemKey(item)]: action }))
+      setPendingActionByItemKey(prev => ({
+        ...prev,
+        [getLineItemKey(item)]: action,
+      }))
       setErrorMessage('')
     },
     onSuccess: ({ itemId, quotationId, action }) => {
@@ -289,7 +325,9 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
             : item
         )
       )
-      toast({ title: action === 'approve' ? 'Item approved' : 'New item request saved' })
+      toast({
+        title: action === 'approve' ? 'Item approved' : 'New item request saved',
+      })
     },
     onError: (error: any, { action }) => {
       const detail =
@@ -297,33 +335,46 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
         error?.response?.data?.message ??
         error?.response?.data?.error ??
         `Failed to ${action === 'approve' ? 'approve item' : 'create new item'}.`
-
       setErrorMessage(detail)
       toast({ title: 'Action failed', description: detail, variant: 'destructive' })
     },
     onSettled: (_data, _error, variables) => {
-      setPendingActionByItemKey(prev => ({ ...prev, [getLineItemKey(variables.item)]: null }))
+      setPendingActionByItemKey(prev => ({
+        ...prev,
+        [getLineItemKey(variables.item)]: null,
+      }))
     },
   })
 
   const setAction = (item: LineItem, action: 'approve' | 'create') => {
-    if (pendingActionByItemKey[getLineItemKey(item)]) return
+    const key = getLineItemKey(item)
+    if (pendingActionByItemKey[key]) return
 
-    if (action === 'approve' && !item.masterItemId) {
+    const selectedIdx = selectedSuggIdxByKey[key] ?? 0
+    const selectedSugg = item.suggestions[selectedIdx] ?? null
+    const masterItemId = selectedSugg
+      ? toNumber(selectedSugg.master_item_id)
+      : item.masterItemId
+
+    if (action === 'approve' && !masterItemId) {
       const detail = 'No matched master item was returned for this quotation item.'
       setErrorMessage(detail)
       toast({ title: 'Approve failed', description: detail, variant: 'destructive' })
       return
     }
 
-    confirmItemMutation.mutate({ item, action })
+    confirmItemMutation.mutate({ item: { ...item, masterItemId }, action })
   }
 
   const handleUploadAndExtract = () => {
-    if (file && !uploadMutation.isPending) {
-      setErrorMessage('')
-      uploadMutation.mutate()
+    if (!file || uploadMutation.isPending) return
+    setErrorMessage('')
+    // If we already have quotation data for this file (e.g. user went Back), skip the API call
+    if (quotation) {
+      setStep(2)
+      return
     }
+    uploadMutation.mutate()
   }
 
   const goNext = () => setStep(s => Math.min(s + 1, 3))
@@ -335,7 +386,8 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  const isNotEmpty = (val?: string | null) => val && val !== 'N/A' && val.trim() !== ''
+  const isNotEmpty = (val?: string | null) =>
+    val && val !== 'N/A' && val.trim() !== ''
 
   if (!isOpen) return null
 
@@ -461,20 +513,19 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                   The following vendors were extracted from the uploaded quotation and will be created automatically.
                 </p>
               </div>
-              <p style={styles.sectionLabel}>{vendors.length} vendor{vendors.length === 1 ? '' : 's'} detected</p>
+              <p style={styles.sectionLabel}>
+                {vendors.length} vendor{vendors.length === 1 ? '' : 's'} detected
+              </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {vendors.map(v => (
                   <div key={v.id} style={styles.vendorCard}>
                     <VendorInitials name={v.name} />
                     <div style={{ flex: 1 }}>
-                      {/* Name row */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                        <p style={{ fontSize: 15, fontWeight: 600, color: '#111', margin: 0 }}>{v.name}</p>
-                        {/* {v.vendorCreated === false && (
-                          <span style={styles.newBadge}>New</span>
-                        )} */}
+                        <p style={{ fontSize: 15, fontWeight: 600, color: '#111', margin: 0 }}>
+                          {v.name}
+                        </p>
                       </div>
-                      {/* Detail rows */}
                       <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '4px 20px' }}>
                         {isNotEmpty(v.contactEmail) && (
                           <span style={styles.vendorDetail}>
@@ -534,23 +585,27 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
               <div style={styles.infoNote}>
                 <div style={styles.infoDot} />
                 <p style={{ fontSize: 14, color: '#555', lineHeight: 1.6 }}>
-                  Review each line item. Approve to use the matched master item, or create a new one. Items without a match require no action.
+                  Review each line item. Select a match from the dropdown, then approve it or create a new master item. Items with no suggestions require no action.
                 </p>
               </div>
 
               <div style={{ border: '0.5px solid #eee', borderRadius: 12, overflow: 'hidden' }}>
+                {/* Table header */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 140px 220px',
+                  gridTemplateColumns: '1fr 220px 120px 200px',
                   background: '#fafafa',
                   borderBottom: '0.5px solid #eee',
-                  padding: '10px 16px',
+                  padding: '10px 20px',
+                  gap: 16,
                 }}>
-                  {['Quotation item', 'Match', 'Action'].map(h => (
+                  {['Quotation item', 'Matches', 'Matched', 'Action'].map(h => (
                     <span key={h} style={{
                       fontSize: 12, fontWeight: 600, color: '#999',
                       textTransform: 'uppercase', letterSpacing: '0.05em',
-                    }}>{h}</span>
+                    }}>
+                      {h}
+                    </span>
                   ))}
                 </div>
 
@@ -559,90 +614,171 @@ export default function UploadQuotationModal({ isOpen, onClose, onSave }: Props)
                     No line items were returned for verification.
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      maxHeight: lineItems.length > 3 ? 260 : 'auto',
-                      overflowY: lineItems.length > 3 ? 'auto' : 'visible',
-                      paddingRight: lineItems.length > 3 ? 6 : 0,
-                    }}
-                  >
-                    {lineItems.map((item, idx) => (
-                      <div
-                        key={getLineItemKey(item)}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 140px 220px',
-                          alignItems: 'center',
-                          padding: '14px 16px',
-                          borderBottom: idx === lineItems.length - 1 ? 'none' : '0.5px solid #f0f0f0',
-                          background: item.hasMatch ? '#fff' : '#f9f9f9',
-                        }}
-                      >
-                        <div>
-                          <p style={{ fontWeight: 600, fontSize: 15, color: '#111', margin: 0 }}>
-                            {item.name}
-                          </p>
-                          <p style={{ fontSize: 13, color: '#888', marginTop: 3, marginBottom: 0 }}>
-                            {item.code} · {item.uom}
-                          </p>
-                        </div>
+                  <div style={{
+                    maxHeight: lineItems.length > 3 ? 260 : 'auto',
+                    overflowY: lineItems.length > 3 ? 'auto' : 'visible',
+                    paddingRight: lineItems.length > 3 ? 6 : 0,
+                  }}>
+                    {lineItems.map((item, idx) => {
+                      const key = getLineItemKey(item)
+                      const suggestions = item.suggestions ?? []
+                      const matchCount = suggestions.length
+                      const isPending = Boolean(pendingActionByItemKey[key])
+                      const selectedIdx = selectedSuggIdxByKey[key] ?? 0
 
-                        <div>
-                          {item.hasMatch ? (
-                            <span style={{ ...styles.matchBadge, background: '#e8f5e9', color: '#2e7d32' }}>
-                              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <polyline points="2,6 5,9 10,3" />
-                              </svg>
-                              Matched
-                            </span>
-                          ) : (
-                            <span style={{ ...styles.matchBadge, background: '#fff6f6', color: '#111' }}>
-                              New Item
-                            </span>
-                          )}
+                      // ── Matches column
+                      const matchesCol = matchCount === 0 ? (
+                        <span style={{ fontSize: 13, color: '#ccc' }}>No suggestions</span>
+                      ) : (
+                        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', maxWidth: '100%', width: '100%' }}>
+                          <select
+                            value={selectedIdx}
+                            onChange={e =>
+                              setSelectedSuggIdxByKey(prev => ({
+                                ...prev,
+                                [key]: Number(e.target.value),
+                              }))
+                            }
+                            disabled={item.isConfirmed || isPending}
+                            style={{
+                              fontSize: 12,
+                              padding: '5px 22px 5px 0px',
+                              border: 'none',
+                              outline: 'none',
+                              background: 'transparent',
+                              color: '#111',
+                              cursor: item.isConfirmed ? 'not-allowed' : 'pointer',
+                              appearance: 'none',
+                              WebkitAppearance: 'none',
+                              width: '100%',
+                              minWidth: 0,
+                              fontWeight: 500,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap' as const,
+                            }}
+                          >
+                            {suggestions.map((s, i) => (
+                              <option key={s.master_item_id} value={i}>
+                                {s.code} · {s.unit_of_measure} · ₹{s.unit_rate.toLocaleString('en-IN')}
+                              </option>
+                            ))}
+                          </select>
+                          <span style={{
+                            position: 'absolute', right: 2,
+                            pointerEvents: 'none', color: '#999',
+                            display: 'flex', alignItems: 'center',
+                          }}>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="2,4 6,8 10,4" />
+                            </svg>
+                          </span>
                         </div>
+                      )
 
-                        <div>
-                          {item.hasMatch ? (
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button
-                                onClick={() => setAction(item, 'approve')}
-                                disabled={Boolean(pendingActionByItemKey[getLineItemKey(item)]) || item.isConfirmed}
-                                style={{
-                                  ...styles.actionBtn,
-                                  ...(item.action === 'approve' ? styles.actionBtnFilled : {}),
-                                  ...((pendingActionByItemKey[getLineItemKey(item)] || item.isConfirmed)
-                                    ? styles.actionBtnDisabled
-                                    : {}),
-                                }}
-                              >
-                                {pendingActionByItemKey[getLineItemKey(item)] === 'approve'
-                                  ? 'Approving...'
-                                  : 'Approve'}
-                              </button>
+                      // ── Matched column
+                      const matchedCol = matchCount > 0 ? (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          fontSize: 12, fontWeight: 500, padding: '4px 10px',
+                          borderRadius: 20, background: '#e8f5e9', color: '#2e7d32',
+                        }}>
+                          {matchCount} matched
+                        </span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center',
+                          fontSize: 12, fontWeight: 500, padding: '4px 10px',
+                          borderRadius: 20, background: '#fff6f6', color: '#111',
+                          border: '0.5px solid #eee',
+                        }}>
+                          New item
+                        </span>
+                      )
 
-                              <button
-                                onClick={() => setAction(item, 'create')}
-                                disabled={Boolean(pendingActionByItemKey[getLineItemKey(item)]) || item.isConfirmed}
-                                style={{
-                                  ...styles.actionBtn,
-                                  ...(item.action === 'create' ? styles.actionBtnFilled : {}),
-                                  ...((pendingActionByItemKey[getLineItemKey(item)] || item.isConfirmed)
-                                    ? styles.actionBtnDisabled
-                                    : {}),
-                                }}
-                              >
-                                {pendingActionByItemKey[getLineItemKey(item)] === 'create'
-                                  ? 'Saving...'
-                                  : 'Create new'}
-                              </button>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: 13, color: '#ccc' }}>No action needed</span>
-                          )}
+                      // ── Action column
+                      let actionCol
+                      if (matchCount === 0) {
+                        actionCol = (
+                          <span style={{ fontSize: 13, color: '#ccc' }}>No action needed</span>
+                        )
+                      } else if (item.isConfirmed) {
+                        actionCol = (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            fontSize: 12, padding: '5px 10px', borderRadius: 20,
+                            background: '#e8f5e9', color: '#2e7d32',
+                          }}>
+                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <polyline points="2,6 5,9 10,3" />
+                            </svg>
+                            {item.action === 'approve' ? 'Approved' : 'Create requested'}
+                          </span>
+                        )
+                      } else {
+                        actionCol = (
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' as const }}>
+                            <button
+                              onClick={() => setAction(item, 'approve')}
+                              disabled={isPending}
+                              style={{
+                                ...styles.actionBtn,
+                                ...(item.action === 'approve' ? styles.actionBtnFilled : {}),
+                                ...(isPending ? styles.actionBtnDisabled : {}),
+                                flexShrink: 0,
+                              }}
+                            >
+                              {pendingActionByItemKey[key] === 'approve'
+                                ? 'Approving...'
+                                : 'Approve'}
+                            </button>
+                            <button
+                              onClick={() => setAction(item, 'create')}
+                              disabled={isPending}
+                              style={{
+                                ...styles.actionBtn,
+                                ...(item.action === 'create' ? styles.actionBtnFilled : {}),
+                                ...(isPending ? styles.actionBtnDisabled : {}),
+                                flexShrink: 0,
+                              }}
+                            >
+                              {pendingActionByItemKey[key] === 'create'
+                                ? 'Saving...'
+                                : 'Create new'}
+                            </button>
+                          </div>
+                        )
+                      }
+
+                      return (
+                        <div
+                          key={key}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 220px 120px 200px',
+                            alignItems: 'center',
+                            padding: '14px 20px',
+                            gap: 16,
+                            borderBottom: idx === lineItems.length - 1 ? 'none' : '0.5px solid #f0f0f0',
+                            background: '#fff',
+                          }}
+                        >
+                          {/* Item info */}
+                          <div>
+                            <p style={{ fontWeight: 600, fontSize: 15, color: '#111', margin: 0 }}>
+                              {item.name}
+                            </p>
+                            <p style={{ fontSize: 13, color: '#888', marginTop: 3, marginBottom: 0 }}>
+                              {item.code} · {item.uom}
+                            </p>
+                          </div>
+
+                          {matchesCol}
+                          {matchedCol}
+                          {actionCol}
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -707,7 +843,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 16,
     border: '0.5px solid #e5e5e5',
     width: '100%',
-    maxWidth: 780,
+    maxWidth: 920,
     boxShadow: '0 8px 40px rgba(0,0,0,0.1)',
   },
   header: { padding: '28px 32px 0' },
@@ -797,9 +933,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12, padding: '4px 10px', borderRadius: 20, fontWeight: 500,
   },
   actionBtn: {
-    padding: '7px 14px', fontSize: 13, fontWeight: 500,
+    padding: '6px 12px', fontSize: 12, fontWeight: 500,
     borderRadius: 8, border: '0.5px solid #ddd',
-    background: '#fff', color: '#111', cursor: 'pointer', transition: 'all 0.15s',
+    background: '#fff', color: '#111', cursor: 'pointer',
+    transition: 'all 0.15s', whiteSpace: 'nowrap' as const,
+    flexShrink: 0,
   },
   actionBtnFilled: {
     background: '#111', color: '#fff', borderColor: '#111',
