@@ -35,7 +35,11 @@ const schema = z.object({
 
   line_items: z.array(
     z.object({
-      item_code: z.number({ required_error: 'Item required' }).positive('Item code is required '),
+item_code: z.number({
+  required_error: 'Item is required',
+}).refine((val) => val > 0, {
+  message: 'Item is required',
+}),
       quantity: z
         .number({ required_error: 'Quantity required' })
         .positive('Quantity must be greater than zero')
@@ -264,44 +268,47 @@ export default function NewPRPage() {
       return records
     },
   })
-  const applyQuotationAggregate = (data: any) => {
-    if (!data) return
+const applyQuotationAggregate = (data: any) => {
+  if (!data) return
 
-    // ─── 1. VENDORS ───
-    const vendors = data.vendors ?? []
+  // ─── 1. VENDORS ───
+  const vendors = data.vendors ?? []
 
-    setSelectedVendors(vendors)
+  setSelectedVendors(vendors)
 
-    setValue(
-      'invited_vendor_ids',
-      vendors.map((v: any) => v.id),
-      { shouldValidate: true, shouldDirty: true }
-    )
+  setValue(
+    'invited_vendor_ids',
+    vendors.map((v: any) => v.id),
+    { shouldValidate: true, shouldDirty: true }
+  )
 
-    // ─── 2. ITEMS → line_items ───
-    const items = data.items ?? []
+  // ─── 2. ITEMS → line_items ───
+  const items = data.items ?? []
 
-    const mappedLineItems = items.map((item: any) => ({
-      item_code: item.master_item_id ?? 0,   // adjust if needed
-      quantity: item.quantity ?? 1,
-      unit_rate: item.item_price ?? 0,
-      unit_of_measure: item.unit_of_measure ?? 'EA',
-    }))
+  const mappedLineItems = items.map((item: any) => ({
+    item_code: item.master_item_id ? Number(item.master_item_id) : undefined,
+    quantity: Number(item.quantity ?? 1),
+    unit_rate: Number(item.item_price ?? 0),
+    unit_of_measure: item.unit_of_measure ?? 'EA',
+  }))
 
-    setValue('line_items', mappedLineItems, {
-      shouldValidate: true,
-      shouldDirty: true,
-    })
+  // ✅ IMPORTANT FIX (replace instead of setValue)
+  replace(mappedLineItems)
 
-    // optional: labels for UI search display
-    const labels: Record<number, string> = {}
+  // force validation sync
+  setTimeout(() => {
+    trigger('line_items')
+  }, 0)
 
-    items.forEach((item: any, idx: number) => {
-      labels[idx] = `${item.item_code} — ${item.item_name}`
-    })
+  // ─── labels ───
+  const labels: Record<number, string> = {}
 
-    setItemLabels(labels)
-  }
+  items.forEach((item: any, idx: number) => {
+    labels[idx] = `${item.item_code} — ${item.item_name}`
+  })
+
+  setItemLabels(labels)
+}
 
   const toggleQuotation = (id: number) => {
     setSelectedQuotationIds(prev =>
@@ -315,7 +322,6 @@ export default function NewPRPage() {
     selectedQuotationIds.includes(q.id)
   )
 
-  console.log('selectedQuotations', selectedQuotations)
   // ─── Remote data ──────────────────────────────────────────────────────
 
   const { data: trackingIds } = useQuery({
@@ -379,7 +385,14 @@ export default function NewPRPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       invited_vendor_ids: [],
-      line_items: [{ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 }],
+line_items: [
+  {
+    item_code: undefined,
+    quantity: 1,
+    unit_of_measure: 'EA',
+    unit_rate: 0,
+  },
+],
     },
   })
   const watchedPlant = watch('plant')
@@ -400,7 +413,15 @@ export default function NewPRPage() {
     enabled: vendorSearch.length >= 1,
   })
 
-  const { fields: lineItemFields, append, remove } = useFieldArray({ control, name: 'line_items' })
+const {
+  fields: lineItemFields,
+  append,
+  remove,
+  replace,
+} = useFieldArray({
+  control,
+  name: 'line_items',
+})
   const watchedItems = watch('line_items')
   const subtotal = (watchedItems ?? []).reduce(
     (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
