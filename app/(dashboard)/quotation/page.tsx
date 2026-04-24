@@ -57,7 +57,6 @@ function mapQuotation(raw: any): Quotation {
 export default function QuotationPage() {
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
-    const [trackingFilter, setTrackingFilter] = useState('')
     const [isUploadQuotationModalOpen, setIsUploadQuotationModalOpen] = useState(false)
 
     const router = useRouter()
@@ -86,14 +85,10 @@ export default function QuotationPage() {
 
         const matchesStatus = statusFilter ? q.status === statusFilter : true
 
-        const matchesTracking = trackingFilter
-            ? q.pr_number.toLowerCase().includes(trackingFilter.toLowerCase())
-            : true
-
-        return matchesSearch && matchesStatus && matchesTracking
+        return matchesSearch && matchesStatus
     })
 
-    const hasFilters = search || statusFilter || trackingFilter
+    const hasFilters = search || statusFilter
 
     return (
         <div className="space-y-4">
@@ -109,17 +104,6 @@ export default function QuotationPage() {
                             className="pl-9"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-
-                    {/* PR / Tracking Filter */}
-                    <div className="relative min-w-[180px] max-w-xs flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                            placeholder="PR Number..."
-                            className="pl-9"
-                            value={trackingFilter}
-                            onChange={(e) => setTrackingFilter(e.target.value)}
                         />
                     </div>
 
@@ -145,7 +129,6 @@ export default function QuotationPage() {
                             onClick={() => {
                                 setSearch('')
                                 setStatusFilter('')
-                                setTrackingFilter('')
                             }}
                         >
                             <X className="w-3.5 h-3.5" /> Clear
