@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -32,14 +32,13 @@ const schema = z.object({
     .max(5, 'You can select maximum 5 vendors')
     .default([]),
 
-
   line_items: z.array(
     z.object({
-item_code: z.number({
-  required_error: 'Item is required',
-}).refine((val) => val > 0, {
-  message: 'Item is required',
-}),
+      item_code: z.number({
+        required_error: 'Item is required',
+      }).refine((val) => val > 0, {
+        message: 'Item is required',
+      }),
       quantity: z
         .number({ required_error: 'Quantity required' })
         .positive('Quantity must be greater than zero')
@@ -58,12 +57,11 @@ item_code: z.number({
     })
   )
     .min(1, 'At least one line item required')
-
 })
 
 type FormData = z.infer<typeof schema>
 
-// ─── Item Code Search ────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => void) {
   useEffect(() => {
@@ -74,6 +72,9 @@ function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => voi
     return () => document.removeEventListener('mousedown', handler)
   }, [ref, onOutside])
 }
+
+// ─── TrackingIdSearch ─────────────────────────────────────────────────────────
+
 function TrackingIdSearch({
   trackingIds,
   onSelect,
@@ -150,7 +151,14 @@ function TrackingIdSearch({
   )
 }
 
-function ItemSearch({ onSelect, placeholder, displayValue, hasError }: { onSelect: (item: any) => void; placeholder?: string, displayValue?: string, hasError: any }) {
+// ─── ItemSearch ───────────────────────────────────────────────────────────────
+
+function ItemSearch({ onSelect, placeholder, displayValue, hasError }: {
+  onSelect: (item: any) => void
+  placeholder?: string
+  displayValue?: string
+  hasError: any
+}) {
   const [search, setSearch] = useState(displayValue ?? '')
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -175,7 +183,7 @@ function ItemSearch({ onSelect, placeholder, displayValue, hasError }: { onSelec
           value={search}
           onChange={e => { setSearch(e.target.value); setOpen(true) }}
           onFocus={() => search.length > 0 && setOpen(true)}
-          className={`pl-8 text-sm ${hasError}?'border-destructive' : ''`}
+          className={`pl-8 text-sm ${hasError ? 'border-destructive' : ''}`}
         />
         {isFetching && (
           <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />
@@ -232,102 +240,32 @@ export default function NewPRPage() {
   const [quotationSearch, setQuotationSearch] = useState('')
   const [quotationOpen, setQuotationOpen] = useState(false)
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<number[]>([])
+  // Track which line-item rows came from quotation auto-fill vs manual entry
+  const [quotationFilledRows, setQuotationFilledRows] = useState<boolean[]>([])
+  const [isApplyingQuotations, setIsApplyingQuotations] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const quotationWrapperRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        quotationWrapperRef.current &&
-        !quotationWrapperRef.current.contains(e.target as Node)
-      ) {
-        setQuotationOpen(false)
-      }
-    }
+  useClickOutside(quotationWrapperRef, () => setQuotationOpen(false))
 
-    document.addEventListener('mousedown', handleClickOutside)
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
+  // ─── Remote data ──────────────────────────────────────────────────────
 
   const { data: quotations = [], isLoading: qLoading } = useQuery({
     queryKey: ['quotations', quotationSearch],
     queryFn: async () => {
       const params = new URLSearchParams()
-
-      // ⚡ IMPORTANT: DO NOT restrict empty search
       if (quotationSearch) params.set('search', quotationSearch)
-
       const queryString = params.toString()
-
-      const { data } = await apiClient.get(
-        `/quotations/${queryString ? `?${queryString}` : ''}`
-      )
-
-      const records = data?.results || data || []
-      return records
+      const { data } = await apiClient.get(`/quotations/${queryString ? `?${queryString}` : ''}`)
+      return data?.results || data || []
     },
   })
-const applyQuotationAggregate = (data: any) => {
-  if (!data) return
-
-  // ─── 1. VENDORS ───
-  const vendors = data.vendors ?? []
-
-  setSelectedVendors(vendors)
-
-  setValue(
-    'invited_vendor_ids',
-    vendors.map((v: any) => v.id),
-    { shouldValidate: true, shouldDirty: true }
-  )
-
-  // ─── 2. ITEMS → line_items ───
-  const items = data.items ?? []
-
-  const mappedLineItems = items.map((item: any) => ({
-    item_code: item.master_item_id ? Number(item.master_item_id) : undefined,
-    quantity: Number(item.quantity ?? 1),
-    unit_rate: Number(item.item_price ?? 0),
-    unit_of_measure: item.unit_of_measure ?? 'EA',
-  }))
-
-  // ✅ IMPORTANT FIX (replace instead of setValue)
-  replace(mappedLineItems)
-
-  // force validation sync
-  setTimeout(() => {
-    trigger('line_items')
-  }, 0)
-
-  // ─── labels ───
-  const labels: Record<number, string> = {}
-
-  items.forEach((item: any, idx: number) => {
-    labels[idx] = `${item.item_code} — ${item.item_name}`
-  })
-
-  setItemLabels(labels)
-}
-
-  const toggleQuotation = (id: number) => {
-    setSelectedQuotationIds(prev =>
-      prev.includes(id)
-        ? prev.filter(q => q !== id)
-        : [...prev, id]
-    )
-  }
-
-  const selectedQuotations = quotations.filter((q:any) =>
-    selectedQuotationIds.includes(q.id)
-  )
-
-  // ─── Remote data ──────────────────────────────────────────────────────
 
   const { data: trackingIds } = useQuery({
     queryKey: ['tracking-ids-approved'],
     queryFn: async () => (await apiClient.get('/budget/tracking-ids/?status=approved')).data.results || [],
   })
+
   const { data: matrices, isLoading: loadingMatrices } = useQuery({
     queryKey: ['approval-matrices-pr'],
     queryFn: async () => {
@@ -338,44 +276,6 @@ const applyQuotationAggregate = (data: any) => {
     },
   })
 
-  const addVendor = (v: any) => {
-    if (selectedVendors.length >= 5) {
-      toast({
-        title: 'Limit reached',
-        description: 'You can select maximum 5 vendors',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    if (!selectedVendors.some(x => x.id === v.id)) {
-      const updated = [...selectedVendors, v]
-      setSelectedVendors(updated)
-
-      setValue(
-        'invited_vendor_ids',
-        updated.map(v => v.id),
-        { shouldValidate: true, shouldDirty: true } // ✅ ADD
-      )
-    }
-
-    clearErrors('invited_vendor_ids') // ✅ ADD
-
-    setShowVendorSearch(false)
-    setVendorSearch('')
-  }
-
-  const removeVendor = (id: number) => {
-    const updated = selectedVendors.filter(v => v.id !== id)
-    setSelectedVendors(updated)
-
-    setValue(
-      'invited_vendor_ids',
-      updated.map(v => v.id),
-      { shouldValidate: true, shouldDirty: true } // ✅ ADD
-    )
-  }
-
   // ─── Form ─────────────────────────────────────────────────────────────
 
   const {
@@ -385,17 +285,21 @@ const applyQuotationAggregate = (data: any) => {
     resolver: zodResolver(schema),
     defaultValues: {
       invited_vendor_ids: [],
-line_items: [
-  {
-    item_code: undefined,
-    quantity: 1,
-    unit_of_measure: 'EA',
-    unit_rate: 0,
-  },
-],
+      line_items: [
+        {
+          item_code: undefined,
+          quantity: 1,
+          unit_of_measure: 'EA',
+          unit_rate: 0,
+        },
+      ],
     },
   })
+
   const watchedPlant = watch('plant')
+  const watchedTrackingId = watch('tracking_id')
+  const watchedItems = watch('line_items')
+
   const { data: vendors } = useQuery({
     queryKey: ['vendors-approved', vendorSearch, watchedPlant],
     queryFn: async () => {
@@ -407,22 +311,37 @@ line_items: [
           ...(watchedPlant ? { plant: watchedPlant } : {}),
         },
       })
-
       return r.data.results ?? r.data
     },
     enabled: vendorSearch.length >= 1,
   })
 
-const {
-  fields: lineItemFields,
-  append,
-  remove,
-  replace,
-} = useFieldArray({
-  control,
-  name: 'line_items',
-})
-  const watchedItems = watch('line_items')
+  const { fields: lineItemFields, append, remove, replace } = useFieldArray({
+    control,
+    name: 'line_items',
+  })
+
+  const { data: trackingDetail } = useQuery({
+    queryKey: ['tracking-detail', watchedTrackingId],
+    queryFn: async () => (await apiClient.get(`/budget/tracking-ids/${watchedTrackingId}/`)).data,
+    enabled: !!watchedTrackingId,
+  })
+
+  useEffect(() => {
+    if (!trackingDetail) return
+    setValue('plant', trackingDetail.plant)
+    setValue('department', trackingDetail.department)
+    setValue('description', trackingDetail?.description)
+    setValue('title', trackingDetail.title ?? '')
+    if (Array.isArray(trackingDetail.preferred_vendors) && trackingDetail.preferred_vendors.length > 0) {
+      setSelectedVendors(trackingDetail.preferred_vendors)
+    } else {
+      setSelectedVendors([])
+    }
+  }, [trackingDetail, setValue])
+
+  // ─── Totals ───────────────────────────────────────────────────────────
+
   const subtotal = (watchedItems ?? []).reduce(
     (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
     0,
@@ -430,38 +349,169 @@ const {
   const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
   const grandTotal = subtotal + taxTotal
 
-  const watchedTrackingId = watch('tracking_id')
+  const budgetRemaining = trackingDetail
+    ? Number(trackingDetail.remaining_amount ?? (trackingDetail.approved_amount ?? trackingDetail.requested_amount) - trackingDetail.consumed_amount)
+    : null
+  const budgetExceeded = budgetRemaining !== null && grandTotal > budgetRemaining
 
-  const { data: trackingDetail } = useQuery({
-    queryKey: ['tracking-detail', watchedTrackingId],
-    queryFn: async () => (await apiClient.get(`/budget/tracking-ids/${watchedTrackingId}/`)).data,
-    enabled: !!watchedTrackingId,
-  })
-  useEffect(() => {
-    if (!trackingDetail) return;
+  // ─── Vendor helpers ───────────────────────────────────────────────────
 
-    // auto fill fields
-    setValue('plant', trackingDetail.plant);
-    setValue('department', trackingDetail.department);
-    setValue('description', trackingDetail?.description)
-    setValue('title', trackingDetail.title ?? '');
-    // Handle vendors safely
-    if (
-      Array.isArray(trackingDetail.preferred_vendors) &&
-      trackingDetail.preferred_vendors.length > 0
-    ) {
-      setSelectedVendors(trackingDetail.preferred_vendors);
+  const addVendor = (v: any) => {
+    if (selectedVendors.length >= 5) {
+      toast({ title: 'Limit reached', description: 'You can select maximum 5 vendors', variant: 'destructive' })
+      return
+    }
+    if (!selectedVendors.some(x => x.id === v.id)) {
+      const updated = [...selectedVendors, v]
+      setSelectedVendors(updated)
+      setValue('invited_vendor_ids', updated.map(v => v.id), { shouldValidate: true, shouldDirty: true })
+    }
+    clearErrors('invited_vendor_ids')
+    setShowVendorSearch(false)
+    setVendorSearch('')
+  }
+
+  const removeVendor = (id: number) => {
+    const updated = selectedVendors.filter(v => v.id !== id)
+    setSelectedVendors(updated)
+    setValue('invited_vendor_ids', updated.map(v => v.id), { shouldValidate: true, shouldDirty: true })
+  }
+
+  // ─── Quotation aggregate apply / revert ───────────────────────────────
+
+  /**
+   * Applies aggregate data (vendors + items) from the API into the form.
+   * Marks those rows as "quotation-filled" so we can revert them later.
+   */
+  const applyQuotationAggregate = useCallback((data: any) => {
+    if (!data) return
+
+    // 1. Vendors
+    const vendors: any[] = data.vendors ?? []
+    setSelectedVendors(vendors)
+    setValue('invited_vendor_ids', vendors.map((v: any) => v.id), { shouldValidate: true, shouldDirty: true })
+
+    // 2. Line items
+    const items: any[] = data.items ?? []
+    const mappedLineItems = items.map((item: any) => ({
+      item_code: item.master_item_id ? Number(item.master_item_id) : 0,
+      quantity: Number(item.quantity ?? 1),
+      unit_rate: Number(item.item_price ?? 0),
+      unit_of_measure: item.unit_of_measure ?? 'EA',
+    }))
+
+    // Replace keeps only quotation rows; manual rows are wiped intentionally
+    // when quotations are applied — they can re-add manually after.
+    replace(mappedLineItems)
+
+    // Mark all replaced rows as quotation-filled
+    setQuotationFilledRows(mappedLineItems.map(() => true))
+
+    // 3. Labels
+    const labels: Record<number, string> = {}
+    items.forEach((item: any, idx: number) => {
+      labels[idx] = `${item.item_code} — ${item.item_name}`
+    })
+    setItemLabels(labels)
+
+    // 4. Clear any stale validation errors on line_items
+    clearErrors('line_items')
+    clearErrors('invited_vendor_ids')
+
+    // Force re-validation so Zod sees the new values
+    setTimeout(() => {
+      trigger('line_items')
+      trigger('invited_vendor_ids')
+    }, 0)
+  }, [replace, setValue, clearErrors, trigger])
+
+  /**
+   * Reverts quotation-filled rows and vendors when all quotations are deselected.
+   * Keeps any manually-added rows in place.
+   */
+  const revertQuotationData = useCallback(() => {
+    // Remove only the rows that were injected by quotation auto-fill
+    const currentItems = watchedItems ?? []
+    const manualItems = currentItems.filter((_, idx) => !quotationFilledRows[idx])
+
+    if (manualItems.length > 0) {
+      replace(manualItems)
+      setQuotationFilledRows(manualItems.map(() => false))
+      // Rebuild labels for remaining manual rows (drop quotation labels)
+      setItemLabels(prev => {
+        const next: Record<number, string> = {}
+        let newIdx = 0
+        currentItems.forEach((_, oldIdx) => {
+          if (!quotationFilledRows[oldIdx]) {
+            if (prev[oldIdx]) next[newIdx] = prev[oldIdx]
+            newIdx++
+          }
+        })
+        return next
+      })
     } else {
-      setSelectedVendors([]);
+      // Nothing manual remains — reset to a single blank row
+      replace([{ item_code: undefined as any, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 }])
+      setQuotationFilledRows([false])
+      setItemLabels({})
     }
 
+    // Revert vendors (back to tracking detail preferred vendors or empty)
+    const preferredVendors = trackingDetail?.preferred_vendors ?? []
+    setSelectedVendors(preferredVendors)
+    setValue(
+      'invited_vendor_ids',
+      preferredVendors.map((v: any) => v.id),
+      { shouldValidate: true, shouldDirty: true }
+    )
+  }, [watchedItems, quotationFilledRows, replace, setValue, trackingDetail])
 
-  }, [trackingDetail, setValue]);
+  // ─── Debounced aggregate call on checkbox change ───────────────────────
 
+  /**
+   * Called every time selectedQuotationIds changes.
+   * Debounces the API call by 400 ms so rapid checkbox clicks
+   * only result in one network request.
+   */
+  const fetchAndApplyAggregate = useCallback((ids: number[]) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
 
-  // ─── Mutation ─────────────────────────────────────────────────────────
+    if (ids.length === 0) {
+      // All quotations deselected — revert immediately (no API call needed)
+      revertQuotationData()
+      return
+    }
 
-  // Save as draft (create or update)
+    debounceRef.current = setTimeout(async () => {
+      setIsApplyingQuotations(true)
+      try {
+        const { data } = await apiClient.post('/quotations/aggregate/', { quotation_ids: ids })
+        applyQuotationAggregate(data)
+        toast({ title: 'Quotations applied', description: 'Vendors and items auto-filled successfully.' })
+      } catch (err) {
+        console.error(err)
+        toast({ title: 'Failed to apply quotations', variant: 'destructive' })
+      } finally {
+        setIsApplyingQuotations(false)
+      }
+    }, 400)
+  }, [applyQuotationAggregate, revertQuotationData, toast])
+
+  // Cleanup debounce on unmount
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current) }, [])
+
+  const toggleQuotation = (id: number) => {
+    setSelectedQuotationIds(prev => {
+      const next = prev.includes(id) ? prev.filter(q => q !== id) : [...prev, id]
+      fetchAndApplyAggregate(next)
+      return next
+    })
+  }
+
+  const selectedQuotations = (quotations as any[]).filter((q: any) => selectedQuotationIds.includes(q.id))
+
+  // ─── Mutations ────────────────────────────────────────────────────────
+
   const saveDraftMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const payload = {
@@ -480,7 +530,6 @@ const {
       const detail = err?.response?.data
       let msg = ''
       if (typeof detail === 'object' && detail !== null) {
-        // Extract first meaningful error message from DRF response
         for (const val of Object.values(detail)) {
           if (Array.isArray(val)) msg = val[0]
           else if (typeof val === 'string') msg = val
@@ -490,15 +539,10 @@ const {
       } else {
         msg = String(detail ?? 'Something went wrong.')
       }
-      toast({
-        title: 'Failed to save PR',
-        description: msg,
-        variant: 'destructive',
-      })
+      toast({ title: 'Failed to save PR', description: msg, variant: 'destructive' })
     },
   })
 
-  // Submit for approval (use dedicated submit endpoint)
   const submitApprovalMutation = useMutation({
     mutationFn: async () => {
       const payload: any = {}
@@ -516,18 +560,9 @@ const {
       const msg = typeof detail === 'object'
         ? (detail.error || detail.detail || JSON.stringify(detail))
         : String(detail ?? '')
-      toast({
-        title: 'Failed to submit PR',
-        description: msg,
-        variant: 'destructive',
-      })
+      toast({ title: 'Failed to submit PR', description: msg, variant: 'destructive' })
     },
   })
-
-  const budgetRemaining = trackingDetail
-    ? Number(trackingDetail.remaining_amount ?? (trackingDetail.approved_amount ?? trackingDetail.requested_amount) - trackingDetail.consumed_amount)
-    : null
-  const budgetExceeded = budgetRemaining !== null && grandTotal > budgetRemaining
 
   const isSaving = saveDraftMutation.isPending || submitApprovalMutation.isPending
 
@@ -547,7 +582,7 @@ const {
         </Button>
       </div>
 
-      {/* Tabs — visual indicator only, navigation via Next/Back */}
+      {/* Tabs */}
       <div className="flex border-b">
         {([['details', 'Requisition Details'], ['matrix', 'Approval Matrix']] as const).map(([key, label], i) => (
           <div
@@ -557,8 +592,9 @@ const {
               : 'border-transparent text-muted-foreground'
               }`}
           >
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${activeTab === key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
-              }`}>{i + 1}</span>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${activeTab === key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>
+              {i + 1}
+            </span>
             {label}
           </div>
         ))}
@@ -573,14 +609,14 @@ const {
               <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Requisition Details</CardTitle>
             </CardHeader>
             <CardContent className="pt-5 space-y-4">
+
               {/* Tracking ID */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Tracking ID <span className="text-destructive">*</span></Label>
-
                 <TrackingIdSearch
                   trackingIds={trackingIds}
-                  value={selectedTracking}           // ← add
-                  onChange={setSelectedTracking}     // ← add
+                  value={selectedTracking}
+                  onChange={setSelectedTracking}
                   onSelect={(tracking) => {
                     setValue('tracking_id', tracking.id, { shouldDirty: true, shouldValidate: true })
                     setValue('title', tracking.title)
@@ -589,7 +625,7 @@ const {
                 {errors.tracking_id && <p className="text-xs text-destructive">{errors.tracking_id.message}</p>}
               </div>
 
-              {/* Budget Details — compact inline */}
+              {/* Budget Details */}
               {trackingDetail && (
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-md border border-blue-200 bg-blue-50/60 px-3 py-2 text-xs">
                   <span className="font-medium text-blue-700">Budget</span>
@@ -605,390 +641,374 @@ const {
                 </div>
               )}
 
-
-              {watchedTrackingId &&
-                <>
+              {watchedTrackingId && <>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
+                  <Input disabled {...register('title')} placeholder="e.g. Enterprise Laptop Procurement" className="h-10 bg-muted cursor-not-allowed text-muted-foreground" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">
+                    Description <span className="text-muted-foreground text-xs font-normal">(optional)</span>
+                  </Label>
+                  <textarea
+                    {...register('description')}
+                    rows={3}
+                    placeholder="Brief description of what is being procured…"
+                    className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
-                    <Input disabled {...register('title')} placeholder="e.g. Enterprise Laptop Procurement" className="h-10 bg-muted cursor-not-allowed text-muted-foreground" />
+                    <Label className="text-sm font-medium">Department</Label>
+                    <select
+                      disabled
+                      value={trackingDetail?.department ?? ''}
+                      className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
+                    >
+                      <option value="">{trackingDetail?.department_name ?? '…'}</option>
+                    </select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">
-                      Description <span className="text-muted-foreground text-xs font-normal">(optional)</span>
-                    </Label>
-                    <textarea
-                      {...register('description')}
-                      rows={3}
-                      placeholder="Brief description of what is being procured…"
-                      className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
-                    />
+                    <Label className="text-sm font-medium">Plant</Label>
+                    <select
+                      disabled
+                      value={trackingDetail?.plant ?? ''}
+                      className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
+                    >
+                      <option value="">{trackingDetail?.plant_name ?? '…'}</option>
+                    </select>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-medium">Department</Label>
-                      <select
-                        disabled
-                        value={trackingDetail?.department ?? ''}
-                        className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
-                      >
-                        <option value="">{trackingDetail?.department_name ?? '…'}</option>
-                      </select>
-                    </div>
-                    {/* Plant (auto-filled) */}
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-medium">Plant</Label>
-                      <select
-                        disabled
-                        value={trackingDetail?.plant ?? ''}
-                        className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
-                      >
-                        <option value="">{trackingDetail?.plant_name ?? '…'}</option>
-                      </select>
-                    </div>
-
-                  </div>
-                </>
-              }
+                </div>
+              </>}
             </CardContent>
           </Card>
-          {watchedTrackingId && <Card className="shadow-sm">
-            <CardHeader className="pb-4 border-b">
-              <CardTitle className="text-sm font-semibold uppercase text-muted-foreground">
-                Select Quotations
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">
-                Select quotations to auto-fill vendors and line items.
-              </p>
-            </CardHeader>
 
-            <CardContent className="pt-5 space-y-3">
+          {/* ── Select Quotations ── */}
+          {watchedTrackingId && (
+            <Card className="shadow-sm">
+              <CardHeader className="pb-4 border-b">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm font-semibold uppercase text-muted-foreground">
+                      Select Quotations
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Check quotations to auto-fill vendors and line items. Uncheck to revert.
+                    </p>
+                  </div>
+                  {isApplyingQuotations && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Applying…
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
 
-              {/* SEARCH INPUT */}
-              <div ref={quotationWrapperRef} className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <CardContent className="pt-5 space-y-3">
+                {/* Search input */}
+                <div ref={quotationWrapperRef} className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search quotation ref no..."
+                    value={quotationSearch}
+                    onChange={(e) => { setQuotationSearch(e.target.value); setQuotationOpen(true) }}
+                    onFocus={() => setQuotationOpen(true)}
+                    className="pl-8"
+                  />
 
-                <Input
-                  placeholder="Search quotation ref no..."
-                  value={quotationSearch}
-                  onChange={(e) => {
-                    setQuotationSearch(e.target.value)
-                    setQuotationOpen(true)
-                  }}
-                  onFocus={() => setQuotationOpen(true)}
-                  className="pl-8"
-                />
+                  {/* Dropdown */}
+                  {quotationOpen && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-56 overflow-auto">
+                      {qLoading ? (
+                        <div className="p-2 text-xs text-muted-foreground">Loading...</div>
+                      ) : (quotations as any[]).length === 0 ? (
+                        <div className="p-2 text-xs text-muted-foreground">No quotations found</div>
+                      ) : (
+                        (quotations as any[]).map((q: any) => (
+                          <label
+                            key={q.id}
+                            className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedQuotationIds.includes(q.id)}
+                              onChange={() => toggleQuotation(q.id)}
+                              disabled={isApplyingQuotations}
+                            />
+                            <span className="font-medium">{q.ref_no}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
 
-                {/* DROPDOWN ALWAYS READY (DEFAULT LIST) */}
-                {quotationOpen && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-56 overflow-auto">
-
-                    {qLoading ? (
-                      <div className="p-2 text-xs text-muted-foreground">Loading...</div>
-                    ) : quotations.length === 0 ? (
-                      <div className="p-2 text-xs text-muted-foreground">No quotations found</div>
-                    ) : (
-                      quotations.map((q: any) => (
-                        <label
-                          key={q.id}
-                          className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                {/* Selected chips */}
+                {selectedQuotations.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedQuotations.map((q: any) => (
+                      <div key={q.id} className="flex items-center gap-1 px-2 py-1 text-xs bg-muted rounded-full">
+                        {q.ref_no}
+                        <button
+                          type="button"
+                          onClick={() => toggleQuotation(q.id)}
+                          disabled={isApplyingQuotations}
+                          className="hover:text-red-500 disabled:opacity-50"
                         >
-                          <input
-                            type="checkbox"
-                            checked={selectedQuotationIds.includes(q.id)}
-                            onChange={() => toggleQuotation(q.id)}
-                          />
-
-                          {/* ONLY REF NO */}
-                          <span className="font-medium">
-                            {q.ref_no}
-                          </span>
-                        </label>
-                      ))
-                    )}
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
-              </div>
-
-
-              {/* SELECTED CHIPS */}
-              {selectedQuotations.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {selectedQuotations.map((q:any) => (
-                    <div
-                      key={q.id}
-                      className="flex items-center gap-1 px-2 py-1 text-xs bg-muted rounded-full"
-                    >
-                      {q.ref_no}
-                      <button
-                        onClick={() => toggleQuotation(q.id)}
-                        className="hover:text-red-500"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* ACTION BUTTON */}
-              <Button
-                type="button"
-                disabled={selectedQuotationIds.length === 0}
-                onClick={async () => {
-                  try {
-                    const { data } = await apiClient.post(
-                      '/quotations/aggregate/',
-                      {
-                        quotation_ids: selectedQuotationIds,
-                      }
-                    )
-
-                    applyQuotationAggregate(data)
-
-                    toast({
-                      title: 'Quotations applied',
-                      description: 'Vendors and items auto-filled successfully.',
-                    })
-
-                    // optional: close dropdown
-                    setQuotationOpen(false)
-
-                  } catch (err) {
-                    console.error(err)
-                    toast({
-                      title: 'Failed to apply quotations',
-                      variant: 'destructive',
-                    })
-                  }
-                }}
-              >
-                Add Quotations
-              </Button>
-
-
-
-            </CardContent>
-          </Card>}
+              </CardContent>
+            </Card>
+          )}
 
           {/* ── Invited Vendors ── */}
-          {watchedTrackingId && <Card className="shadow-sm">
-            <CardHeader className="pb-4 border-b">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Invited Vendors <span className="text-destructive">*</span></CardTitle>
-                <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
-                  Required
-                </span>              </div>
-              <p className="text-xs text-muted-foreground mt-1">Search and add vendors who will be invited to bid on this requisition.</p>
-            </CardHeader>
-            <CardContent className="pt-5 space-y-3">
-              <div className="relative">
-                <Input
-                  placeholder="Search approved vendors…"
-                  value={vendorSearch}
-                  onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
-                  onFocus={() => setShowVendorSearch(true)}
-                  className={`h-10 ${errors.invited_vendor_ids ? 'border-destructive' : ''}`}
-                />
-
-                {showVendorSearch && vendorSearch && (
-                  <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
-                    {(vendors || [])
-                      .filter((v: any) => !selectedVendors.some(s => s.id === v.id))
-                      .map((v: any) => (
-                        <button
-                          key={v.id}
-                          type="button"
-                          onMouseDown={e => e.preventDefault()}
-                          onClick={() => addVendor(v)}
-                          className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{v.company_name}</span>
-                            <span className="text-xs text-emerald-600 font-medium">{v.status}</span>
-                          </div>
-                          <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
-                            {v.category_name && <span>{v.category_name}</span>}
-                            {v.city && <span>{v.city}{v.state ? `, ${v.state}` : ''}</span>}
-                          </div>
-                        </button>
-                      ))}
-                    {(vendors || []).filter((v: any) => !selectedVendors.some(s => s.id === v.id)).length === 0 && (
-                      <p className="px-3 py-2.5 text-sm text-muted-foreground">No vendors found.</p>
-                    )}
+          {watchedTrackingId && (
+            <Card className="shadow-sm">
+              <CardHeader className="pb-4 border-b">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    Invited Vendors <span className="text-destructive">*</span>
+                  </CardTitle>
+                  <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">Required</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Search and add vendors who will be invited to bid on this requisition.</p>
+              </CardHeader>
+              <CardContent className="pt-5 space-y-3">
+                <div className="relative">
+                  <Input
+                    placeholder="Search approved vendors…"
+                    value={vendorSearch}
+                    onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
+                    onFocus={() => setShowVendorSearch(true)}
+                    className={`h-10 ${errors.invited_vendor_ids ? 'border-destructive' : ''}`}
+                  />
+                  {showVendorSearch && vendorSearch && (
+                    <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
+                      {(vendors || [])
+                        .filter((v: any) => !selectedVendors.some(s => s.id === v.id))
+                        .map((v: any) => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => addVendor(v)}
+                            className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{v.company_name}</span>
+                              <span className="text-xs text-emerald-600 font-medium">{v.status}</span>
+                            </div>
+                            <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
+                              {v.category_name && <span>{v.category_name}</span>}
+                              {v.city && <span>{v.city}{v.state ? `, ${v.state}` : ''}</span>}
+                            </div>
+                          </button>
+                        ))}
+                      {(vendors || []).filter((v: any) => !selectedVendors.some(s => s.id === v.id)).length === 0 && (
+                        <p className="px-3 py-2.5 text-sm text-muted-foreground">No vendors found.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {errors.invited_vendor_ids && (
+                  <p className="text-xs text-destructive">{errors.invited_vendor_ids.message}</p>
+                )}
+                {selectedVendors.length > 0 && (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50 border-b border-border">
+                        <tr>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
+                          <th className="w-8 px-3 py-2.5" />
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {selectedVendors.map(v => (
+                          <tr key={v.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="px-3 py-2.5 font-medium">{v.company_name}</td>
+                            <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
+                            <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
+                              {v.city ? [v.city, v.state].filter(Boolean).join(', ') : '—'}
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
-              </div>
-              {errors.invited_vendor_ids && (
-                <p className="text-xs text-destructive">
-                  {errors.invited_vendor_ids.message}
-                </p>
-              )}
-              {selectedVendors.length > 0 && (
-                <div className="border border-border rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50 border-b border-border">
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Line Items ── */}
+          {watchedTrackingId && (
+            <Card className="shadow-sm">
+              <CardHeader className="pb-4 border-b">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Line Items</CardTitle>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSubmit(() => {
+                      append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })
+                      // Mark new row as manual (not quotation-filled)
+                      setQuotationFilledRows(prev => [...prev, false])
+                    })}
+                    className="gap-1 shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Row
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="border border-border rounded-lg overflow-visible">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50 border-b">
                       <tr>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
-                        <th className="w-8 px-3 py-2.5" />
+                        <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[40%]">Item <span className="text-destructive">*</span></th>
+                        <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">Qty <span className="text-destructive">*</span></th>
+                        <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">UOM</th>
+                        <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Rate <span className="text-destructive">*</span></th>
+                        <th className="px-2 py-2 text-right font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Amount</th>
+                        <th className="px-2 py-2 w-8" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {selectedVendors.map(v => (
-                        <tr key={v.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-3 py-2.5 font-medium">{v.company_name}</td>
-                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
-                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                            {v.city ? [v.city, v.state].filter(Boolean).join(', ') : '—'}
+                      {lineItemFields.map((field, idx) => (
+                        <tr key={field.id} className="group">
+                          <td className="px-2 py-1.5">
+                            <ItemSearch
+                              displayValue={itemLabels[idx]}
+                              onSelect={item => {
+                                const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
+                                if (duplicateIdx !== -1) {
+                                  toast({ title: 'Duplicate item', description: `"${item.code} — ${item.description}" is already added in row ${duplicateIdx + 1}.`, variant: 'destructive' })
+                                  return
+                                }
+                                setValue(`line_items.${idx}.item_code`, item.id)
+                                setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
+                                if (item.unit_rate) setValue(`line_items.${idx}.unit_rate`, Number(item.unit_rate))
+                                clearErrors(`line_items.${idx}.item_code`)
+                                // Mark this row as manually edited
+                                setQuotationFilledRows(prev => {
+                                  const next = [...prev]
+                                  next[idx] = false
+                                  return next
+                                })
+                                setItemLabels(prev => ({ ...prev, [idx]: `${item.code} — ${item.description}` }))
+                              }}
+                              placeholder="Search item…"
+                              hasError={errors.line_items?.[idx]?.item_code && errors.line_items[idx]?.item_code?.message}
+                            />
+                            {errors.line_items?.[idx]?.item_code && (
+                              <p className="text-xs text-destructive mt-0.5">{errors.line_items[idx]?.item_code?.message}</p>
+                            )}
                           </td>
-                          <td className="px-3 py-2.5 text-center">
-                            <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
+                          <td className="px-2 py-1.5">
+                            <Input
+                              type="number" min="0.01" max="99999" step="0.01" placeholder="1"
+                              className={`h-8 text-xs ${errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}`}
+                              {...register(`line_items.${idx}.quantity`, {
+                                valueAsNumber: true,
+                                onChange: e => {
+                                  let value = Number(e.target.value)
+                                  if (value > 99999) { value = 99999; setValue(`line_items.${idx}.quantity`, value) }
+                                  clearErrors(`line_items.${idx}.quantity`)
+                                },
+                              })}
+                            />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <Input placeholder="EA" className="h-8 text-xs" {...register(`line_items.${idx}.unit_of_measure`)} />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <Input
+                              type="number" min="0.01" max="9999999.99" step="0.01" placeholder="0.00"
+                              disabled
+                              className={`h-8 text-xs ${errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}`}
+                              {...register(`line_items.${idx}.unit_rate`, {
+                                valueAsNumber: true,
+                                onChange: e => {
+                                  let value = Number(e.target.value)
+                                  if (value > 9999999.99) value = 9999999.99
+                                  value = Number(value.toFixed(2))
+                                  setValue(`line_items.${idx}.unit_rate`, value)
+                                  clearErrors(`line_items.${idx}.unit_rate`)
+                                },
+                              })}
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-right text-sm font-medium text-muted-foreground">
+                            {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            {lineItemFields.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  remove(idx)
+                                  setQuotationFilledRows(prev => prev.filter((_, i) => i !== idx))
+                                  setItemLabels(prev => {
+                                    const next: Record<number, string> = {}
+                                    Object.entries(prev).forEach(([k, v]) => {
+                                      const n = Number(k)
+                                      if (n < idx) next[n] = v
+                                      else if (n > idx) next[n - 1] = v
+                                    })
+                                    return next
+                                  })
+                                }}
+                                className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </CardContent>
-          </Card>}
 
-          {/* ── Line Items ── */}
-          {watchedTrackingId && <Card className="shadow-sm">
-            <CardHeader className="pb-4 border-b">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Line Items</CardTitle>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSubmit(() => {
-                    // Proceed with adding a new row only if validation passes
-                    append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })
-                  })}
-                  className="gap-1 shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Row
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="border border-border rounded-lg overflow-visible">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/50 border-b">
-                    <tr>
-                      <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[40%]">Item <span className="text-destructive">*</span></th>
-                      <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">Qty <span className="text-destructive">*</span></th>
-                      <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">UOM</th>
-                      <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Rate <span className="text-destructive">*</span></th>
-                      <th className="px-2 py-2 text-right font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Amount</th>
-                      <th className="px-2 py-2 w-8" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {lineItemFields.map((field, idx) => (
-                      <tr key={field.id} className="group">
-                        <td className="px-2 py-1.5">
-                          <ItemSearch
-                            displayValue={itemLabels[idx]}
-                            onSelect={item => {
-                              const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
-                              if (duplicateIdx !== -1) {
-                                toast({ title: 'Duplicate item', description: `"${item.code} — ${item.description}" is already added in row ${duplicateIdx + 1}.`, variant: 'destructive' })
-                                return
-                              }
-                              setValue(`line_items.${idx}.item_code`, item.id)
-                              setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                              if (item.unit_rate) setValue(`line_items.${idx}.unit_rate`, Number(item.unit_rate))
-                              clearErrors(`line_items.${idx}.item_code`)
-                              setItemLabels(prev => ({ ...prev, [idx]: `${item.code} — ${item.description}` }))
-                            }}
-                            placeholder="Search item…"
-                            hasError={errors.line_items?.[idx]?.item_code && errors.line_items[idx]?.item_code?.message}
-                          />
-                          {errors.line_items?.[idx]?.item_code && (
-                            <p className="text-xs text-destructive mt-0.5">{errors.line_items[idx]?.item_code?.message}</p>
-                          )}
-                        </td>
-                        <td className="px-2 py-1.5">
-                          <Input
-                            type="number" min="0.01" max="99999" step="0.01" placeholder="1"
-                            className={`h-8 text-xs ${errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}`}
-                            {...register(`line_items.${idx}.quantity`, {
-                              valueAsNumber: true,
-                              onChange: e => {
-                                let value = Number(e.target.value)
-                                if (value > 99999) { value = 99999; setValue(`line_items.${idx}.quantity`, value) }
-                                clearErrors(`line_items.${idx}.quantity`)
-                              },
-                            })}
-                          />
-                        </td>
-                        <td className="px-2 py-1.5">
-                          <Input placeholder="EA" className="h-8 text-xs" {...register(`line_items.${idx}.unit_of_measure`)} />
-                        </td>
-                        <td className="px-2 py-1.5">
-                          <Input
-                            type="number" min="0.01" max="9999999.99" step="0.01" placeholder="0.00"
-                            disabled
-                            className={`h-8 text-xs ${errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}`}
-                            {...register(`line_items.${idx}.unit_rate`, {
-                              valueAsNumber: true,
-                              onChange: e => {
-                                let value = Number(e.target.value)
-                                if (value > 9999999.99) value = 9999999.99
-                                value = Number(value.toFixed(2))
-                                setValue(`line_items.${idx}.unit_rate`, value)
-                                clearErrors(`line_items.${idx}.unit_rate`)
-                              },
-                            })}
-                          />
-                        </td>
-                        <td className="px-2 py-1.5 text-right text-sm font-medium text-muted-foreground">
-                          {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
-                        </td>
-                        <td className="px-2 py-1.5 text-center">
-                          {lineItemFields.length > 1 && (
-                            <button type="button" onClick={() => remove(idx)} className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </td>
+                {errors.line_items?.root && (
+                  <p className="text-xs text-destructive">{errors.line_items.root.message}</p>
+                )}
+
+                {/* Totals */}
+                <div className="border border-border rounded-lg overflow-hidden mt-2">
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-border">
+                      <tr className="bg-slate-50">
+                        <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Subtotal</td>
+                        <td className="px-3 py-2 text-right font-bold">{formatCurrency(subtotal)}</td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      <tr className="bg-slate-50">
+                        <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Tax ({combinedTaxRate}%)</td>
+                        <td className="px-3 py-2 text-right font-bold">{formatCurrency(taxTotal)}</td>
+                      </tr>
+                      <tr className="bg-slate-100 border-t-2">
+                        <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold">Total</td>
+                        <td className="px-3 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-              {errors.line_items?.root && (
-                <p className="text-xs text-destructive">{errors.line_items.root.message}</p>
-              )}
-
-              {/* Totals */}
-              <div className="border border-border rounded-lg overflow-hidden mt-2">
-                <table className="w-full text-sm">
-                  <tbody className="divide-y divide-border">
-                    <tr className="bg-slate-50">
-                      <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Subtotal</td>
-                      <td className="px-3 py-2 text-right font-bold">{formatCurrency(subtotal)}</td>
-                    </tr>
-                    <tr className="bg-slate-50">
-                      <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Tax ({combinedTaxRate}%)</td>
-                      <td className="px-3 py-2 text-right font-bold">{formatCurrency(taxTotal)}</td>
-                    </tr>
-                    <tr className="bg-slate-100 border-t-2">
-                      <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold">Total</td>
-                      <td className="px-3 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-          }
           <div className="flex items-center justify-end">
             <Button
               type="button"
@@ -997,8 +1017,7 @@ const {
               onClick={async () => {
                 const isValid = watchedTrackingId
                   ? await trigger(['line_items', 'tracking_id', 'invited_vendor_ids'])
-                  : await trigger('tracking_id');
-
+                  : await trigger('tracking_id')
                 if (!isValid) return
                 if (budgetExceeded) {
                   toast({ title: 'Budget exceeded', description: `PR total (${formatCurrency(grandTotal)}) exceeds remaining budget (${formatCurrency(budgetRemaining)}).`, variant: 'destructive' })
