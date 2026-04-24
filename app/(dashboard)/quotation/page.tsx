@@ -130,7 +130,7 @@ export default function QuotationPage() {
                         onChange={(e) => setStatusFilter(e.target.value)}
                     >
                         <option value="">All Statuses</option>
-                        <option value="approval_required">Pending Approval</option>
+                        <option value="approval_required">Approval Required</option>
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
                     </select>
@@ -203,7 +203,7 @@ export default function QuotationPage() {
                                             <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{q.pr_number || '—'}</td>
                                             <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">{q.uploaded_by}</td>
                                             <td className="px-4 py-3">
-                                                <StatusBadge status={q.status === 'approval_required' ? 'pending_approval' : q.status} />
+                                                <StatusBadge status={q.status} />
                                             </td>
                                             <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{formatDate(q.created_at)}</td>
                                         </tr>

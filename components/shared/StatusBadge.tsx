@@ -58,6 +58,7 @@ const DOT_COLORS: Record<string, string> = {
   draft: 'bg-gray-400',
   pending_approval: 'bg-amber-500',
   pending_finance: 'bg-amber-500',
+  approval_required:"bg-amber-500",
   approved: 'bg-green-500',
   vendor_selected: 'bg-teal-500',
   rejected: 'bg-red-500',
