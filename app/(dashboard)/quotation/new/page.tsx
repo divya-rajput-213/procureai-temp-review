@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, FileText, User, MapPin, Phone, Mail, Building, CheckCircle, AlertCircle, ArrowLeft, ChevronRight, Package, ClipboardList, Loader2 } from 'lucide-react'
+import { Upload, User, MapPin, Phone, Mail, Building, CheckCircle, AlertCircle, ArrowLeft, ChevronRight, Package, ClipboardList, Loader2 } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Combobox } from '@/components/ui/combobox'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldContent, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { useSettingsStore } from '@/lib/stores/settings.store'
 
 type Suggestion = {
     master_item_id: number
@@ -35,6 +35,10 @@ type LineItem = {
     suggestions: Suggestion[]
     selectedMasterId: string | null
     createNew?: boolean
+    item_price: number
+    quantity?: number
+    isNew?: boolean
+    isDuplicate?: boolean
 }
 
 type ExtractedVendor = {
@@ -132,6 +136,10 @@ function mapLineItemsFromQuotationResponse(response: any): LineItem[] {
                 suggestions,
                 selectedMasterId: hasMatch ? String(suggestions[0].master_item_id) : 'ITEM - 123456789',
                 createNew: false,
+                item_price: toNumber(item?.item_price) ?? 0,
+                quantity: toNumber(item?.quantity) ?? 1,
+                isNew: item?.is_new ?? false,
+                isDuplicate: item?.is_duplicate ?? false,
             }
         })
         .filter((item: LineItem | null): item is LineItem => item !== null)
@@ -152,6 +160,7 @@ export default function UploadQuotationPage() {
     const [vendors, setVendors] = useState<ExtractedVendor[]>([])
     const [dragging, setDragging] = useState(false)
     const [errorMessage, setErrorMessage] = useState('')
+    const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
 
     const { data: masterItems = [] } = useQuery({
         queryKey: ['master-items'],
@@ -264,11 +273,6 @@ export default function UploadQuotationPage() {
     const handleDragLeave = () => setDragging(false)
     const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setDragging(false); addFile(e.dataTransfer.files) }
 
-    const handleUpload = () => {
-        if (!file || uploadMutation.isPending) return
-        uploadMutation.mutate(file)
-    }
-
     // Called when user clicks Next on any step
     const handleNextClick = () => {
         setPendingStep(currentStep + 1)
@@ -278,13 +282,13 @@ export default function UploadQuotationPage() {
     const confirmAndProceed = () => {
         setShowConfirmModal(false)
         if (pendingStep === 4) {
-            // final submit
-            submitMutation.mutate()
+            saveMutation.mutate()
         } else if (pendingStep !== null) {
             setCurrentStep(pendingStep)
         }
         setPendingStep(null)
     }
+
 
     const cancelConfirm = () => {
         setShowConfirmModal(false)
@@ -307,14 +311,68 @@ export default function UploadQuotationPage() {
             description: 'The quotation has been extracted. You will now review the line items and map them to master items.',
         }
         if (currentStep === 2) return {
-            title: 'Proceed to Summary?',
-            description: 'Please confirm you have reviewed all items and their mappings before proceeding to the summary.',
+            title: 'Submit Quotation?',
+            description: 'Once submitted, these items cannot be changed. Please verify that all selections are correct.',
         }
         return {
             title: 'Submit Quotation?',
             description: 'Once submitted, these items cannot be changed. Please verify that all selections are correct.',
         }
     }
+    const buildSavePayload = () => {
+        return {
+            vendor: {
+                company_name: vendors?.[0]?.name,
+                contact_name: vendors?.[0]?.contactName,
+                contact_email: vendors?.[0]?.contactEmail,
+                contact_phone: vendors?.[0]?.contactPhone,
+                city: vendors?.[0]?.city,
+                state: vendors?.[0]?.state,
+                gst_number: vendors?.[0]?.gstNumber,
+            },
+            items: lineItems.map((item) => ({
+                item_code: item.code,
+                item_name: item.name,
+                item_price: item.item_price,
+                quantity: item.quantity || 1,
+                unit_of_measure: item.uom,
+                hsn_code: item.suggestions?.[0]?.hsn_code || null,
+
+                create_new_item: item.createNew || item.selectedMasterId === 'create_new',
+
+                // optional (if mapping)
+                master_item_id:
+                    item.createNew || item.selectedMasterId === 'create_new'
+                        ? null
+                        : Number(item.selectedMasterId),
+
+                suggestions: item.suggestions || [],
+            })),
+        }
+    }
+    const saveMutation = useMutation({
+        mutationFn: async () => {
+            const payload = buildSavePayload()
+            return apiClient.post('/api/v1/quotations/save/', payload)
+        },
+        onSuccess: () => {
+            toast({
+                title: 'Quotation saved successfully',
+            })
+            router.push('/quotation') // optional redirect
+        },
+        onError: (error: any) => {
+            const message =
+                error?.response?.data?.message || 'Failed to save quotation'
+            setErrorMessage(message)
+
+            toast({
+                title: 'Error',
+                description: message,
+                variant: 'destructive',
+            })
+        },
+    })
 
     // Step indicator
     const StepIndicator = () => (
@@ -395,9 +453,9 @@ export default function UploadQuotationPage() {
                             <Badge variant="secondary" className="text-xs">
                                 {uploadMutation.isPending ? 'Processing...' : hasData ? 'Ready' : 'Waiting'}
                             </Badge>
-                            
+
                             <Button variant="outline" onClick={() => setFile(null)} className="shrink-0">
-                                Remove 
+                                Remove
                             </Button>
                         </div>
 
@@ -480,127 +538,297 @@ export default function UploadQuotationPage() {
     )
 
     // ── STEP 2: Review Items ────────────────────────────────────────
-    const StepReviewItems = () => (
-        <Card>
-            <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    <CheckCircle className="w-4 h-4" />
-                    Items ({lineItems.length})
-                </CardTitle>
-                <p className="text-sm text-gray-600">Review the extracted items and select the appropriate master item or choose to create a new one.</p>
-            </CardHeader>
-            <CardContent className="pt-0">
-                <div className="flex items-center gap-1 my-2">
-                    {(['all', 'new', 'duplicates'] as (keyof FilterState)[]).map((key) => (
+    const StepReviewItems = () => {
+        const allCount = lineItems.length
+        const newCount = lineItems.filter(i => i.isNew).length
+        const duplicatesCount = lineItems.filter(i => i.isDuplicate).length
+
+
+        const filteredItems = lineItems.filter(item => {
+            if (filters.new === 'true') return item.isNew
+            if (filters.duplicates === 'true') return item.isDuplicate
+            return true
+
+        })
+
+        const handleExport = () => {
+            const rows = [
+                ['Item', 'Code', 'UOM', 'Master Item', 'Action'],
+                ...lineItems.map(i => [
+                    i.name, i.code, i.uom,
+                    i.selectedMasterId ?? '',
+                    i.createNew ? 'Create New' : 'Map to Master',
+                ])
+            ]
+            const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n')
+            const blob = new Blob([csv], { type: 'text/csv' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url; a.download = 'quotation-items.csv'; a.click()
+            URL.revokeObjectURL(url)
+        }
+        const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0)
+        const subtotal = lineItems.reduce(
+            (sum, item) =>
+                sum + (Number(item.quantity) || 0) * (Number(item.item_price) || 0),
+            0
+        )
+        const taxTotal = (subtotal * combinedTaxRate) / 100
+        const grandTotal = subtotal + taxTotal
+
+        return (
+            <Card className="overflow-hidden">
+                {/* ── Toolbar ── */}
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3 border-b bg-muted/30">
+                    {/* Filter pills */}
+                    <div className="flex items-center gap-1 flex-wrap">
                         <button
-                            key={key}
-                            onClick={() => handleFilterChange(key, filters[key] === "true" ? "false" : "true")}
-                            className={`h-7 px-3 rounded-full text-xs border flex items-center gap-1.5 capitalize
-                                ${filters[key] === "true"
-                                    ? "bg-emerald-100 text-emerald-700 border-emerald-300"
-                                    : "bg-background hover:bg-muted border-border text-muted-foreground"
+                            onClick={() => handleFilterChange('all', 'true')}
+                            className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
+                                ${filters.all === 'true'
+                                    ? 'bg-foreground text-background border-foreground'
+                                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
                                 }`}
                         >
-                            {key} <Badge>{key === 'all' ? lineItems.length : key === 'new' ? lineItems.filter(i => !i.hasMatch).length : lineItems.filter(i => i.hasMatch && i.suggestions.length > 1).length}</Badge>
+                            All
+                            <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
+                                ${filters.all === 'true' ? 'bg-background/20 text-background' : 'bg-muted text-muted-foreground'}`}>
+                                {allCount}
+                            </span>
                         </button>
-                    ))}
+                        <button
+                            onClick={() => handleFilterChange('new', 'true')}
+                            className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
+                                ${filters.new === 'true'
+                                    ? 'bg-blue-600 text-white border-blue-600'
+                                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                                }`}
+                        >
+                            New
+                            <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
+                                ${filters.new === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+                                {newCount}
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => handleFilterChange('duplicates', 'true')}
+                            className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
+                                ${filters.duplicates === 'true'
+                                    ? 'bg-amber-500 text-white border-amber-500'
+                                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                                }`}
+                        >
+                            Duplicates
+                            <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
+                                ${filters.duplicates === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+                                {duplicatesCount}
+                            </span>
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5 h-7 text-xs">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                            Export
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={handleNextClick} className="gap-1.5 h-7 text-xs">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+                            </svg>
+                            Save & Review
+                        </Button>
+                    </div>
                 </div>
 
+                {/* ── Items table ── */}
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm min-w-[600px]">
                         <thead>
-                            <tr className="border-b">
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Item</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">UOM</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Master Item</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Create New</th>
+                            <tr className="border-b bg-muted/10">
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[28%]">Item</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[10%]">Code</th>
+                                <th className="text-right py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[10%]">
+                                    Rate
+                                </th>
+
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[8%]">UOM</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[36%]">Master Item</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[5%]">    Create New Item
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
-                            {lineItems.map((item) => {
+                            {filteredItems.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="py-10 text-center text-muted-foreground text-sm">
+                                        No items match the selected filter.
+                                    </td>
+                                </tr>
+                            ) : filteredItems.map((item) => {
                                 const options = [
                                     ...item.suggestions.map(s => ({
                                         value: String(s.master_item_id),
                                         label: `${s.code} - ${s.description}`,
+                                        group: 'Matched Suggestions'
                                     })),
                                     ...masterItems.map((m: any) => ({
                                         value: String(m.id),
                                         label: `${m.code} - ${m.description}`,
+                                        group: 'All Items'
                                     })),
-                                    { value: 'create_new', label: 'Create New Item' }
                                 ]
 
                                 return (
-                                    <tr key={item.id} className="border-b hover:bg-gray-50">
+                                    <tr key={item.id} className="border-b hover:bg-muted/30 transition-colors">
                                         <td className="py-2 px-3">
-                                            <p className="font-medium text-gray-900">{item.name}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-medium text-gray-900 truncate">{item.name}</p>
+
+                                                {item.isNew && (
+                                                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                                        New
+                                                    </Badge>
+                                                )}
+
+                                                {item.isDuplicate && (
+                                                    <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">
+                                                        Duplicate
+                                                    </Badge>
+                                                )}
+                                            </div>
+
                                             {item.suggestions.length > 0 && (
-                                                <p className="text-xs text-gray-500 truncate max-w-xs">{item.suggestions[0].description}</p>
+                                                <p className="text-xs text-gray-500 truncate">
+                                                    {item.suggestions[0].description}
+                                                </p>
                                             )}
                                         </td>
-                                        <td className="py-2 px-3 text-gray-700">{item.code}</td>
+
+                                        <td className="py-2 px-3 text-gray-700 truncate">{item.code}</td>
+                                        <td className="py-2 px-3 text-gray-700 text-right">
+                                            {item.item_price}
+                                        </td>
+
                                         <td className="py-2 px-3 text-gray-700">{item.uom}</td>
                                         <td className="py-3 px-3">
                                             <div className="relative">
-                                                {item.suggestions.length > 1 && (
-                                                    <Badge className="absolute -top-3 -right-3 z-10" variant="warning">{item.suggestions.length}</Badge>
+                                                {item.suggestions.length > 0 && (
+                                                    <Badge className="absolute -top-3 -right-3 z-10" variant="warning">
+                                                        {item.suggestions.length}
+                                                    </Badge>
                                                 )}
                                                 <Combobox
                                                     options={options}
-                                                    value={item.createNew ? 'create_new' : (item.selectedMasterId || '')}
+                                                    value={item.selectedMasterId || ''}
                                                     onValueChange={(value) =>
-                                                        setLineItems(prev => prev.map(i =>
-                                                            i.id === item.id ? { ...i, selectedMasterId: value, createNew: value === 'create_new' } : i
-                                                        ))
+                                                        setLineItems((prev) =>
+                                                            prev.map((i) =>
+                                                                i.id === item.id ? { ...i, selectedMasterId: value } : i
+                                                            )
+                                                        )
                                                     }
                                                     placeholder="Select master item..."
                                                     className="w-full"
-                                                    disabled={item.createNew}
                                                 />
                                             </div>
                                         </td>
                                         <td className="py-3 px-3">
-                                            <FieldGroup>
-                                                <Field className="flex flex-row items-center gap-2">
-                                                    <Checkbox
-                                                        id={`create-new-${item.id}`}
-                                                        checked={!!item.createNew}
-                                                        onCheckedChange={(checked) =>
-                                                            setLineItems(prev => prev.map(i =>
-                                                                i.id === item.id ? { ...i, createNew: !!checked, selectedMasterId: checked ? 'create_new' : null } : i
-                                                            ))
-                                                        }
-                                                    />
-                                                    <FieldContent>
-                                                        <FieldLabel htmlFor={`create-new-${item.id}`}>Create New</FieldLabel>
-                                                    </FieldContent>
-                                                </Field>
-                                            </FieldGroup>
+                                            <div className="flex justify-center gap-2">
+                                                <Checkbox
+                                                    id={`create-new-${item.id}`}
+                                                    checked={item.createNew || false}
+                                                    onCheckedChange={(checked) =>
+                                                        setLineItems((prev) =>
+                                                            prev.map((i) =>
+                                                                i.id === item.id
+                                                                    ? {
+                                                                        ...i,
+                                                                        createNew: Boolean(checked),
+                                                                        selectedMasterId: checked ? 'create_new' : i.selectedMasterId,
+                                                                    }
+                                                                    : i
+                                                            )
+                                                        )
+                                                    }
+                                                />
+
+                                                {/* <label
+                                                    htmlFor={`create-new-${item.id}`}
+                                                    className="text-sm text-gray-700 whitespace-nowrap cursor-pointer"
+                                                >
+                                                    Create New Item
+                                                </label> */}
+                                            </div>
                                         </td>
                                     </tr>
                                 )
                             })}
                         </tbody>
+
+                        {/* ── Totals ── */}
+                        <tfoot className="border-t-2">
+                            <tr>
+                                <td colSpan={5} className="text-right py-2 px-3 font-medium text-gray-900">
+                                    Subtotal:
+                                </td>
+                                <td className="py-2 px-3 font-medium text-gray-900 text-right">
+                                    ₹ {subtotal.toLocaleString('en-IN')}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td colSpan={5} className="text-right py-2 px-3 font-medium text-gray-900">
+                                    Tax ({combinedTaxRate}%):
+                                </td>
+                                <td className="py-2 px-3 font-medium text-gray-900 text-right">
+                                    ₹ {taxTotal.toLocaleString('en-IN')}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td colSpan={5} className="text-right py-2 px-3 font-medium text-gray-900">
+                                    Discount:
+                                </td>
+                                <td className="py-2 px-3 font-medium text-gray-900 text-right">
+                                    ₹ 0
+                                </td>
+                            </tr>
+
+                            <tr className="border-t">
+                                <td colSpan={5} className="text-right py-2 px-3 font-semibold text-gray-900 text-base">
+                                    Total:
+                                </td>
+                                <td className="py-2 px-3 font-bold text-gray-900 text-right text-base">
+                                    ₹ {grandTotal.toLocaleString('en-IN')}
+                                </td>
+                            </tr>
+                        </tfoot>
+
                     </table>
                 </div>
 
-                <div className="flex justify-between mt-4">
-                    <Button variant="outline" onClick={() => setCurrentStep(1)} className="gap-2">
-                        <ArrowLeft className="w-4 h-4" /> Back
-                    </Button>
-                    <Button onClick={handleNextClick} className="gap-2">
-                        View Summary <ChevronRight className="w-4 h-4" />
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
-    )
+                {/* ── Footer nav ── */}
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 sm:px-4 border-t bg-muted/20">
+                    <div className="text-xs text-muted-foreground">
+                        Showing <span className="font-medium text-foreground">{filteredItems.length}</span> of <span className="font-medium text-foreground">{allCount}</span> items
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setCurrentStep(1)} className="gap-2">
+                            <ArrowLeft className="w-3.5 h-3.5" /> Back
+                        </Button>
 
+                    </div>
+                </div>
+            </Card>
+        )
+    }
     // ── STEP 3: Summary ─────────────────────────────────────────────
     const StepSummary = () => {
         const newItems = lineItems.filter(i => i.createNew || i.selectedMasterId === 'create_new')
         const mappedItems = lineItems.filter(i => !i.createNew && i.selectedMasterId && i.selectedMasterId !== 'create_new')
+        const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0)
 
         return (
             <div className="space-y-4">
@@ -694,7 +922,7 @@ export default function UploadQuotationPage() {
                                 </tbody>
                                 <tfoot>
                                     <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">Subtotal:</td><td className="py-2 px-3 font-medium text-gray-900">62,990</td></tr>
-                                    <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">GST (18%):</td><td className="py-2 px-3 font-medium text-gray-900">11,338</td></tr>
+                                    <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">Tax ({combinedTaxRate}%):</td><td className="py-2 px-3 font-medium text-gray-900">11,338</td></tr>
                                     <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">Discount:</td><td className="py-2 px-3 font-medium text-gray-900">-0</td></tr>
                                     <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900 text-base">Total:</td><td className="py-2 px-3 font-bold text-gray-900 text-base">74,328</td></tr>
                                 </tfoot>
@@ -745,7 +973,7 @@ export default function UploadQuotationPage() {
                     className="gap-2"
                 >
                     <ArrowLeft className="w-4 h-4" />
-                    Back to Quotations
+                    Back
                 </Button>
             </div>
 

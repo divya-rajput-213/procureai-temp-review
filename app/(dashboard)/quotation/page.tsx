@@ -10,7 +10,6 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { formatDate } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
-import UploadQuotationModal from './components/UploadQuotationModal'
 import Link from 'next/link'
 
 type Quotation = {
@@ -58,10 +57,8 @@ function mapQuotation(raw: any): Quotation {
 export default function QuotationPage() {
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
-    const [isUploadQuotationModalOpen, setIsUploadQuotationModalOpen] = useState(false)
 
     const router = useRouter()
-    const queryClient = useQueryClient()
 
     const { data, isLoading, isError } = useQuery({
         queryKey: ['quotations', search, statusFilter],
@@ -201,13 +198,6 @@ export default function QuotationPage() {
                     )}
                 </CardContent>
             </Card>
-            <UploadQuotationModal
-                isOpen={isUploadQuotationModalOpen}
-                onClose={() => setIsUploadQuotationModalOpen(false)}
-                onSave={async () => {
-                    await queryClient.invalidateQueries({ queryKey: ['quotations'] })
-                }}
-            />
         </div>
     )
 }
