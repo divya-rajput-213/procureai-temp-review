@@ -37,7 +37,7 @@ type Quotation = {
   uploaded_by: string
   created_at: string
   pdf_url?: string
-  ref_no:string
+  ref_no: string
 
 }
 
@@ -99,7 +99,7 @@ function mapQuotation(raw: any): Quotation {
     uploaded_by: raw.uploaded_by ?? '—',
     created_at: raw.created_at ?? raw.uploaded_at ?? '',
     pdf_url: raw.pdf_url ?? raw.file_url ?? raw.document_url,
-    ref_no:raw?.ref_no
+    ref_no: raw?.ref_no
   }
 }
 
@@ -166,21 +166,29 @@ export default function QuotationDetailsPage({ params }: { params: { quotationId
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <div className="space-y-0.5">
-            <h1 className="text-lg font-semibold leading-none">Quotation {quotation.quotation_number}</h1>
-            <p className="text-sm text-muted-foreground">
-              {quotation.vendor_name} · {quotation.pr_number} · {formatDate(quotation.created_at)}
-            </p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex flex-col">
+          {/* Top row: quotation number + status */}
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold leading-none">
+              Quotation {quotation.quotation_number}
+            </h1>
+            <StatusBadge status={quotation.status} />
           </div>
+
+          {/* Bottom row: vendor info */}
+          <p className="text-sm text-muted-foreground mt-1">
+            {quotation.vendor_name} · {quotation.pr_number} · {formatDate(quotation.created_at)}
+          </p>
         </div>
-        <StatusBadge status={quotation.status} />
+
+        {/* Back button */}
+        <Button variant="ghost" size="sm" className="gap-2" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
       </div>
+
 
       <div className="grid grid-cols-1 gap-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
