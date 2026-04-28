@@ -156,7 +156,7 @@ export default function UploadQuotationPage() {
                         item.createNew || item.selectedMasterId === 'create_new'
                             ? null
                             : Number(item.selectedMasterId) || null,
-                    suggestions: item.suggestions || [],
+                    suggestions:item.createNew? []: item.suggestions || [],
                 })),
             })
             return data
