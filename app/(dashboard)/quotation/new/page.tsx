@@ -43,15 +43,37 @@ type LineItem = {
 
 type ExtractedVendor = {
     id: string
+
+    // Basic info
     name: string
+    company_name?: string
+
+    // Contact
     contactName?: string
     contactEmail?: string
     contactPhone?: string
+
+    // Address
+    address?: string
     city?: string
     state?: string
+    pincode?: string
+    country?: string | null
+
+    // Tax
     gstNumber?: string | null
+    panNumber?: string | null
+
+    // Bank
+    bank_account?: string
+    bank_ifsc?: string
+    bank_name?: string
+
+    // Meta
     vendorCreated?: boolean
+    is_new?: boolean
 }
+
 
 interface FilterState {
     all: string;
@@ -751,16 +773,16 @@ export default function UploadQuotationPage() {
                                                     checked={item.createNew || false}
                                                     onCheckedChange={(checked) =>
                                                         setLineItems((prev) =>
-                                                          prev.map((i) =>
-                                                            i.id === item.id
-                                                              ? {
-                                                                  ...i,
-                                                                  createNew: Boolean(checked),
-                                                                }
-                                                              : i
-                                                          )
+                                                            prev.map((i) =>
+                                                                i.id === item.id
+                                                                    ? {
+                                                                        ...i,
+                                                                        createNew: Boolean(checked),
+                                                                    }
+                                                                    : i
+                                                            )
                                                         )
-                                                      }                                                    
+                                                    }
                                                 />
                                             </div>
                                         </td>
@@ -828,122 +850,199 @@ export default function UploadQuotationPage() {
     }
     // ── STEP 3: Summary ─────────────────────────────────────────────
     const StepSummary = () => {
-        const newItems = lineItems.filter(i => i.createNew || i.selectedMasterId === 'create_new')
-        const mappedItems = lineItems.filter(i => !i.createNew && i.selectedMasterId && i.selectedMasterId !== 'create_new')
-        const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0)
+        const vendor = vendors?.[0] || {};
+        const items = lineItems || [];
+
+        const [terms, setTerms] = useState('');
+
+        const numberToWords = (num: number) => {
+            const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six',
+                'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve',
+                'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+                'Seventeen', 'Eighteen', 'Nineteen'];
+
+            const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+            const inWords = (n: number): string => {
+                if (n < 20) return a[n];
+                if (n < 100) return b[Math.floor(n / 10)] + ' ' + a[n % 10];
+                if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred ' + inWords(n % 100);
+                if (n < 100000) return inWords(Math.floor(n / 1000)) + ' Thousand ' + inWords(n % 1000);
+                if (n < 10000000) return inWords(Math.floor(n / 100000)) + ' Lakh ' + inWords(n % 100000);
+                return '';
+            };
+
+            return inWords(Math.floor(num)) + ' Rupees only';
+        };
+
+        const subtotal = items.reduce(
+            (sum, item) => sum + (Number(item.quantity) || 1) * (Number(item.item_price) || 0),
+            0
+        );
+
+        const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0);
+        const taxTotal = (subtotal * combinedTaxRate) / 100;
+
+        const sgst = taxTotal / 2;
+        const cgst = taxTotal / 2;
+
+        const grandTotal = subtotal + taxTotal;
+        const roundOff = Math.round(grandTotal) - grandTotal;
+        const finalTotal = grandTotal + roundOff;
+
+        if (!vendor || items.length === 0) {
+            return (
+                <Card className="p-6 text-center text-sm text-muted-foreground">
+                    No data available
+                </Card>
+            );
+        }
 
         return (
-            <div className="space-y-4">
-                {/* Vendor summary */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <Building className="w-4 h-4" /> Quotation Details
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {vendors.map((vendor) => (
-                                <div key={vendor.id} className="flex items-start gap-3">
-                                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <User className="w-4 h-4 text-blue-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="font-medium text-gray-900 text-sm">{vendor.name}</h4>
-                                        <div className="space-y-1 mt-1">
-                                            {isNotEmpty(vendor.contactEmail) && (
-                                                <div className="flex items-center gap-2 text-xs text-gray-600"><Mail className="w-3 h-3" />{vendor.contactEmail}</div>
-                                            )}
-                                            {isNotEmpty(vendor.contactPhone) && (
-                                                <div className="flex items-center gap-2 text-xs text-gray-600"><Phone className="w-3 h-3" />{vendor.contactPhone}</div>
-                                            )}
-                                            {(isNotEmpty(vendor.city) || isNotEmpty(vendor.state)) && (
-                                                <div className="flex items-center gap-2 text-xs text-gray-600"><MapPin className="w-3 h-3" />{[vendor.city, vendor.state].filter(Boolean).join(', ')}</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                            <div className="flex flex-col items-end gap-2 text-sm text-gray-600">
-                                <span>Quotation No: <span className="font-medium text-gray-900">TZ-2026-0421</span></span>
-                                <span>Date: <span className="font-medium text-gray-900">23 April 2026</span></span>
-                                <span>Valid Till: <span className="font-medium text-gray-900">07 May 2026</span></span>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+            <Card className="overflow-hidden">
 
-                {/* Items summary */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <Package className="w-4 h-4" /> Items Summary
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-0 space-y-4">
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="rounded-lg border p-3 text-center">
-                                <p className="text-2xl font-bold text-gray-900">{lineItems.length}</p>
-                                <p className="text-xs text-muted-foreground mt-1">Total Items</p>
-                            </div>
-                            <div className="rounded-lg border p-3 text-center">
-                                <p className="text-2xl font-bold text-emerald-600">{mappedItems.length}</p>
-                                <p className="text-xs text-muted-foreground mt-1">Mapped to Master</p>
-                            </div>
-                            <div className="rounded-lg border p-3 text-center">
-                                <p className="text-2xl font-bold text-blue-600">{newItems.length}</p>
-                                <p className="text-xs text-muted-foreground mt-1">Create New</p>
-                            </div>
-                        </div>
+                {/* ── Vendor Section ── */}
+                <div className="border-b p-4 space-y-2">
+                    <h3 className="text-lg font-semibold">
+                        {vendor.name || vendor.company_name}
+                    </h3>
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b">
-                                        <th className="text-left py-2 px-3 font-medium text-muted-foreground">Item</th>
-                                        <th className="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
-                                        <th className="text-left py-2 px-3 font-medium text-muted-foreground">UOM</th>
-                                        <th className="text-left py-2 px-3 font-medium text-muted-foreground">Action</th>
+                    <p className="text-sm text-muted-foreground">
+                        {[vendor.address, vendor.city, vendor.state, vendor.pincode]
+                            .filter(Boolean)
+                            .join(', ')}
+                    </p>
+
+                    <div className="flex flex-wrap gap-2 text-xs mt-2">
+                        {vendor.gstNumber && (
+                            <span className="border px-2 py-0.5 rounded">
+                                GST: {vendor.gstNumber}
+                            </span>
+                        )}
+                        {vendor.contactPhone && (
+                            <span className="border px-2 py-0.5 rounded">
+                                Phone: {vendor.contactPhone}
+                            </span>
+                        )}
+                        {vendor.contactEmail && (
+                            <span className="border px-2 py-0.5 rounded">
+                                {vendor.contactEmail}
+                            </span>
+                        )}
+                    </div>
+
+                    {(vendor.bank_account || vendor.bank_ifsc) && (
+                        <div className="text-xs mt-2 text-muted-foreground">
+                            Bank: {vendor.bank_name} | A/C: {vendor.bank_account} | IFSC: {vendor.bank_ifsc}
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Items Table ── */}
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="border-b bg-muted/30">
+                            <tr>
+                                <th className="text-left px-3 py-2">Item</th>
+                                <th className="text-left px-3 py-2">HSN</th>
+                                <th className="text-left px-3 py-2">Qty</th>
+                                <th className="text-left px-3 py-2">UOM</th>
+                                <th className="text-left px-3 py-2">Rate</th>
+                                <th className="text-right px-3 py-2">Amount</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {items.map((item) => {
+                                const qty = Number(item.quantity) || 1;
+                                const rate = Number(item.item_price) || 0;
+                                const amount = qty * rate;
+
+                                return (
+                                    <tr key={item.id} className="border-b">
+                                        <td className="px-3 py-2">{item.name}</td>
+                                        <td className="px-3 py-2">
+                                            {item.suggestions?.[0]?.hsn_code || '—'}
+                                        </td>
+                                        <td className="px-3 py-2">{qty}</td>
+                                        <td className="px-3 py-2">{item.uom}</td>
+                                        <td className="px-3 py-2">₹ {rate}</td>
+                                        <td className="px-3 py-2 text-right">
+                                            ₹ {amount.toLocaleString('en-IN')}
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {lineItems.map((item) => (
-                                        <tr key={item.id} className="border-b hover:bg-gray-50">
-                                            <td className="py-2 px-3 font-medium text-gray-900">{item.name}</td>
-                                            <td className="py-2 px-3 text-gray-700">{item.code}</td>
-                                            <td className="py-2 px-3 text-gray-700">{item.uom}</td>
-                                            <td className="py-2 px-3">
-                                                {item.createNew || item.selectedMasterId === 'create_new' ? (
-                                                    <Badge variant="secondary">Create New</Badge>
-                                                ) : (
-                                                    <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">Mapped</Badge>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                                <tfoot>
-                                    <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">Subtotal:</td><td className="py-2 px-3 font-medium text-gray-900">62,990</td></tr>
-                                    <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">Tax ({combinedTaxRate}%):</td><td className="py-2 px-3 font-medium text-gray-900">11,338</td></tr>
-                                    <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">Discount:</td><td className="py-2 px-3 font-medium text-gray-900">-0</td></tr>
-                                    <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900 text-base">Total:</td><td className="py-2 px-3 font-bold text-gray-900 text-base">74,328</td></tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </CardContent>
-                </Card>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
 
-                <div className="flex justify-between">
-                    <Button variant="outline" onClick={() => setCurrentStep(2)} className="gap-2">
-                        <ArrowLeft className="w-4 h-4" /> Back
+                {/* ── Totals ── */}
+                <div className="p-4 space-y-1 text-sm">
+                    <div className="flex justify-between">
+                        <span>Sub-total</span>
+                        <span>₹ {subtotal.toLocaleString('en-IN')}</span>
+                    </div>
+
+                    <div className="flex justify-between">
+                        <span>SGST @ {combinedTaxRate / 2}%</span>
+                        <span>₹ {sgst.toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex justify-between">
+                        <span>CGST @ {combinedTaxRate / 2}%</span>
+                        <span>₹ {cgst.toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex justify-between">
+                        <span>Round off</span>
+                        <span>{roundOff.toFixed(2)}</span>
+                    </div>
+                </div>
+
+                {/* ── Grand Total ── */}
+                <div className="bg-muted/40 border-t px-4 py-3 flex justify-between font-semibold text-lg">
+                    <span>Grand Total</span>
+                    <span>₹ {finalTotal.toLocaleString('en-IN')}</span>
+                </div>
+
+                {/* ── Amount in Words ── */}
+                <div className="px-4 py-2 text-sm italic border-b">
+                    Amount in words: {numberToWords(finalTotal)}
+                </div>
+
+                {/* ── Terms (SIMPLE TEXTAREA) ── */}
+                {/* ── Terms & Conditions (STATIC TEXT) ── */}
+                <div className="p-4 border-t">
+                    <h4 className="text-sm font-medium mb-2">
+                        Terms & Conditions
+                    </h4>
+
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                        1. Goods once sold will not be taken back or exchanged.{"\n"}
+                        2. Payment to be made within 30 days from invoice date.{"\n"}
+                        3. Warranty as per manufacturer terms only.{"\n"}
+                        4. Transportation charges extra if not mentioned.{"\n"}
+                        5. Subject to Jaipur jurisdiction.
+                    </p>
+                </div>
+
+
+                {/* Footer */}
+                <div className="flex justify-between p-4 border-t">
+                    <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                        Back
                     </Button>
-                    <Button onClick={handleNextClick} disabled={submitMutation.isPending} size="lg" className="px-6 gap-2">
-                        {submitMutation.isPending ? 'Submitting...' : 'Submit Quotation'} <ChevronRight className="w-4 h-4" />
+
+                    <Button onClick={handleNextClick}>
+                        Submit
                     </Button>
                 </div>
-            </div>
-        )
-    }
+
+            </Card>
+        );
+    };
+
 
     const modal = confirmModalContent()
 
