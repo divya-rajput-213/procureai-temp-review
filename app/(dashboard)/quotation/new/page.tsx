@@ -1,80 +1,21 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, User, MapPin, Phone, Mail, Building, CheckCircle, AlertCircle, ArrowLeft, ChevronRight, Package, ClipboardList, Loader2 } from 'lucide-react'
+import { Upload, AlertCircle, ArrowLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Combobox } from '@/components/ui/combobox'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useSettingsStore } from '@/lib/stores/settings.store'
-
-type Suggestion = {
-    master_item_id: number
-    code: string
-    description: string
-    unit_of_measure: string
-    unit_rate?: number
-    hsn_code?: string
-    category?: string | null
-}
-
-type LineItem = {
-    id: number
-    quotationId: number
-    name: string
-    code: string
-    uom: string
-    hasMatch: boolean
-    masterItemId: number | null
-    suggestions: Suggestion[]
-    selectedMasterId: string | null
-    createNew?: boolean
-    item_price: number
-    quantity?: number
-    isNew?: boolean
-    isDuplicate?: boolean
-}
-
-type ExtractedVendor = {
-    id: string
-
-    // Basic info
-    name: string
-    company_name?: string
-
-    // Contact
-    contactName?: string
-    contactEmail?: string
-    contactPhone?: string
-
-    // Address
-    address?: string
-    city?: string
-    state?: string
-    pincode?: string
-    country?: string | null
-
-    // Tax
-    gstNumber?: string | null
-    panNumber?: string | null
-
-    // Bank
-    bank_account?: string
-    bank_ifsc?: string
-    bank_name?: string
-
-    // Meta
-    vendorCreated?: boolean
-    is_new?: boolean
-}
-
-
+import { ExtractedVendor, LineItem } from '../types'
+import { mapLineItemsFromQuotationResponse } from '../utils'
+import StepIndicator from '../components/StepIndicator'
 interface FilterState {
     all: string;
     new: string;
@@ -87,86 +28,6 @@ const DEFAULT_FILTERS: FilterState = {
     duplicates: "false",
 };
 
-const STEPS = [
-    { id: 1, label: 'Upload Quotation', icon: Upload },
-    { id: 2, label: 'Review Items', icon: Package },
-    { id: 3, label: 'Summary', icon: ClipboardList },
-]
-
-function toNumber(value: unknown): number | null {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-}
-
-function getQuotationId(response: any): number | null {
-    return (
-        toNumber(response?.quotation_id) ??
-        toNumber(response?.quotation?.id) ??
-        toNumber(response?.id)
-    )
-}
-
-function getMasterItemId(item: any): number | null {
-    return (
-        toNumber(item?.master_item_id) ??
-        toNumber(item?.master_item?.id) ??
-        toNumber(item?.matched_item_id) ??
-        toNumber(item?.matched_item?.id) ??
-        toNumber(item?.match?.id)
-    )
-}
-
-function mapLineItemsFromQuotationResponse(response: any): LineItem[] {
-    const quotationId = getQuotationId(response)
-    if (!quotationId) return []
-
-    const items = Array.isArray(response?.items) ? response.items : []
-
-    return items
-        .map((item: any, index: number) => {
-            const itemId =
-                toNumber(item?.quotation_item_id) ??
-                toNumber(item?.id) ??
-                toNumber(item?.item_id)
-            if (!itemId) return null
-
-            const suggestions: Suggestion[] = Array.isArray(item?.suggestions)
-                ? item.suggestions
-                : []
-
-            const masterItemId =
-                suggestions.length > 0
-                    ? toNumber(suggestions[0].master_item_id)
-                    : getMasterItemId(item)
-
-            const hasMatch = Boolean(
-                item?.master_item_matched ??
-                item?.has_match ??
-                item?.matched ??
-                item?.is_matched ??
-                suggestions.length > 0
-            )
-
-            return {
-                id: itemId,
-                quotationId,
-                name: item?.item_name ?? item?.name ?? item?.description ?? `Item ${index + 1}`,
-                code: item?.item_code ?? item?.code ?? 'No code',
-                uom: item?.unit_of_measure ?? item?.uom ?? item?.unit ?? '—',
-                hasMatch,
-                masterItemId,
-                suggestions,
-                selectedMasterId: hasMatch ? String(suggestions[0].master_item_id) : 'ITEM - 123456789',
-                createNew: false,
-                item_price: toNumber(item?.item_price) ?? 0,
-                quantity: toNumber(item?.quantity) ?? 1,
-                isNew: item?.is_new ?? false,
-                isDuplicate: item?.is_duplicate ?? false,
-            }
-        })
-        .filter((item: LineItem | null): item is LineItem => item !== null)
-}
-
 export default function UploadQuotationPage() {
     const { toast } = useToast()
     const router = useRouter()
@@ -174,7 +35,6 @@ export default function UploadQuotationPage() {
     const [currentStep, setCurrentStep] = useState(1)
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [pendingStep, setPendingStep] = useState<number | null>(null)
-
     const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
     const [file, setFile] = useState<File | null>(null)
     const [quotation, setQuotation] = useState<any>(null)
@@ -311,7 +171,6 @@ export default function UploadQuotationPage() {
         setPendingStep(null)
     }
 
-
     const cancelConfirm = () => {
         setShowConfirmModal(false)
         setPendingStep(null)
@@ -322,8 +181,6 @@ export default function UploadQuotationPage() {
         if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
     }
-
-    const isNotEmpty = (val?: string | null) => val && val !== 'N/A' && val.trim() !== ''
 
     const hasData = quotation && vendors.length > 0 && lineItems.length > 0
 
@@ -395,37 +252,6 @@ export default function UploadQuotationPage() {
             })
         },
     })
-
-    // Step indicator
-    const StepIndicator = () => (
-        <div className="flex items-center gap-0 mb-6">
-            {STEPS.map((step, idx) => {
-                const isCompleted = currentStep > step.id
-                const isActive = currentStep === step.id
-                const Icon = step.icon
-                return (
-                    <div key={step.id} className="flex items-center">
-                        <div className="flex items-center gap-2">
-                            <div className={`
-                                w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all
-                                ${isCompleted ? 'bg-primary text-primary-foreground' : ''}
-                                ${isActive ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2' : ''}
-                                ${!isCompleted && !isActive ? 'bg-muted text-muted-foreground' : ''}
-                            `}>
-                                {isCompleted ? <CheckCircle className="w-4 h-4" /> : <span>{step.id}</span>}
-                            </div>
-                            <span className={`text-sm font-medium hidden sm:block ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                {step.label}
-                            </span>
-                        </div>
-                        {idx < STEPS.length - 1 && (
-                            <div className={`h-px w-8 sm:w-16 mx-2 transition-all ${isCompleted ? 'bg-primary' : 'bg-border'}`} />
-                        )}
-                    </div>
-                )
-            })}
-        </div>
-    )
 
     // ── STEP 1: Upload ──────────────────────────────────────────────
     const StepUpload = () => (
@@ -1042,8 +868,7 @@ export default function UploadQuotationPage() {
             </Card>
         );
     };
-
-
+    
     const modal = confirmModalContent()
 
     return (
@@ -1080,7 +905,7 @@ export default function UploadQuotationPage() {
 
 
             {/* Step Indicator */}
-            <StepIndicator />
+            <StepIndicator currentStep={currentStep}/>
 
             {/* Error Message */}
             {errorMessage && (
