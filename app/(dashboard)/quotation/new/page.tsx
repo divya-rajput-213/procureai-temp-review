@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Combobox } from '@/components/ui/combobox'
@@ -41,6 +40,58 @@ export default function UploadQuotationPage() {
     const [vendorSaved, setVendorSaved] = useState(false)
     const [quotationSaved, setQuotationSaved] = useState(false)
     const [savedQuotationData, setSavedQuotationData] = useState<any>(null)
+    const [showExportModal, setShowExportModal] = useState(false)
+    const exportMutation = useMutation({
+        mutationFn: async () => {
+            const newItems = lineItems.filter((i: any) => i.is_new)
+
+            const payload = {
+                items: newItems.map((i: any) => ({
+                    item_code: i.item_code,
+                    item_name: i.item_name,
+                    item_price: i.item_price,
+                    quantity: i.quantity || 1,
+                    unit_of_measure: i.unit_of_measure,
+                    hsn_code: i.hsn_code ?? i.suggestions?.[0]?.hsn_code ?? null,
+                    suggestions: i.suggestions || [],
+                    is_new: i.is_new,
+                    is_duplicate: i.is_duplicate,
+                })),
+                format: 'excel',
+            }
+
+            const { data } = await apiClient.post(
+                '/quotations/export-new-items/',
+                payload,
+                { responseType: 'blob' }
+            )
+
+            return data
+        },
+
+        onSuccess: (blob: Blob) => {
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = 'new-items.xlsx'
+            a.click()
+            window.URL.revokeObjectURL(url)
+
+            setShowExportModal(false)
+        },
+
+        onError: () => {
+            toast({
+                title: 'Export failed',
+                description: 'Unable to export new items',
+                variant: 'destructive',
+            })
+        },
+    })
+    const handleExport = () => {
+        setShowExportModal(true)
+    }
+
     console.log('vendors', vendors)
     const { data: masterItems = [] } = useQuery({
         queryKey: ['master-items'],
@@ -270,27 +321,6 @@ export default function UploadQuotationPage() {
     const newCount = lineItems.filter((i: any) => i.is_new).length
     const duplicatesCount = lineItems.filter((i: any) => i.is_duplicate).length
 
-    const handleExport = () => {
-        const rows = [
-            ['Item', 'Code', 'UOM', 'Master Item', 'Action'],
-            ...lineItems.map((i: any) => [
-                i.item_name,
-                i.item_code ?? i.suggestions?.[0]?.code ?? '',
-                i.unit_of_measure,
-                i.selectedMasterId ?? '',
-                i.createNew ? 'Create New' : 'Map to Master',
-            ]),
-        ]
-        const csv = rows.map(r => r.map((c: any) => `"${c}"`).join(',')).join('\n')
-        const blob = new Blob([csv], { type: 'text/csv' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'quotation-items.csv'
-        a.click()
-        URL.revokeObjectURL(url)
-    }
-
     const isLoading = uploadMutation.isPending || vendorSaveMutation.isPending || quotationSaveMutation.isPending
 
     return (
@@ -487,9 +517,10 @@ export default function UploadQuotationPage() {
                                     onClick={handleExport}
                                     className="gap-1.5 h-8 text-xs font-medium border-black text-black hover:bg-black hover:text-white transition-colors"
                                 >
-                                    <Download className="w-3.5 h-3.5 text-black group-hover:text-white" />
+                                    <Download className="w-3.5 h-3.5" />
                                     Export
                                 </Button>
+
                             </div>
                         </div>
 
@@ -669,6 +700,38 @@ export default function UploadQuotationPage() {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Export New Items</DialogTitle>
+                            <DialogDescription>
+                                Only <b>new items</b> will be exported to Excel. Existing or duplicate items will be ignored.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="text-sm text-muted-foreground">
+                            Total new items to export:{" "}
+                            <span className="font-semibold text-foreground">
+                                {lineItems.filter((i: any) => i.is_new).length}
+                            </span>
+                        </div>
+
+                        <DialogFooter className="gap-2">
+                            <Button variant="outline" onClick={() => setShowExportModal(false)}>
+                                Cancel
+                            </Button>
+
+                            <Button
+                                onClick={() => exportMutation.mutate()}
+                                disabled={exportMutation.isPending}
+                            >
+                                {exportMutation.isPending ? 'Exporting...' : 'Export Excel'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
             </div>
         </div>
     )
