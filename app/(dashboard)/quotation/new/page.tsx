@@ -1,79 +1,19 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, User, MapPin, Phone, Mail, Building, CheckCircle, AlertCircle, ArrowLeft, ChevronRight, Package, ClipboardList, Loader2 } from 'lucide-react'
+import { Upload, AlertCircle, ArrowLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Combobox } from '@/components/ui/combobox'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useSettingsStore } from '@/lib/stores/settings.store'
-
-type Suggestion = {
-    master_item_id: number
-    code: string
-    description: string
-    unit_of_measure: string
-    unit_rate?: number
-    hsn_code?: string
-    category?: string | null
-}
-
-type LineItem = {
-    id: number
-    quotationId: number
-    name: string
-    code: string
-    uom: string
-    hasMatch: boolean
-    masterItemId: number | null
-    suggestions: Suggestion[]
-    selectedMasterId: string | null
-    createNew?: boolean
-    item_price: number
-    quantity?: number
-    isNew?: boolean
-    isDuplicate?: boolean
-}
-
-type ExtractedVendor = {
-    id: string
-
-    // Basic info
-    name: string
-    company_name?: string
-
-    // Contact
-    contactName?: string
-    contactEmail?: string
-    contactPhone?: string
-
-    // Address
-    address?: string
-    city?: string
-    state?: string
-    pincode?: string
-    country?: string | null
-
-    // Tax
-    gstNumber?: string | null
-    panNumber?: string | null
-
-    // Bank
-    bank_account?: string
-    bank_ifsc?: string
-    bank_name?: string
-
-    // Meta
-    vendorCreated?: boolean
-    is_new?: boolean
-}
-
+import StepIndicator from '../components/StepIndicator'
 
 interface FilterState {
     all: string;
@@ -87,86 +27,6 @@ const DEFAULT_FILTERS: FilterState = {
     duplicates: "false",
 };
 
-const STEPS = [
-    { id: 1, label: 'Upload Quotation', icon: Upload },
-    { id: 2, label: 'Review Items', icon: Package },
-    { id: 3, label: 'Summary', icon: ClipboardList },
-]
-
-function toNumber(value: unknown): number | null {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-}
-
-function getQuotationId(response: any): number | null {
-    return (
-        toNumber(response?.quotation_id) ??
-        toNumber(response?.quotation?.id) ??
-        toNumber(response?.id)
-    )
-}
-
-function getMasterItemId(item: any): number | null {
-    return (
-        toNumber(item?.master_item_id) ??
-        toNumber(item?.master_item?.id) ??
-        toNumber(item?.matched_item_id) ??
-        toNumber(item?.matched_item?.id) ??
-        toNumber(item?.match?.id)
-    )
-}
-
-function mapLineItemsFromQuotationResponse(response: any): LineItem[] {
-    const quotationId = getQuotationId(response)
-    if (!quotationId) return []
-
-    const items = Array.isArray(response?.items) ? response.items : []
-
-    return items
-        .map((item: any, index: number) => {
-            const itemId =
-                toNumber(item?.quotation_item_id) ??
-                toNumber(item?.id) ??
-                toNumber(item?.item_id)
-            if (!itemId) return null
-
-            const suggestions: Suggestion[] = Array.isArray(item?.suggestions)
-                ? item.suggestions
-                : []
-
-            const masterItemId =
-                suggestions.length > 0
-                    ? toNumber(suggestions[0].master_item_id)
-                    : getMasterItemId(item)
-
-            const hasMatch = Boolean(
-                item?.master_item_matched ??
-                item?.has_match ??
-                item?.matched ??
-                item?.is_matched ??
-                suggestions.length > 0
-            )
-
-            return {
-                id: itemId,
-                quotationId,
-                name: item?.item_name ?? item?.name ?? item?.description ?? `Item ${index + 1}`,
-                code: item?.item_code ?? item?.code ?? 'No code',
-                uom: item?.unit_of_measure ?? item?.uom ?? item?.unit ?? '—',
-                hasMatch,
-                masterItemId,
-                suggestions,
-                selectedMasterId: hasMatch ? String(suggestions[0].master_item_id) : 'ITEM - 123456789',
-                createNew: false,
-                item_price: toNumber(item?.item_price) ?? 0,
-                quantity: toNumber(item?.quantity) ?? 1,
-                isNew: item?.is_new ?? false,
-                isDuplicate: item?.is_duplicate ?? false,
-            }
-        })
-        .filter((item: LineItem | null): item is LineItem => item !== null)
-}
-
 export default function UploadQuotationPage() {
     const { toast } = useToast()
     const router = useRouter()
@@ -174,16 +34,15 @@ export default function UploadQuotationPage() {
     const [currentStep, setCurrentStep] = useState(1)
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [pendingStep, setPendingStep] = useState<number | null>(null)
-
     const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
     const [file, setFile] = useState<File | null>(null)
     const [quotation, setQuotation] = useState<any>(null)
-    const [lineItems, setLineItems] = useState<LineItem[]>([])
-    const [vendors, setVendors] = useState<ExtractedVendor[]>([])
+    const [lineItems, setLineItems] = useState<any>([])
+    const [vendors, setVendors] = useState<any>(null);
     const [dragging, setDragging] = useState(false)
     const [errorMessage, setErrorMessage] = useState('')
     const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
-
+    console.log(lineItems, 'vendors', vendors)
     const { data: masterItems = [] } = useQuery({
         queryKey: ['master-items'],
         queryFn: async () => {
@@ -215,19 +74,10 @@ export default function UploadQuotationPage() {
         },
         onSuccess: (data: any) => {
             setQuotation(data)
-            const vendors = (data.vendor || []).map((v: any) => ({
-                id: String(v.vendor_id),
-                name: v.vendor_name,
-                contactName: v.contact_name,
-                contactEmail: v.contact_email,
-                contactPhone: v.contact_phone,
-                city: v.city,
-                state: v.state,
-                gstNumber: v.gst_number,
-                vendorCreated: v.vendor_created,
-            }))
-            setVendors(vendors)
-            setLineItems(mapLineItemsFromQuotationResponse(data))
+
+            setVendors(data.vendor ?? null)
+
+            setLineItems(data.items || [])
         },
         onError: (error: any) => {
             const data = error?.response?.data
@@ -243,7 +93,7 @@ export default function UploadQuotationPage() {
 
     const submitMutation = useMutation({
         mutationFn: async () => {
-            const actions = lineItems.map(item => ({
+            const actions = lineItems.map((item: any) => ({
                 item_id: item.id,
                 action: item.selectedMasterId === 'create_new' || item.createNew ? 'create_new' : 'approve',
                 master_item_id: item.selectedMasterId === 'create_new' || item.createNew ? null : Number(item.selectedMasterId),
@@ -264,7 +114,7 @@ export default function UploadQuotationPage() {
     useEffect(() => {
         if (!file) {
             setQuotation(null)
-            setVendors([])
+            setVendors(null)
             setLineItems([])
             setErrorMessage('')
         }
@@ -283,7 +133,7 @@ export default function UploadQuotationPage() {
         }
         setErrorMessage('')
         setQuotation(null)
-        setVendors([])
+        setVendors(null)
         setLineItems([])
         setFile(selectedFile)
         if (!uploadMutation.isPending) {
@@ -311,7 +161,6 @@ export default function UploadQuotationPage() {
         setPendingStep(null)
     }
 
-
     const cancelConfirm = () => {
         setShowConfirmModal(false)
         setPendingStep(null)
@@ -323,9 +172,7 @@ export default function UploadQuotationPage() {
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
     }
 
-    const isNotEmpty = (val?: string | null) => val && val !== 'N/A' && val.trim() !== ''
-
-    const hasData = quotation && vendors.length > 0 && lineItems.length > 0
+    const hasData = quotation && vendors && lineItems.length > 0
 
     const confirmModalContent = () => {
         if (currentStep === 1) return {
@@ -344,15 +191,15 @@ export default function UploadQuotationPage() {
     const buildSavePayload = () => {
         return {
             vendor: {
-                company_name: vendors?.[0]?.name,
-                contact_name: vendors?.[0]?.contactName,
-                contact_email: vendors?.[0]?.contactEmail,
-                contact_phone: vendors?.[0]?.contactPhone,
-                city: vendors?.[0]?.city,
-                state: vendors?.[0]?.state,
-                gst_number: vendors?.[0]?.gstNumber,
+                company_name: vendors?.company_name,
+                contact_name: vendors?.contact_name,
+                contact_email: vendors?.contact_email,
+                contact_phone: vendors?.contact_phone,
+                city: vendors?.city,
+                state: vendors?.state,
+                gst_number: vendors?.gstNumber,
             },
-            items: lineItems.map((item) => ({
+            items: lineItems.map((item: any) => ({
                 item_code: item.code,
                 item_name: item.name,
                 item_price: item.item_price,
@@ -396,44 +243,14 @@ export default function UploadQuotationPage() {
         },
     })
 
-    // Step indicator
-    const StepIndicator = () => (
-        <div className="flex items-center gap-0 mb-6">
-            {STEPS.map((step, idx) => {
-                const isCompleted = currentStep > step.id
-                const isActive = currentStep === step.id
-                const Icon = step.icon
-                return (
-                    <div key={step.id} className="flex items-center">
-                        <div className="flex items-center gap-2">
-                            <div className={`
-                                w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all
-                                ${isCompleted ? 'bg-primary text-primary-foreground' : ''}
-                                ${isActive ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2' : ''}
-                                ${!isCompleted && !isActive ? 'bg-muted text-muted-foreground' : ''}
-                            `}>
-                                {isCompleted ? <CheckCircle className="w-4 h-4" /> : <span>{step.id}</span>}
-                            </div>
-                            <span className={`text-sm font-medium hidden sm:block ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                {step.label}
-                            </span>
-                        </div>
-                        {idx < STEPS.length - 1 && (
-                            <div className={`h-px w-8 sm:w-16 mx-2 transition-all ${isCompleted ? 'bg-primary' : 'bg-border'}`} />
-                        )}
-                    </div>
-                )
-            })}
-        </div>
-    )
-
     // ── STEP 1: Upload ──────────────────────────────────────────────
     const StepUpload = () => (
         <Card>
             <CardContent className="p-6">
                 {!file ? (
                     <div
-                        className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${dragging ? 'border-primary bg-primary/5' : 'hover:border-border'}`}
+                        className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${dragging ? 'border-primary bg-primary/5' : 'hover:border-border'
+                            }`}
                         onClick={() => document.getElementById('quotation-file')?.click()}
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
@@ -448,7 +265,14 @@ export default function UploadQuotationPage() {
                         <p className="text-sm text-muted-foreground mb-5">
                             PDF — layout. AI extracts everything.
                         </p>
-                        <Button variant="outline" type="button" onClick={(e) => { e.stopPropagation(); document.getElementById('quotation-file')?.click() }}>
+                        <Button
+                            variant="outline"
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                document.getElementById('quotation-file')?.click();
+                            }}
+                        >
                             Browse file
                         </Button>
                         <input
@@ -475,7 +299,6 @@ export default function UploadQuotationPage() {
                             <Badge variant="secondary" className="text-xs">
                                 {uploadMutation.isPending ? 'Processing...' : hasData ? 'Ready' : 'Waiting'}
                             </Badge>
-
                             <Button variant="outline" onClick={() => setFile(null)} className="shrink-0">
                                 Remove
                             </Button>
@@ -498,22 +321,29 @@ export default function UploadQuotationPage() {
                                     <div className="mt-3 rounded-xl border bg-background overflow-hidden">
                                         <div className="p-4 flex items-start gap-3">
                                             <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-sm font-semibold text-foreground">
-                                                {vendors?.[0]?.name
-                                                    ? vendors[0].name.trim().split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()
+                                                {vendors?.company_name
+                                                    ? vendors.company_name
+                                                        .trim()
+                                                        .split(' ')
+                                                        .filter(Boolean)
+                                                        .slice(0, 2)
+                                                        .map((p:any) => p[0])
+                                                        .join('')
+                                                        .toUpperCase()
                                                     : 'V'}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div className="min-w-0">
                                                         <h4 className="font-semibold text-sm truncate text-foreground">
-                                                            {vendors?.[0]?.name ?? 'Vendor'}
+                                                            {vendors?.company_name ?? 'Vendor'}
                                                         </h4>
                                                         <p className="text-xs text-muted-foreground mt-1 truncate">
-                                                            {[vendors?.[0]?.city, vendors?.[0]?.state].filter(Boolean).join(', ')}
+                                                            {[vendors?.city, vendors?.state].filter(Boolean).join(', ')}
                                                         </p>
                                                     </div>
                                                     <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0 text-xs font-medium">
-                                                        {vendors?.[0]?.vendorCreated ? 'Existing vendor' : 'New vendor'}
+                                                        {vendors?.vendor_created ? 'Existing vendor' : 'New vendor'}
                                                     </Badge>
                                                 </div>
                                             </div>
@@ -522,24 +352,21 @@ export default function UploadQuotationPage() {
                                         <div className="grid grid-cols-3 border-t">
                                             <div className="p-4">
                                                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">GSTIN</p>
-                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.[0]?.gstNumber ?? '—'}</p>
+                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.gst_number ?? '—'}</p>
                                             </div>
                                             <div className="p-4 border-l">
                                                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">State</p>
-                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.[0]?.state ?? '—'}</p>
+                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.state ?? '—'}</p>
                                             </div>
                                             <div className="p-4 border-l">
                                                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Phone</p>
-                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.[0]?.contactPhone ?? '—'}</p>
+                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.contact_phone ?? '—'}</p>
                                             </div>
                                         </div>
 
                                         <div className="border-t p-4">
                                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Email</p>
-                                            <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.[0]?.contactEmail ?? '—'}</p>
-                                        </div>
-
-                                        <div className="relative h-9">
+                                            <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.contact_email ?? '—'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -551,98 +378,99 @@ export default function UploadQuotationPage() {
                                 </div>
                             </>
                         )}
-
-                        {/* (removed old vendor preview) */}
                     </div>
                 )}
             </CardContent>
         </Card>
-    )
+    );
+
 
     // ── STEP 2: Review Items ────────────────────────────────────────
     const StepReviewItems = () => {
-        const allCount = lineItems.length
-        const newCount = lineItems.filter(i => i.isNew).length
-        const duplicatesCount = lineItems.filter(i => i.isDuplicate).length
+        const allCount = lineItems?.length;
+        const newCount = lineItems?.filter((i: any) => i.is_new).length;
+        const duplicatesCount = lineItems.filter((i: any) => i.is_duplicate).length;
 
-
-        const filteredItems = lineItems.filter(item => {
-            if (filters.new === 'true') return item.isNew
-            if (filters.duplicates === 'true') return item.isDuplicate
-            return true
-
-        })
+        const filteredItems = lineItems.filter((item: any) => {
+            if (filters.new === 'true') return item.is_new;
+            if (filters.duplicates === 'true') return item.is_duplicate;
+            return true;
+        });
 
         const handleExport = () => {
             const rows = [
                 ['Item', 'Code', 'UOM', 'Master Item', 'Action'],
-                ...lineItems.map(i => [
-                    i.name, i.code, i.uom,
+                ...lineItems.map((i: any) => [
+                    i.item_name,
+                    i.item_code ?? i.suggestions?.[0]?.code ?? '',
+                    i.unit_of_measure,
                     i.selectedMasterId ?? '',
                     i.createNew ? 'Create New' : 'Map to Master',
-                ])
-            ]
-            const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n')
-            const blob = new Blob([csv], { type: 'text/csv' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url; a.download = 'quotation-items.csv'; a.click()
-            URL.revokeObjectURL(url)
-        }
-        const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0)
-        const subtotal = lineItems.reduce(
-            (sum, item) =>
-                sum + (Number(item.quantity) || 0) * (Number(item.item_price) || 0),
+                ]),
+            ];
+            const csv = rows.map(r => r.map((c: any) => `"${c}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'quotation-items.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+
+        const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0);
+        const subtotal = lineItems?.reduce(
+            (sum:any, item:any) => sum + (Number(item.quantity) || 0) * (Number(item.item_price) || 0),
             0
-        )
-        const taxTotal = (subtotal * combinedTaxRate) / 100
-        const grandTotal = subtotal + taxTotal
+        );
+        const taxTotal = (subtotal * combinedTaxRate) / 100;
+        const grandTotal = subtotal + taxTotal;
 
         return (
             <Card className="overflow-hidden">
-                {/* ── Toolbar ── */}
+                {/* Toolbar */}
                 <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3 border-b bg-muted/30">
                     {/* Filter pills */}
                     <div className="flex items-center gap-1 flex-wrap">
                         <button
                             onClick={() => handleFilterChange('all', 'true')}
                             className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
-                                ${filters.all === 'true'
+                    ${filters.all === 'true'
                                     ? 'bg-foreground text-background border-foreground'
                                     : 'bg-background hover:bg-muted border-border text-muted-foreground'
                                 }`}
                         >
                             All
                             <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
-                                ${filters.all === 'true' ? 'bg-background/20 text-background' : 'bg-muted text-muted-foreground'}`}>
+                    ${filters.all === 'true' ? 'bg-background/20 text-background' : 'bg-muted text-muted-foreground'}`}>
                                 {allCount}
                             </span>
                         </button>
                         <button
                             onClick={() => handleFilterChange('new', 'true')}
                             className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
-                                ${filters.new === 'true'
+                    ${filters.new === 'true'
                                     ? 'bg-blue-600 text-white border-blue-600'
                                     : 'bg-background hover:bg-muted border-border text-muted-foreground'
                                 }`}
                         >
                             New
                             <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
-                                ${filters.new === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+                    ${filters.new === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
                                 {newCount}
                             </span>
                         </button>
                         <button
                             onClick={() => handleFilterChange('duplicates', 'true')}
                             className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
-                                ${filters.duplicates === 'true'
+                    ${filters.duplicates === 'true'
                                     ? 'bg-amber-500 text-white border-amber-500'
                                     : 'bg-background hover:bg-muted border-border text-muted-foreground'
                                 }`}
                         >
                             Duplicates
                             <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
-                                ${filters.duplicates === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+                    ${filters.duplicates === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
                                 {duplicatesCount}
                             </span>
                         </button>
@@ -650,47 +478,37 @@ export default function UploadQuotationPage() {
 
                     <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5 h-7 text-xs">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
                             Export
                         </Button>
                         <Button size="sm" variant="secondary" onClick={handleNextClick} className="gap-1.5 h-7 text-xs">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
-                            </svg>
                             Save & Review
                         </Button>
                     </div>
                 </div>
 
-                {/* ── Items table ── */}
+                {/* Items Table */}
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm min-w-[600px]">
                         <thead>
                             <tr className="border-b bg-muted/10">
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[28%]">Item</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[10%]">Code</th>
-                                <th className="text-right py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[10%]">
-                                    Rate
-                                </th>
-
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[8%]">UOM</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[36%]">Master Item</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[5%]">    Create New Item
-                                </th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Item</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
+                                <th className="text-right py-2 px-3 font-medium text-muted-foreground">Rate</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">UOM</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Master Item</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Create New Item</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="py-10 text-center text-muted-foreground text-sm">
+                                    <td colSpan={6} className="py-10 text-center text-muted-foreground text-sm">
                                         No items match the selected filter.
                                     </td>
                                 </tr>
-                            ) : filteredItems.map((item) => {
+                            ) : filteredItems.map((item: any) => {
                                 const options = [
-                                    ...item.suggestions.map(s => ({
+                                    ...item.suggestions.map((s: any) => ({
                                         value: String(s.master_item_id),
                                         label: `${s.code} - ${s.description}`,
                                         group: 'Matched Suggestions'
@@ -700,40 +518,22 @@ export default function UploadQuotationPage() {
                                         label: `${m.code} - ${m.description}`,
                                         group: 'All Items'
                                     })),
-                                ]
+                                ];
 
                                 return (
-                                    <tr key={item.id} className="border-b hover:bg-muted/30 transition-colors">
+                                    <tr key={item.item_code || item.item_name} className="border-b hover:bg-muted/30 transition-colors">
                                         <td className="py-2 px-3">
                                             <div className="flex items-center gap-2">
-                                                <p className="font-medium text-gray-900 truncate">{item.name}</p>
-
-                                                {item.isNew && (
-                                                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
-                                                        New
-                                                    </Badge>
-                                                )}
-
-                                                {item.isDuplicate && (
-                                                    <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">
-                                                        Duplicate
-                                                    </Badge>
-                                                )}
+                                                <p className="font-medium text-gray-900 truncate">{item.item_name}</p>
+                                                {item.is_new && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">New</Badge>}
+                                                {item.is_duplicate && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Duplicate</Badge>}
                                             </div>
-
-                                            {item.suggestions.length > 0 && (
-                                                <p className="text-xs text-gray-500 truncate">
-                                                    {item.suggestions[0].description}
-                                                </p>
-                                            )}
                                         </td>
 
-                                        <td className="py-2 px-3 text-gray-700 truncate">{item.code}</td>
-                                        <td className="py-2 px-3 text-gray-700 text-right">
-                                            {item.item_price}
-                                        </td>
+                                        <td className="py-2 px-3 text-gray-700 truncate">{item.item_code ?? item.suggestions?.[0]?.code ?? '—'}</td>
+                                        <td className="py-2 px-3 text-gray-700 text-right">{item.item_price}</td>
+                                        <td className="py-2 px-3 text-gray-700">{item.unit_of_measure}</td>
 
-                                        <td className="py-2 px-3 text-gray-700">{item.uom}</td>
                                         <td className="py-3 px-3">
                                             {item.createNew ? (
                                                 <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-sm text-muted-foreground">
@@ -746,17 +546,12 @@ export default function UploadQuotationPage() {
                                                             {item.suggestions.length}
                                                         </Badge>
                                                     )}
-
                                                     <Combobox
                                                         options={options}
                                                         value={item.selectedMasterId || ''}
                                                         onValueChange={(value) =>
-                                                            setLineItems((prev) =>
-                                                                prev.map((i) =>
-                                                                    i.id === item.id
-                                                                        ? { ...i, selectedMasterId: value }
-                                                                        : i
-                                                                )
+                                                            setLineItems((prev: any) =>
+                                                                prev.map((i: any) => i.item_code === item.item_code ? { ...i, selectedMasterId: value } : i)
                                                             )
                                                         }
                                                         placeholder="Select master item..."
@@ -766,74 +561,45 @@ export default function UploadQuotationPage() {
                                             )}
                                         </td>
 
-                                        <td className="py-3 px-3">
-                                            <div className="flex justify-center gap-2">
-                                                <Checkbox
-                                                    id={`create-new-${item.id}`}
-                                                    checked={item.createNew || false}
-                                                    onCheckedChange={(checked) =>
-                                                        setLineItems((prev) =>
-                                                            prev.map((i) =>
-                                                                i.id === item.id
-                                                                    ? {
-                                                                        ...i,
-                                                                        createNew: Boolean(checked),
-                                                                    }
-                                                                    : i
-                                                            )
-                                                        )
-                                                    }
-                                                />
-                                            </div>
+                                        <td className="py-3 px-3 flex justify-center">
+                                            <Checkbox
+                                                id={`create-new-${item.item_code}`}
+                                                checked={item.createNew || false}
+                                                onCheckedChange={(checked) =>
+                                                    setLineItems((prev: any) =>
+                                                        prev.map((i: any) => i.item_code === item.item_code ? { ...i, createNew: Boolean(checked) } : i)
+                                                    )
+                                                }
+                                            />
                                         </td>
                                     </tr>
-                                )
+                                );
                             })}
                         </tbody>
 
-                        {/* ── Totals ── */}
+                        {/* Totals */}
                         <tfoot className="border-t-2">
                             <tr>
-                                <td colSpan={5} className="text-right py-2 px-3 font-medium text-gray-900">
-                                    Subtotal:
-                                </td>
-                                <td className="py-2 px-3 font-medium text-gray-900 text-right">
-                                    ₹ {subtotal.toLocaleString('en-IN')}
-                                </td>
+                                <td colSpan={5} className="text-right py-2 px-3 font-medium">Subtotal:</td>
+                                <td className="py-2 px-3 font-medium text-right">₹ {subtotal.toLocaleString('en-IN')}</td>
                             </tr>
-
                             <tr>
-                                <td colSpan={5} className="text-right py-2 px-3 font-medium text-gray-900">
-                                    Tax ({combinedTaxRate}%):
-                                </td>
-                                <td className="py-2 px-3 font-medium text-gray-900 text-right">
-                                    ₹ {taxTotal.toLocaleString('en-IN')}
-                                </td>
+                                <td colSpan={5} className="text-right py-2 px-3 font-medium">Tax ({combinedTaxRate}%):</td>
+                                <td className="py-2 px-3 font-medium text-right">₹ {taxTotal.toLocaleString('en-IN')}</td>
                             </tr>
-
                             <tr>
-                                <td colSpan={5} className="text-right py-2 px-3 font-medium text-gray-900">
-                                    Discount:
-                                </td>
-                                <td className="py-2 px-3 font-medium text-gray-900 text-right">
-                                    ₹ 0
-                                </td>
+                                <td colSpan={5} className="text-right py-2 px-3 font-medium">Discount:</td>
+                                <td className="py-2 px-3 font-medium text-right">₹ 0</td>
                             </tr>
-
                             <tr className="border-t">
-                                <td colSpan={5} className="text-right py-2 px-3 font-semibold text-gray-900 text-base">
-                                    Total:
-                                </td>
-                                <td className="py-2 px-3 font-bold text-gray-900 text-right text-base">
-                                    ₹ {grandTotal.toLocaleString('en-IN')}
-                                </td>
+                                <td colSpan={5} className="text-right py-2 px-3 font-semibold text-base">Total:</td>
+                                <td className="py-2 px-3 font-bold text-right text-base">₹ {grandTotal.toLocaleString('en-IN')}</td>
                             </tr>
                         </tfoot>
-
                     </table>
                 </div>
 
-                {/* ── Footer nav ── */}
+                {/* Footer nav */}
                 <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 sm:px-4 border-t bg-muted/20">
                     <div className="text-xs text-muted-foreground">
                         Showing <span className="font-medium text-foreground">{filteredItems.length}</span> of <span className="font-medium text-foreground">{allCount}</span> items
@@ -842,18 +608,16 @@ export default function UploadQuotationPage() {
                         <Button variant="outline" size="sm" onClick={() => setCurrentStep(1)} className="gap-2">
                             <ArrowLeft className="w-3.5 h-3.5" /> Back
                         </Button>
-
                     </div>
                 </div>
             </Card>
-        )
-    }
+        );
+    };
+
     // ── STEP 3: Summary ─────────────────────────────────────────────
     const StepSummary = () => {
-        const vendor = vendors?.[0] || {};
+        const vendor = vendors;
         const items = lineItems || [];
-
-        const [terms, setTerms] = useState('');
 
         const numberToWords = (num: number) => {
             const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six',
@@ -876,7 +640,7 @@ export default function UploadQuotationPage() {
         };
 
         const subtotal = items.reduce(
-            (sum, item) => sum + (Number(item.quantity) || 1) * (Number(item.item_price) || 0),
+            (sum:any, item:any) => sum + (Number(item.quantity) || 1) * (Number(item.item_price) || 0),
             0
         );
 
@@ -904,36 +668,36 @@ export default function UploadQuotationPage() {
                 {/* ── Vendor Section ── */}
                 <div className="border-b p-4 space-y-2">
                     <h3 className="text-lg font-semibold">
-                        {vendor.name || vendor.company_name}
+                        {vendor?.company_name}
                     </h3>
 
                     <p className="text-sm text-muted-foreground">
-                        {[vendor.address, vendor.city, vendor.state, vendor.pincode]
+                        {[vendor?.address, vendor?.city, vendor?.state, vendor?.pincode]
                             .filter(Boolean)
                             .join(', ')}
                     </p>
 
                     <div className="flex flex-wrap gap-2 text-xs mt-2">
-                        {vendor.gstNumber && (
+                        {vendor?.gst_number && (
                             <span className="border px-2 py-0.5 rounded">
-                                GST: {vendor.gstNumber}
+                                GST: {vendor.gst_number}
                             </span>
                         )}
-                        {vendor.contactPhone && (
+                        {vendor?.contact_phone && (
                             <span className="border px-2 py-0.5 rounded">
-                                Phone: {vendor.contactPhone}
+                                Phone: {vendor.contact_phone}
                             </span>
                         )}
-                        {vendor.contactEmail && (
+                        {vendor?.contact_email && (
                             <span className="border px-2 py-0.5 rounded">
-                                {vendor.contactEmail}
+                                {vendor.contact_email}
                             </span>
                         )}
                     </div>
 
-                    {(vendor.bank_account || vendor.bank_ifsc) && (
+                    {(vendor?.bank_account || vendor?.bank_ifsc) && (
                         <div className="text-xs mt-2 text-muted-foreground">
-                            Bank: {vendor.bank_name} | A/C: {vendor.bank_account} | IFSC: {vendor.bank_ifsc}
+                            Bank: {vendor?.bank_name} | A/C: {vendor?.bank_account} | IFSC: {vendor?.bank_ifsc}
                         </div>
                     )}
                 </div>
@@ -953,19 +717,19 @@ export default function UploadQuotationPage() {
                         </thead>
 
                         <tbody>
-                            {items.map((item) => {
+                            {items.map((item:any, index:any) => {
                                 const qty = Number(item.quantity) || 1;
                                 const rate = Number(item.item_price) || 0;
                                 const amount = qty * rate;
 
                                 return (
-                                    <tr key={item.id} className="border-b">
-                                        <td className="px-3 py-2">{item.name}</td>
+                                    <tr key={item.item_code || index} className="border-b">
+                                        <td className="px-3 py-2">{item.item_name}</td>
                                         <td className="px-3 py-2">
-                                            {item.suggestions?.[0]?.hsn_code || '—'}
+                                            {item.hsn_code || item.suggestions?.[0]?.hsn_code || '—'}
                                         </td>
                                         <td className="px-3 py-2">{qty}</td>
-                                        <td className="px-3 py-2">{item.uom}</td>
+                                        <td className="px-3 py-2">{item.unit_of_measure}</td>
                                         <td className="px-3 py-2">₹ {rate}</td>
                                         <td className="px-3 py-2 text-right">
                                             ₹ {amount.toLocaleString('en-IN')}
@@ -1011,22 +775,20 @@ export default function UploadQuotationPage() {
                     Amount in words: {numberToWords(finalTotal)}
                 </div>
 
-                {/* ── Terms (SIMPLE TEXTAREA) ── */}
-                {/* ── Terms & Conditions (STATIC TEXT) ── */}
-                <div className="p-4 border-t">
-                    <h4 className="text-sm font-medium mb-2">
-                        Terms & Conditions
-                    </h4>
+                {/* ── Terms & Conditions (FROM BACKEND) ── */}
+                {vendor?.terms_and_conditions?.length > 0 && (
+                    <div className="p-4 border-t">
+                        <h4 className="text-sm font-medium mb-2">
+                            Terms & Conditions
+                        </h4>
 
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">
-                        1. Goods once sold will not be taken back or exchanged.{"\n"}
-                        2. Payment to be made within 30 days from invoice date.{"\n"}
-                        3. Warranty as per manufacturer terms only.{"\n"}
-                        4. Transportation charges extra if not mentioned.{"\n"}
-                        5. Subject to Jaipur jurisdiction.
-                    </p>
-                </div>
-
+                        <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                            {vendor.terms_and_conditions.map((term: string, i: number) => (
+                                <li key={i}>{term}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 {/* Footer */}
                 <div className="flex justify-between p-4 border-t">
@@ -1042,7 +804,6 @@ export default function UploadQuotationPage() {
             </Card>
         );
     };
-
 
     const modal = confirmModalContent()
 
@@ -1080,7 +841,7 @@ export default function UploadQuotationPage() {
 
 
             {/* Step Indicator */}
-            <StepIndicator />
+            <StepIndicator currentStep={currentStep} />
 
             {/* Error Message */}
             {errorMessage && (
