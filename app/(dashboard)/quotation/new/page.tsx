@@ -533,7 +533,8 @@ export default function UploadQuotationPage() {
 
                                 <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[8%]">UOM</th>
                                 <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[36%]">Master Item</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[16%]">Action</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[5%]">    Create New Item
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -569,7 +570,7 @@ export default function UploadQuotationPage() {
                                         </td>
                                         <td className="py-2 px-3 text-gray-700 truncate">{item.code}</td>
                                         <td className="py-2 px-3 text-gray-700 text-right">
-                                             {item.item_price}
+                                            {item.item_price}
                                         </td>
 
                                         <td className="py-2 px-3 text-gray-700">{item.uom}</td>
@@ -596,17 +597,17 @@ export default function UploadQuotationPage() {
                                             </div>
                                         </td>
                                         <td className="py-3 px-3">
-                                            <div className="flex items-center gap-2">
-                                                <Checkbox
+                                        <div className="flex justify-center gap-2">
+                                        <Checkbox
                                                     id={`create-new-${item.id}`}
                                                     name={`create-new-${item.id}`}
                                                 />
-                                                <label
+                                                {/* <label
                                                     htmlFor={`create-new-${item.id}`}
                                                     className="text-sm text-gray-700 whitespace-nowrap cursor-pointer"
                                                 >
                                                     Create New Item
-                                                </label>
+                                                </label> */}
                                             </div>
                                         </td>
                                     </tr>
