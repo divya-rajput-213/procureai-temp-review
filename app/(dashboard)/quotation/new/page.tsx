@@ -724,7 +724,7 @@ export default function UploadQuotationPage() {
 
                             <Button
                                 onClick={() => exportMutation.mutate()}
-                                disabled={exportMutation.isPending}
+                                disabled={exportMutation.isPending || lineItems.filter((i: any) => i.is_new).length === 0}
                             >
                                 {exportMutation.isPending ? 'Exporting...' : 'Export Excel'}
                             </Button>
