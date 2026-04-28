@@ -424,41 +424,143 @@ export default function UploadQuotationPage() {
     )
 
     // ── STEP 2: Review Items ────────────────────────────────────────
-    const StepReviewItems = () => (
-        <Card>
-            <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    <CheckCircle className="w-4 h-4" />
-                    Items ({lineItems.length})
-                </CardTitle>
-                <p className="text-sm text-gray-600">Review the extracted items and select the appropriate master item or choose to create a new one.</p>
-            </CardHeader>
-            <CardContent className="pt-0">
-                <div className="flex items-center gap-1 my-2">
-                    {(['all', 'new', 'duplicates'] as (keyof FilterState)[]).map((key) => (
-                        <button
-                            key={key}
-                            onClick={() => handleFilterChange(key, filters[key] === "true" ? "false" : "true")}
-                            className={`h-7 px-3 rounded-full text-xs border flex items-center gap-1.5 capitalize
-                                ${filters[key] === "true"
-                                    ? "bg-emerald-100 text-emerald-700 border-emerald-300"
-                                    : "bg-background hover:bg-muted border-border text-muted-foreground"
-                                }`}
-                        >
-                            {key} <Badge>{key === 'all' ? lineItems.length : key === 'new' ? lineItems.filter(i => !i.hasMatch).length : lineItems.filter(i => i.hasMatch && i.suggestions.length > 1).length}</Badge>
-                        </button>
-                    ))}
+    // ── STEP 2: Review Items ────────────────────────────────────────
+    const StepReviewItems = () => {
+        const allCount = lineItems.length
+        const newCount = lineItems.filter(i => !i.hasMatch).length
+        const duplicatesCount = lineItems.filter(i => i.hasMatch && i.suggestions.length > 1).length
+
+        const filteredItems = lineItems.filter(item => {
+            if (filters.new === 'true') return !item.hasMatch
+            if (filters.duplicates === 'true') return item.hasMatch && item.suggestions.length > 1
+            return true
+        })
+
+        const handleExport = () => {
+            const rows = [
+                ['Item', 'Code', 'UOM', 'Master Item', 'Action'],
+                ...lineItems.map(i => [
+                    i.name, i.code, i.uom,
+                    i.selectedMasterId ?? '',
+                    i.createNew ? 'Create New' : 'Map to Master',
+                ])
+            ]
+            const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n')
+            const blob = new Blob([csv], { type: 'text/csv' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url; a.download = 'quotation-items.csv'; a.click()
+            URL.revokeObjectURL(url)
+        }
+
+        const handleSave = () => {
+            toast({ title: 'Items saved', description: 'Your item mappings have been saved as a draft.' })
+        }
+
+        return (
+            <Card className="overflow-hidden">
+                {/* ── Top stats bar ── */}
+                <div className="grid grid-cols-3 divide-x border-b">
+                    <div className="px-5 py-4">
+                        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">Total Items</p>
+                        <p className="text-3xl font-bold text-foreground">{allCount}</p>
+                    </div>
+                    <div className="px-5 py-4">
+                        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">New Items</p>
+                        <div className="flex items-end gap-2">
+                            <p className="text-3xl font-bold text-blue-600">{newCount}</p>
+                            {newCount > 0 && (
+                                <span className="mb-1 text-xs text-blue-500 font-medium">
+                                    {Math.round((newCount / allCount) * 100)}%
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="px-5 py-4">
+                        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">Duplicates</p>
+                        <div className="flex items-end gap-2">
+                            <p className="text-3xl font-bold text-amber-500">{duplicatesCount}</p>
+                            {duplicatesCount > 0 && (
+                                <span className="mb-1 text-xs text-amber-500 font-medium">
+                                    {Math.round((duplicatesCount / allCount) * 100)}%
+                                </span>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
+                {/* ── Toolbar ── */}
+                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/30">
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => handleFilterChange('all', 'true')}
+                            className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
+                            ${filters.all === 'true'
+                                    ? 'bg-foreground text-background border-foreground'
+                                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                                }`}
+                        >
+                            All
+                            <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
+                            ${filters.all === 'true' ? 'bg-background/20 text-background' : 'bg-muted text-muted-foreground'}`}>
+                                {allCount}
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => handleFilterChange('new', 'true')}
+                            className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
+                            ${filters.new === 'true'
+                                    ? 'bg-blue-600 text-white border-blue-600'
+                                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                                }`}
+                        >
+                            New
+                            <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
+                            ${filters.new === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+                                {newCount}
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => handleFilterChange('duplicates', 'true')}
+                            className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
+                            ${filters.duplicates === 'true'
+                                    ? 'bg-amber-500 text-white border-amber-500'
+                                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                                }`}
+                        >
+                            Duplicates
+                            <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
+                            ${filters.duplicates === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+                                {duplicatesCount}
+                            </span>
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5 h-7 text-xs">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                            Export
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={handleNextClick} className="gap-1.5 h-7 text-xs">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+                            </svg>
+                            Save & Review
+                        </Button>
+                    </div>
+                </div>
+
+                {/* ── Items table ── */}
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm table-fixed">
                         <thead>
                             <tr className="border-b">
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Item</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">UOM</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Master Item</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Create New</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[28%]">Item</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[12%]">Code</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[8%]">UOM</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[36%]">Master Item</th>
+                                <th className="text-left py-2 px-3 font-medium text-muted-foreground whitespace-nowrap w-[16%]">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -467,79 +569,105 @@ export default function UploadQuotationPage() {
                                     ...item.suggestions.map(s => ({
                                         value: String(s.master_item_id),
                                         label: `${s.code} - ${s.description}`,
+                                        group: 'Matched Suggestions'
                                     })),
                                     ...masterItems.map((m: any) => ({
                                         value: String(m.id),
                                         label: `${m.code} - ${m.description}`,
+                                        group: 'All Items'
                                     })),
-                                    { value: 'create_new', label: 'Create New Item' }
+                                    { value: 'create_new', label: 'Create New Item', group: 'Other' }
                                 ]
 
                                 return (
                                     <tr key={item.id} className="border-b hover:bg-gray-50">
                                         <td className="py-2 px-3">
-                                            <p className="font-medium text-gray-900">{item.name}</p>
+                                            <p className="font-medium text-gray-900 truncate">{item.name}</p>
                                             {item.suggestions.length > 0 && (
-                                                <p className="text-xs text-gray-500 truncate max-w-xs">{item.suggestions[0].description}</p>
+                                                <p className="text-xs text-gray-500 truncate">
+                                                    {item.suggestions[0].description}
+                                                </p>
                                             )}
                                         </td>
-                                        <td className="py-2 px-3 text-gray-700">{item.code}</td>
+                                        <td className="py-2 px-3 text-gray-700 truncate">{item.code}</td>
                                         <td className="py-2 px-3 text-gray-700">{item.uom}</td>
                                         <td className="py-3 px-3">
                                             <div className="relative">
-                                                {item.suggestions.length > 1 && (
-                                                    <Badge className="absolute -top-3 -right-3 z-10" variant="warning">{item.suggestions.length}</Badge>
+                                                {item.suggestions.length > 0 && (
+                                                    <Badge className="absolute -top-3 -right-3 z-10" variant="warning">
+                                                        {item.suggestions.length}
+                                                    </Badge>
                                                 )}
                                                 <Combobox
                                                     options={options}
-                                                    value={item.createNew ? 'create_new' : (item.selectedMasterId || '')}
+                                                    value={item.selectedMasterId || ''}
                                                     onValueChange={(value) =>
-                                                        setLineItems(prev => prev.map(i =>
-                                                            i.id === item.id ? { ...i, selectedMasterId: value, createNew: value === 'create_new' } : i
-                                                        ))
+                                                        setLineItems((prev) =>
+                                                            prev.map((i) =>
+                                                                i.id === item.id ? { ...i, selectedMasterId: value } : i
+                                                            )
+                                                        )
                                                     }
                                                     placeholder="Select master item..."
                                                     className="w-full"
-                                                    disabled={item.createNew}
                                                 />
                                             </div>
                                         </td>
                                         <td className="py-3 px-3">
-                                            <FieldGroup>
-                                                <Field className="flex flex-row items-center gap-2">
-                                                    <Checkbox
-                                                        id={`create-new-${item.id}`}
-                                                        checked={!!item.createNew}
-                                                        onCheckedChange={(checked) =>
-                                                            setLineItems(prev => prev.map(i =>
-                                                                i.id === item.id ? { ...i, createNew: !!checked, selectedMasterId: checked ? 'create_new' : null } : i
-                                                            ))
-                                                        }
-                                                    />
-                                                    <FieldContent>
-                                                        <FieldLabel htmlFor={`create-new-${item.id}`}>Create New</FieldLabel>
-                                                    </FieldContent>
-                                                </Field>
-                                            </FieldGroup>
+                                            <div className="flex items-center gap-2">
+                                                <Checkbox
+                                                    id={`create-new-${item.id}`}
+                                                    name={`create-new-${item.id}`}
+                                                />
+                                                <label
+                                                    htmlFor={`create-new-${item.id}`}
+                                                    className="text-sm text-gray-700 whitespace-nowrap cursor-pointer"
+                                                >
+                                                    Create New Item
+                                                </label>
+                                            </div>
                                         </td>
                                     </tr>
                                 )
                             })}
                         </tbody>
+
+                        {/* Totals */}
+                        <tfoot>
+                            <tr>
+                                <td colSpan={4} className="text-right py-2 px-3 font-medium text-gray-900">Subtotal:</td>
+                                <td className="py-2 px-3 font-medium text-gray-900 text-right">62,990</td>
+                            </tr>
+                            <tr>
+                                <td colSpan={4} className="text-right py-2 px-3 font-medium text-gray-900">GST (18%):</td>
+                                <td className="py-2 px-3 font-medium text-gray-900 text-right">11,338</td>
+                            </tr>
+                            <tr>
+                                <td colSpan={4} className="text-right py-2 px-3 font-medium text-gray-900">Discount:</td>
+                                <td className="py-2 px-3 font-medium text-gray-900 text-right">-0</td>
+                            </tr>
+                            <tr>
+                                <td colSpan={4} className="text-right py-2 px-3 font-medium text-gray-900">Total:</td>
+                                <td className="py-2 px-3 font-medium text-gray-900 text-right">74,328</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
 
-                <div className="flex justify-between mt-4">
-                    <Button variant="outline" onClick={() => setCurrentStep(1)} className="gap-2">
-                        <ArrowLeft className="w-4 h-4" /> Back
-                    </Button>
-                    <Button onClick={handleNextClick} className="gap-2">
-                        View Summary <ChevronRight className="w-4 h-4" />
-                    </Button>
+                {/* ── Footer nav ── */}
+                <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/20">
+                    <div className="text-xs text-muted-foreground">
+                        Showing <span className="font-medium text-foreground">{filteredItems.length}</span> of <span className="font-medium text-foreground">{allCount}</span> items
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setCurrentStep(1)} className="gap-2">
+                            <ArrowLeft className="w-3.5 h-3.5" /> Back
+                        </Button>
+                    </div>
                 </div>
-            </CardContent>
-        </Card>
-    )
+            </Card>
+        )
+    }
 
     // ── STEP 3: Summary ─────────────────────────────────────────────
     const StepSummary = () => {
