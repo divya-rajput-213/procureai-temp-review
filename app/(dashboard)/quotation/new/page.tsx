@@ -244,6 +244,14 @@ export default function UploadQuotationPage() {
     const addFile = (incoming: FileList | null) => {
         if (!incoming || incoming.length === 0) return
         const selectedFile = incoming[0]
+        const isPdf =
+            selectedFile.type === 'application/pdf' ||
+            selectedFile.name.toLowerCase().endsWith('.pdf')
+        if (!isPdf) {
+            setErrorMessage('Only PDF files are allowed.')
+            setFile(null)
+            return
+        }
         setErrorMessage('')
         setQuotation(null)
         setVendors([])
@@ -360,7 +368,7 @@ export default function UploadQuotationPage() {
                             Drop the quotation file here
                         </h3>
                         <p className="text-sm text-muted-foreground mb-5">
-                            PDF — any layout. AI extracts everything.
+                            PDF — layout. AI extracts everything.
                         </p>
                         <Button variant="outline" type="button" onClick={(e) => { e.stopPropagation(); document.getElementById('quotation-file')?.click() }}>
                             Browse file
@@ -368,7 +376,7 @@ export default function UploadQuotationPage() {
                         <input
                             id="quotation-file"
                             type="file"
-                            accept=".pdf,application/pdf,image/*,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            accept=".pdf,application/pdf"
                             className="hidden"
                             onChange={(e) => addFile(e.target.files)}
                         />
