@@ -13,9 +13,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Combobox } from '@/components/ui/combobox'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useSettingsStore } from '@/lib/stores/settings.store'
-import { ExtractedVendor, LineItem } from '../types'
-import { mapLineItemsFromQuotationResponse } from '../utils'
 import StepIndicator from '../components/StepIndicator'
+import { mapLineItemsFromQuotationResponse } from '../utils/functions'
+import { ExtractedVendor, LineItem } from '../utils/types'
 interface FilterState {
     all: string;
     new: string;
