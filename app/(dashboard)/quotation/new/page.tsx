@@ -41,8 +41,11 @@ export default function UploadQuotationPage() {
     const [vendors, setVendors] = useState<any>(null);
     const [dragging, setDragging] = useState(false)
     const [errorMessage, setErrorMessage] = useState('')
-    const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
-    console.log(lineItems, 'vendors', vendors)
+    const [vendorId, setVendorId] = useState<number | null>(null)
+    const [vendorSaved, setVendorSaved] = useState(false)
+    const [quotationSaved, setQuotationSaved] = useState(false)
+    const [savedQuotationData, setSavedQuotationData] = useState<any>(null)
+
     const { data: masterItems = [] } = useQuery({
         queryKey: ['master-items'],
         queryFn: async () => {
@@ -62,7 +65,7 @@ export default function UploadQuotationPage() {
             })
         }, []
     )
-
+    // Mutation to upload quotation PDF and extract data (step 0 → step 1)
     const uploadMutation = useMutation({
         mutationFn: async (selectedFile: File) => {
             const formData = new FormData()
@@ -90,33 +93,99 @@ export default function UploadQuotationPage() {
             setErrorMessage(message)
         },
     })
-
-    const submitMutation = useMutation({
+    // save vendor details (step 1 → step 2)
+    const vendorSaveMutation = useMutation({
         mutationFn: async () => {
-            const actions = lineItems.map((item: any) => ({
-                item_id: item.id,
-                action: item.selectedMasterId === 'create_new' || item.createNew ? 'create_new' : 'approve',
-                master_item_id: item.selectedMasterId === 'create_new' || item.createNew ? null : Number(item.selectedMasterId),
-            }))
-            await apiClient.patch(`/quotations/${quotation.quotation_id}/confirm-items/`, { actions })
+            const { data } = await apiClient.post('/quotations/vendor-save/', {
+                vendor: {
+                    company_name: vendors?.company_name,
+                    contact_name: vendors?.contact_name,
+                    contact_email: vendors?.contact_email,
+                    contact_phone: vendors?.contact_phone,
+                    address: vendors?.address,
+                    city: vendors?.city,
+                    state: vendors?.state,
+                    pincode: vendors?.pincode,
+                    country: vendors?.country ?? null,
+                    gst_number: vendors?.gst_number,
+                    pan_number: vendors?.pan_number ?? null,
+                    bank_account: vendors?.bank_account ?? null,
+                    bank_ifsc: vendors?.bank_ifsc ?? null,
+                    bank_name: vendors?.bank_name ?? null,
+                    gst_percentage: vendors?.gst_percentage ?? null,
+                    quotation_no: quotation?.quotation_no ?? null,
+                    quotation_date: quotation?.quotation_date ?? null,
+                    terms_and_conditions: vendors?.terms_and_conditions ?? [],
+                    is_new: vendors?.is_new ?? true,
+                },
+            })
+            return data
         },
-        onSuccess: () => {
-            toast({ title: 'Quotation processed successfully', description: 'All items have been confirmed.' })
-            router.push('/quotation')
+        onSuccess: (data: any) => {
+            // Backend returns vendor_id (or id) — adjust key if needed
+            const id = data?.vendor_id ?? data?.id ?? data?.vendor?.id
+            setVendorId(id)
+            setVendorSaved(true)
+            setCurrentStep(2)
         },
         onError: (error: any) => {
-            const detail = error?.response?.data?.detail ?? error?.response?.data?.message ?? error?.response?.data?.error ?? 'Failed to confirm items.'
+            const detail =
+                error?.response?.data?.detail ??
+                error?.response?.data?.message ??
+                'Failed to save vendor.'
             setErrorMessage(detail)
-            toast({ title: 'Submission failed', description: detail, variant: 'destructive' })
+            toast({ title: 'Error', description: detail, variant: 'destructive' })
         },
     })
-
+    // save quotation with line items (step 2 → step 3)
+    const quotationSaveMutation = useMutation({
+        mutationFn: async () => {
+            const { data } = await apiClient.post('/quotations/save/', {
+                vendor_id: vendorId,
+                quotation_no: quotation?.quotation_no ?? null,
+                quotation_date: quotation?.quotation_date ?? null,
+                items: lineItems.map((item: any) => ({
+                    item_code: item.item_code ?? item.code,
+                    item_name: item.item_name,
+                    item_price: item.item_price,
+                    quantity: item.quantity || 1,
+                    unit_of_measure: item.unit_of_measure ?? item.uom,
+                    hsn_code: item.hsn_code ?? item.suggestions?.[0]?.hsn_code ?? null,
+                    create_new_item: item.createNew || item.selectedMasterId === 'create_new',
+                    master_item_id:
+                        item.createNew || item.selectedMasterId === 'create_new'
+                            ? null
+                            : Number(item.selectedMasterId) || null,
+                    suggestions: item.suggestions || [],
+                })),
+            })
+            return data
+        },
+        onSuccess: (data: any) => {
+            setSavedQuotationData(data)
+            setQuotationSaved(true)
+            setCurrentStep(3)
+        },
+        onError: (error: any) => {
+            const message =
+                error?.response?.data?.message ??
+                error?.response?.data?.detail ??
+                'Failed to save quotation.'
+            setErrorMessage(message)
+            toast({ title: 'Error', description: message, variant: 'destructive' })
+        },
+    })
     useEffect(() => {
         if (!file) {
             setQuotation(null)
             setVendors(null)
             setLineItems([])
             setErrorMessage('')
+            // Reset save state so APIs are called fresh for new file
+            setVendorId(null)
+            setVendorSaved(false)
+            setQuotationSaved(false)
+            setSavedQuotationData(null)
         }
     }, [file])
 
@@ -153,14 +222,27 @@ export default function UploadQuotationPage() {
 
     const confirmAndProceed = () => {
         setShowConfirmModal(false)
-        if (pendingStep === 4) {
-            saveMutation.mutate()
+
+        if (pendingStep === 2) {
+            // Step 1 → 2: call vendor-save only if not already saved
+            if (!vendorSaved) {
+                vendorSaveMutation.mutate()
+            } else {
+                setCurrentStep(2)
+            }
+        } else if (pendingStep === 3) {
+            // Step 2 → 3: call quotation save only if not already saved
+            if (!quotationSaved) {
+                quotationSaveMutation.mutate()
+            } else {
+                setCurrentStep(3)
+            }
         } else if (pendingStep !== null) {
             setCurrentStep(pendingStep)
         }
+
         setPendingStep(null)
     }
-
     const cancelConfirm = () => {
         setShowConfirmModal(false)
         setPendingStep(null)
@@ -188,61 +270,6 @@ export default function UploadQuotationPage() {
             description: 'Once submitted, these items cannot be changed. Please verify that all selections are correct.',
         }
     }
-    const buildSavePayload = () => {
-        return {
-            vendor: {
-                company_name: vendors?.company_name,
-                contact_name: vendors?.contact_name,
-                contact_email: vendors?.contact_email,
-                contact_phone: vendors?.contact_phone,
-                city: vendors?.city,
-                state: vendors?.state,
-                gst_number: vendors?.gstNumber,
-            },
-            items: lineItems.map((item: any) => ({
-                item_code: item.code,
-                item_name: item.name,
-                item_price: item.item_price,
-                quantity: item.quantity || 1,
-                unit_of_measure: item.uom,
-                hsn_code: item.suggestions?.[0]?.hsn_code || null,
-
-                create_new_item: item.createNew || item.selectedMasterId === 'create_new',
-
-                // optional (if mapping)
-                master_item_id:
-                    item.createNew || item.selectedMasterId === 'create_new'
-                        ? null
-                        : Number(item.selectedMasterId),
-
-                suggestions: item.suggestions || [],
-            })),
-        }
-    }
-    const saveMutation = useMutation({
-        mutationFn: async () => {
-            const payload = buildSavePayload()
-            return apiClient.post('/api/v1/quotations/save/', payload)
-        },
-        onSuccess: () => {
-            toast({
-                title: 'Quotation saved successfully',
-            })
-            router.push('/quotation') // optional redirect
-        },
-        onError: (error: any) => {
-            const message =
-                error?.response?.data?.message || 'Failed to save quotation'
-            setErrorMessage(message)
-
-            toast({
-                title: 'Error',
-                description: message,
-                variant: 'destructive',
-            })
-        },
-    })
-
     //  useEffect for default selectedMasterId
     useEffect(() => {
         if (lineItems.length === 0) return;
@@ -431,7 +458,7 @@ export default function UploadQuotationPage() {
             URL.revokeObjectURL(url);
         };
 
-        const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0);
+        const combinedTaxRate = vendors?.gst_percentage ?? 0;
         const subtotal = lineItems?.reduce(
             (sum: any, item: any) => sum + (Number(item.quantity) || 0) * (Number(item.item_price) || 0),
             0
@@ -663,7 +690,7 @@ export default function UploadQuotationPage() {
             0
         );
 
-        const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0);
+        const combinedTaxRate = vendors?.gst_percentage ?? 0;
         const taxTotal = (subtotal * combinedTaxRate) / 100;
 
         const sgst = taxTotal / 2;
@@ -815,8 +842,8 @@ export default function UploadQuotationPage() {
                         Back
                     </Button>
 
-                    <Button onClick={handleNextClick}>
-                        Submit
+                    <Button onClick={() => router.push('/quotation')}>
+                        Done
                     </Button>
                 </div>
 
@@ -828,11 +855,15 @@ export default function UploadQuotationPage() {
 
     return (
         <div className="space-y-4">
-            {uploadMutation.isPending && (
+            {(uploadMutation.isPending || vendorSaveMutation.isPending || quotationSaveMutation.isPending) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
                     <div className="flex items-center gap-2 rounded-xl border bg-background px-5 py-4 text-sm text-muted-foreground shadow-sm">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Extracting details…
+                        {uploadMutation.isPending
+                            ? 'Extracting details…'
+                            : vendorSaveMutation.isPending
+                                ? 'Saving vendor…'
+                                : 'Saving quotation…'}
                     </div>
                 </div>
             )}
@@ -884,8 +915,13 @@ export default function UploadQuotationPage() {
                     </DialogHeader>
                     <DialogFooter className="gap-2">
                         <Button variant="outline" onClick={cancelConfirm}>Go Back</Button>
-                        <Button onClick={confirmAndProceed} disabled={submitMutation.isPending}>
-                            {submitMutation.isPending ? 'Submitting...' : 'Yes, Proceed'}
+                        <Button
+                            onClick={confirmAndProceed}
+                            disabled={vendorSaveMutation.isPending || quotationSaveMutation.isPending}
+                        >
+                            {vendorSaveMutation.isPending || quotationSaveMutation.isPending
+                                ? 'Submitting...'
+                                : 'Yes, Proceed'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
