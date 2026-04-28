@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, FileText, User, MapPin, Phone, Mail, Building, CheckCircle, AlertCircle, ArrowLeft, ChevronRight, Package, ClipboardList } from 'lucide-react'
+import { Upload, FileText, User, MapPin, Phone, Mail, Building, CheckCircle, AlertCircle, ArrowLeft, ChevronRight, Package, ClipboardList, Loader2 } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -174,10 +174,9 @@ export default function UploadQuotationPage() {
     )
 
     const uploadMutation = useMutation({
-        mutationFn: async () => {
-            if (!file) throw new Error('Please upload a file')
+        mutationFn: async (selectedFile: File) => {
             const formData = new FormData()
-            formData.append('file', file)
+            formData.append('file', selectedFile)
             const { data } = await apiClient.post('/quotations/upload/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             })
@@ -242,8 +241,15 @@ export default function UploadQuotationPage() {
 
     const addFile = (incoming: FileList | null) => {
         if (!incoming || incoming.length === 0) return
+        const selectedFile = incoming[0]
         setErrorMessage('')
-        setFile(incoming[0])
+        setQuotation(null)
+        setVendors([])
+        setLineItems([])
+        setFile(selectedFile)
+        if (!uploadMutation.isPending) {
+            uploadMutation.mutate(selectedFile)
+        }
     }
 
     const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragging(true) }
@@ -252,7 +258,7 @@ export default function UploadQuotationPage() {
 
     const handleUpload = () => {
         if (!file || uploadMutation.isPending) return
-        uploadMutation.mutate()
+        uploadMutation.mutate(file)
     }
 
     // Called when user clicks Next on any step
@@ -339,84 +345,126 @@ export default function UploadQuotationPage() {
             <CardContent className="p-6">
                 {!file ? (
                     <div
-                        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${dragging ? 'border-primary bg-primary/5' : 'hover:border-gray-400'}`}
+                        className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${dragging ? 'border-primary bg-primary/5' : 'hover:border-border'}`}
                         onClick={() => document.getElementById('quotation-file')?.click()}
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                     >
-                        <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                            {dragging ? 'Drop your file here' : 'Upload Quotation File'}
+                        <div className="w-14 h-14 rounded-full border bg-background flex items-center justify-center mx-auto mb-4">
+                            <Upload className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-foreground mb-1">
+                            Drop the quotation file here
                         </h3>
-                        <p className="text-sm text-gray-600 mb-4">Drag and drop your PDF file here, or click to browse</p>
-                        <p className="text-xs text-gray-500">Supports PDF files up to 25 MB</p>
-                        <input id="quotation-file" type="file" accept=".pdf,application/pdf" className="hidden" onChange={(e) => addFile(e.target.files)} />
+                        <p className="text-sm text-muted-foreground mb-5">
+                            PDF — any layout. AI extracts everything.
+                        </p>
+                        <Button variant="outline" type="button" onClick={(e) => { e.stopPropagation(); document.getElementById('quotation-file')?.click() }}>
+                            Browse file
+                        </Button>
+                        <input
+                            id="quotation-file"
+                            type="file"
+                            accept=".pdf,application/pdf,image/*,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            className="hidden"
+                            onChange={(e) => addFile(e.target.files)}
+                        />
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Uploads</p>
+                        <div className="flex items-center gap-3 p-4 rounded-xl border bg-background">
                             <div className="flex items-center gap-3">
-                                <FileText className="w-6 h-6 text-blue-500" />
-                                <div>
-                                    <p className="font-medium text-gray-900 text-sm">{file.name}</p>
-                                    <p className="text-xs text-gray-500">{formatSize(file.size)}</p>
+                                <div className="w-10 h-8 rounded-lg border bg-muted/40 flex items-center justify-center text-xs font-bold text-foreground">
+                                    PDF
                                 </div>
                             </div>
-                            <Button variant="ghost" size="sm" onClick={() => setFile(null)}>Remove</Button>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-medium text-foreground text-sm truncate">{file.name}</p>
+                                <p className="text-xs text-muted-foreground">{formatSize(file.size)} · uploaded just now</p>
+                            </div>
+                            <Badge variant="secondary" className="text-xs">
+                                {uploadMutation.isPending ? 'Processing...' : hasData ? 'Ready' : 'Waiting'}
+                            </Badge>
+                            
+                            <Button variant="outline" onClick={() => setFile(null)} className="shrink-0">
+                                Remove 
+                            </Button>
                         </div>
 
-                        {!hasData ? (
-                            <Button onClick={handleUpload} disabled={uploadMutation.isPending} className="w-full">
-                                {uploadMutation.isPending ? 'Processing...' : 'Extract Data'}
-                            </Button>
-                        ) : (
+                        {!uploadMutation.isPending && hasData && (
                             <>
-                                {/* Vendor preview */}
-                                <div className="rounded-lg border p-4 space-y-3">
-                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vendor Extracted</p>
-                                    {vendors.map((vendor) => (
-                                        <div key={vendor.id} className="flex items-start gap-3">
-                                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                <User className="w-4 h-4 text-blue-600" />
+                                <div className="pt-2">
+                                    <div className="my-4 h-px w-full bg-border" />
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                                        Vendor extracted from this quotation
+                                    </p>
+                                    <div className="rounded-xl border bg-indigo-50/40 px-4 py-3 flex items-center gap-3">
+                                        <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                                        <p className="text-sm font-medium text-indigo-900 truncate">
+                                            AI extraction complete — vendor identified, {lineItems.length} line items found
+                                        </p>
+                                    </div>
+
+                                    <div className="mt-3 rounded-xl border bg-background overflow-hidden">
+                                        <div className="p-4 flex items-start gap-3">
+                                            <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-sm font-semibold text-foreground">
+                                                {vendors?.[0]?.name
+                                                    ? vendors[0].name.trim().split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()
+                                                    : 'V'}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <h4 className="font-medium text-gray-900 text-sm">{vendor.name}</h4>
-                                                    {vendor.vendorCreated && <Badge variant="secondary" className="text-xs">New</Badge>}
-                                                </div>
-                                                <div className="space-y-1 mt-1">
-                                                    {isNotEmpty(vendor.contactEmail) && (
-                                                        <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                            <Mail className="w-3 h-3" /><span className="truncate">{vendor.contactEmail}</span>
-                                                        </div>
-                                                    )}
-                                                    {isNotEmpty(vendor.contactPhone) && (
-                                                        <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                            <Phone className="w-3 h-3" /><span>{vendor.contactPhone}</span>
-                                                        </div>
-                                                    )}
-                                                    {(isNotEmpty(vendor.city) || isNotEmpty(vendor.state)) && (
-                                                        <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                            <MapPin className="w-3 h-3" /><span>{[vendor.city, vendor.state].filter(Boolean).join(', ')}</span>
-                                                        </div>
-                                                    )}
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <h4 className="font-semibold text-sm truncate text-foreground">
+                                                            {vendors?.[0]?.name ?? 'Vendor'}
+                                                        </h4>
+                                                        <p className="text-xs text-muted-foreground mt-1 truncate">
+                                                            {[vendors?.[0]?.city, vendors?.[0]?.state].filter(Boolean).join(', ')}
+                                                        </p>
+                                                    </div>
+                                                    <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0 text-xs font-medium">
+                                                        {vendors?.[0]?.vendorCreated ? 'Existing vendor' : 'New vendor'}
+                                                    </Badge>
                                                 </div>
                                             </div>
                                         </div>
-                                    ))}
-                                    <div className="pt-2 border-t text-sm text-gray-600">
-                                        <span className="font-medium text-gray-900">{lineItems.length}</span> line items extracted
+
+                                        <div className="grid grid-cols-3 border-t">
+                                            <div className="p-4">
+                                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">GSTIN</p>
+                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.[0]?.gstNumber ?? '—'}</p>
+                                            </div>
+                                            <div className="p-4 border-l">
+                                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">State</p>
+                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.[0]?.state ?? '—'}</p>
+                                            </div>
+                                            <div className="p-4 border-l">
+                                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Phone</p>
+                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.[0]?.contactPhone ?? '—'}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="border-t p-4">
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Email</p>
+                                            <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.[0]?.contactEmail ?? '—'}</p>
+                                        </div>
+
+                                        <div className="relative h-9">
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="flex justify-end">
+                                <div className="flex justify-end pt-2">
                                     <Button onClick={handleNextClick} className="gap-2">
                                         Review Items <ChevronRight className="w-4 h-4" />
                                     </Button>
                                 </div>
                             </>
                         )}
+
+                        {/* (removed old vendor preview) */}
                     </div>
                 )}
             </CardContent>
@@ -663,6 +711,14 @@ export default function UploadQuotationPage() {
 
     return (
         <div className="space-y-4">
+            {uploadMutation.isPending && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
+                    <div className="flex items-center gap-2 rounded-xl border bg-background px-5 py-4 text-sm text-muted-foreground shadow-sm">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Extracting details…
+                    </div>
+                </div>
+            )}
             {/* Header */}
             <div className="flex items-start justify-between gap-2">
                 <div>
