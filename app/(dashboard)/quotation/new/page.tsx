@@ -243,6 +243,22 @@ export default function UploadQuotationPage() {
         },
     })
 
+    //  useEffect for default selectedMasterId
+    useEffect(() => {
+        if (lineItems.length === 0) return;
+        setLineItems((prev: any) => {
+            let updated = false;
+            const newItems = prev.map((item: any) => {
+                if (!item.selectedMasterId && item.suggestions?.length > 0) {
+                    updated = true;
+                    return { ...item, selectedMasterId: String(item.suggestions[0].master_item_id) };
+                }
+                return item;
+            });
+            return updated ? newItems : prev;
+        });
+    }, [lineItems.length]); // runs when items are first loaded (length goes 0 → N)
+
     // ── STEP 1: Upload ──────────────────────────────────────────────
     const StepUpload = () => (
         <Card>
@@ -286,11 +302,11 @@ export default function UploadQuotationPage() {
                 ) : (
                     <div className="space-y-3">
                         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Uploads</p>
+
+                        {/* Uploaded File Preview */}
                         <div className="flex items-center gap-3 p-4 rounded-xl border bg-background">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-8 rounded-lg border bg-muted/40 flex items-center justify-center text-xs font-bold text-foreground">
-                                    PDF
-                                </div>
+                            <div className="w-10 h-8 rounded-lg border bg-muted/40 flex items-center justify-center text-xs font-bold text-foreground">
+                                PDF
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="font-medium text-foreground text-sm truncate">{file.name}</p>
@@ -304,30 +320,24 @@ export default function UploadQuotationPage() {
                             </Button>
                         </div>
 
-                        {!uploadMutation.isPending && hasData && (
+                        {/* Vendor Details */}
+                        {!uploadMutation.isPending && hasData && vendors && (
                             <>
                                 <div className="pt-2">
                                     <div className="my-4 h-px w-full bg-border" />
                                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                                         Vendor extracted from this quotation
                                     </p>
-                                    <div className="rounded-xl border bg-indigo-50/40 px-4 py-3 flex items-center gap-3">
-                                        <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
-                                        <p className="text-sm font-medium text-indigo-900 truncate">
-                                            AI extraction complete — vendor identified, {lineItems.length} line items found
-                                        </p>
-                                    </div>
 
-                                    <div className="mt-3 rounded-xl border bg-background overflow-hidden">
+                                    <div className="rounded-xl border bg-background overflow-hidden">
                                         <div className="p-4 flex items-start gap-3">
                                             <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-sm font-semibold text-foreground">
-                                                {vendors?.company_name
+                                                {vendors.company_name
                                                     ? vendors.company_name
-                                                        .trim()
                                                         .split(' ')
                                                         .filter(Boolean)
                                                         .slice(0, 2)
-                                                        .map((p:any) => p[0])
+                                                        .map((p: string) => p[0])
                                                         .join('')
                                                         .toUpperCase()
                                                     : 'V'}
@@ -336,14 +346,14 @@ export default function UploadQuotationPage() {
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div className="min-w-0">
                                                         <h4 className="font-semibold text-sm truncate text-foreground">
-                                                            {vendors?.company_name ?? 'Vendor'}
+                                                            {vendors.company_name ?? 'Vendor'}
                                                         </h4>
                                                         <p className="text-xs text-muted-foreground mt-1 truncate">
-                                                            {[vendors?.city, vendors?.state].filter(Boolean).join(', ')}
+                                                            {[vendors.address, vendors.city, vendors.state, vendors.pincode].filter(Boolean).join(', ')}
                                                         </p>
                                                     </div>
                                                     <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0 text-xs font-medium">
-                                                        {vendors?.vendor_created ? 'Existing vendor' : 'New vendor'}
+                                                        {vendors.is_new ? 'New vendor' : 'Existing vendor'}
                                                     </Badge>
                                                 </div>
                                             </div>
@@ -352,21 +362,23 @@ export default function UploadQuotationPage() {
                                         <div className="grid grid-cols-3 border-t">
                                             <div className="p-4">
                                                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">GSTIN</p>
-                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.gst_number ?? '—'}</p>
+                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors.gst_number ?? '—'}</p>
                                             </div>
                                             <div className="p-4 border-l">
-                                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">State</p>
-                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.state ?? '—'}</p>
+                                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Email</p>
+                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors.contact_email ?? '—'}</p>
                                             </div>
                                             <div className="p-4 border-l">
                                                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Phone</p>
-                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.contact_phone ?? '—'}</p>
+                                                <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors.contact_phone ?? '—'}</p>
                                             </div>
                                         </div>
 
                                         <div className="border-t p-4">
-                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Email</p>
-                                            <p className="text-sm mt-1 truncate text-foreground font-medium">{vendors?.contact_email ?? '—'}</p>
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Bank Details</p>
+                                            <p className="text-sm mt-1 truncate text-foreground font-medium">
+                                                {vendors.bank_name ? `${vendors.bank_name} | A/C: ${vendors.bank_account ?? '—'} | IFSC: ${vendors.bank_ifsc ?? '—'}` : '—'}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -384,12 +396,13 @@ export default function UploadQuotationPage() {
         </Card>
     );
 
-
     // ── STEP 2: Review Items ────────────────────────────────────────
     const StepReviewItems = () => {
         const allCount = lineItems?.length;
         const newCount = lineItems?.filter((i: any) => i.is_new).length;
         const duplicatesCount = lineItems.filter((i: any) => i.is_duplicate).length;
+
+
 
         const filteredItems = lineItems.filter((item: any) => {
             if (filters.new === 'true') return item.is_new;
@@ -420,7 +433,7 @@ export default function UploadQuotationPage() {
 
         const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0);
         const subtotal = lineItems?.reduce(
-            (sum:any, item:any) => sum + (Number(item.quantity) || 0) * (Number(item.item_price) || 0),
+            (sum: any, item: any) => sum + (Number(item.quantity) || 0) * (Number(item.item_price) || 0),
             0
         );
         const taxTotal = (subtotal * combinedTaxRate) / 100;
@@ -435,42 +448,42 @@ export default function UploadQuotationPage() {
                         <button
                             onClick={() => handleFilterChange('all', 'true')}
                             className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
-                    ${filters.all === 'true'
+                            ${filters.all === 'true'
                                     ? 'bg-foreground text-background border-foreground'
                                     : 'bg-background hover:bg-muted border-border text-muted-foreground'
                                 }`}
                         >
                             All
                             <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
-                    ${filters.all === 'true' ? 'bg-background/20 text-background' : 'bg-muted text-muted-foreground'}`}>
+                            ${filters.all === 'true' ? 'bg-background/20 text-background' : 'bg-muted text-muted-foreground'}`}>
                                 {allCount}
                             </span>
                         </button>
                         <button
                             onClick={() => handleFilterChange('new', 'true')}
                             className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
-                    ${filters.new === 'true'
+                            ${filters.new === 'true'
                                     ? 'bg-blue-600 text-white border-blue-600'
                                     : 'bg-background hover:bg-muted border-border text-muted-foreground'
                                 }`}
                         >
                             New
                             <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
-                    ${filters.new === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+                            ${filters.new === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
                                 {newCount}
                             </span>
                         </button>
                         <button
                             onClick={() => handleFilterChange('duplicates', 'true')}
                             className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors
-                    ${filters.duplicates === 'true'
+                            ${filters.duplicates === 'true'
                                     ? 'bg-amber-500 text-white border-amber-500'
                                     : 'bg-background hover:bg-muted border-border text-muted-foreground'
                                 }`}
                         >
                             Duplicates
                             <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px]
-                    ${filters.duplicates === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+                            ${filters.duplicates === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
                                 {duplicatesCount}
                             </span>
                         </button>
@@ -488,115 +501,121 @@ export default function UploadQuotationPage() {
 
                 {/* Items Table */}
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm min-w-[600px]">
-                        <thead>
-                            <tr className="border-b bg-muted/10">
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Item</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
-                                <th className="text-right py-2 px-3 font-medium text-muted-foreground">Rate</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">UOM</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Master Item</th>
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Create New Item</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredItems.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="py-10 text-center text-muted-foreground text-sm">
-                                        No items match the selected filter.
-                                    </td>
+                    <div className="max-h-[550px] overflow-y-auto">
+                        <table className="w-full text-sm min-w-[600px]">
+                            <thead>
+                                <tr className="border-b bg-muted/10">
+                                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Item</th>
+                                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
+                                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Rate</th>
+                                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">UOM</th>
+                                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Master Item</th>
+                                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Create New Item</th>
                                 </tr>
-                            ) : filteredItems.map((item: any) => {
-                                const options = [
-                                    ...item.suggestions.map((s: any) => ({
-                                        value: String(s.master_item_id),
-                                        label: `${s.code} - ${s.description}`,
-                                        group: 'Matched Suggestions'
-                                    })),
-                                    ...masterItems.map((m: any) => ({
-                                        value: String(m.id),
-                                        label: `${m.code} - ${m.description}`,
-                                        group: 'All Items'
-                                    })),
-                                ];
-
-                                return (
-                                    <tr key={item.item_code || item.item_name} className="border-b hover:bg-muted/30 transition-colors">
-                                        <td className="py-2 px-3">
-                                            <div className="flex items-center gap-2">
-                                                <p className="font-medium text-gray-900 truncate">{item.item_name}</p>
-                                                {item.is_new && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">New</Badge>}
-                                                {item.is_duplicate && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Duplicate</Badge>}
-                                            </div>
-                                        </td>
-
-                                        <td className="py-2 px-3 text-gray-700 truncate">{item.item_code ?? item.suggestions?.[0]?.code ?? '—'}</td>
-                                        <td className="py-2 px-3 text-gray-700 text-right">{item.item_price}</td>
-                                        <td className="py-2 px-3 text-gray-700">{item.unit_of_measure}</td>
-
-                                        <td className="py-3 px-3">
-                                            {item.createNew ? (
-                                                <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-sm text-muted-foreground">
-                                                    New item will be created
-                                                </div>
-                                            ) : (
-                                                <div className="relative">
-                                                    {item.suggestions.length > 0 && (
-                                                        <Badge className="absolute -top-3 -right-3 z-10" variant="warning">
-                                                            {item.suggestions.length}
-                                                        </Badge>
-                                                    )}
-                                                    <Combobox
-                                                        options={options}
-                                                        value={item.selectedMasterId || ''}
-                                                        onValueChange={(value) =>
-                                                            setLineItems((prev: any) =>
-                                                                prev.map((i: any) => i.item_code === item.item_code ? { ...i, selectedMasterId: value } : i)
-                                                            )
-                                                        }
-                                                        placeholder="Select master item..."
-                                                        className="w-full"
-                                                    />
-                                                </div>
-                                            )}
-                                        </td>
-
-                                        <td className="py-3 px-3 flex justify-center">
-                                            <Checkbox
-                                                id={`create-new-${item.item_code}`}
-                                                checked={item.createNew || false}
-                                                onCheckedChange={(checked) =>
-                                                    setLineItems((prev: any) =>
-                                                        prev.map((i: any) => i.item_code === item.item_code ? { ...i, createNew: Boolean(checked) } : i)
-                                                    )
-                                                }
-                                            />
+                            </thead>
+                            <tbody>
+                                {filteredItems.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="py-10 text-center text-muted-foreground text-sm">
+                                            No items match the selected filter.
                                         </td>
                                     </tr>
-                                );
-                            })}
-                        </tbody>
+                                ) : filteredItems.map((item: any) => {
+                                    const options = [
+                                        ...item.suggestions.map((s: any) => ({
+                                            value: String(s.master_item_id),
+                                            label: `${s.code} - ${s.description}`,
+                                            group: 'Matched Suggestions'
+                                        })),
+                                        ...masterItems.map((m: any) => ({
+                                            value: String(m.id),
+                                            label: `${m.code} - ${m.description}`,
+                                            group: 'All Items'
+                                        })),
+                                    ];
 
-                        {/* Totals */}
-                        <tfoot className="border-t-2">
-                            <tr>
-                                <td colSpan={5} className="text-right py-2 px-3 font-medium">Subtotal:</td>
-                                <td className="py-2 px-3 font-medium text-right">₹ {subtotal.toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr>
-                                <td colSpan={5} className="text-right py-2 px-3 font-medium">Tax ({combinedTaxRate}%):</td>
-                                <td className="py-2 px-3 font-medium text-right">₹ {taxTotal.toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr>
-                                <td colSpan={5} className="text-right py-2 px-3 font-medium">Discount:</td>
-                                <td className="py-2 px-3 font-medium text-right">₹ 0</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td colSpan={5} className="text-right py-2 px-3 font-semibold text-base">Total:</td>
-                                <td className="py-2 px-3 font-bold text-right text-base">₹ {grandTotal.toLocaleString('en-IN')}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                                    return (
+                                        <tr key={item.item_code || item.item_name} className="border-b hover:bg-muted/30 transition-colors">
+                                            <td className="py-2 px-3">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium text-gray-900 truncate">{item.item_name}</p>
+                                                    {item.is_new && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">New</Badge>}
+                                                    {item.is_duplicate && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Duplicate</Badge>}
+                                                </div>
+                                            </td>
+
+                                            <td className="py-2 px-3 text-gray-700 truncate">{item.item_code ?? item.suggestions?.[0]?.code ?? '—'}</td>
+                                            <td className="py-2 px-3 text-gray-700 text-right">{item.item_price}</td>
+                                            <td className="py-2 px-3 text-gray-700">{item.unit_of_measure}</td>
+
+                                            <td className="py-3 px-3">
+                                                {item.createNew ? (
+                                                    <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-sm text-muted-foreground">
+                                                        New item will be created
+                                                    </div>
+                                                ) : (
+                                                    <div className="relative">
+                                                        {item.suggestions.length > 0 && (
+                                                            <Badge className="absolute -top-3 -right-3 z-10" variant="warning">
+                                                                {item.suggestions.length}
+                                                            </Badge>
+                                                        )}
+                                                        <Combobox
+                                                            options={options}
+                                                            value={item.selectedMasterId || ''}
+                                                            onValueChange={(value) =>
+                                                                setLineItems((prev: any) =>
+                                                                    prev.map((i: any) =>
+                                                                        i.item_code === item.item_code ? { ...i, selectedMasterId: value } : i
+                                                                    )
+                                                                )
+                                                            }
+                                                            placeholder="Select master item..."
+                                                            className="w-full"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </td>
+
+                                            <td className="py-3 px-3 flex justify-center">
+                                                <Checkbox
+                                                    id={`create-new-${item.item_code}`}
+                                                    checked={item.createNew || false}
+                                                    onCheckedChange={(checked) =>
+                                                        setLineItems((prev: any) =>
+                                                            prev.map((i: any) =>
+                                                                i.item_code === item.item_code ? { ...i, createNew: Boolean(checked) } : i
+                                                            )
+                                                        )
+                                                    }
+                                                />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+
+                            {/* Totals */}
+                            <tfoot className="border-t-2">
+                                <tr>
+                                    <td colSpan={5} className="text-right py-2 px-3 font-medium">Subtotal:</td>
+                                    <td className="py-2 px-3 font-medium text-right">₹ {subtotal.toLocaleString('en-IN')}</td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={5} className="text-right py-2 px-3 font-medium">Tax ({combinedTaxRate}%):</td>
+                                    <td className="py-2 px-3 font-medium text-right">₹ {taxTotal.toLocaleString('en-IN')}</td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={5} className="text-right py-2 px-3 font-medium">Discount:</td>
+                                    <td className="py-2 px-3 font-medium text-right">₹ 0</td>
+                                </tr>
+                                <tr className="border-t">
+                                    <td colSpan={5} className="text-right py-2 px-3 font-semibold text-base">Total:</td>
+                                    <td className="py-2 px-3 font-bold text-right text-base">₹ {grandTotal.toLocaleString('en-IN')}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
 
                 {/* Footer nav */}
@@ -640,7 +659,7 @@ export default function UploadQuotationPage() {
         };
 
         const subtotal = items.reduce(
-            (sum:any, item:any) => sum + (Number(item.quantity) || 1) * (Number(item.item_price) || 0),
+            (sum: any, item: any) => sum + (Number(item.quantity) || 1) * (Number(item.item_price) || 0),
             0
         );
 
@@ -717,7 +736,7 @@ export default function UploadQuotationPage() {
                         </thead>
 
                         <tbody>
-                            {items.map((item:any, index:any) => {
+                            {items.map((item: any, index: any) => {
                                 const qty = Number(item.quantity) || 1;
                                 const rate = Number(item.item_price) || 0;
                                 const amount = qty * rate;
