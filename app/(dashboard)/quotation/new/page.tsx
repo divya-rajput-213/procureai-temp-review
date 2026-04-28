@@ -243,8 +243,9 @@ export default function UploadQuotationPage() {
         },
     })
 
-    // Set default selectedMasterId for items with suggestions
+    //  useEffect for default selectedMasterId
     useEffect(() => {
+        if (lineItems.length === 0) return;
         setLineItems((prev: any) => {
             let updated = false;
             const newItems = prev.map((item: any) => {
@@ -254,10 +255,9 @@ export default function UploadQuotationPage() {
                 }
                 return item;
             });
-            // Only return new array if at least one item changed, to prevent unnecessary rerenders
             return updated ? newItems : prev;
         });
-    }, []); // empty dependency array → runs only once after mount
+    }, [lineItems.length]); // runs when items are first loaded (length goes 0 → N)
 
     // ── STEP 1: Upload ──────────────────────────────────────────────
     const StepUpload = () => (
