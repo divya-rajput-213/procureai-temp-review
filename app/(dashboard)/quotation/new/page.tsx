@@ -713,27 +713,37 @@ export default function UploadQuotationPage() {
 
                                         <td className="py-2 px-3 text-gray-700">{item.uom}</td>
                                         <td className="py-3 px-3">
-                                            <div className="relative">
-                                                {item.suggestions.length > 0 && (
-                                                    <Badge className="absolute -top-3 -right-3 z-10" variant="warning">
-                                                        {item.suggestions.length}
-                                                    </Badge>
-                                                )}
-                                                <Combobox
-                                                    options={options}
-                                                    value={item.selectedMasterId || ''}
-                                                    onValueChange={(value) =>
-                                                        setLineItems((prev) =>
-                                                            prev.map((i) =>
-                                                                i.id === item.id ? { ...i, selectedMasterId: value } : i
+                                            {item.createNew ? (
+                                                <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-sm text-muted-foreground">
+                                                    New item will be created
+                                                </div>
+                                            ) : (
+                                                <div className="relative">
+                                                    {item.suggestions.length > 0 && (
+                                                        <Badge className="absolute -top-3 -right-3 z-10" variant="warning">
+                                                            {item.suggestions.length}
+                                                        </Badge>
+                                                    )}
+
+                                                    <Combobox
+                                                        options={options}
+                                                        value={item.selectedMasterId || ''}
+                                                        onValueChange={(value) =>
+                                                            setLineItems((prev) =>
+                                                                prev.map((i) =>
+                                                                    i.id === item.id
+                                                                        ? { ...i, selectedMasterId: value }
+                                                                        : i
+                                                                )
                                                             )
-                                                        )
-                                                    }
-                                                    placeholder="Select master item..."
-                                                    className="w-full"
-                                                />
-                                            </div>
+                                                        }
+                                                        placeholder="Select master item..."
+                                                        className="w-full"
+                                                    />
+                                                </div>
+                                            )}
                                         </td>
+
                                         <td className="py-3 px-3">
                                             <div className="flex justify-center gap-2">
                                                 <Checkbox
@@ -741,25 +751,17 @@ export default function UploadQuotationPage() {
                                                     checked={item.createNew || false}
                                                     onCheckedChange={(checked) =>
                                                         setLineItems((prev) =>
-                                                            prev.map((i) =>
-                                                                i.id === item.id
-                                                                    ? {
-                                                                        ...i,
-                                                                        createNew: Boolean(checked),
-                                                                        selectedMasterId: checked ? 'create_new' : i.selectedMasterId,
-                                                                    }
-                                                                    : i
-                                                            )
+                                                          prev.map((i) =>
+                                                            i.id === item.id
+                                                              ? {
+                                                                  ...i,
+                                                                  createNew: Boolean(checked),
+                                                                }
+                                                              : i
+                                                          )
                                                         )
-                                                    }
+                                                      }                                                    
                                                 />
-
-                                                {/* <label
-                                                    htmlFor={`create-new-${item.id}`}
-                                                    className="text-sm text-gray-700 whitespace-nowrap cursor-pointer"
-                                                >
-                                                    Create New Item
-                                                </label> */}
                                             </div>
                                         </td>
                                     </tr>
