@@ -358,7 +358,7 @@ export default function UploadQuotationPage() {
                             Drop the quotation file here
                         </h3>
                         <p className="text-sm text-muted-foreground mb-5">
-                            PDF, image (PNG/JPG), Excel — any layout. AI extracts everything.
+                            PDF — any layout. AI extracts everything.
                         </p>
                         <Button variant="outline" type="button" onClick={(e) => { e.stopPropagation(); document.getElementById('quotation-file')?.click() }}>
                             Browse file
@@ -452,13 +452,6 @@ export default function UploadQuotationPage() {
                                         </div>
 
                                         <div className="relative h-9">
-                                            <button
-                                                type="button"
-                                                className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full border bg-background flex items-center justify-center"
-                                                aria-label="Expand"
-                                            >
-                                                <ChevronRight className="w-4 h-4 rotate-90 text-muted-foreground" />
-                                            </button>
                                         </div>
                                     </div>
                                 </div>
