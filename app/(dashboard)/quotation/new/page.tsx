@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, FileText, User, MapPin, Phone, Mail, Building, CheckCircle, AlertCircle, ArrowLeft, ChevronRight, Package, ClipboardList, Loader2 } from 'lucide-react'
+import { Upload, User, MapPin, Phone, Mail, Building, CheckCircle, AlertCircle, ArrowLeft, ChevronRight, Package, ClipboardList, Loader2 } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Combobox } from '@/components/ui/combobox'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldContent, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { useSettingsStore } from '@/lib/stores/settings.store'
 
 type Suggestion = {
     master_item_id: number
@@ -36,6 +36,9 @@ type LineItem = {
     selectedMasterId: string | null
     createNew?: boolean
     item_price: number
+    quantity?: number
+    isNew?: boolean
+    isDuplicate?: boolean
 }
 
 type ExtractedVendor = {
@@ -133,7 +136,10 @@ function mapLineItemsFromQuotationResponse(response: any): LineItem[] {
                 suggestions,
                 selectedMasterId: hasMatch ? String(suggestions[0].master_item_id) : 'ITEM - 123456789',
                 createNew: false,
-                item_price: toNumber(item?.item_price) ?? 0
+                item_price: toNumber(item?.item_price) ?? 0,
+                quantity: toNumber(item?.quantity) ?? 1,
+                isNew: item?.is_new ?? false,
+                isDuplicate: item?.is_duplicate ?? false,
             }
         })
         .filter((item: LineItem | null): item is LineItem => item !== null)
@@ -154,6 +160,7 @@ export default function UploadQuotationPage() {
     const [vendors, setVendors] = useState<ExtractedVendor[]>([])
     const [dragging, setDragging] = useState(false)
     const [errorMessage, setErrorMessage] = useState('')
+    const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
 
     const { data: masterItems = [] } = useQuery({
         queryKey: ['master-items'],
@@ -266,11 +273,6 @@ export default function UploadQuotationPage() {
     const handleDragLeave = () => setDragging(false)
     const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setDragging(false); addFile(e.dataTransfer.files) }
 
-    const handleUpload = () => {
-        if (!file || uploadMutation.isPending) return
-        uploadMutation.mutate(file)
-    }
-
     // Called when user clicks Next on any step
     const handleNextClick = () => {
         setPendingStep(currentStep + 1)
@@ -280,13 +282,13 @@ export default function UploadQuotationPage() {
     const confirmAndProceed = () => {
         setShowConfirmModal(false)
         if (pendingStep === 4) {
-            // final submit
-            submitMutation.mutate()
+            saveMutation.mutate()
         } else if (pendingStep !== null) {
             setCurrentStep(pendingStep)
         }
         setPendingStep(null)
     }
+
 
     const cancelConfirm = () => {
         setShowConfirmModal(false)
@@ -309,14 +311,68 @@ export default function UploadQuotationPage() {
             description: 'The quotation has been extracted. You will now review the line items and map them to master items.',
         }
         if (currentStep === 2) return {
-            title: 'Proceed to Summary?',
-            description: 'Please confirm you have reviewed all items and their mappings before proceeding to the summary.',
+            title: 'Submit Quotation?',
+            description: 'Once submitted, these items cannot be changed. Please verify that all selections are correct.',
         }
         return {
             title: 'Submit Quotation?',
             description: 'Once submitted, these items cannot be changed. Please verify that all selections are correct.',
         }
     }
+    const buildSavePayload = () => {
+        return {
+            vendor: {
+                company_name: vendors?.[0]?.name,
+                contact_name: vendors?.[0]?.contactName,
+                contact_email: vendors?.[0]?.contactEmail,
+                contact_phone: vendors?.[0]?.contactPhone,
+                city: vendors?.[0]?.city,
+                state: vendors?.[0]?.state,
+                gst_number: vendors?.[0]?.gstNumber,
+            },
+            items: lineItems.map((item) => ({
+                item_code: item.code,
+                item_name: item.name,
+                item_price: item.item_price,
+                quantity: item.quantity || 1,
+                unit_of_measure: item.uom,
+                hsn_code: item.suggestions?.[0]?.hsn_code || null,
+
+                create_new_item: item.createNew || item.selectedMasterId === 'create_new',
+
+                // optional (if mapping)
+                master_item_id:
+                    item.createNew || item.selectedMasterId === 'create_new'
+                        ? null
+                        : Number(item.selectedMasterId),
+
+                suggestions: item.suggestions || [],
+            })),
+        }
+    }
+    const saveMutation = useMutation({
+        mutationFn: async () => {
+            const payload = buildSavePayload()
+            return apiClient.post('/api/v1/quotations/save/', payload)
+        },
+        onSuccess: () => {
+            toast({
+                title: 'Quotation saved successfully',
+            })
+            router.push('/quotation') // optional redirect
+        },
+        onError: (error: any) => {
+            const message =
+                error?.response?.data?.message || 'Failed to save quotation'
+            setErrorMessage(message)
+
+            toast({
+                title: 'Error',
+                description: message,
+                variant: 'destructive',
+            })
+        },
+    })
 
     // Step indicator
     const StepIndicator = () => (
@@ -397,9 +453,9 @@ export default function UploadQuotationPage() {
                             <Badge variant="secondary" className="text-xs">
                                 {uploadMutation.isPending ? 'Processing...' : hasData ? 'Ready' : 'Waiting'}
                             </Badge>
-                            
+
                             <Button variant="outline" onClick={() => setFile(null)} className="shrink-0">
-                                Remove 
+                                Remove
                             </Button>
                         </div>
 
@@ -484,13 +540,15 @@ export default function UploadQuotationPage() {
     // ── STEP 2: Review Items ────────────────────────────────────────
     const StepReviewItems = () => {
         const allCount = lineItems.length
-        const newCount = lineItems.filter(i => !i.hasMatch).length
-        const duplicatesCount = lineItems.filter(i => i.hasMatch && i.suggestions.length > 1).length
+        const newCount = lineItems.filter(i => i.isNew).length
+        const duplicatesCount = lineItems.filter(i => i.isDuplicate).length
+
 
         const filteredItems = lineItems.filter(item => {
-            if (filters.new === 'true') return !item.hasMatch
-            if (filters.duplicates === 'true') return item.hasMatch && item.suggestions.length > 1
+            if (filters.new === 'true') return item.isNew
+            if (filters.duplicates === 'true') return item.isDuplicate
             return true
+
         })
 
         const handleExport = () => {
@@ -509,6 +567,14 @@ export default function UploadQuotationPage() {
             a.href = url; a.download = 'quotation-items.csv'; a.click()
             URL.revokeObjectURL(url)
         }
+        const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0)
+        const subtotal = lineItems.reduce(
+            (sum, item) =>
+                sum + (Number(item.quantity) || 0) * (Number(item.item_price) || 0),
+            0
+        )
+        const taxTotal = (subtotal * combinedTaxRate) / 100
+        const grandTotal = subtotal + taxTotal
 
         return (
             <Card className="overflow-hidden">
@@ -617,13 +683,29 @@ export default function UploadQuotationPage() {
                                 return (
                                     <tr key={item.id} className="border-b hover:bg-muted/30 transition-colors">
                                         <td className="py-2 px-3">
-                                            <p className="font-medium text-gray-900 truncate">{item.name}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-medium text-gray-900 truncate">{item.name}</p>
+
+                                                {item.isNew && (
+                                                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                                        New
+                                                    </Badge>
+                                                )}
+
+                                                {item.isDuplicate && (
+                                                    <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">
+                                                        Duplicate
+                                                    </Badge>
+                                                )}
+                                            </div>
+
                                             {item.suggestions.length > 0 && (
                                                 <p className="text-xs text-gray-500 truncate">
                                                     {item.suggestions[0].description}
                                                 </p>
                                             )}
                                         </td>
+
                                         <td className="py-2 px-3 text-gray-700 truncate">{item.code}</td>
                                         <td className="py-2 px-3 text-gray-700 text-right">
                                             {item.item_price}
@@ -653,11 +735,25 @@ export default function UploadQuotationPage() {
                                             </div>
                                         </td>
                                         <td className="py-3 px-3">
-                                        <div className="flex justify-center gap-2">
-                                        <Checkbox
+                                            <div className="flex justify-center gap-2">
+                                                <Checkbox
                                                     id={`create-new-${item.id}`}
-                                                    name={`create-new-${item.id}`}
+                                                    checked={item.createNew || false}
+                                                    onCheckedChange={(checked) =>
+                                                        setLineItems((prev) =>
+                                                            prev.map((i) =>
+                                                                i.id === item.id
+                                                                    ? {
+                                                                        ...i,
+                                                                        createNew: Boolean(checked),
+                                                                        selectedMasterId: checked ? 'create_new' : i.selectedMasterId,
+                                                                    }
+                                                                    : i
+                                                            )
+                                                        )
+                                                    }
                                                 />
+
                                                 {/* <label
                                                     htmlFor={`create-new-${item.id}`}
                                                     className="text-sm text-gray-700 whitespace-nowrap cursor-pointer"
@@ -674,22 +770,42 @@ export default function UploadQuotationPage() {
                         {/* ── Totals ── */}
                         <tfoot className="border-t-2">
                             <tr>
-                                <td colSpan={4} className="text-right py-2 px-3 font-medium text-gray-900">Subtotal:</td>
-                                <td className="py-2 px-3 font-medium text-gray-900 text-right">62,990</td>
+                                <td colSpan={5} className="text-right py-2 px-3 font-medium text-gray-900">
+                                    Subtotal:
+                                </td>
+                                <td className="py-2 px-3 font-medium text-gray-900 text-right">
+                                    ₹ {subtotal.toLocaleString('en-IN')}
+                                </td>
                             </tr>
+
                             <tr>
-                                <td colSpan={4} className="text-right py-2 px-3 font-medium text-gray-900">GST (18%):</td>
-                                <td className="py-2 px-3 font-medium text-gray-900 text-right">11,338</td>
+                                <td colSpan={5} className="text-right py-2 px-3 font-medium text-gray-900">
+                                    Tax ({combinedTaxRate}%):
+                                </td>
+                                <td className="py-2 px-3 font-medium text-gray-900 text-right">
+                                    ₹ {taxTotal.toLocaleString('en-IN')}
+                                </td>
                             </tr>
+
                             <tr>
-                                <td colSpan={4} className="text-right py-2 px-3 font-medium text-gray-900">Discount:</td>
-                                <td className="py-2 px-3 font-medium text-gray-900 text-right">-0</td>
+                                <td colSpan={5} className="text-right py-2 px-3 font-medium text-gray-900">
+                                    Discount:
+                                </td>
+                                <td className="py-2 px-3 font-medium text-gray-900 text-right">
+                                    ₹ 0
+                                </td>
                             </tr>
+
                             <tr className="border-t">
-                                <td colSpan={4} className="text-right py-2 px-3 font-semibold text-gray-900 text-base">Total:</td>
-                                <td className="py-2 px-3 font-bold text-gray-900 text-right text-base">74,328</td>
+                                <td colSpan={5} className="text-right py-2 px-3 font-semibold text-gray-900 text-base">
+                                    Total:
+                                </td>
+                                <td className="py-2 px-3 font-bold text-gray-900 text-right text-base">
+                                    ₹ {grandTotal.toLocaleString('en-IN')}
+                                </td>
                             </tr>
                         </tfoot>
+
                     </table>
                 </div>
 
@@ -712,6 +828,7 @@ export default function UploadQuotationPage() {
     const StepSummary = () => {
         const newItems = lineItems.filter(i => i.createNew || i.selectedMasterId === 'create_new')
         const mappedItems = lineItems.filter(i => !i.createNew && i.selectedMasterId && i.selectedMasterId !== 'create_new')
+        const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0)
 
         return (
             <div className="space-y-4">
@@ -805,7 +922,7 @@ export default function UploadQuotationPage() {
                                 </tbody>
                                 <tfoot>
                                     <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">Subtotal:</td><td className="py-2 px-3 font-medium text-gray-900">62,990</td></tr>
-                                    <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">GST (18%):</td><td className="py-2 px-3 font-medium text-gray-900">11,338</td></tr>
+                                    <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">Tax ({combinedTaxRate}%):</td><td className="py-2 px-3 font-medium text-gray-900">11,338</td></tr>
                                     <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900">Discount:</td><td className="py-2 px-3 font-medium text-gray-900">-0</td></tr>
                                     <tr><td colSpan={3} className="text-right py-2 px-3 font-medium text-gray-900 text-base">Total:</td><td className="py-2 px-3 font-bold text-gray-900 text-base">74,328</td></tr>
                                 </tfoot>
