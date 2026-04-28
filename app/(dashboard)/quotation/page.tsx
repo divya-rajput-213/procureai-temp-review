@@ -11,6 +11,7 @@ import { formatDate } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import UploadQuotationModal from './components/UploadQuotationModal'
+import Link from 'next/link'
 
 type Quotation = {
     id: number | string
@@ -137,10 +138,12 @@ export default function QuotationPage() {
                 </div>
 
                 {/* Upload Button */}
-                <Button type="button" className="gap-2 shrink-0" onClick={() => setIsUploadQuotationModalOpen(true)}>
+                <Link href="/quotation/new">
+                <Button type="button" className="gap-2 shrink-0">
                     <Plus className="w-4 h-4" />
                     Upload Quotation
                 </Button>
+                </Link>
             </div>
 
             {/* Table */}
