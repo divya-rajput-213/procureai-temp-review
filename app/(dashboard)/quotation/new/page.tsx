@@ -65,7 +65,7 @@ export default function UploadQuotationPage() {
             })
         }, []
     )
-
+    // Mutation to upload quotation PDF and extract data (step 0 → step 1)
     const uploadMutation = useMutation({
         mutationFn: async (selectedFile: File) => {
             const formData = new FormData()
@@ -93,7 +93,7 @@ export default function UploadQuotationPage() {
             setErrorMessage(message)
         },
     })
-
+    // save vendor details (step 1 → step 2)
     const vendorSaveMutation = useMutation({
         mutationFn: async () => {
             const { data } = await apiClient.post('/quotations/vendor-save/', {
@@ -137,6 +137,7 @@ export default function UploadQuotationPage() {
             toast({ title: 'Error', description: detail, variant: 'destructive' })
         },
     })
+    // save quotation with line items (step 2 → step 3)
     const quotationSaveMutation = useMutation({
         mutationFn: async () => {
             const { data } = await apiClient.post('/quotations/save/', {
@@ -269,61 +270,6 @@ export default function UploadQuotationPage() {
             description: 'Once submitted, these items cannot be changed. Please verify that all selections are correct.',
         }
     }
-    const buildSavePayload = () => {
-        return {
-            vendor: {
-                company_name: vendors?.company_name,
-                contact_name: vendors?.contact_name,
-                contact_email: vendors?.contact_email,
-                contact_phone: vendors?.contact_phone,
-                city: vendors?.city,
-                state: vendors?.state,
-                gst_number: vendors?.gstNumber,
-            },
-            items: lineItems.map((item: any) => ({
-                item_code: item.code,
-                item_name: item.name,
-                item_price: item.item_price,
-                quantity: item.quantity || 1,
-                unit_of_measure: item.uom,
-                hsn_code: item.suggestions?.[0]?.hsn_code || null,
-
-                create_new_item: item.createNew || item.selectedMasterId === 'create_new',
-
-                // optional (if mapping)
-                master_item_id:
-                    item.createNew || item.selectedMasterId === 'create_new'
-                        ? null
-                        : Number(item.selectedMasterId),
-
-                suggestions: item.suggestions || [],
-            })),
-        }
-    }
-    const saveMutation = useMutation({
-        mutationFn: async () => {
-            const payload = buildSavePayload()
-            return apiClient.post('/api/v1/quotations/save/', payload)
-        },
-        onSuccess: () => {
-            toast({
-                title: 'Quotation saved successfully',
-            })
-            router.push('/quotation') // optional redirect
-        },
-        onError: (error: any) => {
-            const message =
-                error?.response?.data?.message || 'Failed to save quotation'
-            setErrorMessage(message)
-
-            toast({
-                title: 'Error',
-                description: message,
-                variant: 'destructive',
-            })
-        },
-    })
-
     //  useEffect for default selectedMasterId
     useEffect(() => {
         if (lineItems.length === 0) return;
