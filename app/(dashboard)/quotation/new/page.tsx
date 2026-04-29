@@ -41,7 +41,7 @@ export default function UploadQuotationPage() {
     const [quotationSaved, setQuotationSaved] = useState(false)
     const [savedQuotationData, setSavedQuotationData] = useState<any>(null)
     const [showExportModal, setShowExportModal] = useState(false)
-    console.log(vendors, 'quotation', quotation)
+
     // ── Change Vendor Modal ──────────────────────────────────────────
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
