@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, AlertCircle, ArrowLeft, ChevronRight, Loader2, CheckCircle2, Download } from 'lucide-react'
+import { Upload, AlertCircle, ArrowLeft, ChevronRight, Loader2, CheckCircle2, Download, Pencil, Search } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -41,10 +41,40 @@ export default function UploadQuotationPage() {
     const [quotationSaved, setQuotationSaved] = useState(false)
     const [savedQuotationData, setSavedQuotationData] = useState<any>(null)
     const [showExportModal, setShowExportModal] = useState(false)
+    console.log(vendors, 'quotation', quotation)
+    // ── Change Vendor Modal ──────────────────────────────────────────
+    const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
+    const [vendorSearch, setVendorSearch] = useState('')
+
+    // Fetch ALL approved vendors once — filter client-side by search string
+    const { data: allApprovedVendors = [], isFetching: vendorsFetching } = useQuery({
+        queryKey: ['vendors-approved'],
+        queryFn: async () => {
+            const r = await apiClient.get('/vendors/', {
+                params: { status: 'approved' },
+            })
+            return r.data.results ?? r.data
+        },
+    })
+
+    // Client-side filter: show all when search is empty
+    const vendorSearchResults = vendorSearch.trim().length === 0
+        ? allApprovedVendors
+        : allApprovedVendors.filter((v: any) => {
+            const q = vendorSearch.toLowerCase()
+            return (
+                v.company_name?.toLowerCase().includes(q) ||
+                v.city?.toLowerCase().includes(q) ||
+                v.state?.toLowerCase().includes(q) ||
+                v.gst_number?.toLowerCase().includes(q) ||
+                v.contact_email?.toLowerCase().includes(q)
+            )
+        })
+
+    // ── Export Mutation ──────────────────────────────────────────────
     const exportMutation = useMutation({
         mutationFn: async () => {
             const newItems = lineItems.filter((i: any) => i.is_new)
-
             const payload = {
                 items: newItems.map((i: any) => ({
                     item_code: i.item_code,
@@ -59,16 +89,9 @@ export default function UploadQuotationPage() {
                 })),
                 format: 'excel',
             }
-
-            const { data } = await apiClient.post(
-                '/quotations/export-new-items/',
-                payload,
-                { responseType: 'blob' }
-            )
-
+            const { data } = await apiClient.post('/quotations/export-new-items/', payload, { responseType: 'blob' })
             return data
         },
-
         onSuccess: (blob: Blob) => {
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
@@ -76,23 +99,16 @@ export default function UploadQuotationPage() {
             a.download = 'new-items.xlsx'
             a.click()
             window.URL.revokeObjectURL(url)
-
             setShowExportModal(false)
         },
-
         onError: () => {
-            toast({
-                title: 'Export failed',
-                description: 'Unable to export new items',
-                variant: 'destructive',
-            })
+            toast({ title: 'Export failed', description: 'Unable to export new items', variant: 'destructive' })
         },
     })
-    const handleExport = () => {
-        setShowExportModal(true)
-    }
 
-    console.log('vendors', vendors)
+    const handleExport = () => setShowExportModal(true)
+
+    // ── Master Items ─────────────────────────────────────────────────
     const { data: masterItems = [] } = useQuery({
         queryKey: ['master-items'],
         queryFn: async () => {
@@ -101,6 +117,7 @@ export default function UploadQuotationPage() {
         },
     })
 
+    // ── Filter ───────────────────────────────────────────────────────
     const handleFilterChange = useCallback(
         (key: keyof FilterState, value: string) => {
             setFilters(() => {
@@ -113,6 +130,7 @@ export default function UploadQuotationPage() {
         }, []
     )
 
+    // ── Upload Mutation ──────────────────────────────────────────────
     const uploadMutation = useMutation({
         mutationFn: async (selectedFile: File) => {
             const formData = new FormData()
@@ -139,6 +157,7 @@ export default function UploadQuotationPage() {
         },
     })
 
+    // ── Vendor Save Mutation ─────────────────────────────────────────
     const vendorSaveMutation = useMutation({
         mutationFn: async () => {
             const { data } = await apiClient.post('/quotations/vendor-save/', {
@@ -158,8 +177,8 @@ export default function UploadQuotationPage() {
                     bank_ifsc: vendors?.bank_ifsc ?? null,
                     bank_name: vendors?.bank_name ?? null,
                     gst_percentage: vendors?.gst_percentage ?? null,
-                    quotation_no: quotation?.quotation_no ?? null,
-                    quotation_date: quotation?.quotation_date ?? null,
+                    quotation_no: quotation?.vendor?.quotation_no ?? null,
+                    quotation_date: quotation?.vendor?.quotation_date ?? null,
                     terms_and_conditions: vendors?.terms_and_conditions ?? [],
                     is_new: vendors?.is_new ?? true,
                 },
@@ -178,12 +197,13 @@ export default function UploadQuotationPage() {
         },
     })
 
+    // ── Quotation Save Mutation ──────────────────────────────────────
     const quotationSaveMutation = useMutation({
         mutationFn: async () => {
             const { data } = await apiClient.post('/quotations/save/', {
                 vendor_id: vendorId,
-                quotation_no: quotation?.quotation_no ?? null,
-                quotation_date: quotation?.quotation_date ?? null,
+                quotation_no: quotation?.vendor?.quotation_no ?? null,
+                quotation_date: quotation?.vendor?.quotation_date ?? null,
                 items: lineItems.map((item: any) => ({
                     item_code: item.item_code ?? item.code,
                     item_name: item.item_name,
@@ -209,6 +229,7 @@ export default function UploadQuotationPage() {
         },
     })
 
+    // ── Reset on file remove ─────────────────────────────────────────
     useEffect(() => {
         if (!file) {
             setQuotation(null)
@@ -222,6 +243,7 @@ export default function UploadQuotationPage() {
         }
     }, [file])
 
+    // ── File helpers ─────────────────────────────────────────────────
     const addFile = (incoming: FileList | null) => {
         if (!incoming || incoming.length === 0) return
         const selectedFile = incoming[0]
@@ -245,46 +267,43 @@ export default function UploadQuotationPage() {
     const handleDragLeave = () => setDragging(false)
     const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setDragging(false); addFile(e.dataTransfer.files) }
 
+    // ── Submit ───────────────────────────────────────────────────────
     const handleSubmit = () => setShowConfirmModal(true)
 
     const confirmAndSubmit = () => {
         setShowConfirmModal(false)
-        if (!vendorSaved) {
-            vendorSaveMutation.mutate(undefined, {
-                onSuccess: () => {
-                    quotationSaveMutation.mutate()
-                }
-            })
-        } else if (!quotationSaved) {
-            quotationSaveMutation.mutate()
-        }
+        quotationSaveMutation.mutate()
     }
 
+    // ── Helpers ──────────────────────────────────────────────────────
     const formatSize = (bytes: number) => {
         if (bytes < 1024) return `${bytes} B`
         if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
     }
 
+    const getVendorInitials = (name: string) =>
+        name?.split(' ').filter(Boolean).slice(0, 2).map((p: string) => p[0]).join('').toUpperCase() || 'V'
+
     const hasData = quotation && vendors && lineItems.length > 0
 
-    // Auto-set default selectedMasterId from suggestions
+    // ── Auto-set default selectedMasterId from suggestions ───────────
     useEffect(() => {
-        if (lineItems.length === 0) return;
+        if (lineItems.length === 0) return
         setLineItems((prev: any) => {
-            let updated = false;
+            let updated = false
             const newItems = prev.map((item: any) => {
                 if (!item.selectedMasterId && item.suggestions?.length > 0) {
-                    updated = true;
-                    return { ...item, selectedMasterId: String(item.suggestions[0].master_item_id) };
+                    updated = true
+                    return { ...item, selectedMasterId: String(item.suggestions[0].master_item_id) }
                 }
-                return item;
-            });
-            return updated ? newItems : prev;
-        });
-    }, [lineItems.length]);
+                return item
+            })
+            return updated ? newItems : prev
+        })
+    }, [lineItems.length])
 
-    // ── Derived totals ──────────────────────────────────────────────
+    // ── Derived totals ───────────────────────────────────────────────
     const combinedTaxRate = vendors?.gst_percentage ?? 0
     const subtotal = lineItems.reduce(
         (sum: number, item: any) => sum + (Number(item.quantity) || 1) * (Number(item.item_price) || 0),
@@ -390,97 +409,114 @@ export default function UploadQuotationPage() {
                         </div>
                     )}
                 </div>
-
-                {/* ── Section 2: Vendor + Quotation ── */}
-                {!uploadMutation.isPending && hasData && vendors && (
+              {/* ── Section 2: Vendor + Quotation ── */}
+              {!uploadMutation.isPending && hasData && vendors && (
                     <div className="mb-6">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                            Vendor extracted from this quotation
-                        </p>
+                        {/* Label row with Change Vendor button */}
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Vendor extracted from this quotation
+                            </p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1.5"
+                                onClick={() => {
+                                    setVendorSearch('')
+                                    setShowChangeVendorModal(true)
+                                }}
+                            >
+                                <Pencil className="w-3 h-3" />
+                                Change vendor
+                            </Button>
+                        </div>
 
-                        <div className="rounded-xl border bg-muted/5 p-4 flex flex-col md:flex-row gap-4">
+                        <div className="rounded-xl border bg-muted/10 p-4 flex flex-col md:flex-row gap-4">
                             {/* Left: Vendor Details */}
                             <div className="flex-1 min-w-0">
+                                {/* Avatar + name row */}
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-foreground flex-shrink-0">
-                                        {vendors.company_name
-                                            ? vendors.company_name
-                                                .split(' ')
-                                                .filter(Boolean)
-                                                .slice(0, 2)
-                                                .map((p: string) => p[0])
-                                                .join('')
-                                                .toUpperCase()
-                                            : 'V'}
+                                        {getVendorInitials(vendors.company_name)}
                                     </div>
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2">
-                                            <h4 className="font-semibold text-sm truncate text-foreground">
+                                            <h4 className="font-semibold text-sm text-foreground">
                                                 {vendors.company_name ?? 'Vendor'}
                                             </h4>
                                             <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0 text-xs font-medium">
                                                 {vendors.is_new ? 'New vendor' : 'Existing vendor'}
                                             </Badge>
                                         </div>
-                                        <p className="text-xs text-muted-foreground truncate">
+                                        <p className="text-xs text-muted-foreground">
                                             {[vendors.address, vendors.city, vendors.state, vendors.pincode].filter(Boolean).join(', ')}
                                         </p>
                                     </div>
-
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
+                                {/* 2-col grid — compact, no wasted space */}
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs text-muted-foreground">
                                     <div>
-                                        <p className="uppercase font-semibold">GSTIN</p>
-                                        <p className="text-sm font-medium truncate">{vendors.gst_number ?? '—'}</p>
+                                        <p className="uppercase font-semibold">Contact</p>
+                                        <p className="text-sm font-medium  text-foreground">{vendors.contact_name ?? '—'}</p>
                                     </div>
                                     <div>
                                         <p className="uppercase font-semibold">Email</p>
-                                        <p className="text-sm font-medium truncate">{vendors.contact_email ?? '—'}</p>
+                                        <p className="text-sm font-medium  text-foreground">{vendors.contact_email ?? '—'}</p>
                                     </div>
                                     <div>
                                         <p className="uppercase font-semibold">Phone</p>
-                                        <p className="text-sm font-medium truncate">{vendors.contact_phone ?? '—'}</p>
+                                        <p className="text-sm font-medium  text-foreground">{vendors.contact_phone ?? '—'}</p>
                                     </div>
                                     <div>
+                                        <p className="uppercase font-semibold">GSTIN</p>
+                                        <p className="text-sm font-medium  text-foreground">{vendors.gst_number ?? '—'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="uppercase font-semibold">PAN</p>
+                                        <p className="text-sm font-medium  text-foreground">{vendors.pan_number ?? '—'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="uppercase font-semibold">Country</p>
+                                        <p className="text-sm font-medium  text-foreground">{vendors.country ?? '—'}</p>
+                                    </div>
+                                    <div className="col-span-2">
                                         <p className="uppercase font-semibold">Bank</p>
-                                        <p className="text-sm font-medium truncate">
+                                        <p className="text-sm font-medium text-foreground">
                                             {vendors.bank_name
-                                                ? `${vendors.bank_name} | A/C: ${vendors.bank_account ?? '—'} | IFSC: ${vendors.bank_ifsc ?? '—'}`
+                                                ? `${vendors.bank_name} · A/C: ${vendors.bank_account ?? '—'} · IFSC: ${vendors.bank_ifsc ?? '—'}`
                                                 : '—'}
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Right: Quotation Details */}
-                            <div className="flex-1 min-w-0 border-l border-muted/20 pl-4 md:pl-6 flex flex-col justify-between">
-                                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                            {/* Divider */}
+                            <div className="hidden md:block w-px bg-muted/20 self-stretch" />
+
+                            {/* Right: Quotation Details — top-aligned, no justify-between */}
+                            <div className="flex-1 min-w-0 pl-0 md:pl-2">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                                     Quotation Details
                                 </p>
-                                <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs text-muted-foreground">
                                     <div>
                                         <p className="uppercase font-semibold">Quotation No</p>
-                                        <p className="text-sm font-medium truncate">{vendors.quotation_no ?? '—'}</p>
+                                        <p className="text-sm font-medium  text-foreground">{quotation?.vendor?.quotation_no ?? '—'}</p>
                                     </div>
                                     <div>
                                         <p className="uppercase font-semibold">Quotation Date</p>
-                                        <p className="text-sm font-medium truncate">{vendors.quotation_date ?? '—'}</p>
+                                        <p className="text-sm font-medium  text-foreground">{quotation?.vendor?.quotation_date ?? '—'}</p>
                                     </div>
                                     <div>
                                         <p className="uppercase font-semibold">GST %</p>
-                                        <p className="text-sm font-medium truncate">{vendors.gst_percentage ?? '—'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="uppercase font-semibold">PAN</p>
-                                        <p className="text-sm font-medium truncate">{vendors.pan_number ?? '—'}</p>
+                                        <p className="text-sm font-medium  text-foreground">{vendors?.gst_percentage ?? '—'}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 )}
-
 
                 {/* ── Section 3: Line Items + Totals + T&C ── */}
                 {!uploadMutation.isPending && hasData && lineItems.length > 0 && (
@@ -520,15 +556,15 @@ export default function UploadQuotationPage() {
                                     <Download className="w-3.5 h-3.5" />
                                     Export
                                 </Button>
-
                             </div>
                         </div>
 
                         <div className="rounded-xl border overflow-hidden">
                             <div className="overflow-x-auto overflow-y-auto max-h-[400px]">
                                 <table className="w-full text-sm min-w-[600px]">
+                                    {/* ── bg-muted/5 items header as requested ── */}
                                     <thead className="sticky top-0 z-10 bg-background">
-                                        <tr className="border-b bg-muted/10">
+                                        <tr className="border-b bg-muted/5">
                                             <th className="text-left py-2 px-3 font-medium text-muted-foreground">Item</th>
                                             <th className="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
                                             <th className="text-right py-2 px-3 font-medium text-muted-foreground">Rate</th>
@@ -622,7 +658,7 @@ export default function UploadQuotationPage() {
                                 Showing <span className="font-medium text-foreground">{filteredItems.length}</span> of <span className="font-medium text-foreground">{allCount}</span> items
                             </div>
 
-                            {/* Totals — always visible, never scrolls */}
+                            {/* Totals */}
                             <div className="border-t bg-muted/5 overflow-x-auto">
                                 <table className="w-full text-sm min-w-[600px]">
                                     <tbody>
@@ -683,7 +719,7 @@ export default function UploadQuotationPage() {
                     </div>
                 )}
 
-                {/* Confirm Modal */}
+                {/* ── Confirm Modal ── */}
                 <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
                     <DialogContent>
                         <DialogHeader>
@@ -701,6 +737,7 @@ export default function UploadQuotationPage() {
                     </DialogContent>
                 </Dialog>
 
+                {/* ── Export Modal ── */}
                 <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
                     <DialogContent>
                         <DialogHeader>
@@ -709,19 +746,14 @@ export default function UploadQuotationPage() {
                                 Only <b>new items</b> will be exported to Excel. Existing or duplicate items will be ignored.
                             </DialogDescription>
                         </DialogHeader>
-
                         <div className="text-sm text-muted-foreground">
                             Total new items to export:{" "}
                             <span className="font-semibold text-foreground">
                                 {lineItems.filter((i: any) => i.is_new).length}
                             </span>
                         </div>
-
                         <DialogFooter className="gap-2">
-                            <Button variant="outline" onClick={() => setShowExportModal(false)}>
-                                Cancel
-                            </Button>
-
+                            <Button variant="outline" onClick={() => setShowExportModal(false)}>Cancel</Button>
                             <Button
                                 onClick={() => exportMutation.mutate()}
                                 disabled={exportMutation.isPending || lineItems.filter((i: any) => i.is_new).length === 0}
@@ -732,8 +764,135 @@ export default function UploadQuotationPage() {
                     </DialogContent>
                 </Dialog>
 
+                {/* ── Change Vendor Modal ── */}
+                <Dialog
+                    open={showChangeVendorModal}
+                    onOpenChange={(open) => {
+                        setShowChangeVendorModal(open)
+                        if (!open) setVendorSearch('')
+                    }}
+                >
+                    <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
+                        <DialogHeader className="px-5 pt-5 pb-4 border-b">
+                            <DialogTitle>Change vendor</DialogTitle>
+                            <DialogDescription>
+                                Search and select an approved vendor
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {/* Search input */}
+                        <div className="px-5 py-3 border-b">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, GSTIN, city, state…"
+                                    value={vendorSearch}
+                                    onChange={(e) => setVendorSearch(e.target.value)}
+                                    autoFocus
+                                    className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Results list */}
+                        <div className="max-h-72 overflow-y-auto divide-y">
+
+                            {/* Loading */}
+                            {vendorsFetching && (
+                                <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Loading vendors…
+                                </div>
+                            )}
+
+                            {/* No results */}
+                            {!vendorsFetching && vendorSearchResults.length === 0 && (
+                                <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                                    <Search className="w-8 h-8 opacity-20" />
+                                    <p>
+                                        {vendorSearch.trim().length > 0
+                                            ? <>No vendors found for <span className="font-medium text-foreground">"{vendorSearch}"</span></>
+                                            : 'No approved vendors available'
+                                        }
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Vendor rows */}
+                            {!vendorsFetching && vendorSearchResults.map((v: any) => (
+                                <button
+                                    key={v.id}
+                                    className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-muted/40 transition-colors group"
+                                    onClick={() => {
+                                        // ── Preserve gst_percentage from the original extracted quotation ──
+                                        // Only update vendor identity fields; quotation-level fields
+                                        // (gst_percentage, quotation_no, quotation_date) stay intact.
+                                        setVendors((prev: any) => ({
+                                            ...v,
+                                            gst_percentage: prev?.gst_percentage ?? v.gst_percentage,
+                                        }))
+                                        setVendorId(v.id)
+                                        setVendorSaved(true)
+                                        setShowChangeVendorModal(false)
+                                        setVendorSearch('')
+                                    }}
+                                >
+                                    {/* Avatar */}
+                                    <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-xs font-semibold text-indigo-700 flex-shrink-0">
+                                        {getVendorInitials(v.company_name)}
+                                    </div>
+
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-foreground truncate">{v.company_name}</p>
+                                        <p className="text-xs text-muted-foreground truncate">
+                                            {[v.city, v.state].filter(Boolean).join(', ')}
+                                            {v.gst_number ? ` · ${v.gst_number}` : ''}
+                                        </p>
+                                    </div>
+
+                                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Result count + clear search */}
+                        {!vendorsFetching && vendorSearchResults.length > 0 && (
+                            <div className="px-5 py-2 border-t bg-muted/10 text-xs text-muted-foreground flex items-center justify-between">
+                                <span>
+                                    Showing{' '}
+                                    <span className="font-medium text-foreground">{vendorSearchResults.length}</span>
+                                    {' '}of{' '}
+                                    <span className="font-medium text-foreground">{allApprovedVendors.length}</span>
+                                    {' '}vendors
+                                </span>
+                                {vendorSearch.trim().length > 0 && (
+                                    <button
+                                        onClick={() => setVendorSearch('')}
+                                        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                                    >
+                                        Clear search
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        <DialogFooter className="px-5 py-3 border-t">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowChangeVendorModal(false)
+                                    setVendorSearch('')
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
             </div>
         </div>
     )
-
 }
