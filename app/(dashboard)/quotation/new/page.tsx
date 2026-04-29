@@ -36,12 +36,9 @@ export default function UploadQuotationPage() {
     const [vendors, setVendors] = useState<any>(null)
     const [dragging, setDragging] = useState(false)
     const [errorMessage, setErrorMessage] = useState('')
-    const [vendorId, setVendorId] = useState<number | null>(null)
-    const [vendorSaved, setVendorSaved] = useState(false)
-    const [quotationSaved, setQuotationSaved] = useState(false)
     const [savedQuotationData, setSavedQuotationData] = useState<any>(null)
     const [showExportModal, setShowExportModal] = useState(false)
-    
+
     // ── Change Vendor Modal ──────────────────────────────────────────
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
@@ -201,10 +198,9 @@ export default function UploadQuotationPage() {
             toast({
                 title: 'Success',
                 description: data?.message || 'Quotation saved successfully',
-                variant: 'default', 
+                variant: 'default',
             })
 
-            setQuotationSaved(true)
             router.push('/quotation')
         },
         onError: (error: any) => {
@@ -221,9 +217,6 @@ export default function UploadQuotationPage() {
             setVendors(null)
             setLineItems([])
             setErrorMessage('')
-            setVendorId(null)
-            setVendorSaved(false)
-            setQuotationSaved(false)
             setSavedQuotationData(null)
         }
     }, [file])
@@ -565,7 +558,7 @@ export default function UploadQuotationPage() {
                                                     No items match the selected filter.
                                                 </td>
                                             </tr>
-                                        ) : filteredItems.map((item: any) => {
+                                        ) : filteredItems.map((item: any,index: number) => {
                                             const options = [
                                                 ...item.suggestions.map((s: any) => ({
                                                     value: String(s.master_item_id),
@@ -579,7 +572,7 @@ export default function UploadQuotationPage() {
                                                 })),
                                             ]
                                             return (
-                                                <tr key={item.item_code || item.item_name} className="border-b hover:bg-muted/30 transition-colors">
+                                                <tr key={`${item.item_code || item.item_name}-${index}`} className="border-b hover:bg-muted/30 transition-colors">
                                                     <td className="py-2 px-3">
                                                         <div className="flex items-center gap-2">
                                                             <p className="font-medium text-gray-900 truncate">{item.item_name}</p>
@@ -607,11 +600,18 @@ export default function UploadQuotationPage() {
                                                                     value={item.selectedMasterId || ''}
                                                                     onValueChange={(value) =>
                                                                         setLineItems((prev: any) =>
-                                                                            prev.map((i: any) =>
-                                                                                i.item_code === item.item_code ? { ...i, selectedMasterId: value } : i
-                                                                            )
+                                                                          prev.map((i: any, iIndex: number) =>
+                                                                            iIndex === index
+                                                                              ? {
+                                                                                  ...i,
+                                                                                  selectedMasterId: value,
+                                                                                  createNew: false, // optional: selecting master = not new
+                                                                                }
+                                                                              : i
+                                                                          )
                                                                         )
-                                                                    }
+                                                                      }
+                                                                      
                                                                     placeholder="Select master item..."
                                                                     className="w-full"
                                                                 />
@@ -624,11 +624,18 @@ export default function UploadQuotationPage() {
                                                             checked={item.createNew || false}
                                                             onCheckedChange={(checked) =>
                                                                 setLineItems((prev: any) =>
-                                                                    prev.map((i: any) =>
-                                                                        i.item_code === item.item_code ? { ...i, createNew: Boolean(checked) } : i
-                                                                    )
+                                                                  prev.map((i: any, iIndex: number) =>
+                                                                    iIndex === index
+                                                                      ? {
+                                                                          ...i,
+                                                                          createNew: Boolean(checked),
+                                                                          selectedMasterId: checked ? '' : i.selectedMasterId, // optional cleanup
+                                                                        }
+                                                                      : i
+                                                                  )
                                                                 )
-                                                            }
+                                                              }
+                                                              
                                                         />
                                                     </td>
                                                 </tr>
@@ -813,8 +820,6 @@ export default function UploadQuotationPage() {
                                             ...v,
                                             gst_percentage: prev?.gst_percentage ?? v.gst_percentage,
                                         }))
-                                        setVendorId(v.id)
-                                        setVendorSaved(true)
                                         setShowChangeVendorModal(false)
                                         setVendorSearch('')
                                     }}
