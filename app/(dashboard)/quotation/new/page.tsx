@@ -38,7 +38,7 @@ export default function UploadQuotationPage() {
     const [errorMessage, setErrorMessage] = useState('')
     const [savedQuotationData, setSavedQuotationData] = useState<any>(null)
     const [showExportModal, setShowExportModal] = useState(false)
-
+    console.log('quotation', quotation)
     // ── Change Vendor Modal ──────────────────────────────────────────
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
@@ -368,7 +368,7 @@ export default function UploadQuotationPage() {
                 <div>
                     {!file ? (
                         <div
-                            className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${dragging ? 'border-primary bg-primary/5' : 'hover:border-border'}`}
+                            className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors bg-white ${dragging ? 'border-primary bg-primary/5' : 'hover:border-border'}`}
                             onClick={() => document.getElementById('quotation-file')?.click()}
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
@@ -386,17 +386,62 @@ export default function UploadQuotationPage() {
                         </div>
                     ) : (
                         <div className="flex items-center gap-3 p-4 rounded-xl border bg-background">
-                            <div className="w-10 h-8 rounded-lg border bg-muted/40 flex items-center justify-center text-xs font-bold text-foreground">PDF</div>
-                            <div className="flex-1 min-w-0">
-                                <p className="font-medium text-foreground text-sm truncate">{file.name}</p>
-                                <p className="text-xs text-muted-foreground">{formatSize(file.size)} · uploaded just now</p>
+
+                            {/* PDF Icon */}
+                            <div className="w-10 h-8 rounded-lg border bg-muted/40 flex items-center justify-center text-xs font-bold text-foreground">
+                                PDF
                             </div>
-                            <Badge variant="secondary" className="text-xs">
-                                {uploadMutation.isPending ? 'Processing...' : hasData ? 'Ready' : 'Waiting'}
-                            </Badge>
-                            <Button variant="outline" onClick={() => setFile(null)} className="shrink-0">Remove</Button>
+
+                            {/* File Info */}
+                            <div className="flex-1 min-w-0">
+                                <p className="font-medium text-foreground text-sm truncate">
+                                    {file?.name || 'Quotation File'}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {file
+                                        ? `${formatSize(file.size)} · uploaded just now`
+                                        : 'Uploaded from system'}
+                                </p>
+                            </div>
+
+                            {/* Status */}
+                            {!hasData || !quotation?.file_url && <Badge variant="secondary" className="text-xs">
+                                {uploadMutation.isPending
+                                    ? 'Processing...'
+                                    : hasData || quotation?.file_url
+                                        ? 'Ready'
+                                        : 'Waiting'}
+                            </Badge>}
+
+                            {quotation?.file_url && (
+                                <>
+                                    {/* VIEW — opens PDF rendered in a new tab */}
+                                    <a
+                                        href={quotation.file_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <Button variant="ghost" className="gap-1">
+                                            View
+                                        </Button>
+                                    </a>
+
+                                </>
+                            )}
+
+                            {/*  REMOVE only for local file */}
+                            {file && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setFile(null)}
+                                    className="shrink-0"
+                                >
+                                    Remove
+                                </Button>
+                            )}
                         </div>
-                    )}
+                    )
+                    }
                 </div>
                 {/* ── Section 2: Vendor + Quotation ── */}
                 {!uploadMutation.isPending && hasData && vendors && (
@@ -420,7 +465,7 @@ export default function UploadQuotationPage() {
                             </Button>
                         </div>
 
-                        <div className="rounded-xl border bg-muted/10 p-4 flex flex-col md:flex-row gap-4">
+                        <div className="rounded-xl border bg-white p-4 flex flex-col md:flex-row gap-4">
                             {/* Left: Vendor Details */}
                             <div className="flex-1 min-w-0">
                                 {/* Avatar + name row */}
@@ -548,7 +593,7 @@ export default function UploadQuotationPage() {
                             </div>
                         </div>
 
-                        <div className="rounded-xl border overflow-hidden">
+                        <div className="rounded-xl border overflow-hidden bg-white">
                             <div className="overflow-x-auto overflow-y-auto max-h-[400px]">
                                 <table className="w-full text-sm min-w-[600px]">
                                     {/* ── bg-muted/5 items header as requested ── */}
@@ -559,8 +604,39 @@ export default function UploadQuotationPage() {
                                             <th className="text-right py-2 px-3 font-medium text-muted-foreground">Rate</th>
                                             <th className="text-left py-2 px-3 font-medium text-muted-foreground">UOM</th>
                                             <th className="text-left py-2 px-3 font-medium text-muted-foreground">Master Item</th>
-                                            <th className="text-left py-2 px-3 font-medium text-muted-foreground">Create New Item</th>
-                                        </tr>
+                                            <th className="text-left py-2 px-3 font-medium text-muted-foreground">
+                                                <div className="flex items-center gap-2">
+                                                    <Checkbox
+                                                        id="select-all-create-new"
+                                                        checked={
+                                                            filteredItems.length > 0 &&
+                                                            filteredItems.every((item: any) => item.createNew)
+                                                        }
+                                                        onCheckedChange={(checked) => {
+                                                            // Build a Set of filtered item references by index in lineItems
+                                                            const filteredSet = new Set(
+                                                                filteredItems.map((fi: any) =>
+                                                                    lineItems.findIndex(
+                                                                        (li: any, idx: number) => li === fi
+                                                                    )
+                                                                )
+                                                            )
+                                                            setLineItems((prev: any) =>
+                                                                prev.map((item: any, idx: number) =>
+                                                                    filteredSet.has(idx)
+                                                                        ? {
+                                                                            ...item,
+                                                                            createNew: Boolean(checked),
+                                                                            selectedMasterId: checked ? '' : item.selectedMasterId,
+                                                                        }
+                                                                        : item
+                                                                )
+                                                            )
+                                                        }}
+                                                    />
+                                                    Create New
+                                                </div>
+                                            </th>                                        </tr>
                                     </thead>
                                     <tbody>
                                         {filteredItems.length === 0 ? (
@@ -657,9 +733,9 @@ export default function UploadQuotationPage() {
                             </div>
 
                             {/* Item count */}
-                            <div className="px-3 py-2 border-t bg-muted/10 text-xs text-muted-foreground">
+                            {/* <div className="px-3 py-2 border-t bg-muted/10 text-xs text-muted-foreground">
                                 Showing <span className="font-medium text-foreground">{filteredItems.length}</span> of <span className="font-medium text-foreground">{allCount}</span> items
-                            </div>
+                            </div> */}
 
                             {/* Totals */}
                             <div className="border-t bg-muted/5 overflow-x-auto">
