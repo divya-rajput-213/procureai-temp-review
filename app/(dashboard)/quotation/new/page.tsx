@@ -177,18 +177,29 @@ export default function UploadQuotationPage() {
                 },
                 quotation_no: quotation?.vendor?.quotation_no ?? null,
                 quotation_date: quotation?.vendor?.quotation_date ?? null,
-                items: lineItems.map((item: any) => ({
-                    item_code: item.item_code ?? item.code,
-                    item_name: item.item_name,
-                    item_price: item.item_price,
-                    quantity: item.quantity || 1,
-                    unit_of_measure: item.unit_of_measure ?? item.uom,
-                    hsn_code: item.hsn_code ?? null,
-                    create_new_item: item.createNew || item.selectedMasterId === 'create_new',
-                    is_new: item?.is_new || false,
-                    is_duplicate: item?.is_duplicate || false,
-                    suggestions: item.createNew ? [] : item.suggestions || [],
-                })),
+                items: lineItems.map((item: any) => {
+                    const selectedSuggestion = item.suggestions?.find(
+                        (s: any) => String(s.master_item_id) === String(item.selectedMasterId)
+                    )
+
+                    return {
+                        item_code: item.item_code ?? item.code,
+                        item_name: item.item_name,
+                        item_price: item.item_price,
+                        quantity: item.quantity || 1,
+                        unit_of_measure: item.unit_of_measure ?? item.uom,
+                        hsn_code: item.hsn_code ?? selectedSuggestion?.hsn_code ?? null,
+                        create_new_item: item.createNew,
+                        is_new: item?.is_new || false,
+                        is_duplicate: item?.is_duplicate || false,
+                        suggestions: item.createNew
+                            ? []
+                            : selectedSuggestion
+                                ? [selectedSuggestion]
+                                : [],
+                    }
+                })
+
             })
             return data
         },
@@ -558,7 +569,7 @@ export default function UploadQuotationPage() {
                                                     No items match the selected filter.
                                                 </td>
                                             </tr>
-                                        ) : filteredItems.map((item: any,index: number) => {
+                                        ) : filteredItems.map((item: any, index: number) => {
                                             const options = [
                                                 ...item.suggestions.map((s: any) => ({
                                                     value: String(s.master_item_id),
@@ -600,18 +611,18 @@ export default function UploadQuotationPage() {
                                                                     value={item.selectedMasterId || ''}
                                                                     onValueChange={(value) =>
                                                                         setLineItems((prev: any) =>
-                                                                          prev.map((i: any, iIndex: number) =>
-                                                                            iIndex === index
-                                                                              ? {
-                                                                                  ...i,
-                                                                                  selectedMasterId: value,
-                                                                                  createNew: false, // optional: selecting master = not new
-                                                                                }
-                                                                              : i
-                                                                          )
+                                                                            prev.map((i: any, iIndex: number) =>
+                                                                                iIndex === index
+                                                                                    ? {
+                                                                                        ...i,
+                                                                                        selectedMasterId: value,
+                                                                                        createNew: false, // optional: selecting master = not new
+                                                                                    }
+                                                                                    : i
+                                                                            )
                                                                         )
-                                                                      }
-                                                                      
+                                                                    }
+
                                                                     placeholder="Select master item..."
                                                                     className="w-full"
                                                                 />
@@ -624,18 +635,18 @@ export default function UploadQuotationPage() {
                                                             checked={item.createNew || false}
                                                             onCheckedChange={(checked) =>
                                                                 setLineItems((prev: any) =>
-                                                                  prev.map((i: any, iIndex: number) =>
-                                                                    iIndex === index
-                                                                      ? {
-                                                                          ...i,
-                                                                          createNew: Boolean(checked),
-                                                                          selectedMasterId: checked ? '' : i.selectedMasterId, // optional cleanup
-                                                                        }
-                                                                      : i
-                                                                  )
+                                                                    prev.map((i: any, iIndex: number) =>
+                                                                        iIndex === index
+                                                                            ? {
+                                                                                ...i,
+                                                                                createNew: Boolean(checked),
+                                                                                selectedMasterId: checked ? '' : i.selectedMasterId, // optional cleanup
+                                                                            }
+                                                                            : i
+                                                                    )
                                                                 )
-                                                              }
-                                                              
+                                                            }
+
                                                         />
                                                     </td>
                                                 </tr>
