@@ -41,7 +41,7 @@ export default function UploadQuotationPage() {
     const [quotationSaved, setQuotationSaved] = useState(false)
     const [savedQuotationData, setSavedQuotationData] = useState<any>(null)
     const [showExportModal, setShowExportModal] = useState(false)
-
+    
     // ── Change Vendor Modal ──────────────────────────────────────────
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
@@ -156,11 +156,10 @@ export default function UploadQuotationPage() {
             setErrorMessage(message)
         },
     })
-
-    // ── Vendor Save Mutation ─────────────────────────────────────────
-    const vendorSaveMutation = useMutation({
+    // ── Quotation Save Mutation ──────────────────────────────────────
+    const quotationSaveMutation = useMutation({
         mutationFn: async () => {
-            const { data } = await apiClient.post('/quotations/vendor-save/', {
+            const { data } = await apiClient.post('/quotations/save/', {
                 vendor: {
                     company_name: vendors?.company_name,
                     contact_name: vendors?.contact_name,
@@ -177,31 +176,8 @@ export default function UploadQuotationPage() {
                     bank_ifsc: vendors?.bank_ifsc ?? null,
                     bank_name: vendors?.bank_name ?? null,
                     gst_percentage: vendors?.gst_percentage ?? null,
-                    quotation_no: quotation?.vendor?.quotation_no ?? null,
-                    quotation_date: quotation?.vendor?.quotation_date ?? null,
-                    terms_and_conditions: vendors?.terms_and_conditions ?? [],
                     is_new: vendors?.is_new ?? true,
                 },
-            })
-            return data
-        },
-        onSuccess: (data: any) => {
-            const id = data?.vendor_id ?? data?.id ?? data?.vendor?.id
-            setVendorId(id)
-            setVendorSaved(true)
-        },
-        onError: (error: any) => {
-            const detail = error?.response?.data?.detail ?? error?.response?.data?.message ?? 'Failed to save vendor.'
-            setErrorMessage(detail)
-            toast({ title: 'Error', description: detail, variant: 'destructive' })
-        },
-    })
-
-    // ── Quotation Save Mutation ──────────────────────────────────────
-    const quotationSaveMutation = useMutation({
-        mutationFn: async () => {
-            const { data } = await apiClient.post('/quotations/save/', {
-                vendor_id: vendorId,
                 quotation_no: quotation?.vendor?.quotation_no ?? null,
                 quotation_date: quotation?.vendor?.quotation_date ?? null,
                 items: lineItems.map((item: any) => ({
@@ -210,9 +186,10 @@ export default function UploadQuotationPage() {
                     item_price: item.item_price,
                     quantity: item.quantity || 1,
                     unit_of_measure: item.unit_of_measure ?? item.uom,
-                    hsn_code: item.hsn_code ?? item.suggestions?.[0]?.hsn_code ?? null,
+                    hsn_code: item.hsn_code ?? null,
                     create_new_item: item.createNew || item.selectedMasterId === 'create_new',
-                    master_item_id: item.createNew || item.selectedMasterId === 'create_new' ? null : Number(item.selectedMasterId) || null,
+                    is_new: item?.is_new || false,
+                    is_duplicate: item?.is_duplicate || false,
                     suggestions: item.createNew ? [] : item.suggestions || [],
                 })),
             })
@@ -220,7 +197,15 @@ export default function UploadQuotationPage() {
         },
         onSuccess: (data: any) => {
             setSavedQuotationData(data)
+
+            toast({
+                title: 'Success',
+                description: data?.message || 'Quotation saved successfully',
+                variant: 'default', 
+            })
+
             setQuotationSaved(true)
+            router.push('/quotation')
         },
         onError: (error: any) => {
             const message = error?.response?.data?.message ?? error?.response?.data?.detail ?? 'Failed to save quotation.'
@@ -340,7 +325,7 @@ export default function UploadQuotationPage() {
     const newCount = lineItems.filter((i: any) => i.is_new).length
     const duplicatesCount = lineItems.filter((i: any) => i.is_duplicate).length
 
-    const isLoading = uploadMutation.isPending || vendorSaveMutation.isPending || quotationSaveMutation.isPending
+    const isLoading = uploadMutation.isPending || quotationSaveMutation.isPending
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -351,7 +336,7 @@ export default function UploadQuotationPage() {
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
                         <div className="flex items-center gap-2 rounded-xl border bg-background px-5 py-4 text-sm text-muted-foreground shadow-sm">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            {uploadMutation.isPending ? 'Extracting details…' : vendorSaveMutation.isPending ? 'Saving vendor…' : 'Saving quotation…'}
+                            {uploadMutation.isPending ? 'Extracting details…' : 'Saving quotation…'}
                         </div>
                     </div>
                 )}
@@ -409,8 +394,8 @@ export default function UploadQuotationPage() {
                         </div>
                     )}
                 </div>
-              {/* ── Section 2: Vendor + Quotation ── */}
-              {!uploadMutation.isPending && hasData && vendors && (
+                {/* ── Section 2: Vendor + Quotation ── */}
+                {!uploadMutation.isPending && hasData && vendors && (
                     <div className="mb-6">
                         {/* Label row with Change Vendor button */}
                         <div className="flex items-center justify-between mb-2">
@@ -705,15 +690,11 @@ export default function UploadQuotationPage() {
 
                             {/* Submit / Done */}
                             <div className="flex justify-end p-4 border-t">
-                                {quotationSaved ? (
-                                    <Button onClick={() => router.push('/quotation')} className="gap-2">
-                                        <CheckCircle2 className="w-4 h-4" /> Done
-                                    </Button>
-                                ) : (
-                                    <Button onClick={handleSubmit} className="gap-2" disabled={isLoading}>
-                                        Submit Quotation <ChevronRight className="w-4 h-4" />
-                                    </Button>
-                                )}
+
+                                <Button onClick={handleSubmit} className="gap-2" disabled={isLoading}>
+                                    Submit Quotation <ChevronRight className="w-4 h-4" />
+                                </Button>
+
                             </div>
                         </div>
                     </div>
