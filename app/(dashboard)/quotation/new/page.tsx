@@ -420,8 +420,8 @@ export default function UploadQuotationPage() {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
-                                        <Button variant="ghost" className="gap-1">
-                                            View
+                                        <Button variant="ghost" className="gap-1 border">
+                                            Download 
                                         </Button>
                                     </a>
 
@@ -540,10 +540,6 @@ export default function UploadQuotationPage() {
                                     <div>
                                         <p className="uppercase font-semibold">Quotation Date</p>
                                         <p className="text-sm font-medium  text-foreground">{quotation?.vendor?.quotation_date ?? '—'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="uppercase font-semibold">GST %</p>
-                                        <p className="text-sm font-medium  text-foreground">{vendors?.gst_percentage ?? '—'}</p>
                                     </div>
                                 </div>
                             </div>
