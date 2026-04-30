@@ -331,12 +331,12 @@ export default function UploadQuotationPage() {
     const isLoading = uploadMutation.isPending || quotationSaveMutation.isPending
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className=" relative min-h-screen bg-gray-50">
             <div className="space-y-6">
 
                 {/* Loading overlay */}
                 {isLoading && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
                         <div className="flex items-center gap-2 rounded-xl border bg-background px-5 py-4 text-sm text-muted-foreground shadow-sm">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             {uploadMutation.isPending ? 'Extracting details…' : 'Saving quotation…'}
