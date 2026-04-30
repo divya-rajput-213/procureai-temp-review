@@ -1025,7 +1025,7 @@ export default function UploadQuotationPage() {
                             <div className="flex justify-end p-4 border-t">
 
                                 <Button onClick={handleSubmit} className="gap-2" disabled={isLoading}>
-                                    Submit Quotation <ChevronRight className="w-4 h-4" />
+                                    Submit Quotation
                                 </Button>
 
                             </div>
