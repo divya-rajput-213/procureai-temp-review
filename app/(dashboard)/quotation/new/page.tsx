@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, AlertCircle, ArrowLeft, ChevronRight, Loader2, CheckCircle2, Download, Pencil, Search } from 'lucide-react'
+import { Upload, AlertCircle, ArrowLeft, ChevronRight, Loader2, Download, Pencil, Search } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -103,15 +103,6 @@ export default function UploadQuotationPage() {
     })
 
     const handleExport = () => setShowExportModal(true)
-
-    // ── Master Items ─────────────────────────────────────────────────
-    const { data: masterItems = [] } = useQuery({
-        queryKey: ['master-items'],
-        queryFn: async () => {
-            const { data } = await apiClient.get('/master-items/')
-            return data.results || data
-        },
-    })
 
     // ── Filter ───────────────────────────────────────────────────────
     const handleFilterChange = useCallback(
@@ -646,11 +637,6 @@ export default function UploadQuotationPage() {
                                                     value: String(s.master_item_id),
                                                     label: `${s.code} - ${s.description}`,
                                                     group: 'Matched Suggestions'
-                                                })),
-                                                ...masterItems.map((m: any) => ({
-                                                    value: String(m.id),
-                                                    label: `${m.code} - ${m.description}`,
-                                                    group: 'All Items'
                                                 })),
                                             ]
                                             return (
