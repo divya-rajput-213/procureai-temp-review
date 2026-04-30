@@ -25,6 +25,7 @@ import apiClient from '@/lib/api/client'
 import ReactMarkdown from 'react-markdown'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
+import ComparisonTab from '../components/ComparisonTab'
 
 // ─── Approval Timeline ─────────────────────────────────────────────────────────
 
@@ -2421,197 +2422,6 @@ function BidApprovalProgress({ bid }: { bid: any }) {
     </div>
   )
 }
-
-// ─── Bids Tab ─────────────────────────────────────────────────────────────────
-
-function BidsTab({ pr, onPRChange }: { pr: any; onPRChange: () => void }) {
-  const { id } = useParams()
-  const { toast } = useToast()
-  const [bidToApprove, setBidToApprove] = useState<any>(null)
-  const [confirmReject, setConfirmReject] = useState<any>(null)
-
-  const canCollectBids = ['approved', 'vendor_selected', 'synced_to_sap', 'po_created'].includes(pr.status)
-  const canAct = pr.status === 'approved'
-
-  const { data: bids, refetch: refetchBids } = useQuery({
-    queryKey: ['pr-bids', id],
-    queryFn: async () => {
-      const res = await apiClient.get(`/procurement/${id}/bids/`)
-      return res.data.results ?? res.data
-    },
-  })
-
-  const existingBidVendorIds = (bids ?? []).map((b: any) => b.vendor)
-  const hasBidPendingApproval = (bids ?? []).some((b: any) => b.status === 'pending_approval')
-  const aiRec = pr.ai_recommendation ?? {}
-  const aiRankedVendors: any[] = aiRec.ranked_vendors ?? []
-  // Calledc after a bid is saved — refetch bids and PR (AI analysis runs on backend)
-  const handleBidAdded = async () => {
-    await refetchBids()
-    onPRChange()
-  }
-
-  // Sort: accepted → ranked by AI → by amount → rejected
-  const sortedBids = [...(bids ?? [])].sort((a: any, b: any) => {
-    if (a.status === 'accepted') return -1
-    if (b.status === 'accepted') return 1
-    if (a.status === 'rejected' && b.status !== 'rejected') return 1
-    if (b.status === 'rejected' && a.status !== 'rejected') return -1
-    const ar = aiRankedVendors.find(rv => rv.vendor_id === a.vendor)
-    const br = aiRankedVendors.find(rv => rv.vendor_id === b.vendor)
-    if (ar && br) return ar.rank - br.rank
-    return Number(a.bid_amount) - Number(b.bid_amount)
-  })
-
-  const handleReject = async (reason?: string) => {
-    if (!confirmReject) return
-    try {
-      await apiClient.post(`/procurement/${id}/reject-bid/`, { bid_id: confirmReject.hash_id, reason })
-      toast({ title: `Bid from ${confirmReject.vendor_name} rejected.` })
-      setConfirmReject(null)
-      refetchBids()
-    } catch (err: any) {
-      toast({ title: 'Rejection failed', description: err?.response?.data?.error, variant: 'destructive' })
-    }
-  }
-
-  if (!canCollectBids) {
-    return (
-      <div className="border rounded-xl p-8 text-center space-y-2">
-        <Clock className="w-8 h-8 text-muted-foreground mx-auto" />
-        <p className="text-sm font-medium">Bids are collected after PR approval</p>
-        <p className="text-xs text-muted-foreground">Once this PR is approved, invited vendors can submit bids here.</p>
-      </div>
-    )
-  }
-
-  const pendingBids = (bids ?? []).filter((b: any) => b.status === 'pending')
-  const acceptedBid = (bids ?? []).find((b: any) => b.status === 'accepted')
-  const hasBids = (bids ?? []).length > 0
-
-  return (
-    <div className="space-y-5">
-
-      {/* Vendor-selected banner + Create PO */}
-      {pr.status === 'vendor_selected' && acceptedBid && (
-        <div className="flex items-center justify-between gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-          <div className="flex items-center gap-3">
-            <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-green-800">Vendor selected: {acceptedBid.vendor_name}</p>
-              <p className="text-xs text-green-700">
-                Bid of {formatCurrency(acceptedBid.bid_amount, pr.currency_code)} · {acceptedBid.delivery_days}d delivery
-              </p>
-            </div>
-          </div>
-          <CreatePOButton prId={pr.id} prNumber={pr.pr_number} />
-        </div>
-      )}
-
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        {canAct && (
-          <AddBidForm
-            prId={id!}
-            invitedVendors={pr.invited_vendors_detail ?? []}
-            existingBidVendorIds={existingBidVendorIds}
-            onSuccess={handleBidAdded}
-          />
-        )}
-      </div>
-
-      {hasBids ? (
-        <>
-          {/* ── KPI Cards ── */}
-          <BidSummaryCards bids={bids ?? []} pr={pr} />
-
-          {/* ── Highlight Cards (Lowest Price + Best Value) ── */}
-          <BidHighlightCards bids={bids ?? []} pr={pr} aiRec={aiRec} />
-
-          {/* ── AI Recommendation Banner ── */}
-          <AIRecommendationBanner aiRec={aiRec} />
-
-          {/* ── AI Vendor Comparison Table ── */}
-          {Array.isArray(aiRec?.ranked_vendors) &&
-            aiRec.ranked_vendors.length > 0 && <AIVendorComparisonTable
-              aiRec={aiRec}
-              bids={bids ?? []}
-              pr={pr}
-              canAct={canAct}
-              onApprove={b => setBidToApprove(b)}
-              onReject={b => setConfirmReject(b)}
-              onBidEdited={() => { refetchBids(); onPRChange() }}
-            />}
-
-
-          {/* ── Anomalies ── */}
-          {(aiRec.anomalies ?? []).length > 0 && (
-            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-amber-700 mb-1">Anomalies / Red Flags</p>
-                <ul className="text-xs text-amber-700 space-y-0.5">
-                  {(aiRec.anomalies as string[]).map((a: string, i: number) => <li key={i}>• {a}</li>)}
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {/* ── Bids list ── */}
-          {(!aiRec?.ranked_vendors || aiRec.ranked_vendors.length === 0) && <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Bid Comparison ({sortedBids.length} vendors)
-              </p>
-            </div>
-            {sortedBids.map((bid: any, idx: number) => (
-              <BidRow
-                key={bid.id}
-                bid={bid}
-                pr={pr}
-                rank={idx + 1}
-                aiRankedVendors={aiRankedVendors}
-                canAct={canAct}
-                hasBidPendingApproval={hasBidPendingApproval}
-                onApprove={b => setBidToApprove(b)}
-                onReject={b => setConfirmReject(b)}
-                onBidEdited={() => { refetchBids(); onPRChange() }}
-              />
-            ))}
-          </div>}
-        </>
-      ) : (
-        <div className="border rounded-xl p-8 text-center space-y-1">
-          <p className="text-sm text-muted-foreground">No bids recorded yet.</p>
-          <p className="text-xs text-muted-foreground">Use "Record Bid" above to enter vendor bids.</p>
-        </div>
-      )}
-
-      {/* Bid approval modal — matrix-based workflow */}
-      {bidToApprove && (
-        <BidApprovalModal
-          bid={bidToApprove}
-          pr={pr}
-          onClose={() => setBidToApprove(null)}
-          onSuccess={() => { refetchBids(); onPRChange() }}
-        />
-      )}
-
-      {/* Confirm reject */}
-      {confirmReject && (
-        <ConfirmDialog
-          title="Reject Bid"
-          message={`Reject the bid from ${confirmReject.vendor_name}?`}
-          confirmLabel="Reject Bid"
-          confirmClass="bg-red-600 hover:bg-red-700 text-white"
-          onConfirm={handleReject}
-          onCancel={() => setConfirmReject(null)}
-        />
-      )}
-    </div>
-  )
-}
-
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 // ─── PR PDF Export ────────────────────────────────────────────────────────────
@@ -2905,7 +2715,7 @@ export default function PRDetailPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<'details' | 'quotations' | 'approval' | 'bids' | 'comparison'>('details')
+  const [activeTab, setActiveTab] = useState<'details' | 'quotations' | 'approval' | 'comparison'>('details')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
@@ -2925,8 +2735,7 @@ export default function PRDetailPage() {
   useEffect(() => {
     if (pr && !initialTabSet.current) {
       initialTabSet.current = true
-      const bidStatuses = ['approved', 'vendor_selected', 'synced_to_sap', 'po_created']
-      setActiveTab(bidStatuses.includes(pr.status) ? 'bids' : 'details')
+      setActiveTab('details')
     }
   }, [pr])
 
@@ -3000,7 +2809,6 @@ export default function PRDetailPage() {
     { key: 'details' as const, label: 'Details' },
     { key: 'quotations' as const, label: 'Quotations' },
     { key: 'approval' as const, label: 'Approval' },
-    { key: 'bids' as const, label: 'Bids' },
     { key: 'comparison' as const, label: 'Comparison' },
   ]
 
@@ -3243,10 +3051,6 @@ export default function PRDetailPage() {
           )}
         </div>
       )}
-
-      {/* ── Bids Tab ── */}
-      {activeTab === 'bids' && <BidsTab pr={pr} onPRChange={invalidatePR} />}
-
       {/* ── Quotations Tab (per-quotation breakdown) ── */}
       {activeTab === 'quotations' && <QuotationsTab linkedQuotations={pr.linked_quotations ?? []} />}
 
@@ -3338,245 +3142,5 @@ function QuotationsTab({ linkedQuotations }: { linkedQuotations: any[] }) {
         </Card>
       ))}
     </div>
-  )
-}
-
-// ── Comparison Tab ──────────────────────────────────────────────────────────
-
-function ComparisonTab({ prId }: { prId: number | string }) {
-  const { toast } = useToast()
-  const [exporting, setExporting] = useState(false)
-
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['pr-comparison', prId],
-    queryFn: async () => {
-      const { data } = await apiClient.post('/quotations/compare/', { pr_id: prId })
-      return data
-    },
-    retry: false,
-  })
-
-  const matrix = data?.matrix
-  const ai     = data?.ai_recommendation
-  const rubric = data?.rubric
-
-  const handleExport = async () => {
-    if (!matrix?.vendors?.length) return
-    setExporting(true)
-    try {
-      const ids = matrix.vendors
-        .map((v: any) => v.quotation_id)
-        .filter((x: any) => Number.isFinite(Number(x)))
-        .join(',')
-      if (!ids) {
-        toast({ title: 'Export failed', description: 'No quotation IDs available in the matrix.', variant: 'destructive' })
-        return
-      }
-      const resp = await apiClient.get(`/quotations/compare-export/`, {
-        params: { quotation_ids: ids, format: 'xlsx' },
-        responseType: 'blob',
-      })
-      const url = window.URL.createObjectURL(new Blob([resp.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `pcs-${prId}.xlsx`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
-    } catch (err: any) {
-      // axios returns the error body as a Blob when responseType=blob; read it as text/JSON
-      let message = 'Could not download PCS'
-      const blob = err?.response?.data
-      if (blob instanceof Blob) {
-        try {
-          const text = await blob.text()
-          const json = JSON.parse(text)
-          message = json?.error ?? json?.detail ?? text.slice(0, 200)
-        } catch {
-          // not JSON — keep default
-        }
-      } else if (err?.response?.data?.error) {
-        message = err.response.data.error
-      }
-      toast({ title: 'Export failed', description: message, variant: 'destructive' })
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="p-8 flex items-center justify-center text-sm text-muted-foreground gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" /> Building comparison matrix…
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (isError) {
-    const msg = (error as any)?.response?.data?.error ?? 'Could not run comparison.'
-    return (
-      <Card>
-        <CardContent className="p-8 text-center text-sm space-y-3">
-          <p className="text-muted-foreground">{msg}</p>
-          <p className="text-xs text-muted-foreground">Comparison needs at least 2 approved quotations linked to this PR.</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (!matrix?.vendors?.length) {
-    return <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No data to compare.</CardContent></Card>
-  }
-
-  const recommendedVendorId = ai?.recommended?.vendor_id
-
-  return (
-    <div className="space-y-4">
-      {/* AI Recommendation card */}
-      {ai?.recommended && (
-        <Card className="border-emerald-200 bg-emerald-50/40">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">AI Recommendation</p>
-                <p className="text-base font-semibold text-foreground mt-0.5">{ai.recommended.vendor_name}</p>
-              </div>
-              <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm" className="gap-1.5">
-                {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                Download Excel
-              </Button>
-            </div>
-            {ai.recommended.summary && (
-              <p className="text-sm text-foreground">{ai.recommended.summary}</p>
-            )}
-            {Array.isArray(ai.ranking) && ai.ranking.length > 0 && rubric && (
-              <div className="border rounded-md bg-white overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-50 border-b">
-                    <tr>
-                      <th className="text-left py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Rank</th>
-                      <th className="text-left py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
-                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Price ({rubric.price})</th>
-                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Coverage ({rubric.coverage})</th>
-                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Perf. ({rubric.performance})</th>
-                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Risk ({rubric.risk})</th>
-                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">MSME ({rubric.msme})</th>
-                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Comm. ({rubric.commercial})</th>
-                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {ai.ranking.map((r: any, i: number) => (
-                      <tr key={r.vendor_id} className={r.vendor_id === recommendedVendorId ? 'bg-emerald-50/50' : ''}>
-                        <td className="py-2 px-3 font-mono">{i + 1}</td>
-                        <td className="py-2 px-3 font-medium">{r.vendor_name}</td>
-                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.price?.toFixed(0) ?? '—'}</td>
-                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.coverage?.toFixed(0) ?? '—'}</td>
-                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.performance?.toFixed(0) ?? '—'}</td>
-                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.risk?.toFixed(0) ?? '—'}</td>
-                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.msme?.toFixed(0) ?? '—'}</td>
-                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.commercial?.toFixed(0) ?? '—'}</td>
-                        <td className="py-2 px-3 text-right tabular-nums font-bold">{r.total_score?.toFixed(1) ?? '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Comparison matrix */}
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle className="text-sm font-semibold">Price Comparison Matrix</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b">
-              <tr>
-                <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground sticky left-0 bg-slate-50">Item</th>
-                <th className="text-right py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Qty</th>
-                {matrix.vendors.map((v: any) => (
-                  <th key={v.vendor_id} className={`text-right py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold ${v.vendor_id === recommendedVendorId ? 'text-emerald-700' : 'text-muted-foreground'}`}>
-                    {v.vendor_name}
-                    <span className="block text-[9px] font-mono mt-0.5">{v.quotation_no}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {matrix.items.map((it: any) => (
-                <tr key={it.master_item_id}>
-                  <td className="py-2 px-3 sticky left-0 bg-white">
-                    <p className="font-medium">{it.item_name}</p>
-                    <p className="text-[10px] font-mono text-muted-foreground">{it.item_code}</p>
-                  </td>
-                  <td className="py-2 px-3 text-right tabular-nums">{it.total_quantity} {it.unit_of_measure}</td>
-                  {matrix.vendors.map((v: any) => {
-                    const price = it.vendor_prices?.[v.vendor_id]
-                    return (
-                      <td key={v.vendor_id} className={`py-2 px-3 text-right tabular-nums ${v.vendor_id === recommendedVendorId ? 'bg-emerald-50/30' : ''}`}>
-                        {price ? (
-                          <>
-                            <span className="font-medium">{formatCurrency(price.total)}</span>
-                            <span className="block text-[10px] text-muted-foreground">@ {formatCurrency(price.unit_price)}</span>
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-              <tr className="bg-slate-50 border-t-2 font-bold">
-                <td className="py-2.5 px-3 sticky left-0 bg-slate-50">Total</td>
-                <td />
-                {matrix.vendors.map((v: any) => (
-                  <td key={v.vendor_id} className={`py-2.5 px-3 text-right tabular-nums ${v.vendor_id === recommendedVendorId ? 'bg-emerald-50 text-emerald-700' : ''}`}>
-                    {formatCurrency(v.total_amount)}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// ── Create PO from PR ───────────────────────────────────────────────────────
-
-function CreatePOButton({ prId, prNumber }: { prId: number; prNumber: string }) {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
-
-  const handleCreate = async () => {
-    setLoading(true)
-    try {
-      const { data } = await apiClient.post('/purchase-orders/create-from-pr/', { pr_id: prId })
-      toast({ title: `PO ${data.po_number} created from ${prNumber}` })
-      router.push(`/purchase-orders/${data.hash_id}`)
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || 'Failed to create PO'
-      toast({ title: msg, variant: 'destructive' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <Button size="sm" className="gap-1.5 shrink-0" onClick={handleCreate} disabled={loading}>
-      {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
-      Create PO
-    </Button>
   )
 }

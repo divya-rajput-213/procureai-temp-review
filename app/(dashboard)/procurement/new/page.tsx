@@ -17,6 +17,7 @@ import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { useSettingsStore } from '@/lib/stores/settings.store'
+import ComparisonTab from '../components/ComparisonTab'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -259,12 +260,10 @@ export default function NewPRPage() {
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
   const combinedTaxRate = activeTaxes.reduce((s, t) => s + t.rate, 0)
 
-  const [activeTab, setActiveTab] = useState<'details' | 'matrix'>('details')
+  const [activeTab, setActiveTab] = useState<'details' | 'comparison'>('details')
   const [selectedVendors, setSelectedVendors] = useState<any[]>([])
   const [removedVendorIds, setRemovedVendorIds] = useState<Set<number>>(new Set())
   const [showSaveConfirm, setShowSaveConfirm] = useState(false)
-  const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
-  const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const [vendorSearch, setVendorSearch] = useState('')
   const [showVendorSearch, setShowVendorSearch] = useState(false)
   const [selectedTracking, setSelectedTracking] = useState<any>(null)
@@ -312,10 +311,9 @@ export default function NewPRPage() {
   // ─── Remote data ──────────────────────────────────────────────────────
 
   const { data: quotations = [], isLoading: qLoading } = useQuery({
-    queryKey: ['quotations', 'approved', quotationSearch],
+    queryKey: ['quotations', quotationSearch],
     queryFn: async () => {
       const params = new URLSearchParams()
-      params.set('status', 'approved')
       if (quotationSearch) params.set('search', quotationSearch)
       const { data } = await apiClient.get(`/quotations/?${params.toString()}`)
       return data?.results || data || []
@@ -666,7 +664,6 @@ export default function NewPRPage() {
   const submitApprovalMutation = useMutation({
     mutationFn: async () => {
       const payload: any = {}
-      if (selectedMatrix) payload.matrix_id = selectedMatrix
       const { data: pr } = await apiClient.post(`/procurement/${savedPrId}/submit/`, payload)
       return pr
     },
@@ -702,7 +699,7 @@ export default function NewPRPage() {
 
       {/* Tabs */}
       <div className="flex border-b">
-        {([['details', 'Requisition Details'], ['matrix', 'Approval Matrix']] as const).map(([key, label], i) => (
+        {([['details', 'Requisition Details'], ['comparison', 'Comparison']] as const).map(([key, label], i) => (
           <div
             key={key}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 select-none flex items-center gap-2 ${activeTab === key
@@ -1267,7 +1264,7 @@ export default function NewPRPage() {
                         queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
                         toast({ title: 'PR saved as draft.' })
                         setShowSaveConfirm(false)
-                        setActiveTab('matrix')
+                        setActiveTab('comparison')
                       },
                     })
                   }}
@@ -1283,36 +1280,12 @@ export default function NewPRPage() {
         </>)}
 
         {/* ── Tab 2: Approval Matrix ── */}
-        {activeTab === 'matrix' && (
-          <Card className="shadow-sm">
-            <CardHeader className="pb-4 border-b">
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">Choose the approval workflow for this requisition. Leave unselected to use the default matrix.</p>
-            </CardHeader>
-            <CardContent className="pt-5">
-              {loadingMatrices && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
-                </div>
-              )}
-              {!loadingMatrices && (matrices ?? []).length === 0 && (
-                <p className="text-xs text-amber-600 font-medium">No active PR approval matrices configured. The system will use the default matrix.</p>
-              )}
-              {!loadingMatrices && (matrices ?? []).length > 0 && (
-                <MatrixSelectorTable
-                  matrices={matrices}
-                  selectedMatrix={selectedMatrix}
-                  expandedMatrix={expandedMatrix}
-                  onSelect={id => { setSelectedMatrix(id); setExpandedMatrix(id) }}
-                  onToggleExpand={id => setExpandedMatrix(prev => prev === id ? null : id)}
-                />
-              )}
-            </CardContent>
-          </Card>
+        {activeTab === 'comparison' && (
+          <ComparisonTab prId={"pr.id"} />
         )}
 
         {/* ── Tab 2 actions ── */}
-        {activeTab === 'matrix' && (
+        {activeTab === 'comparison' && (
           <div className="flex items-center justify-between gap-3 pt-1">
             <Button type="button" variant="outline" onClick={() => setActiveTab('details')} className="gap-1.5">
               <ArrowLeft className="w-4 h-4" /> Back
@@ -1333,7 +1306,7 @@ export default function NewPRPage() {
               </Button>
               <Button
                 type="button"
-                disabled={isSaving || !selectedMatrix}
+                disabled={isSaving }
                 className="gap-2"
                 onClick={() => submitApprovalMutation.mutate()}
               >
