@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -10,12 +10,41 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { ArrowLeft, ArrowRight, Plus, Trash2, Loader2, Search, X, Send, Save, AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { useSettingsStore } from '@/lib/stores/settings.store'
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Recursively walks a DRF validation error response and returns the first
+ * human-readable string. Handles strings, arrays, and nested objects (e.g.
+ * `{ line_items: [{ unit_of_measure: ["..."] }] }`). Returns '' if nothing
+ * usable is found — the caller should provide a fallback message.
+ */
+function flattenDrfError(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = flattenDrfError(item)
+      if (found) return found
+    }
+    return ''
+  }
+  if (typeof value === 'object') {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      const found = flattenDrfError(item)
+      if (found) return found
+    }
+  }
+  return ''
+}
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -153,11 +182,12 @@ function TrackingIdSearch({
 
 // ─── ItemSearch ───────────────────────────────────────────────────────────────
 
-function ItemSearch({ onSelect, placeholder, displayValue, hasError }: {
+function ItemSearch({ onSelect, placeholder, displayValue, hasError, disabled }: {
   onSelect: (item: any) => void
   placeholder?: string
   displayValue?: string
   hasError: any
+  disabled?: boolean
 }) {
   const [search, setSearch] = useState(displayValue ?? '')
   const [open, setOpen] = useState(false)
@@ -169,7 +199,7 @@ function ItemSearch({ onSelect, placeholder, displayValue, hasError }: {
       const r = await apiClient.get(`/procurement/items/?search=${encodeURIComponent(search)}`)
       return r.data.results ?? r.data
     },
-    enabled: search.length > 0,
+    enabled: !disabled && search.length > 0,
   })
 
   useClickOutside(wrapperRef, () => setOpen(false))
@@ -179,17 +209,18 @@ function ItemSearch({ onSelect, placeholder, displayValue, hasError }: {
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
         <Input
+          disabled={disabled}
           placeholder={placeholder ?? 'Search item code…'}
           value={search}
           onChange={e => { setSearch(e.target.value); setOpen(true) }}
-          onFocus={() => search.length > 0 && setOpen(true)}
+          onFocus={() => !disabled && search.length > 0 && setOpen(true)}
           className={`pl-8 text-sm ${hasError ? 'border-destructive' : ''}`}
         />
         {isFetching && (
           <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />
         )}
       </div>
-      {open && search.length > 0 && (
+      {!disabled && open && search.length > 0 && (
         <div className="absolute z-50 w-full bottom-full mb-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
           {!items || items.length === 0 ? (
             <p className="px-3 py-2 text-xs text-muted-foreground">
@@ -230,12 +261,39 @@ export default function NewPRPage() {
 
   const [activeTab, setActiveTab] = useState<'details' | 'matrix'>('details')
   const [selectedVendors, setSelectedVendors] = useState<any[]>([])
+  const [removedVendorIds, setRemovedVendorIds] = useState<Set<number>>(new Set())
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const [vendorSearch, setVendorSearch] = useState('')
   const [showVendorSearch, setShowVendorSearch] = useState(false)
   const [selectedTracking, setSelectedTracking] = useState<any>(null)
   const [itemLabels, setItemLabels] = useState<Record<number, string>>({})
+  const [itemSources, setItemSources] = useState<Record<number, { vendor_name: string; quotation_no: string }>>({})
+
+  // Stable color per vendor for line-item differentiation
+  const VENDOR_COLOR_PALETTE = [
+    { border: 'border-l-blue-500',    bg: 'bg-blue-50',    pill: 'bg-blue-100 text-blue-700' },
+    { border: 'border-l-emerald-500', bg: 'bg-emerald-50', pill: 'bg-emerald-100 text-emerald-700' },
+    { border: 'border-l-amber-500',   bg: 'bg-amber-50',   pill: 'bg-amber-100 text-amber-700' },
+    { border: 'border-l-violet-500',  bg: 'bg-violet-50',  pill: 'bg-violet-100 text-violet-700' },
+    { border: 'border-l-rose-500',    bg: 'bg-rose-50',    pill: 'bg-rose-100 text-rose-700' },
+    { border: 'border-l-cyan-500',    bg: 'bg-cyan-50',    pill: 'bg-cyan-100 text-cyan-700' },
+  ] as const
+
+  const vendorColorMap = useMemo(() => {
+    const map = new Map<string, typeof VENDOR_COLOR_PALETTE[number]>()
+    let i = 0
+    Object.values(itemSources).forEach(src => {
+      if (src?.vendor_name && !map.has(src.vendor_name)) {
+        map.set(src.vendor_name, VENDOR_COLOR_PALETTE[i % VENDOR_COLOR_PALETTE.length])
+        i++
+      }
+    })
+    return map
+  }, [itemSources])
+
+  const [activeQuotationKey, setActiveQuotationKey] = useState<string | null>(null)
   const [savedPrId, setSavedPrId] = useState<string | null>(null)
   const [quotationSearch, setQuotationSearch] = useState('')
   const [quotationOpen, setQuotationOpen] = useState(false)
@@ -254,12 +312,12 @@ export default function NewPRPage() {
   // ─── Remote data ──────────────────────────────────────────────────────
 
   const { data: quotations = [], isLoading: qLoading } = useQuery({
-    queryKey: ['quotations', quotationSearch],
+    queryKey: ['quotations', 'approved', quotationSearch],
     queryFn: async () => {
       const params = new URLSearchParams()
+      params.set('status', 'approved')
       if (quotationSearch) params.set('search', quotationSearch)
-      const queryString = params.toString()
-      const { data } = await apiClient.get(`/quotations/${queryString ? `?${queryString}` : ''}`)
+      const { data } = await apiClient.get(`/quotations/?${params.toString()}`)
       return data?.results || data || []
     },
   })
@@ -352,6 +410,45 @@ export default function NewPRPage() {
   const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
   const grandTotal = subtotal + taxTotal
 
+  // ─── Group line items by source quotation (for tabs) ────────────────────
+  const groupedLineItems = useMemo(() => {
+    const map = new Map<string, { key: string; vendor_name: string; quotation_no: string; rows: { idx: number; field: any }[]; color: typeof VENDOR_COLOR_PALETTE[number] | null }>()
+    lineItemFields.forEach((field, idx) => {
+      const src = itemSources[idx]
+      const key = src ? `${src.vendor_name}::${src.quotation_no}` : '__manual__'
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          vendor_name: src?.vendor_name ?? 'Manual entries',
+          quotation_no: src?.quotation_no ?? '',
+          rows: [],
+          color: src?.vendor_name ? vendorColorMap.get(src.vendor_name) ?? null : null,
+        })
+      }
+      map.get(key)!.rows.push({ idx, field })
+    })
+    return Array.from(map.values())
+  }, [lineItemFields, itemSources, vendorColorMap])
+
+  const activeGroup = useMemo(() => {
+    if (groupedLineItems.length === 0) return null
+    const found = activeQuotationKey ? groupedLineItems.find(g => g.key === activeQuotationKey) : null
+    return found ?? groupedLineItems[0]
+  }, [groupedLineItems, activeQuotationKey])
+
+  useEffect(() => {
+    if (groupedLineItems.length > 0 && (!activeQuotationKey || !groupedLineItems.find(g => g.key === activeQuotationKey))) {
+      setActiveQuotationKey(groupedLineItems[0].key)
+    }
+  }, [groupedLineItems, activeQuotationKey])
+
+  const tabSubtotal = activeGroup
+    ? activeGroup.rows.reduce(
+        (sum, r) => sum + (Number(watchedItems?.[r.idx]?.quantity) || 0) * (Number(watchedItems?.[r.idx]?.unit_rate) || 0),
+        0,
+      )
+    : 0
+
   const budgetRemaining = trackingDetail
     ? Number(trackingDetail.remaining_amount ?? (trackingDetail.approved_amount ?? trackingDetail.requested_amount) - trackingDetail.consumed_amount)
     : null
@@ -377,6 +474,7 @@ export default function NewPRPage() {
   const removeVendor = (id: number) => {
     const updated = selectedVendors.filter(v => v.id !== id)
     setSelectedVendors(updated)
+    setRemovedVendorIds(prev => new Set(prev).add(id))
     setValue('invited_vendor_ids', updated.map(v => v.id), { shouldValidate: true, shouldDirty: true })
   }
 
@@ -416,10 +514,10 @@ export default function NewPRPage() {
   const applyQuotationAggregate = useCallback((data: any) => {
     if (!data) return
 
-    // 1. Vendors
-    const newVendors: any[] = data.vendors ?? []
-    setSelectedVendors(newVendors)
-    setValue('invited_vendor_ids', newVendors.map((v: any) => v.id), { shouldValidate: true, shouldDirty: true })
+    // 1. Vendors — exclude any the user has manually removed
+    const incomingVendors: any[] = (data.vendors ?? []).filter((v: any) => !removedVendorIds.has(v.id))
+    setSelectedVendors(incomingVendors)
+    setValue('invited_vendor_ids', incomingVendors.map((v: any) => v.id), { shouldValidate: true, shouldDirty: true })
 
     // 2. Build new quotation rows
     const items: any[] = data.items ?? []
@@ -445,10 +543,19 @@ export default function NewPRPage() {
 
     // 6. Labels: keep manual labels, add quotation labels after them
     const newLabels: Record<number, string> = { ...manualLabels }
+    const newSources: Record<number, { vendor_name: string; quotation_no: string }> = {}
     items.forEach((item: any, i: number) => {
-      newLabels[manualItems.length + i] = `${item.item_code} — ${item.item_name}`
+      const rowIdx = manualItems.length + i
+      newLabels[rowIdx] = `${item.item_code} — ${item.item_name}`
+      if (item.vendor_name) {
+        newSources[rowIdx] = {
+          vendor_name: item.vendor_name,
+          quotation_no: item.quotation_no ?? item.quotation_ref_no ?? '',
+        }
+      }
     })
     setItemLabels(newLabels)
+    setItemSources(newSources)
 
     // 7. Clear stale validation errors and re-validate
     clearErrors('line_items')
@@ -457,7 +564,7 @@ export default function NewPRPage() {
       trigger('line_items')
       trigger('invited_vendor_ids')
     }, 0)
-  }, [getManualRows, replace, setValue, clearErrors, trigger])
+  }, [getManualRows, replace, setValue, clearErrors, trigger, removedVendorIds])
 
   /**
    * Reverts only the quotation-injected rows; manual rows stay untouched.
@@ -551,17 +658,7 @@ export default function NewPRPage() {
     },
     onError: (err: any) => {
       const detail = err?.response?.data
-      let msg = ''
-      if (typeof detail === 'object' && detail !== null) {
-        for (const val of Object.values(detail)) {
-          if (Array.isArray(val)) msg = val[0]
-          else if (typeof val === 'string') msg = val
-          if (msg) break
-        }
-        if (!msg) msg = JSON.stringify(detail)
-      } else {
-        msg = String(detail ?? 'Something went wrong.')
-      }
+      const msg = flattenDrfError(detail) || 'Something went wrong.'
       toast({ title: 'Failed to save PR', description: msg, variant: 'destructive' })
     },
   })
@@ -580,9 +677,7 @@ export default function NewPRPage() {
     },
     onError: (err: any) => {
       const detail = err?.response?.data
-      const msg = typeof detail === 'object'
-        ? (detail.error || detail.detail || JSON.stringify(detail))
-        : String(detail ?? '')
+      const msg = flattenDrfError(detail) || 'Something went wrong.'
       toast({ title: 'Failed to submit PR', description: msg, variant: 'destructive' })
     },
   })
@@ -648,15 +743,27 @@ export default function NewPRPage() {
                 {errors.tracking_id && <p className="text-xs text-destructive">{errors.tracking_id.message}</p>}
               </div>
 
-              {/* Budget Details */}
-              {trackingDetail && (
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-md border border-blue-200 bg-blue-50/60 px-3 py-2 text-xs">
-                  <span className="font-medium text-blue-700">Budget</span>
-                  <span className="text-muted-foreground">Approved: <span className="font-semibold text-foreground">{formatCurrency(trackingDetail.approved_amount ?? trackingDetail.requested_amount)}</span></span>
-                  <span className="text-muted-foreground">Consumed: <span className="font-semibold text-foreground">{formatCurrency(trackingDetail.consumed_amount)}</span></span>
-                  <span className="text-muted-foreground">Remaining: <span className={`font-semibold ${budgetRemaining !== null && budgetRemaining > 0 ? 'text-green-700' : 'text-red-600'}`}>{formatCurrency(budgetRemaining ?? 0)}</span></span>
+              {/* Single-line compact summary */}
+              {watchedTrackingId && trackingDetail && (
+                <div className="rounded-md border bg-slate-50/60 px-3 py-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+                  <span className="font-semibold text-foreground truncate max-w-[260px]">{trackingDetail.title || '—'}</span>
+                  {trackingDetail.department_name && (
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <span className="w-1 h-1 rounded-full bg-muted-foreground" />{trackingDetail.department_name}
+                    </span>
+                  )}
+                  {trackingDetail.plant_name && (
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <span className="w-1 h-1 rounded-full bg-muted-foreground" />{trackingDetail.plant_name}
+                    </span>
+                  )}
+                  <span className="ml-auto inline-flex items-center gap-3">
+                    <span className="text-muted-foreground">Approved <span className="font-semibold text-foreground tabular-nums">{formatCurrency(trackingDetail.approved_amount ?? trackingDetail.requested_amount)}</span></span>
+                    <span className="text-muted-foreground">Consumed <span className="font-semibold text-foreground tabular-nums">{formatCurrency(trackingDetail.consumed_amount)}</span></span>
+                    <span className="text-muted-foreground">Remaining <span className={`font-semibold tabular-nums ${budgetRemaining !== null && budgetRemaining > 0 ? 'text-emerald-700' : 'text-destructive'}`}>{formatCurrency(budgetRemaining ?? 0)}</span></span>
+                  </span>
                   {grandTotal > 0 && budgetExceeded && (
-                    <span className="flex items-center gap-1 text-red-600 font-medium ml-auto">
+                    <span className="basis-full inline-flex items-center gap-1 text-destructive font-medium bg-destructive/10 px-2 py-1 rounded-md">
                       <AlertTriangle className="w-3 h-3" />
                       Exceeds by {formatCurrency(grandTotal - (budgetRemaining ?? 0))}
                     </span>
@@ -664,11 +771,7 @@ export default function NewPRPage() {
                 </div>
               )}
 
-              {watchedTrackingId && <>
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Title <span className="text-destructive">*</span></Label>
-                  <Input disabled {...register('title')} placeholder="e.g. Enterprise Laptop Procurement" className="h-10 bg-muted cursor-not-allowed text-muted-foreground" />
-                </div>
+              {watchedTrackingId && (
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium">
                     Description <span className="text-muted-foreground text-xs font-normal">(optional)</span>
@@ -680,29 +783,7 @@ export default function NewPRPage() {
                     className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">Department</Label>
-                    <select
-                      disabled
-                      value={trackingDetail?.department ?? ''}
-                      className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
-                    >
-                      <option value="">{trackingDetail?.department_name ?? '…'}</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">Plant</Label>
-                    <select
-                      disabled
-                      value={trackingDetail?.plant ?? ''}
-                      className="w-full h-10 border border-input rounded-md px-3 text-sm bg-muted cursor-not-allowed text-muted-foreground"
-                    >
-                      <option value="">{trackingDetail?.plant_name ?? '…'}</option>
-                    </select>
-                  </div>
-                </div>
-              </>}
+              )}
             </CardContent>
           </Card>
 
@@ -747,20 +828,40 @@ export default function NewPRPage() {
                       ) : (quotations as any[]).length === 0 ? (
                         <div className="p-2 text-xs text-muted-foreground">No quotations found</div>
                       ) : (
-                        (quotations as any[]).map((q: any) => (
-                          <label
-                            key={q.id}
-                            className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedQuotationIds.includes(q.id)}
-                              onChange={() => toggleQuotation(q.id)}
-                              disabled={isApplyingQuotations}
-                            />
-                            <span className="font-medium">{q.ref_no}</span>
-                          </label>
-                        ))
+                        (quotations as any[]).map((q: any) => {
+                          const isSelected = selectedQuotationIds.includes(q.id)
+                          return (
+                            <label
+                              key={q.id}
+                              className={`flex items-center gap-3 px-3 py-2 cursor-pointer text-sm border-l-2 transition-colors ${
+                                isSelected
+                                  ? 'bg-primary/5 border-l-primary'
+                                  : 'border-l-transparent hover:bg-muted'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleQuotation(q.id)}
+                                disabled={isApplyingQuotations}
+                                className="w-4 h-4 accent-primary"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-mono text-xs ${isSelected ? 'text-primary font-semibold' : 'text-foreground'}`}>{q.ref_no}</span>
+                                  {q.quotation_no && q.quotation_no !== '—' && (
+                                    <span className="text-[10px] text-muted-foreground">· {q.quotation_no}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                                  {q.vendor_name && <span className="truncate">{q.vendor_name}</span>}
+                                  {q.items_count != null && <span>· {q.items_count} item{q.items_count === 1 ? '' : 's'}</span>}
+                                  {q.total_amount != null && <span className="tabular-nums">· {formatCurrency(q.total_amount)}</span>}
+                                </div>
+                              </div>
+                            </label>
+                          )
+                        })
                       )}
                     </div>
                   )}
@@ -770,8 +871,10 @@ export default function NewPRPage() {
                 {selectedQuotations.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {selectedQuotations.map((q: any) => (
-                      <div key={q.id} className="flex items-center gap-1 px-2 py-1 text-xs bg-muted rounded-full">
-                        {q.ref_no}
+                      <div key={q.id} className="flex items-center gap-2 pl-3 pr-1.5 py-1 text-xs bg-primary/10 border border-primary/30 text-primary rounded-md font-medium">
+                        <span className="font-mono">{q.ref_no}</span>
+                        {q.vendor_name && <span className="text-muted-foreground">· {q.vendor_name}</span>}
+                        {q.total_amount != null && <span className="tabular-nums">· {formatCurrency(q.total_amount)}</span>}
                         <button
                           type="button"
                           onClick={() => toggleQuotation(q.id)}
@@ -860,8 +963,13 @@ export default function NewPRPage() {
                               {v.city ? [v.city, v.state].filter(Boolean).join(', ') : '—'}
                             </td>
                             <td className="px-3 py-2.5 text-center">
-                              <button type="button" onClick={() => removeVendor(v.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                                <X className="w-3.5 h-3.5" />
+                              <button
+                                type="button"
+                                onClick={() => removeVendor(v.id)}
+                                aria-label="Remove vendor"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
                               </button>
                             </td>
                           </tr>
@@ -895,7 +1003,48 @@ export default function NewPRPage() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="pt-4">
+              <CardContent className="pt-4 space-y-3">
+                {/* Quotation tabs */}
+                {groupedLineItems.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 border-b pb-2">
+                    {groupedLineItems.map(g => {
+                      const groupTotal = g.rows.reduce(
+                        (sum, r) => sum + (Number(watchedItems?.[r.idx]?.quantity) || 0) * (Number(watchedItems?.[r.idx]?.unit_rate) || 0),
+                        0,
+                      )
+                      const isActive = activeGroup?.key === g.key
+                      return (
+                        <button
+                          key={g.key}
+                          type="button"
+                          onClick={() => setActiveQuotationKey(g.key)}
+                          className={`relative flex items-center gap-2 px-3 py-1.5 rounded-md text-xs border transition-colors ${
+                            isActive
+                              ? 'bg-foreground text-background border-foreground'
+                              : 'bg-background hover:bg-muted text-foreground border-border'
+                          }`}
+                        >
+                          {g.color && (
+                            <span className={`w-2 h-2 rounded-full ${g.color.border.replace('border-l-', 'bg-')}`} />
+                          )}
+                          <span className="font-medium">{g.vendor_name}</span>
+                          {g.quotation_no && (
+                            <span className={`font-mono text-[10px] ${isActive ? 'text-background/70' : 'text-muted-foreground'}`}>
+                              {g.quotation_no}
+                            </span>
+                          )}
+                          <span className={`text-[10px] tabular-nums ${isActive ? 'text-background/70' : 'text-muted-foreground'}`}>
+                            · {g.rows.length} item{g.rows.length === 1 ? '' : 's'}
+                          </span>
+                          <span className={`text-[10px] tabular-nums font-semibold ${isActive ? 'text-background' : 'text-foreground'}`}>
+                            {formatCurrency(groupTotal)}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
                 <div className="border border-border rounded-lg overflow-visible">
                   <table className="w-full text-xs">
                     <thead className="bg-muted/50 border-b">
@@ -909,10 +1058,17 @@ export default function NewPRPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {lineItemFields.map((field, idx) => (
-                        <tr key={field.id} className="group">
+                      {(activeGroup?.rows ?? []).map(({ idx, field }) => {
+                        const sourceVendor = itemSources[idx]?.vendor_name
+                        const colors = sourceVendor ? vendorColorMap.get(sourceVendor) : null
+                        return (
+                        <tr
+                          key={field.id}
+                          className={`group ${colors ? `${colors.border} border-l-4` : 'border-l-4 border-l-transparent'}`}
+                        >
                           <td className="px-2 py-1.5">
                             <ItemSearch
+                              disabled
                               displayValue={itemLabels[idx]}
                               onSelect={item => {
                                 const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
@@ -929,6 +1085,11 @@ export default function NewPRPage() {
                                   (v, i) => (i === idx ? false : v)
                                 )
                                 setItemLabels(prev => ({ ...prev, [idx]: `${item.code} — ${item.description}` }))
+                                setItemSources(prev => {
+                                  const next = { ...prev }
+                                  delete next[idx]
+                                  return next
+                                })
                               }}
                               placeholder="Search item…"
                               hasError={errors.line_items?.[idx]?.item_code && errors.line_items[idx]?.item_code?.message}
@@ -936,10 +1097,17 @@ export default function NewPRPage() {
                             {errors.line_items?.[idx]?.item_code && (
                               <p className="text-xs text-destructive mt-0.5">{errors.line_items[idx]?.item_code?.message}</p>
                             )}
+                            {itemSources[idx] && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                from <span className="font-medium text-foreground">{itemSources[idx].vendor_name}</span>
+                                {itemSources[idx].quotation_no && <> · {itemSources[idx].quotation_no}</>}
+                              </p>
+                            )}
                           </td>
                           <td className="px-2 py-1.5">
                             <Input
                               type="number" min="0.01" max="99999" step="0.01" placeholder="1"
+                              disabled
                               className={`h-8 text-xs ${errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}`}
                               {...register(`line_items.${idx}.quantity`, {
                                 valueAsNumber: true,
@@ -952,7 +1120,7 @@ export default function NewPRPage() {
                             />
                           </td>
                           <td className="px-2 py-1.5">
-                            <Input placeholder="EA" className="h-8 text-xs" {...register(`line_items.${idx}.unit_of_measure`)} />
+                            <Input placeholder="EA" disabled className="h-8 text-xs" {...register(`line_items.${idx}.unit_of_measure`)} />
                           </td>
                           <td className="px-2 py-1.5">
                             <Input
@@ -974,31 +1142,21 @@ export default function NewPRPage() {
                           <td className="px-2 py-1.5 text-right text-sm font-medium text-muted-foreground">
                             {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
                           </td>
-                          <td className="px-2 py-1.5 text-center">
-                            {lineItemFields.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  remove(idx)
-                                  quotationFilledRowsRef.current = quotationFilledRowsRef.current.filter((_, i) => i !== idx)
-                                  setItemLabels(prev => {
-                                    const next: Record<number, string> = {}
-                                    Object.entries(prev).forEach(([k, v]) => {
-                                      const n = Number(k)
-                                      if (n < idx) next[n] = v
-                                      else if (n > idx) next[n - 1] = v
-                                    })
-                                    return next
-                                  })
-                                }}
-                                className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </td>
+                          <td className="px-2 py-1.5 text-center" />
+
                         </tr>
-                      ))}
+                      )})}
+                      {activeGroup && (
+                        <tr className="bg-slate-50">
+                          <td colSpan={4} className="px-2 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            {activeGroup.vendor_name} subtotal
+                          </td>
+                          <td className="px-2 py-2 text-right text-sm font-bold tabular-nums">
+                            {formatCurrency(tabSubtotal)}
+                          </td>
+                          <td />
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1007,25 +1165,28 @@ export default function NewPRPage() {
                   <p className="text-xs text-destructive">{errors.line_items.root.message}</p>
                 )}
 
-                {/* Totals */}
-                <div className="border border-border rounded-lg overflow-hidden mt-2">
-                  <table className="w-full text-sm">
-                    <tbody className="divide-y divide-border">
-                      <tr className="bg-slate-50">
-                        <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Subtotal</td>
-                        <td className="px-3 py-2 text-right font-bold">{formatCurrency(subtotal)}</td>
-                      </tr>
-                      <tr className="bg-slate-50">
-                        <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Tax ({combinedTaxRate}%)</td>
-                        <td className="px-3 py-2 text-right font-bold">{formatCurrency(taxTotal)}</td>
-                      </tr>
-                      <tr className="bg-slate-100 border-t-2">
-                        <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold">Total</td>
-                        <td className="px-3 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                {/* PR-level totals — hidden when multiple quotations are aggregated
+                    (each per-quotation tab shows its own subtotal in the items table) */}
+                {groupedLineItems.length <= 1 && (
+                  <div className="border border-border rounded-lg overflow-hidden mt-2">
+                    <table className="w-full text-sm">
+                      <tbody className="divide-y divide-border">
+                        <tr className="bg-slate-50">
+                          <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Subtotal</td>
+                          <td className="px-3 py-2 text-right font-bold">{formatCurrency(subtotal)}</td>
+                        </tr>
+                        <tr className="bg-slate-50">
+                          <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Tax ({combinedTaxRate}%)</td>
+                          <td className="px-3 py-2 text-right font-bold">{formatCurrency(taxTotal)}</td>
+                        </tr>
+                        <tr className="bg-slate-100 border-t-2">
+                          <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold">Total</td>
+                          <td className="px-3 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -1044,15 +1205,7 @@ export default function NewPRPage() {
                   toast({ title: 'Budget exceeded', description: `PR total (${formatCurrency(grandTotal)}) exceeds remaining budget (${formatCurrency(budgetRemaining)}).`, variant: 'destructive' })
                   return
                 }
-                const data = watch()
-                saveDraftMutation.mutate(data, {
-                  onSuccess: (pr) => {
-                    setSavedPrId(pr.hash_id ?? pr.id)
-                    queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
-                    toast({ title: 'PR saved as draft.' })
-                    setActiveTab('matrix')
-                  },
-                })
+                setShowSaveConfirm(true)
               }}
             >
               {saveDraftMutation.isPending
@@ -1061,6 +1214,72 @@ export default function NewPRPage() {
               Save & Next <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
+
+          {/* Save Confirmation Modal */}
+          <Dialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Save Purchase Requisition?</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-2 text-sm">
+                <p className="text-muted-foreground">Review the summary before saving as a draft. You can still edit before submitting for approval.</p>
+                <div className="rounded-md bg-slate-50 border p-3 space-y-1.5">
+                  {trackingDetail?.title && (
+                    <p>
+                      <span className="text-muted-foreground">Title: </span>
+                      <span className="font-medium">{trackingDetail.title}</span>
+                    </p>
+                  )}
+                  <p>
+                    <span className="text-muted-foreground">Vendors: </span>
+                    <span className="font-medium tabular-nums">{selectedVendors.length}</span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Line items: </span>
+                    <span className="font-medium tabular-nums">{lineItemFields.length}</span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Total: </span>
+                    <span className="font-semibold tabular-nums">{formatCurrency(grandTotal)}</span>
+                  </p>
+                  {budgetRemaining !== null && (
+                    <p>
+                      <span className="text-muted-foreground">Budget remaining after save: </span>
+                      <span className={`font-semibold tabular-nums ${budgetRemaining - grandTotal >= 0 ? 'text-emerald-700' : 'text-destructive'}`}>
+                        {formatCurrency(budgetRemaining - grandTotal)}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" disabled={isSaving} onClick={() => setShowSaveConfirm(false)}>Cancel</Button>
+                <Button
+                  className="gap-1.5"
+                  disabled={isSaving}
+                  onClick={() => {
+                    const data = watch()
+                    saveDraftMutation.mutate(data, {
+                      onSuccess: (pr) => {
+                        setSavedPrId(pr.hash_id ?? pr.id)
+                        queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
+                        toast({ title: 'PR saved as draft.' })
+                        setShowSaveConfirm(false)
+                        setActiveTab('matrix')
+                      },
+                    })
+                  }}
+                >
+                  {saveDraftMutation.isPending
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Save className="w-4 h-4" />}
+                  Save Draft
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>)}
 
         {/* ── Tab 2: Approval Matrix ── */}

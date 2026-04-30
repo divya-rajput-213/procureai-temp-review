@@ -124,6 +124,7 @@ const MATRIX_TYPE_OPTIONS = [
   { value: 'budget_approval', label: 'Budget Approval' },
   { value: 'vendor_onboarding', label: 'Vendor Onboarding' },
   { value: 'vendor_bid', label: 'Vendor Bid Approval' },
+  { value: 'quotation_approval', label: 'Quotation Approval' },
   { value: 'contract_review', label: 'Contract Review' },
   { value: 'contract_approval', label: 'Contract Approval' },
   { value: 'contract_amendment', label: 'Contract Amendment' },

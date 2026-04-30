@@ -2905,7 +2905,7 @@ export default function PRDetailPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<'details' | 'approval' | 'bids'>('details')
+  const [activeTab, setActiveTab] = useState<'details' | 'quotations' | 'approval' | 'bids' | 'comparison'>('details')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
@@ -2998,8 +2998,10 @@ export default function PRDetailPage() {
 
   const TABS = [
     { key: 'details' as const, label: 'Details' },
+    { key: 'quotations' as const, label: 'Quotations' },
     { key: 'approval' as const, label: 'Approval' },
     { key: 'bids' as const, label: 'Bids' },
+    { key: 'comparison' as const, label: 'Comparison' },
   ]
 
   return (
@@ -3244,6 +3246,308 @@ export default function PRDetailPage() {
 
       {/* ── Bids Tab ── */}
       {activeTab === 'bids' && <BidsTab pr={pr} onPRChange={invalidatePR} />}
+
+      {/* ── Quotations Tab (per-quotation breakdown) ── */}
+      {activeTab === 'quotations' && <QuotationsTab linkedQuotations={pr.linked_quotations ?? []} />}
+
+      {/* ── Comparison Tab ── */}
+      {activeTab === 'comparison' && <ComparisonTab prId={pr.id} />}
+    </div>
+  )
+}
+
+// ── Quotations Tab — shows each linked quotation individually ───────────────
+
+function QuotationsTab({ linkedQuotations }: { linkedQuotations: any[] }) {
+  const router = useRouter()
+
+  if (!linkedQuotations || linkedQuotations.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-sm text-muted-foreground">
+          No quotations linked to this PR yet.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {linkedQuotations.map((q: any) => (
+        <Card key={q.id} className="overflow-hidden">
+          <CardHeader className="border-b bg-slate-50/40 py-3 px-4">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-foreground truncate">{q.vendor_name ?? '—'}</p>
+                  <StatusBadge status={q.status} />
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                  <span className="font-mono">{q.quotation_no}</span>
+                  {q.quotation_date && <span>· {q.quotation_date}</span>}
+                  <span>· {q.items_count} item{q.items_count === 1 ? '' : 's'}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Total</p>
+                  <p className="text-base font-bold tabular-nums">{formatCurrency(q.total_amount)}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/quotation/${q.id}`)}
+                >
+                  Open
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 border-b">
+                <tr>
+                  <th className="text-left py-2 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Item</th>
+                  <th className="text-left py-2 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">HSN</th>
+                  <th className="text-right py-2 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Qty</th>
+                  <th className="text-left py-2 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">UOM</th>
+                  <th className="text-right py-2 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Rate</th>
+                  <th className="text-right py-2 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {q.items.length === 0 ? (
+                  <tr><td colSpan={6} className="p-4 text-center text-xs text-muted-foreground">No line items.</td></tr>
+                ) : q.items.map((it: any) => (
+                  <tr key={it.id}>
+                    <td className="py-2 px-3">
+                      <p className="font-medium truncate" title={it.item_name}>{it.item_name}</p>
+                      {it.item_code && <p className="text-[10px] font-mono text-muted-foreground">{it.item_code}</p>}
+                    </td>
+                    <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{it.hsn_code || '—'}</td>
+                    <td className="py-2 px-3 text-right tabular-nums">{it.quantity}</td>
+                    <td className="py-2 px-3 text-muted-foreground">{it.unit_of_measure}</td>
+                    <td className="py-2 px-3 text-right tabular-nums">{formatCurrency(it.item_price)}</td>
+                    <td className="py-2 px-3 text-right tabular-nums font-medium">{formatCurrency(it.line_total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+// ── Comparison Tab ──────────────────────────────────────────────────────────
+
+function ComparisonTab({ prId }: { prId: number | string }) {
+  const { toast } = useToast()
+  const [exporting, setExporting] = useState(false)
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['pr-comparison', prId],
+    queryFn: async () => {
+      const { data } = await apiClient.post('/quotations/compare/', { pr_id: prId })
+      return data
+    },
+    retry: false,
+  })
+
+  const matrix = data?.matrix
+  const ai     = data?.ai_recommendation
+  const rubric = data?.rubric
+
+  const handleExport = async () => {
+    if (!matrix?.vendors?.length) return
+    setExporting(true)
+    try {
+      const ids = matrix.vendors
+        .map((v: any) => v.quotation_id)
+        .filter((x: any) => Number.isFinite(Number(x)))
+        .join(',')
+      if (!ids) {
+        toast({ title: 'Export failed', description: 'No quotation IDs available in the matrix.', variant: 'destructive' })
+        return
+      }
+      const resp = await apiClient.get(`/quotations/compare-export/`, {
+        params: { quotation_ids: ids, format: 'xlsx' },
+        responseType: 'blob',
+      })
+      const url = window.URL.createObjectURL(new Blob([resp.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `pcs-${prId}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err: any) {
+      // axios returns the error body as a Blob when responseType=blob; read it as text/JSON
+      let message = 'Could not download PCS'
+      const blob = err?.response?.data
+      if (blob instanceof Blob) {
+        try {
+          const text = await blob.text()
+          const json = JSON.parse(text)
+          message = json?.error ?? json?.detail ?? text.slice(0, 200)
+        } catch {
+          // not JSON — keep default
+        }
+      } else if (err?.response?.data?.error) {
+        message = err.response.data.error
+      }
+      toast({ title: 'Export failed', description: message, variant: 'destructive' })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-8 flex items-center justify-center text-sm text-muted-foreground gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" /> Building comparison matrix…
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (isError) {
+    const msg = (error as any)?.response?.data?.error ?? 'Could not run comparison.'
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-sm space-y-3">
+          <p className="text-muted-foreground">{msg}</p>
+          <p className="text-xs text-muted-foreground">Comparison needs at least 2 approved quotations linked to this PR.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!matrix?.vendors?.length) {
+    return <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No data to compare.</CardContent></Card>
+  }
+
+  const recommendedVendorId = ai?.recommended?.vendor_id
+
+  return (
+    <div className="space-y-4">
+      {/* AI Recommendation card */}
+      {ai?.recommended && (
+        <Card className="border-emerald-200 bg-emerald-50/40">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">AI Recommendation</p>
+                <p className="text-base font-semibold text-foreground mt-0.5">{ai.recommended.vendor_name}</p>
+              </div>
+              <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm" className="gap-1.5">
+                {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                Download Excel
+              </Button>
+            </div>
+            {ai.recommended.summary && (
+              <p className="text-sm text-foreground">{ai.recommended.summary}</p>
+            )}
+            {Array.isArray(ai.ranking) && ai.ranking.length > 0 && rubric && (
+              <div className="border rounded-md bg-white overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 border-b">
+                    <tr>
+                      <th className="text-left py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Rank</th>
+                      <th className="text-left py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
+                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Price ({rubric.price})</th>
+                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Coverage ({rubric.coverage})</th>
+                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Perf. ({rubric.performance})</th>
+                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Risk ({rubric.risk})</th>
+                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">MSME ({rubric.msme})</th>
+                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Comm. ({rubric.commercial})</th>
+                      <th className="text-right py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {ai.ranking.map((r: any, i: number) => (
+                      <tr key={r.vendor_id} className={r.vendor_id === recommendedVendorId ? 'bg-emerald-50/50' : ''}>
+                        <td className="py-2 px-3 font-mono">{i + 1}</td>
+                        <td className="py-2 px-3 font-medium">{r.vendor_name}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.price?.toFixed(0) ?? '—'}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.coverage?.toFixed(0) ?? '—'}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.performance?.toFixed(0) ?? '—'}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.risk?.toFixed(0) ?? '—'}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.msme?.toFixed(0) ?? '—'}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">{r.scores?.commercial?.toFixed(0) ?? '—'}</td>
+                        <td className="py-2 px-3 text-right tabular-nums font-bold">{r.total_score?.toFixed(1) ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Comparison matrix */}
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle className="text-sm font-semibold">Price Comparison Matrix</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b">
+              <tr>
+                <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground sticky left-0 bg-slate-50">Item</th>
+                <th className="text-right py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Qty</th>
+                {matrix.vendors.map((v: any) => (
+                  <th key={v.vendor_id} className={`text-right py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold ${v.vendor_id === recommendedVendorId ? 'text-emerald-700' : 'text-muted-foreground'}`}>
+                    {v.vendor_name}
+                    <span className="block text-[9px] font-mono mt-0.5">{v.quotation_no}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {matrix.items.map((it: any) => (
+                <tr key={it.master_item_id}>
+                  <td className="py-2 px-3 sticky left-0 bg-white">
+                    <p className="font-medium">{it.item_name}</p>
+                    <p className="text-[10px] font-mono text-muted-foreground">{it.item_code}</p>
+                  </td>
+                  <td className="py-2 px-3 text-right tabular-nums">{it.total_quantity} {it.unit_of_measure}</td>
+                  {matrix.vendors.map((v: any) => {
+                    const price = it.vendor_prices?.[v.vendor_id]
+                    return (
+                      <td key={v.vendor_id} className={`py-2 px-3 text-right tabular-nums ${v.vendor_id === recommendedVendorId ? 'bg-emerald-50/30' : ''}`}>
+                        {price ? (
+                          <>
+                            <span className="font-medium">{formatCurrency(price.total)}</span>
+                            <span className="block text-[10px] text-muted-foreground">@ {formatCurrency(price.unit_price)}</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+              <tr className="bg-slate-50 border-t-2 font-bold">
+                <td className="py-2.5 px-3 sticky left-0 bg-slate-50">Total</td>
+                <td />
+                {matrix.vendors.map((v: any) => (
+                  <td key={v.vendor_id} className={`py-2.5 px-3 text-right tabular-nums ${v.vendor_id === recommendedVendorId ? 'bg-emerald-50 text-emerald-700' : ''}`}>
+                    {formatCurrency(v.total_amount)}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
     </div>
   )
 }

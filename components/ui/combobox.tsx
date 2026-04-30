@@ -43,9 +43,14 @@ function Combobox({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn("w-full justify-between font-normal", className)}
+          className={cn("w-full justify-between font-normal min-w-0", className)}
         >
-          {value ? options.find((o) => o.value === value)?.label : placeholder}
+          <span
+            className="truncate text-left flex-1 min-w-0"
+            title={value ? options.find((o) => o.value === value)?.label : undefined}
+          >
+            {value ? options.find((o) => o.value === value)?.label : placeholder}
+          </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
