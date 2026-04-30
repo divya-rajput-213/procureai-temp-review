@@ -15,7 +15,6 @@ import { useToast } from '@/components/ui/use-toast'
 import { ArrowLeft, ArrowRight, Plus, Trash2, Loader2, Search, X, Send, Save, AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
-import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import ComparisonTab from '../components/ComparisonTab'
 
@@ -294,12 +293,12 @@ export default function NewPRPage() {
 
   const [activeQuotationKey, setActiveQuotationKey] = useState<string | null>(null)
   const [savedPrId, setSavedPrId] = useState<string | null>(null)
+  const [prIdForComparison, setPrIdForComparison] = useState<number | null>(null) 
   const [quotationSearch, setQuotationSearch] = useState('')
   const [quotationOpen, setQuotationOpen] = useState(false)
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<number[]>([])
   const [isApplyingQuotations, setIsApplyingQuotations] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   // Use a ref to track which rows are quotation-filled so we never get stale closures
   // true  = row was injected by quotation aggregate
   // false = row was added/edited manually
@@ -1221,34 +1220,6 @@ export default function NewPRPage() {
 
               <div className="space-y-2 text-sm">
                 <p className="text-muted-foreground">Review the summary before saving as a draft. You can still edit before submitting for approval.</p>
-                <div className="rounded-md bg-slate-50 border p-3 space-y-1.5">
-                  {trackingDetail?.title && (
-                    <p>
-                      <span className="text-muted-foreground">Title: </span>
-                      <span className="font-medium">{trackingDetail.title}</span>
-                    </p>
-                  )}
-                  <p>
-                    <span className="text-muted-foreground">Vendors: </span>
-                    <span className="font-medium tabular-nums">{selectedVendors.length}</span>
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Line items: </span>
-                    <span className="font-medium tabular-nums">{lineItemFields.length}</span>
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Total: </span>
-                    <span className="font-semibold tabular-nums">{formatCurrency(grandTotal)}</span>
-                  </p>
-                  {budgetRemaining !== null && (
-                    <p>
-                      <span className="text-muted-foreground">Budget remaining after save: </span>
-                      <span className={`font-semibold tabular-nums ${budgetRemaining - grandTotal >= 0 ? 'text-emerald-700' : 'text-destructive'}`}>
-                        {formatCurrency(budgetRemaining - grandTotal)}
-                      </span>
-                    </p>
-                  )}
-                </div>
               </div>
 
               <DialogFooter>
@@ -1261,6 +1232,7 @@ export default function NewPRPage() {
                     saveDraftMutation.mutate(data, {
                       onSuccess: (pr) => {
                         setSavedPrId(pr.hash_id ?? pr.id)
+                        setPrIdForComparison(pr.id)
                         queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
                         toast({ title: 'PR saved as draft.' })
                         setShowSaveConfirm(false)
@@ -1281,7 +1253,7 @@ export default function NewPRPage() {
 
         {/* ── Tab 2: Approval Matrix ── */}
         {activeTab === 'comparison' && (
-          <ComparisonTab prId={"pr.id"} />
+          <ComparisonTab prId={prIdForComparison} />
         )}
 
         {/* ── Tab 2 actions ── */}

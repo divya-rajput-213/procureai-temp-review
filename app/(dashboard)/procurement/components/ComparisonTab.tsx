@@ -7,10 +7,9 @@ import { useQuery } from '@tanstack/react-query'
 import { Download, Loader2 } from 'lucide-react'
 import React, { useState } from 'react'
 
-const ComparisonTab = ({ prId }: { prId: number | string }) => {
+const ComparisonTab = ({ prId }: { prId: number | string | null }) => {
     const { toast } = useToast()
     const [exporting, setExporting] = useState(false)
-  
     const { data, isLoading, isError, error, refetch } = useQuery({
       queryKey: ['pr-comparison', prId],
       queryFn: async () => {
