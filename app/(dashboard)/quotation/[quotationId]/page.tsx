@@ -3,13 +3,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Download, Loader2, Pencil, Plus, Save, Search, Send, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Download, Loader2, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { useToast } from '@/components/ui/use-toast'
 import apiClient from '@/lib/api/client'
 
@@ -218,7 +217,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     },
   })
 
-  const [submitOpen, setSubmitOpen] = useState(false)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
 
@@ -276,17 +274,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     setItemSearch('')
   }
 
-  const { data: matrices, isLoading: loadingMatrices } = useQuery({
-    queryKey: ['approval-matrices-quotation'],
-    enabled: submitOpen,
-    queryFn: async () => {
-      const r = await apiClient.get('/approvals/matrices/', {
-        params: { matrix_type: 'quotation_approval', is_active: 'true' },
-      })
-      return r.data.results ?? r.data
-    },
-  })
-
   const editMutation = useMutation({
     mutationFn: async () => {
       const payload = {
@@ -316,26 +303,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     onError: (err: any) => {
       const message = err?.response?.data?.error ?? err?.response?.data?.detail ?? 'Could not save changes.'
       toast({ title: 'Save failed', description: message, variant: 'destructive' })
-    },
-  })
-
-  const submitMutation = useMutation({
-    mutationFn: async () => {
-      const payload: any = {}
-      if (selectedMatrix) payload.matrix_id = selectedMatrix
-      const { data } = await apiClient.post(`/quotations/${params.quotationId}/submit/`, payload)
-      return data
-    },
-    onSuccess: () => {
-      toast({ title: 'Submitted for approval', description: 'Quotation is now locked and routed to approvers.' })
-      queryClient.invalidateQueries({ queryKey: ['quotation', params.quotationId] })
-      setSubmitOpen(false)
-      setSelectedMatrix(null)
-      setExpandedMatrix(null)
-    },
-    onError: (err: any) => {
-      const message = err?.response?.data?.error ?? err?.response?.data?.detail ?? 'Could not submit quotation.'
-      toast({ title: 'Submit failed', description: message, variant: 'destructive' })
     },
   })
 
@@ -449,14 +416,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               >
                 <Pencil className="h-4 w-4" />
                 Edit
-              </Button>
-              <Button
-                size="sm"
-                className="gap-2"
-                onClick={() => setSubmitOpen(true)}
-              >
-                <Send className="h-4 w-4" />
-                Submit for Approval
               </Button>
             </>
           )}
@@ -894,55 +853,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddItemOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Submit-for-Approval Dialog */}
-      <Dialog open={submitOpen} onOpenChange={setSubmitOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Submit Quotation for Approval</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Pick the approval matrix that should route this quotation. Once submitted, the quotation will be locked and cannot be edited.
-            </p>
-
-            {loadingMatrices ? (
-              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading matrices…
-              </div>
-            ) : !matrices || matrices.length === 0 ? (
-              <div className="p-6 text-center text-sm text-muted-foreground border rounded-md">
-                No active <span className="font-mono">quotation_approval</span> matrix is configured. Ask an admin to create one.
-              </div>
-            ) : (
-              <MatrixSelectorTable
-                matrices={matrices}
-                selectedMatrix={selectedMatrix}
-                expandedMatrix={expandedMatrix}
-                onSelect={(id: number) => { setSelectedMatrix(id); setExpandedMatrix(id) }}
-                onToggleExpand={(id: number) => setExpandedMatrix(prev => prev === id ? null : id)}
-              />
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSubmitOpen(false)} disabled={submitMutation.isPending}>
-              Cancel
-            </Button>
-            <Button
-              className="gap-2"
-              disabled={!selectedMatrix || submitMutation.isPending}
-              onClick={() => submitMutation.mutate()}
-            >
-              {submitMutation.isPending
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <Send className="w-4 h-4" />}
-              Submit for Approval
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
