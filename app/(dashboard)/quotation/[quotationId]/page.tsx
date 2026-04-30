@@ -434,7 +434,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       </div>
 
       {/* Document */}
-      <div className="bg-white border rounded-lg max-w-5xl mx-auto p-8 shadow-sm text-sm text-foreground">
+      <div className="bg-white border rounded-lg max-w-7xl mx-auto p-8 shadow-sm text-sm text-foreground">
 
         {/* Top: vendor info (left) + quotation meta (right) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b">
