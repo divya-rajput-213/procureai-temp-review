@@ -317,10 +317,6 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess }: {
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const quotations = pr.linked_quotations
-  // ── Step 2: quotation picker state ────────────────────────────────────────
-  const [showQuotationPicker, setShowQuotationPicker] = useState(false)
-  const [selectedQuotation, setSelectedQuotation] = useState<number | null>(null)
 
   const { data: matrices, isLoading: loadingMatrices } = useQuery({
     queryKey: ['approval-matrices-pr'],
@@ -332,18 +328,10 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess }: {
     },
   })
 
-  // Step 1 → open quotation picker
-  const handleSubmitClick = () => {
-    setShowQuotationPicker(true)
-  }
-
-  // Step 2 → final submit
   const submit = async () => {
     setSubmitting(true)
     try {
-      const body: Record<string, any> = {}
-      if (selectedMatrix) body.matrix_id = selectedMatrix
-      if (selectedQuotation) body.quotation_id = selectedQuotation
+      const body = selectedMatrix ? { matrix_id: selectedMatrix } : {}
       await apiClient.post(`/procurement/${prId}/submit/`, body)
       toast({ title: 'PR submitted for approval.' })
       onSuccess()
@@ -357,7 +345,6 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess }: {
 
   return (
     <>
-      {/* ── Step 1: Matrix selector card ─────────────────────────────────── */}
       <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -374,124 +361,51 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess }: {
               <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
             </div>
           )}
+
           {!loadingMatrices && (matrices ?? []).length === 0 && (
             <p className="text-xs text-amber-600 font-medium">
               No active PR approval matrices configured. The system will use the default matrix.
             </p>
           )}
+
           {!loadingMatrices && (matrices ?? []).length > 0 && (
             <MatrixSelectorTable
               matrices={matrices}
               selectedMatrix={selectedMatrix}
               expandedMatrix={expandedMatrix}
-              onSelect={(id) => { setSelectedMatrix(id); setExpandedMatrix(id) }}
-              onToggleExpand={(id) => setExpandedMatrix(prev => prev === id ? null : id)}
+              onSelect={(id) => {
+                setSelectedMatrix(id)
+                setExpandedMatrix(id)
+              }}
+              onToggleExpand={(id) => {
+                setExpandedMatrix((prev) => (prev === id ? null : id))
+              }}
             />
           )}
         </CardContent>
 
+        {/* Footer — same as first design */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
           <Button variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmitClick} className="gap-2 min-w-[160px]">
-            <Send className="w-4 h-4" />
+
+          <Button
+            onClick={submit}
+            disabled={submitting}
+            className="gap-2 min-w-[160px]"
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
             Submit for Approval
           </Button>
         </div>
       </Card>
-
-      {/* ── Step 2: Quotation picker overlay modal ───────────────────────── */}
-      {showQuotationPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-background rounded-xl shadow-xl w-full max-w-2xl overflow-hidden border">
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b">
-              <div>
-                <h2 className="text-sm font-semibold">Select Quotation</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Select the quotation to include with this approval request.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowQuotationPicker(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Quotation list */}
-            <div className="max-h-[400px] overflow-y-auto">
-
-              {(quotations ?? []).length === 0 && (
-                <p className="text-sm text-muted-foreground px-5 py-6">
-                  No quotations linked to this PR.
-                </p>
-              )}
-
-              { (quotations ?? []).length > 0 && (
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b sticky top-0">
-                    <tr className="text-xs text-muted-foreground">
-                      <th className="w-10 px-4 py-2.5" />
-                      <th className="text-left px-3 py-2.5 font-medium">Quotation #</th>
-                      <th className="text-left px-3 py-2.5 font-medium">Vendor</th>
-                      <th className="text-right px-3 py-2.5 font-medium">Amount</th>
-                      <th className="text-left px-3 py-2.5 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {(quotations as any[]).map((q: any) => (
-                      <tr
-                        key={q.id}
-                        onClick={() => setSelectedQuotation(q.id)}
-                        className={`cursor-pointer transition-colors ${selectedQuotation === q.id
-                          ? 'bg-primary/5'
-                          : 'hover:bg-muted/40'
-                          }`}
-                      >
-                        <td className="px-4 py-3 text-center">
-                          <input
-                            type="radio"
-                            checked={selectedQuotation === q.id}
-                            onChange={() => setSelectedQuotation(q.id)}
-                            onClick={e => e.stopPropagation()}
-                            className="accent-primary"
-                          />
-                        </td>
-                        <td className="px-3 py-3 font-medium">
-                          {q.quotation_number ?? q.reference_number ?? `#${q.id}`}
-                        </td>
-                        <td className="px-3 py-3 text-muted-foreground">
-                          {q.vendor_name ?? q.vendor_detail?.company_name ?? '—'}
-                        </td>
-                        <td className="px-3 py-3 text-right font-medium">
-                          {formatCurrency(q.total_amount ?? q.grand_total, q.currency_code)}
-                        </td>
-                        <td className="px-3 py-3">
-                          {q.status && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${q.status === 'approved'
-                              ? 'bg-green-100 text-green-700'
-                              : q.status === 'rejected'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-amber-100 text-amber-700'
-                              }`}>
-                              {q.status}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </>
+
   )
 }
 
