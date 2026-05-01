@@ -49,6 +49,11 @@ type BillTo = {
   ref: string
   contact_no: string
   state: string
+  email: string
+  gst_number?: string
+  pan_number?: string
+  plant_name?: string
+  plant_code?: string
 }
 
 type Quotation = {
@@ -155,14 +160,27 @@ function mapVendor(raw: any): Vendor | null {
 }
 
 function mapBillTo(raw: any): BillTo | null {
-  const b = raw?.bill_to ?? raw?.customer ?? raw?.buyer
+  const b = raw?.bill_to ?? raw?.customer ?? raw?.buyer_details ?? raw
   if (!b) return null
+
+  const addressParts = [
+    b.address || b.plant_address,
+    b.city || b.plant_city,
+    b.state || b.plant_state,
+    b.country,
+  ].filter(Boolean)
+
   return {
-    name: b.name ?? b.company_name ?? '—',
-    address: b.address ?? '',
-    ref: b.ref ?? b.reference_person ?? raw?.reference_person ?? '',
-    contact_no: b.contact_no ?? b.contact_phone ?? raw?.contact_no ?? '',
-    state: b.state ?? raw?.state ?? '',
+    name: b.company_name ?? b.name ?? '—',
+    email: b.contact_email ?? '',
+    address: addressParts.join(', '),
+    ref: b.contact_name ?? '',
+    contact_no: b.contact_phone ?? '',
+    state: b.state ?? b.plant_state ?? '',
+    gst_number: b.gst_number ?? '',
+    pan_number: b.pan_number ?? '',
+    plant_name: b.plant_name ?? '',
+    plant_code: b.plant_code ?? '',
   }
 }
 
@@ -211,14 +229,12 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       return {
         quotation: data ? mapQuotation(data) : null,
         vendor: mapVendor(data),
-        bill_to: mapBillTo(data),
+        bill_to: mapBillTo(data?.buyer_details),
         items: extractLineItems(data),
       }
     },
   })
-
-  const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
-  const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
+  console.log('datadata', data)
 
   const [isEditing, setIsEditing] = useState(false)
   const [editQuotationNo, setEditQuotationNo] = useState('')
@@ -310,7 +326,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const vendor = data?.vendor ?? null
   const billTo = data?.bill_to ?? null
   const items = useMemo(() => data?.items ?? [], [data?.items])
-
+  console.log(data, 'billTo', billTo)
   const enterEditMode = () => {
     if (!quotation) return
     setEditQuotationNo(quotation.quotation_no === '—' ? '' : quotation.quotation_no)
@@ -395,7 +411,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     .join(', ')
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Action bar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
@@ -434,10 +450,45 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       </div>
 
       {/* Document */}
-      <div className="bg-white border rounded-lg max-w-7xl mx-auto p-8 shadow-sm text-sm text-foreground">
+      <div className="bg-white border rounded-lg max-w-7xl mx-auto p-6 shadow-sm text-sm text-foreground">
+        <div className="flex items-center justify-between gap-6 border-b pb-3">
+          {/* Left - Quotation No */}
+          <div className="flex items-center gap-2 ">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+              Quotation No
+            </span>
 
-        {/* Top: vendor info (left) + quotation meta (right) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b">
+            {isEditing ? (
+              <Input
+                className="h-7 text-sm max-w-[200px]"
+                value={editQuotationNo}
+                onChange={e => setEditQuotationNo(e.target.value)}
+              />
+            ) : (
+              <span className="font-semibold">{quotation.quotation_no}</span>
+            )}
+          </div>
+
+          {/* Right - Date */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+              Date
+            </span>
+
+            {isEditing ? (
+              <Input
+                className="h-7 text-sm max-w-[200px]"
+                value={editQuotationDate}
+                onChange={e => setEditQuotationDate(e.target.value)}
+              />
+            ) : (
+              <span>{quotation.quotation_date}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Top: vendor info (left) (right) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-3  border-b">
           <div className="space-y-1">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">From</p>
             <p className="text-base font-semibold">{vendor?.company_name ?? '—'}</p>
@@ -455,47 +506,33 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           </div>
 
           <div className="md:text-right space-y-2">
-            <div className="grid grid-cols-[max-content_1fr] md:grid-cols-[1fr_max-content] gap-x-3 gap-y-1.5 items-center md:justify-items-end">
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground md:order-1">Quotation No</span>
-              <span className="md:order-2">
-                {isEditing ? (
-                  <Input
-                    className="h-7 text-sm max-w-[200px]"
-                    value={editQuotationNo}
-                    onChange={e => setEditQuotationNo(e.target.value)}
-                  />
-                ) : (
-                  <span className="font-semibold">{quotation.quotation_no}</span>
+            {/* Bill To */}
+            {billTo && (
+              <div className=" space-y-2">
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                  Billed To
+                </p>
+
+                {billTo.name && <p className="font-semibold">{billTo.name}</p>}
+
+                {billTo.address && (
+                  <p className="text-muted-foreground leading-relaxed">
+                    {billTo.address}
+                  </p>
                 )}
-              </span>
 
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground md:order-3">Date</span>
-              <span className="md:order-4">
-                {isEditing ? (
-                  <Input
-                    className="h-7 text-sm max-w-[200px]"
-                    value={editQuotationDate}
-                    onChange={e => setEditQuotationDate(e.target.value)}
-                  />
-                ) : (
-                  <span>{quotation.quotation_date}</span>
-                )}
-              </span>
-
-              {quotation.place_of_supply !== '—' && (
-                <>
-                  <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground md:order-5">Place of Supply</span>
-                  <span className="md:order-6">{quotation.place_of_supply}</span>
-                </>
-              )}
-
-              {quotation.customer_handling_by !== '—' && (
-                <>
-                  <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground md:order-7">Handled By</span>
-                  <span className="md:order-8">{quotation.customer_handling_by}</span>
-                </>
-              )}
-            </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  {billTo.ref && <p>Ref: {billTo.ref}</p>}
+                  {billTo.contact_no && <p>Contact: {billTo.contact_no}</p>}
+                  {billTo.email && <p>Email: {billTo.email}</p>}
+                  {billTo.state && <p>State: {billTo.state}</p>}
+                  {billTo.gst_number && <p>GST: {billTo.gst_number}</p>}
+                  {billTo.pan_number && <p>PAN: {billTo.pan_number}</p>}
+                  {billTo.plant_name && <p>Plant: {billTo.plant_name}</p>}
+                  {billTo.plant_code && <p>Plant Code: {billTo.plant_code}</p>}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -539,22 +576,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           </div>
         )}
 
-        {/* Bill To */}
-        {billTo && (
-          <div className="py-6 border-b space-y-1">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Billed To</p>
-            {billTo.name && <p className="font-semibold">{billTo.name}</p>}
-            {billTo.address && <p className="text-muted-foreground">{billTo.address}</p>}
-            <div className="flex flex-wrap gap-x-4 text-xs text-muted-foreground">
-              {billTo.ref && <span>Ref: {billTo.ref}</span>}
-              {billTo.contact_no && <span>Contact: {billTo.contact_no}</span>}
-              {billTo.state && <span>State: {billTo.state}</span>}
-            </div>
-          </div>
-        )}
-
         {/* Items table */}
-        <div className="mt-6">
+        <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Line Items</p>
             {isEditing && (
@@ -711,7 +734,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         )}
 
         {/* Footer: Bank + T&C */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
           {/* Bank Details */}
           <div className="space-y-2">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Bank Details</p>
