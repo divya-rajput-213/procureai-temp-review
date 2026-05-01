@@ -221,7 +221,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
-
+  const [loading, setLoading] = useState(false)
   const { data, isLoading, isError } = useQuery<QuotationDetails>({
     queryKey: ['quotation', params.quotationId],
     queryFn: async () => {
@@ -234,7 +234,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       }
     },
   })
-  console.log('datadata', data)
 
   const [isEditing, setIsEditing] = useState(false)
   const [editQuotationNo, setEditQuotationNo] = useState('')
@@ -337,11 +336,27 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     setEditDepartmentId(quotation.department_id ? String(quotation.department_id) : '')
     setIsEditing(true)
   }
-
+  const handleDownloadGeneratedPdf = async () => {
+    try {
+      setLoading(true)
+      const { data } = await apiClient.get(
+        `/api/v1/quotations/${quotation?.id}/generate-pdf/`
+      )
+  
+      if (data?.pdf_url) {
+        window.open(data.pdf_url, "_blank")
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }
   const cancelEdit = () => {
     setIsEditing(false)
   }
 
+  
   const updateEditItem = (idx: number, patch: Partial<ExtractedLineItem>) => {
     setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it))
   }
@@ -438,14 +453,22 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           {isEditing && (
             <span className="text-xs text-muted-foreground italic">Editing…</span>
           )}
-          {quotation.pdf_url && !isEditing && (
-            <a href={quotation.pdf_url} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Download className="h-4 w-4" />
-                Download PDF
-              </Button>
-            </a>
-          )}
+          <select
+            className="border rounded-md h-9 px-2 text-sm bg-white"
+            onChange={(e) => {
+              if (e.target.value === "original") {
+                window.open(quotation.pdf_url, "_blank")
+              } else if (e.target.value === "generated") {
+                handleDownloadGeneratedPdf()
+              }
+              e.target.value = "" // reset
+            }}
+          >
+            <option value="">Download PDF</option>
+            {quotation.pdf_url && <option value="original">Original PDF</option>}
+            <option value="generated">Generated PDF</option>
+          </select>
+
         </div>
       </div>
 
