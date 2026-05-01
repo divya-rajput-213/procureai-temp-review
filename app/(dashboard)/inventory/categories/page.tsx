@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
+import { DIGITS_REGEX, ALPHA_REGEX } from '@/lib/utils'
 import {
   Plus, Search, Pencil, Loader2, X, Trash2, Download, Upload,
   CheckCircle, XCircle, ArrowLeft,
@@ -27,6 +28,7 @@ const CATEGORY_FIELDS = [
   { key: 'description', label: 'Description', required: false },
   { key: 'is_active',   label: 'Is Active',   required: false },
 ]
+
 
 // ─── CSV Helpers ──────────────────────────────────────────────────────────────
 
@@ -99,14 +101,29 @@ function CategoryModal({ category, onClose }: Readonly<{ category: Category | nu
 
   function validate(): boolean {
     const errs: Partial<Record<keyof CategoryFormData, string>> = {}
-    if (!form.name.trim()) errs.name = 'Name is required'
+    const trimmedName = form.name.trim()
+    if (!trimmedName) errs.name = 'Name is required'
+    else if (DIGITS_REGEX.test(trimmedName)) errs.name = 'Name cannot contain digits'
+    else if (!ALPHA_REGEX.test(trimmedName)) errs.name = 'Name must contain at least one letter'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
 
   function set(field: keyof CategoryFormData, value: string | boolean) {
     setForm(prev => ({ ...prev, [field]: value }))
-    setErrors(prev => ({ ...prev, [field]: undefined }))
+    if (field === 'name' && typeof value === 'string') {
+      const trimmedName = value.trim()
+      setErrors(prev => ({
+        ...prev,
+        name: !trimmedName
+          ? 'Name is required'
+          : (DIGITS_REGEX.test(trimmedName)
+            ? 'Name cannot contain digits'
+            : (!ALPHA_REGEX.test(trimmedName) ? 'Name must contain at least one letter' : undefined)),
+      }))
+    } else {
+      setErrors(prev => ({ ...prev, [field]: undefined }))
+    }
   }
 
   return (
