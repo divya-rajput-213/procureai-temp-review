@@ -529,7 +529,7 @@ export default function UploadQuotationPage() {
                             </p>
                         </div>
                         {/* Quotation meta on the right */}
-                        <div className="flex items-start gap-4 shrink-0">
+                        <div className="flex items-start gap-4 shrink-0 mr-2">
                             {(quotation?.vendor?.quotation_no || quotation?.vendor?.quotation_no === 0) && (
                                 <div className="text-right">
                                     <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Quotation No</p>
