@@ -110,7 +110,11 @@ export const STATUS_COLORS: Record<string, string> = {
   payment_initiated: 'bg-indigo-100 text-indigo-700',
   paid: 'bg-green-100 text-green-800',
 }
-export   const nameRegex = /^[A-Za-z]{2,}$/
+export const nameRegex = /^[A-Za-z]{2,}$/
+export const DIGITS_REGEX = /\d/
+export const ALPHA_REGEX = /[A-Za-z]/
+export const ALPHANUM_REGEX = /^[A-Za-z0-9]+$/
+export const NON_ALPHANUM_REGEX = /[^A-Za-z0-9]/g
 
 export function normalizeLeadingWhitespace(value: string) {
   return value.replace(/^\s+/, '')

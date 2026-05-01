@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
+import { ALPHANUM_REGEX, NON_ALPHANUM_REGEX } from '@/lib/utils'
 import {
   Plus, Search, Pencil, Loader2, X, Download, Upload,
   CheckCircle, XCircle, ArrowLeft, Trash2, AlertTriangle,
@@ -29,6 +30,9 @@ interface ItemFormData {
 
 const EMPTY_FORM: ItemFormData = { code: '', description: '', unit_of_measure: 'EA', category: '', hsn_code: '', unit_rate: '', is_active: true }
 const UOM_OPTIONS = ['EA', 'KG', 'LTR', 'MTR', 'PCS', 'SET', 'BOX', 'BAG', 'TON', 'NOS']
+
+// const ITEM_CODE_ALPHANUM_ONLY_RE = /^[A-Za-z0-9]+$/
+// const ITEM_CODE_NON_ALPHANUM_RE = /[^A-Za-z0-9]/g
 
 // System fields available for column mapping
 const ITEM_FIELDS = [
@@ -127,7 +131,9 @@ function ItemModal({
 
   function validate(): boolean {
     const errs: Partial<Record<keyof ItemFormData, string>> = {}
-    if (!form.code.trim()) errs.code = 'Code is required'
+    const code = form.code.trim()
+    if (!code) errs.code = 'Code is required'
+    else if (!ALPHANUM_REGEX.test(code)) errs.code = 'Code must be alphanumeric only (letters and numbers)'
     if (!form.description.trim()) errs.description = 'Description is required'
     if (!form.category) errs.category = 'Category is required'
     const hsn = form.hsn_code.trim()
@@ -146,6 +152,19 @@ function ItemModal({
   }
 
   function set(field: keyof ItemFormData, value: string | boolean | number | null) {
+    if (field === 'code' && typeof value === 'string') {
+      const cleaned = value.replace(NON_ALPHANUM_REGEX, '')
+      setForm(prev => ({ ...prev, code: cleaned }))
+      const trimmed = cleaned.trim()
+      setErrors(prev => ({
+        ...prev,
+        code: !trimmed
+          ? 'Code is required'
+          : (value !== cleaned ? 'Code must be alphanumeric only (letters and numbers)' : undefined),
+      }))
+      return
+    }
+
     setForm(prev => ({ ...prev, [field]: value }))
     setErrors(prev => ({ ...prev, [field]: undefined }))
   }
