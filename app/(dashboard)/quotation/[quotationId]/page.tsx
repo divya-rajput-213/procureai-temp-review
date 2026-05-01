@@ -325,7 +325,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const vendor = data?.vendor ?? null
   const billTo = data?.bill_to ?? null
   const items = useMemo(() => data?.items ?? [], [data?.items])
-  console.log(data, 'billTo', billTo)
   const enterEditMode = () => {
     if (!quotation) return
     setEditQuotationNo(quotation.quotation_no === '—' ? '' : quotation.quotation_no)
