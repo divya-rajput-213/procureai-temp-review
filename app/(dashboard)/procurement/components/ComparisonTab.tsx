@@ -84,7 +84,7 @@ const ComparisonTab = ({ prId }: { prId: number | string | null }) => {
         <Card>
           <CardContent className="p-8 text-center text-sm space-y-3">
             <p className="text-muted-foreground">{msg}</p>
-            <p className="text-xs text-muted-foreground">Comparison needs at least 2 approved quotations linked to this PR.</p>
+            <p className="text-xs text-muted-foreground">Comparison needs at least 2 quotations linked to this PR.</p>
             <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
           </CardContent>
         </Card>
