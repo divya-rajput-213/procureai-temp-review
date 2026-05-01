@@ -887,7 +887,7 @@ export default function UploadQuotationPage() {
                                                         <div className="flex items-center gap-2 min-w-0">
                                                             <p className="font-medium text-foreground truncate min-w-0" title={item.item_name}>{item.item_name}</p>
                                                             {item.is_new && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">New</Badge>}
-                                                            {item.is_duplicate && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Duplicate</Badge>}
+                                                            {item.is_duplicate && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Matched</Badge>}
                                                         </div>
                                                     )}
                                                 </td>
