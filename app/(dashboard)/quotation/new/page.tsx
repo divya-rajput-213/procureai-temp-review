@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Upload, AlertCircle, ArrowLeft, ChevronRight, Loader2, CheckCircle2, Download, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import {  AlertCircle, ArrowLeft, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -11,12 +11,14 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Combobox } from '@/components/ui/combobox'
 import { Checkbox } from '@/components/ui/checkbox'
+import UploadFile from './components/UploadFile'
 
 interface FilterState {
     all: string;
     new: string;
     duplicates: string;
 }
+interface Category { id: number; hash_id: string; name: string; is_active: boolean }
 
 // ─── Inline row-level master item search ─────────────────────────────────────
 function RowItemSearch({ masterItems, lineItems, rowIndex, onPick, onCreateCustom, onCancel }: {
@@ -130,6 +132,7 @@ export default function UploadQuotationPage() {
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
     const [file, setFile] = useState<File | null>(null)
+    const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const [quotation, setQuotation] = useState<any>(null)
     const [lineItems, setLineItems] = useState<any>([])
     const [vendors, setVendors] = useState<any>(null)
@@ -139,6 +142,8 @@ export default function UploadQuotationPage() {
     const [showExportModal, setShowExportModal] = useState(false)
     const [plantId, setPlantId] = useState<string>('')
     const [departmentId, setDepartmentId] = useState<string>('')
+    const [categoryId, setCategoryId] = useState<string>('')
+    const [prLinkId, setPrLinkId] = useState<string>('')
     // ── Change Vendor Modal ──────────────────────────────────────────
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
@@ -158,7 +163,21 @@ export default function UploadQuotationPage() {
             return r.data?.results ?? r.data ?? []
         },
     })
-
+    const { data: categories = [] } = useQuery<Category[]>({
+        queryKey: ['item-categories-active'],
+        queryFn: async () => { const r = await apiClient.get('/procurement/categories/?active_only=true'); return r.data.results ?? r.data },
+    })
+    const { data:PRs = []} = useQuery({
+        queryKey: ['purchase-requisitions'],
+        queryFn: async () => {
+          const params = new URLSearchParams()
+           params.set('status', 'approved')
+          const { data } = await apiClient.get(`/procurement/?${params}`)
+          return data.results || data
+        },
+        staleTime: 0,
+      })
+      
     // Fetch ALL approved vendors once — filter client-side by search string
     const { data: allApprovedVendors = [], isFetching: vendorsFetching } = useQuery({
         queryKey: ['vendors-approved'],
@@ -183,7 +202,12 @@ export default function UploadQuotationPage() {
                 v.contact_email?.toLowerCase().includes(q)
             )
         })
-
+    const handleRemoveTagState = () => {
+        setPlantId('')
+        setDepartmentId('')
+        setCategoryId('')
+        setPrLinkId('')
+    }
     // ── Export Mutation ──────────────────────────────────────────────
     const exportMutation = useMutation({
         mutationFn: async () => {
@@ -248,6 +272,10 @@ export default function UploadQuotationPage() {
         mutationFn: async (selectedFile: File) => {
             const formData = new FormData()
             formData.append('file', selectedFile)
+            if (departmentId) formData.append('department_id', String(Number(departmentId)))
+            if (plantId) formData.append('plant_id', String(Number(plantId)))
+            if (categoryId) formData.append('category_id', String(Number(categoryId)))
+            if (prLinkId) formData.append('pr_id', String(Number(prLinkId)))
             const { data } = await apiClient.post('/quotations/upload/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             })
@@ -263,6 +291,7 @@ export default function UploadQuotationPage() {
                     selectedMasterId: item?.is_new ? '' : (item?.selectedMasterId ?? ''),
                 }))
             )
+            handleRemoveTagState()
         },
         onError: (error: any) => {
             const data = error?.response?.data
@@ -334,7 +363,8 @@ export default function UploadQuotationPage() {
         },
         onSuccess: (data: any) => {
             setSavedQuotationData(data)
-
+            setPlantId('')
+            setDepartmentId('')
             toast({
                 title: 'Success',
                 description: data?.message || 'Quotation saved successfully',
@@ -358,47 +388,75 @@ export default function UploadQuotationPage() {
             setLineItems([])
             setErrorMessage('')
             setSavedQuotationData(null)
+            handleRemoveTagState()
         }
     }, [file])
 
     // ── File helpers ─────────────────────────────────────────────────
-    const addFile = (incoming: FileList | null) => {
-        if (!incoming || incoming.length === 0) return
-    
-        const selectedFile = incoming[0]
-    
+    const addFile = (selectedFile: File | null) => {
+        if (!selectedFile) return
+
         const isPdf =
             selectedFile.type === 'application/pdf' ||
             selectedFile.name.toLowerCase().endsWith('.pdf')
-    
+
         if (!isPdf) {
             setErrorMessage('Only PDF files are allowed.')
             setFile(null)
             return
         }
-    
-        // Check empty file
+
         if (selectedFile.size === 0) {
             setErrorMessage('PDF file is empty.')
             setFile(null)
             return
         }
-    
+
         setErrorMessage('')
         setQuotation(null)
         setVendors(null)
         setLineItems([])
         setFile(selectedFile)
-    
+
         if (!uploadMutation.isPending) {
             uploadMutation.mutate(selectedFile)
         }
     }
-    
 
-    const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragging(true) }
-    const handleDragLeave = () => setDragging(false)
-    const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setDragging(false); addFile(e.dataTransfer.files) }
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setDragging(true)
+    }
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setDragging(false)
+    }
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setDragging(false)
+
+        const droppedFile = e.dataTransfer.files?.[0] || null
+
+        if (!droppedFile) return
+
+        // Optional: validate PDF here early (better UX)
+        const isPdf =
+            droppedFile.type === 'application/pdf' ||
+            droppedFile.name.toLowerCase().endsWith('.pdf')
+
+        if (!isPdf) {
+            setErrorMessage('Only PDF files are allowed.')
+            return
+        }
+
+        setErrorMessage('')
+        setSelectedFile(droppedFile)
+    }
 
     // ── Submit ───────────────────────────────────────────────────────
     const handleSubmit = () => setShowConfirmModal(true)
@@ -459,7 +517,7 @@ export default function UploadQuotationPage() {
     const isLoading = uploadMutation.isPending || quotationSaveMutation.isPending
 
     return (
-<div className="relative min-h-screen space-y-6 mx-auto">
+        <div className="relative min-h-screen space-y-6 mx-auto">
 
             {/* Loading overlay */}
             {isLoading && (
@@ -493,23 +551,30 @@ export default function UploadQuotationPage() {
             {/* ── Section 1: Upload ── */}
             <div>
                 {!file ? (
-                    <div
-                        className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors bg-white ${dragging ? 'border-primary bg-primary/5' : 'hover:border-border'}`}
-                        onClick={() => document.getElementById('quotation-file')?.click()}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                    >
-                        <div className="w-14 h-14 rounded-full border bg-background flex items-center justify-center mx-auto mb-4">
-                            <Upload className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-foreground mb-1">Drop the quotation file here</h3>
-                        <p className="text-sm text-muted-foreground mb-5">PDF — AI extracts everything.</p>
-                        <Button variant="outline" type="button" onClick={(e) => { e.stopPropagation(); document.getElementById('quotation-file')?.click() }}>
-                            Browse file
-                        </Button>
-                        <input id="quotation-file" type="file" accept=".pdf,application/pdf" className="hidden" onChange={(e) => addFile(e.target.files)} />
-                    </div>
+                    <UploadFile
+                        selectedFile={selectedFile}
+                        setSelectedFile={setSelectedFile}
+                        addFile={addFile}
+                        handleRemoveTagState={handleRemoveTagState}
+                        dragging={dragging}
+                        handleDragOver={handleDragOver}
+                        handleDragLeave={handleDragLeave}
+                        handleDrop={handleDrop}
+                        uploadMutation={uploadMutation}
+                        plantId={plantId}
+                        setPlantId={setPlantId}
+                        departmentId={departmentId}
+                        setDepartmentId={setDepartmentId}
+                        categoryId={categoryId}
+                        setCategoryId={setCategoryId}
+                        prLinkId={prLinkId}
+                        setPrLinkId={setPrLinkId}
+                        plants={plants}
+                        departments={departments}
+                        categories={categories}
+                        PRs={PRs}
+                        formatSize={formatSize}
+                    />
                 ) : (
                     <div className="flex items-center gap-3 p-4 rounded-xl border bg-background">
 
@@ -568,7 +633,9 @@ export default function UploadQuotationPage() {
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setFile(null)}
+                                onClick={() => {
+                                    setFile(null); handleRemoveTagState()
+                                }}
                                 className="shrink-0 text-muted-foreground hover:text-destructive"
                             >
                                 Remove
@@ -615,7 +682,7 @@ export default function UploadQuotationPage() {
                 </div>
             )}
 
-            {/* ── Section 2: Vendor + Quotation ── */}
+            {/* ── Section 2: Vendor  */}
             {!uploadMutation.isPending && hasData && vendors && (
                 <div className="mb-6">
                     {/* Label row with Change Vendor button */}
@@ -623,7 +690,7 @@ export default function UploadQuotationPage() {
                         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Vendor extracted from this quotation
                         </p>
-                
+
                     </div>
 
                     <div className="rounded-xl border bg-white overflow-hidden">
@@ -649,17 +716,17 @@ export default function UploadQuotationPage() {
                                     )}
                                 </div>
                                 <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1.5"
-                            onClick={() => {
-                                setVendorSearch('')
-                                setShowChangeVendorModal(true)
-                            }}
-                        >
-                            <Pencil className="w-3 h-3" />
-                            Change vendor
-                        </Button>
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs gap-1.5"
+                                    onClick={() => {
+                                        setVendorSearch('')
+                                        setShowChangeVendorModal(true)
+                                    }}
+                                >
+                                    <Pencil className="w-3 h-3" />
+                                    Change vendor
+                                </Button>
                             </div>
 
 
@@ -776,7 +843,7 @@ export default function UploadQuotationPage() {
                                 {/* ── bg-muted/5 items header as requested ── */}
                                 <thead className="sticky top-0 z-10 bg-background">
                                     <tr className="border-b bg-muted/5">
-                                    <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[11%]">
+                                        <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[11%]">
                                             <div className="flex items-center gap-2">
                                                 <Checkbox
                                                     id="select-all-create-new"
@@ -815,7 +882,7 @@ export default function UploadQuotationPage() {
                                         <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[6%]">Qty</th>
                                         <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[6%]">UOM</th>
                                         <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[10%]">Rate</th>
-                                        <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[10%]">Amount</th>                          
+                                        <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[10%]">Amount</th>
                                         <th className="w-[5%] py-2 px-3" />
                                     </tr>
                                 </thead>
@@ -834,7 +901,7 @@ export default function UploadQuotationPage() {
                                         }))
                                         return (
                                             <tr key={`${item.item_code || item.item_name}-${index}`} className="border-b hover:bg-muted/30 transition-colors">
-                                                    <td className="py-3 px-3 align-middle text-start">
+                                                <td className="py-3 px-3 align-middle text-start">
                                                     {!item.isCustomAdd && !item.isPendingSearch ? (
                                                         <Checkbox
                                                             id={`create-new-${item.item_code}`}
@@ -940,13 +1007,13 @@ export default function UploadQuotationPage() {
                                                     ?? item.suggestions?.[0]?.hsn_code
                                                     ?? '—'
                                                 }</td>
-                                              
+
                                                 <td className="py-2 px-3 text-foreground text-right tabular-nums">{Number(item.quantity) || 1}</td>
                                                 <td className="py-2 px-3 text-muted-foreground">{item.unit_of_measure}</td>
                                                 <td className="py-2 px-3 text-foreground text-right tabular-nums">₹ {Number(item.item_price ?? 0).toLocaleString('en-IN')}</td>
                                                 <td className="py-2 px-3 text-foreground text-right tabular-nums font-medium">₹ {((Number(item.quantity) || 1) * (Number(item.item_price) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                        
-                                            
+
+
                                                 <td className="py-3 px-3 align-middle">
                                                     <div className="flex items-center justify-center">
                                                         <button
