@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import {  AlertCircle, ArrowLeft, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, User, Star, Clock, ShieldCheck } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -144,6 +144,7 @@ export default function UploadQuotationPage() {
     const [departmentId, setDepartmentId] = useState<string>('')
     const [categoryId, setCategoryId] = useState<string>('')
     const [prLinkId, setPrLinkId] = useState<string>('')
+    console.log('vendors', vendors)
     // ── Change Vendor Modal ──────────────────────────────────────────
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
@@ -167,17 +168,17 @@ export default function UploadQuotationPage() {
         queryKey: ['item-categories-active'],
         queryFn: async () => { const r = await apiClient.get('/procurement/categories/?active_only=true'); return r.data.results ?? r.data },
     })
-    const { data:PRs = []} = useQuery({
+    const { data: PRs = [] } = useQuery({
         queryKey: ['purchase-requisitions'],
         queryFn: async () => {
-          const params = new URLSearchParams()
-           params.set('status', 'approved')
-          const { data } = await apiClient.get(`/procurement/?${params}`)
-          return data.results || data
+            const params = new URLSearchParams()
+            params.set('status', 'approved')
+            const { data } = await apiClient.get(`/procurement/?${params}`)
+            return data.results || data
         },
         staleTime: 0,
-      })
-      
+    })
+
     // Fetch ALL approved vendors once — filter client-side by search string
     const { data: allApprovedVendors = [], isFetching: vendorsFetching } = useQuery({
         queryKey: ['vendors-approved'],
@@ -530,13 +531,27 @@ export default function UploadQuotationPage() {
             )}
 
             {/* Header */}
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
                 <div>
-                    <h1 className="text-xl font-semibold tracking-tight text-foreground">Upload Quotation</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">Drop a PDF — AI extracts vendor and items.</p>
+                    <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                        {hasData
+                            ? vendors?.company_name
+                            : "Upload Quotation"}
+                    </h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                        {hasData ? "AI-extracted 12 Jan 2025 · Linked to PR-2025-0342 · Q1 Steel Procurement" : " Drop a PDF — AI extracts vendor and items."}
+                    </p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => router.push('/quotation')} className="gap-2">
-                    <ArrowLeft className="w-4 h-4" /> Back
+
+
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push('/quotation')}
+                    className="gap-2 ml-auto"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back
                 </Button>
             </div>
 
@@ -594,21 +609,7 @@ export default function UploadQuotationPage() {
                                     : 'Uploaded from system'}
                             </p>
                         </div>
-                        {/* Quotation meta on the right */}
-                        <div className="flex items-start gap-4 shrink-0 mr-2">
-                            {(quotation?.vendor?.quotation_no || quotation?.vendor?.quotation_no === 0) && (
-                                <div className="text-right">
-                                    <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Quotation No</p>
-                                    <p className="text-sm font-semibold text-foreground">{quotation.vendor.quotation_no}</p>
-                                </div>
-                            )}
-                            {quotation?.vendor?.quotation_date && (
-                                <div className="text-right">
-                                    <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Date</p>
-                                    <p className="text-sm font-semibold text-foreground">{quotation.vendor.quotation_date}</p>
-                                </div>
-                            )}
-                        </div>
+
                         {/* Status */}
                         {(!hasData || !quotation?.file_url) && (
                             <Badge variant="secondary" className="text-xs">
@@ -645,465 +646,746 @@ export default function UploadQuotationPage() {
                 )
                 }
             </div>
-            {/* ── Plant + Department (optional) ── */}
-            {!uploadMutation.isPending && hasData && vendors && (
-                <div className="rounded-xl border bg-white p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                        Plant & Department <span className="font-normal normal-case text-[10px]">(optional)</span>
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Plant</label>
-                            <select
-                                className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
-                                value={plantId}
-                                onChange={e => setPlantId(e.target.value)}
-                            >
-                                <option value="">— Not specified —</option>
-                                {plants.map((p: any) => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </select>
+            {!uploadMutation.isPending && hasData &&
+                <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-r from-[#000000] to-[#1a2127] text-white mb-5">
+
+                    {/* Icon */}
+                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-white/10 border border-white/20 text-sm">
+                        ✦
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1">
+                        <div className="text-sm font-semibold">
+                            AI Extraction Complete — 96% Confidence
                         </div>
-                        <div>
-                            <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Department</label>
-                            <select
-                                className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
-                                value={departmentId}
-                                onChange={e => setDepartmentId(e.target.value)}
-                            >
-                                <option value="">— Not specified —</option>
-                                {departments.map((d: any) => (
-                                    <option key={d.id} value={d.id}>{d.name}</option>
-                                ))}
-                            </select>
+
+                        <div className="text-xs text-white/70 mt-1 leading-relaxed">
+                            All fields extracted from the PDF.{" "}
+                            <span className="text-white font-semibold">
+                                Existing vendor detected
+                            </span>{" "}
+                            — matched to Mahindra Steel Ltd (VND-00423, 12 previous transactions).
+                            Please review and confirm.
                         </div>
                     </div>
+
+                    {/* Chips */}
+                    <div className="flex gap-2 flex-wrap">
+                        <span className="px-2 py-1 text-xs rounded-full bg-white/10 text-white/80">
+                            8 extracted
+                        </span>
+                        <span className="px-2 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400">
+                            2 need review
+                        </span>
+                    </div>
+
                 </div>
-            )}
+            }
 
-            {/* ── Section 2: Vendor  */}
-            {!uploadMutation.isPending && hasData && vendors && (
-                <div className="mb-6">
-                    {/* Label row with Change Vendor button */}
-                    <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Vendor extracted from this quotation
-                        </p>
+            {!uploadMutation.isPending && hasData &&
+                <>
 
-                    </div>
+                    <div className="grid grid-cols-[1fr_360px] gap-5 items-start">
 
-                    <div className="rounded-xl border bg-white overflow-hidden">
-                        {/* Header strip: avatar + name + badge + meta on the right */}
-                        <div className="flex items-start justify-between gap-3 p-4 border-b bg-slate-50/40">
-                            <div className="flex items-start gap-3 min-w-0 flex-1">
-                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold flex-shrink-0">
-                                    {getVendorInitials(vendors.company_name)}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <h4 className="font-semibold text-base text-foreground truncate">{vendors.company_name ?? 'Vendor'}</h4>
-                                        <Badge className={vendors.is_new
-                                            ? "bg-blue-50 text-blue-700 border border-blue-200 shrink-0 text-[11px] font-medium"
-                                            : "bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 text-[11px] font-medium"}>
-                                            {vendors.is_new ? 'New vendor' : 'Existing vendor'}
-                                        </Badge>
-                                    </div>
-                                    {[vendors.address, vendors.city, vendors.state, vendors.pincode].some(Boolean) && (
-                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                            {[vendors.address, vendors.city, vendors.state, vendors.pincode].filter(Boolean).join(', ')}
+                        <div className="flex flex-col gap-4">
+
+                            {/* Vendor Card */}
+                            {vendors && (
+                                <>
+                                    <div className="rounded-xl border bg-white p-4">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                                            Plant & Department <span className="font-normal normal-case text-[10px]">(optional)</span>
                                         </p>
-                                    )}
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs gap-1.5"
-                                    onClick={() => {
-                                        setVendorSearch('')
-                                        setShowChangeVendorModal(true)
-                                    }}
-                                >
-                                    <Pencil className="w-3 h-3" />
-                                    Change vendor
-                                </Button>
-                            </div>
-
-
-                        </div>
-
-                        {/* Body: contact / tax / bank — only show what was extracted */}
-                        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                            {/* Contact */}
-                            {(vendors.contact_name || vendors.contact_email || vendors.contact_phone) && (
-                                <div className="space-y-1.5">
-                                    <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Contact</p>
-                                    {vendors.contact_name && <p className="text-sm font-medium text-foreground truncate" title={vendors.contact_name}>{vendors.contact_name}</p>}
-                                    {vendors.contact_email && <p className="text-muted-foreground truncate" title={vendors.contact_email}>{vendors.contact_email}</p>}
-                                    {vendors.contact_phone && <p className="text-muted-foreground tabular-nums">{vendors.contact_phone}</p>}
-                                </div>
-                            )}
-
-                            {/* Tax IDs */}
-                            {(vendors.gst_number || vendors.pan_number || vendors.country) && (
-                                <div className="space-y-1.5">
-                                    <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Tax & Identity</p>
-                                    {vendors.gst_number && <p className="text-sm"><span className="text-muted-foreground">GSTIN </span><span className="font-mono font-medium text-foreground">{vendors.gst_number}</span></p>}
-                                    {vendors.pan_number && <p className="text-sm"><span className="text-muted-foreground">PAN </span><span className="font-mono font-medium text-foreground">{vendors.pan_number}</span></p>}
-                                    {vendors.country && <p className="text-muted-foreground">{vendors.country}</p>}
-                                </div>
-                            )}
-
-                            {/* Bank */}
-                            {vendors.bank_name && (
-                                <div className="space-y-1.5">
-                                    <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Bank</p>
-                                    <p className="text-sm font-medium text-foreground truncate" title={vendors.bank_name}>{vendors.bank_name}</p>
-                                    {vendors.bank_account && <p className="text-xs"><span className="text-muted-foreground">A/C </span><span className="font-mono">{vendors.bank_account}</span></p>}
-                                    {vendors.bank_ifsc && <p className="text-xs"><span className="text-muted-foreground">IFSC </span><span className="font-mono">{vendors.bank_ifsc}</span></p>}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ── Section 3: Line Items + Totals + T&C ── */}
-            {!uploadMutation.isPending && hasData && lineItems.length > 0 && (
-                <div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Line Items</p>
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => handleFilterChange('all', 'true')}
-                                    className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${filters.all === 'true' ? 'bg-foreground text-background border-foreground' : 'bg-background hover:bg-muted border-border text-muted-foreground'}`}
-                                >
-                                    All
-                                    <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${filters.all === 'true' ? 'bg-background/20 text-background' : 'bg-muted text-muted-foreground'}`}>{allCount}</span>
-                                </button>
-                                <button
-                                    onClick={() => handleFilterChange('new', 'true')}
-                                    className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${filters.new === 'true' ? 'bg-blue-600 text-white border-blue-600' : 'bg-background hover:bg-muted border-border text-muted-foreground'}`}
-                                >
-                                    New
-                                    <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${filters.new === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>{newCount}</span>
-                                </button>
-                                <button
-                                    onClick={() => handleFilterChange('duplicates', 'true')}
-                                    className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${filters.duplicates === 'true' ? 'bg-amber-500 text-white border-amber-500' : 'bg-background hover:bg-muted border-border text-muted-foreground'}`}
-                                >
-                                    Duplicates
-                                    <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${filters.duplicates === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>{duplicatesCount}</span>
-                                </button>
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    setLineItems((prev: any) => [
-                                        ...prev,
-                                        {
-                                            item_name: '',
-                                            item_code: '',
-                                            hsn_code: '',
-                                            quantity: 1,
-                                            unit_of_measure: 'NOS',
-                                            item_price: 0,
-                                            suggestions: [],
-                                            is_new: true,
-                                            is_duplicate: false,
-                                            createNew: false,
-                                            selectedMasterId: '',
-                                            isPendingSearch: true,
-                                        },
-                                    ])
-                                    handleFilterChange('all', 'true')
-                                }}
-                                className="gap-1.5 h-8 text-xs font-medium"
-                            >
-                                <Plus className="w-3.5 h-3.5" />
-                                Add Row
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleExport}
-                                className="gap-1.5 h-8 text-xs font-medium border-black text-black hover:bg-black hover:text-white transition-colors"
-                            >
-                                <Download className="w-3.5 h-3.5" />
-                                Export
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="rounded-xl border overflow-hidden bg-white">
-                        <div>
-                            <table className="w-full text-sm table-fixed">
-                                {/* ── bg-muted/5 items header as requested ── */}
-                                <thead className="sticky top-0 z-10 bg-background">
-                                    <tr className="border-b bg-muted/5">
-                                        <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[11%]">
-                                            <div className="flex items-center gap-2">
-                                                <Checkbox
-                                                    id="select-all-create-new"
-                                                    checked={
-                                                        filteredItems.length > 0 &&
-                                                        filteredItems.every((item: any) => item.createNew)
-                                                    }
-                                                    onCheckedChange={(checked) => {
-                                                        // Build a Set of filtered item references by index in lineItems
-                                                        const filteredSet = new Set(
-                                                            filteredItems.map((fi: any) =>
-                                                                lineItems.findIndex(
-                                                                    (li: any, idx: number) => li === fi
-                                                                )
-                                                            )
-                                                        )
-                                                        setLineItems((prev: any) =>
-                                                            prev.map((item: any, idx: number) =>
-                                                                filteredSet.has(idx)
-                                                                    ? {
-                                                                        ...item,
-                                                                        createNew: Boolean(checked),
-                                                                        selectedMasterId: checked ? '' : item.selectedMasterId,
-                                                                    }
-                                                                    : item
-                                                            )
-                                                        )
-                                                    }}
-                                                />
-                                                Create New
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Plant</label>
+                                                <select
+                                                    className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
+                                                    value={plantId}
+                                                    onChange={e => setPlantId(e.target.value)}
+                                                >
+                                                    <option value="">— Not specified —</option>
+                                                    {plants.map((p: any) => (
+                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                    ))}
+                                                </select>
                                             </div>
-                                        </th>
-                                        <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[22%]">Item</th>
-                                        <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[20%]">Master Item</th>
-                                        <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[9%]">HSN</th>
-                                        <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[6%]">Qty</th>
-                                        <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[6%]">UOM</th>
-                                        <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[10%]">Rate</th>
-                                        <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[10%]">Amount</th>
-                                        <th className="w-[5%] py-2 px-3" />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredItems.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={9} className="py-10 text-center text-muted-foreground text-sm">
-                                                No items match the selected filter.
-                                            </td>
-                                        </tr>
-                                    ) : filteredItems.map((item: any, index: number) => {
-                                        const options = (item.suggestions ?? []).map((s: any) => ({
-                                            value: String(s.master_item_id),
-                                            label: `${s.code} - ${s.description}`,
-                                            group: 'Matched Suggestions',
-                                        }))
-                                        return (
-                                            <tr key={`${item.item_code || item.item_name}-${index}`} className="border-b hover:bg-muted/30 transition-colors">
-                                                <td className="py-3 px-3 align-middle text-start">
-                                                    {!item.isCustomAdd && !item.isPendingSearch ? (
-                                                        <Checkbox
-                                                            id={`create-new-${item.item_code}`}
-                                                            checked={item.createNew || false}
-                                                            onCheckedChange={(checked) =>
-                                                                setLineItems((prev: any) =>
-                                                                    prev.map((i: any, iIndex: number) =>
-                                                                        iIndex === index
-                                                                            ? {
-                                                                                ...i,
-                                                                                createNew: Boolean(checked),
-                                                                                selectedMasterId: checked ? '' : i.selectedMasterId,
-                                                                            }
-                                                                            : i
-                                                                    )
-                                                                )
-                                                            }
-                                                        />
-                                                    ) : null}
-                                                </td>
-                                                <td className="py-2 px-3 min-w-0">
-                                                    {item.isPendingSearch ? (
-                                                        <RowItemSearch
-                                                            masterItems={masterItems as any[]}
-                                                            lineItems={lineItems}
-                                                            rowIndex={index}
-                                                            onPick={(m: any) => {
-                                                                setLineItems((prev: any) => prev.map((i: any, iIdx: number) =>
-                                                                    iIdx === index
-                                                                        ? {
-                                                                            ...i,
-                                                                            item_name: m.description,
-                                                                            item_code: m.code,
-                                                                            hsn_code: m.hsn_code ?? '',
-                                                                            unit_of_measure: m.unit_of_measure ?? 'NOS',
-                                                                            item_price: Number(m.unit_rate ?? 0),
-                                                                            suggestions: [{
-                                                                                master_item_id: m.id,
-                                                                                code: m.code,
-                                                                                description: m.description,
-                                                                                unit_of_measure: m.unit_of_measure,
-                                                                                hsn_code: m.hsn_code,
-                                                                            }],
-                                                                            is_new: false,
-                                                                            is_duplicate: true,
-                                                                            createNew: false,
-                                                                            selectedMasterId: String(m.id),
-                                                                            isPendingSearch: false,
-                                                                        }
-                                                                        : i
-                                                                ))
-                                                            }}
-                                                            onCreateCustom={(name: string) => {
-                                                                setLineItems((prev: any) => prev.map((i: any, iIdx: number) =>
-                                                                    iIdx === index
-                                                                        ? { ...i, item_name: name, createNew: true, isPendingSearch: false, is_new: true, is_duplicate: false, isCustomAdd: true }
-                                                                        : i
-                                                                ))
-                                                            }}
-                                                            onCancel={() => {
-                                                                setLineItems((prev: any) => prev.filter((_: any, iIdx: number) => iIdx !== index))
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <div className="flex items-center gap-2 min-w-0">
-                                                            <p className="font-medium text-foreground truncate min-w-0" title={item.item_name}>{item.item_name}</p>
-                                                            {item.is_new && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">New</Badge>}
-                                                            {item.is_duplicate && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Matched</Badge>}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="py-3 px-3">
-                                                    {item.isPendingSearch || item.isCustomAdd ? null : item.createNew ? (
-                                                        <div className="h-9 flex items-center px-3 rounded-md border border-dashed bg-blue-50/50 text-xs text-blue-700">
-                                                            Will create as new master item
-                                                        </div>
-                                                    ) : options.length === 0 ? (
-                                                        <div className="h-9 flex items-center px-3 rounded-md border bg-muted/40 text-xs text-muted-foreground">
-                                                            No matching master — tick "Create New"
-                                                        </div>
-                                                    ) : (
-                                                        <Combobox
-                                                            options={options}
-                                                            value={item.selectedMasterId || ''}
-                                                            onValueChange={(value) =>
-                                                                setLineItems((prev: any) =>
-                                                                    prev.map((i: any, iIndex: number) =>
-                                                                        iIndex === index
-                                                                            ? { ...i, selectedMasterId: value, createNew: false }
-                                                                            : i
-                                                                    )
-                                                                )
-                                                            }
-                                                            placeholder={`Choose from ${options.length} match${options.length === 1 ? '' : 'es'}…`}
-                                                            className="w-full"
-                                                        />
-                                                    )}
-                                                </td>
-                                                <td className="py-2 px-3 text-muted-foreground truncate">{
-                                                    item.hsn_code
-                                                    ?? item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))?.hsn_code
-                                                    ?? masterItems?.find((m: any) => String(m.id) === String(item.selectedMasterId))?.hsn_code
-                                                    ?? item.suggestions?.[0]?.hsn_code
-                                                    ?? '—'
-                                                }</td>
+                                            <div>
+                                                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Department</label>
+                                                <select
+                                                    className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
+                                                    value={departmentId}
+                                                    onChange={e => setDepartmentId(e.target.value)}
+                                                >
+                                                    <option value="">— Not specified —</option>
+                                                    {departments.map((d: any) => (
+                                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
 
-                                                <td className="py-2 px-3 text-foreground text-right tabular-nums">{Number(item.quantity) || 1}</td>
-                                                <td className="py-2 px-3 text-muted-foreground">{item.unit_of_measure}</td>
-                                                <td className="py-2 px-3 text-foreground text-right tabular-nums">₹ {Number(item.item_price ?? 0).toLocaleString('en-IN')}</td>
-                                                <td className="py-2 px-3 text-foreground text-right tabular-nums font-medium">₹ {((Number(item.quantity) || 1) * (Number(item.item_price) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                        {/* Banner */}
+                                        <div className="bg-gradient-to-br from-[#000000] to-[#0A1E30] text-white p-5 flex items-center gap-4">
+
+                                            {/* Monogram */}
+                                            <div className="w-10 h-10 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center font-bold text-sm">
+                                                {vendors.company_name
+                                                    ? vendors.company_name.split(" ").map((w: any) => w[0]).slice(0, 2).join("")
+                                                    : "MS"}
+                                            </div>
+
+                                            {/* Info */}
+
+                                            <div>
+                                                <div className="text-base font-bold">
+                                                    {vendors.company_name || "Mahindra Steel Ltd"}
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-3 text-xs text-white/70 mt-1">
+
+                                                    {/* Vendor Type */}
+                                                    <span className="flex items-center gap-1">
+                                                        <User className="w-3 h-3" />
+                                                        {vendors.is_new === false ? "Existing vendor" : "New vendor"}
+                                                    </span>
+
+                                                    {/* Score */}
+                                                    <span className="flex items-center gap-1">
+                                                        <Star className="w-3 h-3" />
+                                                        Score {vendors.vendor_score || "94"}/100
+                                                    </span>
+
+                                                    {/* Transactions */}
+                                                    <span className="flex items-center gap-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        {vendors.transaction_count || "12"} past transactions
+                                                    </span>
+
+                                                    {/* Certification */}
+                                                    <span className="flex items-center gap-1">
+                                                        <ShieldCheck className="w-3 h-3" />
+                                                        {vendors.certification || "IATF 16949 Certified"}
+                                                    </span>
+
+                                                </div>
+                                            </div>
 
 
-                                                <td className="py-3 px-3 align-middle">
-                                                    <div className="flex items-center justify-center">
-                                                        <button
-                                                            type="button"
-                                                            aria-label="Remove line item"
-                                                            onClick={() => {
-                                                                setLineItems((prev: any) => prev.filter((_: any, i: number) => i !== index))
-                                                                toast({ title: 'Item removed', description: item.item_name || 'Line item' })
-                                                            }}
-                                                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                                        >
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                        </button>
+                                            <div className="ml-auto flex items-center">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="flex items-center gap-1.5 text-black"
+                                                    onClick={() => {
+                                                        setVendorSearch('')
+                                                        setShowChangeVendorModal(true)
+                                                    }}
+                                                >
+                                                    <Pencil className="w-3 h-3" />
+                                                    Change vendor
+                                                </Button>
+                                            </div>
+
+
+                                        </div>
+
+                                        {/* Chips */}
+                                        <div className="flex flex-wrap gap-2 px-4 py-3 border-b">
+                                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 font-semibold">
+                                                {vendors.tier || "Tier-1 Vendor"}
+                                            </span>
+
+                                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 font-semibold">
+                                                {vendors.vendor_code || "SAP VND-00423"}
+                                            </span>
+
+                                            <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
+                                                {vendors.contract_status || "Rate Contract Active"}
+                                            </span>
+
+                                            <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 font-semibold">
+                                                {vendors.category || "Raw Materials"}
+                                            </span>
+
+                                            <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 font-semibold">
+                                                {vendors.gst_number ? "GST Verified" : "GST Pending"}
+                                            </span>
+                                        </div>
+
+                                        {/* Fields */}
+                                        <div className="grid grid-cols-2">
+                                            {[
+                                                ["Legal Name", vendors.company_name || "Mahindra Steel Ltd"],
+                                                ["GSTIN", vendors.gst_number || "27AAACM8123F1Z4"],
+                                                ["PAN", vendors.pan_number || "AAACM8123F"],
+                                                [
+                                                    "Contact Person",
+                                                    vendors.contact_name
+                                                        ? `${vendors.contact_name} — ${vendors.contact_phone || ""}`
+                                                        : vendors.contact_phone || "Ashok Mehta — +91 98200 45612",
+                                                ],
+                                                ["Payment Terms", vendors.payment_terms || "Net 30 days"],
+                                                [
+                                                    "Delivery Terms",
+                                                    vendors.delivery_terms || "FOR Destination — Manesar",
+                                                ],
+                                                [
+                                                    "Quote Valid Until",
+                                                    vendors.valid_until || "15 March 2025 (62 days)",
+                                                ],
+                                                [
+                                                    "Lead Time",
+                                                    vendors.lead_time || "12 working days from PO",
+                                                ],
+                                            ].map(([label, value], i) => (
+                                                <div
+                                                    key={i}
+                                                    className="p-3 border-b border-r last:border-r-0 text-sm"
+                                                >
+                                                    <div className="text-gray-400 text-[11px] uppercase font-semibold">
+                                                        {label}
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
 
-                        {/* Item count */}
-                        {/* <div className="px-3 py-2 border-t bg-muted/10 text-xs text-muted-foreground">
-                                Showing <span className="font-medium text-foreground">{filteredItems.length}</span> of <span className="font-medium text-foreground">{allCount}</span> items
-                            </div> */}
+                                                    <div
+                                                        className={`font-semibold ${label === "Quote Valid Until"
+                                                            ? "text-yellow-600"
+                                                            : "text-gray-900"
+                                                            }`}
+                                                    >
+                                                        {value}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
 
-                        {/* Totals — only what was extracted from the PDF */}
-                        {(subtotal != null || cgstAmount != null || sgstAmount != null || igstAmount != null || grandTotal != null) && (
-                            <div className="border-t bg-muted/5">
-                                <table className="w-full text-sm">
-                                    <tbody>
-                                        {subtotal != null && (
-                                            <tr>
-                                                <td colSpan={5} className="text-right py-2 px-3 text-muted-foreground">Subtotal</td>
-                                                <td className="py-2 px-3 text-right">₹ {subtotal.toLocaleString('en-IN')}</td>
-                                            </tr>
-                                        )}
-                                        {cgstAmount != null && (
-                                            <tr>
-                                                <td colSpan={5} className="text-right py-2 px-3 text-muted-foreground">CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
-                                                <td className="py-2 px-3 text-right">₹ {cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                            </tr>
-                                        )}
-                                        {sgstAmount != null && (
-                                            <tr>
-                                                <td colSpan={5} className="text-right py-2 px-3 text-muted-foreground">SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
-                                                <td className="py-2 px-3 text-right">₹ {sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                            </tr>
-                                        )}
-                                        {igstAmount != null && (
-                                            <tr>
-                                                <td colSpan={5} className="text-right py-2 px-3 text-muted-foreground">IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
-                                                <td className="py-2 px-3 text-right">₹ {igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                            </tr>
-                                        )}
-                                        {grandTotal != null && (
-                                            <tr className="border-t">
-                                                <td colSpan={5} className="text-right py-3 px-3 font-semibold text-base">Grand Total</td>
-                                                <td className="py-3 px-3 font-bold text-right text-base">₹ {grandTotal.toLocaleString('en-IN')}</td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                            {/* Line Items */}
+                            {lineItems.length > 0 && <div className="bg-white border rounded-xl shadow-sm w-full max-w-[calc(100vw-700px)] overflow-hidden">
+                                {/* Header */}
+                                <div className="flex justify-between items-center px-4 py-3 border-b">
+                                    <div className="font-semibold text-sm">Line Items</div>
+
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => handleFilterChange('all', 'true')}
+                                                className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${filters.all === 'true' ? 'bg-foreground text-background border-foreground' : 'bg-background hover:bg-muted border-border text-muted-foreground'}`}
+                                            >
+                                                All
+                                                <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${filters.all === 'true' ? 'bg-background/20 text-background' : 'bg-muted text-muted-foreground'}`}>{allCount}</span>
+                                            </button>
+                                            <button
+                                                onClick={() => handleFilterChange('new', 'true')}
+                                                className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${filters.new === 'true' ? 'bg-blue-600 text-white border-blue-600' : 'bg-background hover:bg-muted border-border text-muted-foreground'}`}
+                                            >
+                                                New
+                                                <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${filters.new === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>{newCount}</span>
+                                            </button>
+                                            <button
+                                                onClick={() => handleFilterChange('duplicates', 'true')}
+                                                className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${filters.duplicates === 'true' ? 'bg-amber-500 text-white border-amber-500' : 'bg-background hover:bg-muted border-border text-muted-foreground'}`}
+                                            >
+                                                Matched
+                                                <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${filters.duplicates === 'true' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>{duplicatesCount}</span>
+                                            </button>
+                                        </div>
+                                        <button className="px-3 py-1 border rounded-md text-xs text-black" onClick={() => {
+                                            setLineItems((prev: any) => [
+                                                ...prev,
+                                                {
+                                                    item_name: '',
+                                                    item_code: '',
+                                                    hsn_code: '',
+                                                    quantity: 1,
+                                                    unit_of_measure: 'NOS',
+                                                    item_price: 0,
+                                                    suggestions: [],
+                                                    is_new: true,
+                                                    is_duplicate: false,
+                                                    createNew: false,
+                                                    selectedMasterId: '',
+                                                    isPendingSearch: true,
+                                                },
+                                            ])
+                                            handleFilterChange('all', 'true')
+                                        }}>
+                                            + Add Line
+                                        </button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleExport}
+                                            className="gap-1.5 h-6 text-xs font-medium hover:bg-black hover:text-white transition-colors"
+                                        >
+                                            <Download className="w-3.5 h-3.5" />
+                                            Export
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Table */}
+                                <div className="max-h-[500px] overflow-auto">
+                                    <div className="min-w-[900px]">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                                                <tr>
+                                                    <th className="p-2">  <div className="flex items-center gap-2">
+                                                        <Checkbox
+                                                            id="select-all-create-new"
+                                                            checked={
+                                                                filteredItems.length > 0 &&
+                                                                filteredItems.every((item: any) => item.createNew)
+                                                            }
+                                                            onCheckedChange={(checked) => {
+                                                                // Build a Set of filtered item references by index in lineItems
+                                                                const filteredSet = new Set(
+                                                                    filteredItems.map((fi: any) =>
+                                                                        lineItems.findIndex(
+                                                                            (li: any, idx: number) => li === fi
+                                                                        )
+                                                                    )
+                                                                )
+                                                                setLineItems((prev: any) =>
+                                                                    prev.map((item: any, idx: number) =>
+                                                                        filteredSet.has(idx)
+                                                                            ? {
+                                                                                ...item,
+                                                                                createNew: Boolean(checked),
+                                                                                selectedMasterId: checked ? '' : item.selectedMasterId,
+                                                                            }
+                                                                            : item
+                                                                    )
+                                                                )
+                                                            }}
+                                                        />
+                                                        Create
+                                                    </div>
+                                                    </th>
+                                                    <th className="p-2 text-left">Item</th>
+                                                    <th className="p-2 text-left">Master Item</th>
+                                                    <th className="p-2 text-left">HSN</th>
+                                                    <th className="p-2 text-left">Qty</th>
+                                                    <th className="p-2 text-left">UOM</th>
+                                                    <th className="p-2 text-left">Rate</th>
+                                                    <th className="p-2 text-left">Amount</th>
+                                                    <th className="py-2 px-3" />
+                                                </tr>
+                                            </thead>
+
+                                            <tbody>
+                                                {filteredItems.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={9} className="py-10 text-center text-muted-foreground text-sm">
+                                                            No items match the selected filter.
+                                                        </td>
+                                                    </tr>
+                                                ) : filteredItems.map((item: any, index: number) => {
+                                                    const options = (item.suggestions ?? []).map((s: any) => ({
+                                                        value: String(s.master_item_id),
+                                                        label: `${s.code} - ${s.description}`,
+                                                        group: 'Matched Suggestions',
+                                                    }))
+                                                    return (
+                                                        <tr key={`${item.item_code || item.item_name}-${index}`} className="border-t">
+                                                            <td className="p-2 text-gray-400">  {!item.isCustomAdd && !item.isPendingSearch ? (
+                                                                <Checkbox
+                                                                    id={`create-new-${item.item_code}`}
+                                                                    checked={item.createNew || false}
+                                                                    onCheckedChange={(checked) =>
+                                                                        setLineItems((prev: any) =>
+                                                                            prev.map((i: any, iIndex: number) =>
+                                                                                iIndex === index
+                                                                                    ? {
+                                                                                        ...i,
+                                                                                        createNew: Boolean(checked),
+                                                                                        selectedMasterId: checked ? '' : i.selectedMasterId,
+                                                                                    }
+                                                                                    : i
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                />
+                                                            ) : null}</td>
+
+                                                            <td className="p-2">
+                                                                {item.isPendingSearch ? (
+                                                                    <RowItemSearch
+                                                                        masterItems={masterItems as any[]}
+                                                                        lineItems={lineItems}
+                                                                        rowIndex={index}
+                                                                        onPick={(m: any) => {
+                                                                            setLineItems((prev: any) => prev.map((i: any, iIdx: number) =>
+                                                                                iIdx === index
+                                                                                    ? {
+                                                                                        ...i,
+                                                                                        item_name: m.description,
+                                                                                        item_code: m.code,
+                                                                                        hsn_code: m.hsn_code ?? '',
+                                                                                        unit_of_measure: m.unit_of_measure ?? 'NOS',
+                                                                                        item_price: Number(m.unit_rate ?? 0),
+                                                                                        suggestions: [{
+                                                                                            master_item_id: m.id,
+                                                                                            code: m.code,
+                                                                                            description: m.description,
+                                                                                            unit_of_measure: m.unit_of_measure,
+                                                                                            hsn_code: m.hsn_code,
+                                                                                        }],
+                                                                                        is_new: false,
+                                                                                        is_duplicate: true,
+                                                                                        createNew: false,
+                                                                                        selectedMasterId: String(m.id),
+                                                                                        isPendingSearch: false,
+                                                                                    }
+                                                                                    : i
+                                                                            ))
+                                                                        }}
+                                                                        onCreateCustom={(name: string) => {
+                                                                            setLineItems((prev: any) => prev.map((i: any, iIdx: number) =>
+                                                                                iIdx === index
+                                                                                    ? { ...i, item_name: name, createNew: true, isPendingSearch: false, is_new: true, is_duplicate: false, isCustomAdd: true }
+                                                                                    : i
+                                                                            ))
+                                                                        }}
+                                                                        onCancel={() => {
+                                                                            setLineItems((prev: any) => prev.filter((_: any, iIdx: number) => iIdx !== index))
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                        <p className="font-medium text-foreground truncate min-w-0" title={item.item_name}>{item.item_name}</p>
+                                                                        {item.is_new && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">New</Badge>}
+                                                                        {item.is_duplicate && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Matched</Badge>}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+
+                                                            <td className="p-2"> {item.isPendingSearch || item.isCustomAdd ? null : item.createNew ? (
+                                                                <div className="h-9 flex items-center px-3 rounded-md border border-dashed bg-blue-50/50 text-xs text-blue-700">
+                                                                    Will create as new master item
+                                                                </div>
+                                                            ) : options.length === 0 ? (
+                                                                <div className="h-9 flex items-center px-3 rounded-md border bg-muted/40 text-xs text-muted-foreground">
+                                                                    No matching master — tick "Create New"
+                                                                </div>
+                                                            ) : (
+                                                                <Combobox
+                                                                    options={options}
+                                                                    value={item.selectedMasterId || ''}
+                                                                    onValueChange={(value) =>
+                                                                        setLineItems((prev: any) =>
+                                                                            prev.map((i: any, iIndex: number) =>
+                                                                                iIndex === index
+                                                                                    ? { ...i, selectedMasterId: value, createNew: false }
+                                                                                    : i
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                    placeholder={`Choose from ${options.length} match${options.length === 1 ? '' : 'es'}…`}
+                                                                    className="w-full"
+                                                                />
+                                                            )}</td>
+                                                            <td className="p-2">{
+                                                                item.hsn_code
+                                                                ?? item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))?.hsn_code
+                                                                ?? masterItems?.find((m: any) => String(m.id) === String(item.selectedMasterId))?.hsn_code
+                                                                ?? item.suggestions?.[0]?.hsn_code
+                                                                ?? '—'
+                                                            }</td>
+                                                            <td className="p-2">{Number(item.quantity) || 1}</td>
+                                                            <td className="p-2">{item.unit_of_measure}</td>
+                                                            <td className="p-2">₹ {Number(item.item_price ?? 0).toLocaleString('en-IN')}</td>
+                                                            <td className="p-2">₹ {((Number(item.quantity) || 1) * (Number(item.item_price) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                            <td className="p-2 text-right font-semibold">
+                                                                <div className="flex items-center justify-center">
+                                                                    <button
+                                                                        type="button"
+                                                                        aria-label="Remove line item"
+                                                                        onClick={() => {
+                                                                            setLineItems((prev: any) => prev.filter((_: any, i: number) => i !== index))
+                                                                            toast({ title: 'Item removed', description: item.item_name || 'Line item' })
+                                                                        }}
+                                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })}
+                                            </tbody>
+
+                                            {/* Footer */}
+                                            {(subtotal != null || cgstAmount != null || sgstAmount != null || igstAmount != null || grandTotal != null) &&
+                                                <tfoot>
+                                                    <tr className="bg-gray-50">
+                                                        <td colSpan={7} className="text-right p-2">
+                                                            Subtotal
+                                                        </td>
+                                                        <td className="text-right p-2">₹ {subtotal?.toLocaleString('en-IN')}</td>
+                                                    </tr>
+
+                                                    {cgstAmount != null && <tr className="bg-gray-50">
+                                                        <td colSpan={7} className="text-right p-2 text-gray-500">
+                                                            CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}                                        </td>
+                                                        <td className="text-right p-2 text-gray-500">
+                                                            {cgstAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}                                        </td>
+                                                    </tr>}
+                                                    {sgstAmount != null && <tr className="bg-gray-50">
+                                                        <td colSpan={7} className="text-right p-2 text-gray-500">
+                                                            SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}                                      </td>
+                                                        <td className="text-right p-2 text-gray-500">
+                                                            {sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}                                       </td>
+                                                    </tr>}
+                                                    {igstAmount != null && <tr className="bg-gray-50">
+                                                        <td colSpan={7} className="text-right p-2 text-gray-500">
+                                                            IGST{igstRate != null ? ` @ ${igstRate}%` : ''}
+                                                        </td>
+                                                        <td className="text-right p-2 text-gray-500">
+                                                            {igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}                                      </td>
+                                                    </tr>}
+                                                    {grandTotal != null && <tr className="bg-[#000000] text-white font-bold">
+                                                        <td colSpan={7} className="text-right p-2">
+                                                            Total
+                                                        </td>
+                                                        <td className="text-right p-2 text-lg">
+                                                            {grandTotal.toLocaleString('en-IN')}
+                                                        </td>
+                                                    </tr>}
+                                                </tfoot>}
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>}
+                            {vendors?.terms_and_conditions?.length > 0 && (
+                                <div className="p-4">
+                                    <h4 className="text-sm font-medium mb-2">Terms & Conditions</h4>
+                                    <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                                        {vendors.terms_and_conditions.map((term: string, i: number) => (
+                                            <li key={i}>{term}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            {/* Actions */}
+                            <div className="flex justify-end gap-3">
+                                {/* <button className="px-4 py-2 border rounded-md text-sm">
+            Download PDF
+        </button>
+
+        <button className="px-4 py-2 border border-blue-200 text-blue-600 rounded-md text-sm">
+            View in PR Comparison
+        </button> */}
+
+                                <button className="px-4 py-2 bg-green-700 text-white rounded-md text-sm font-semibold flex items-center gap-2" onClick={handleSubmit} disabled={isLoading}>
+                                    ✓ Confirm & Proceed
+                                </button>
                             </div>
-                        )}
 
-                        {/* Terms & Conditions */}
-                        {vendors?.terms_and_conditions?.length > 0 && (
-                            <div className="p-4 border-t">
-                                <h4 className="text-sm font-medium mb-2">Terms & Conditions</h4>
-                                <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-                                    {vendors.terms_and_conditions.map((term: string, i: number) => (
-                                        <li key={i}>{term}</li>
+                        </div>
+                        <div className="flex flex-col gap-4">
+                            {/* AI Panel */}
+                            <div className="rounded-xl overflow-hidden bg-gradient-to-br from-[#000000] via-[#14202b] to-[#1a2127] text-white">
+
+                                {/* Header */}
+                                <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
+                                    <span className="text-sm">✦</span>
+                                    <span className="font-semibold text-sm">AI Analysis</span>
+                                    <span className="ml-auto text-[10px] font-bold px-2 py-[2px] rounded-full bg-white/10 text-white/70">
+                                        96% confident
+                                    </span>
+                                </div>
+
+                                {/* Section */}
+                                <div className="px-4 py-3 border-b border-white/10">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-2">
+                                        ✦ Extraction
+                                    </div>
+
+                                    <div className="flex gap-2 bg-white/5 border border-white/10 rounded-md p-2 text-xs mb-2">
+                                        <span>✓</span>
+                                        <span>
+                                            All line items, quantities, and HSN codes extracted correctly.
+                                        </span>
+                                    </div>
+
+                                    <div className="flex gap-2 bg-amber-500/10 border border-amber-400/30 rounded-md p-2 text-xs">
+                                        <span>⚠</span>
+                                        <span>
+                                            Line item 3 — unit price extracted as ₹328/MT —{" "}
+                                            <strong>verify.</strong>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Section */}
+                                <div className="px-4 py-3 border-b border-white/10">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-2">
+                                        ✦ Vendor Intel
+                                    </div>
+
+                                    <div className="flex gap-2 bg-green-500/20 border border-green-400/20 rounded-md p-2 text-xs mb-2">
+                                        <span>★</span>
+                                        <span>12 POs · OTD Rate: <strong>96.2%</strong></span>
+                                    </div>
+
+                                    <div className="flex gap-2 bg-green-500/20 border border-green-400/20 rounded-md p-2 text-xs">
+                                        <span>✓</span>
+                                        <span>IATF + ISO certifications valid</span>
+                                    </div>
+                                </div>
+
+                                {/* Section */}
+                                <div className="px-4 py-3 border-b border-white/10">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-2">
+                                        ✦ Price Benchmark
+                                    </div>
+
+                                    <div className="flex gap-2 bg-white/5 border border-white/10 rounded-md p-2 text-xs mb-2">
+                                        <span>📊</span>
+                                        <span>2mm coil +2.1% vs last purchase</span>
+                                    </div>
+
+                                    <div className="flex gap-2 bg-white/5 border border-white/10 rounded-md p-2 text-xs">
+                                        <span>📊</span>
+                                        <span>Within LME range</span>
+                                    </div>
+                                </div>
+
+                                {/* Section */}
+                                <div className="px-4 py-3">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-2">
+                                        ✦ Validity Alert
+                                    </div>
+
+                                    <div className="flex gap-2 bg-amber-500/10 border border-amber-400/30 rounded-md p-2 text-xs">
+                                        <span>⏱</span>
+                                        <span>
+                                            Valid until <strong>15 Mar 2025</strong>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Quote Details */}
+                            <div className="bg-white border rounded-xl shadow-sm">
+                                <div className="px-4 py-3 border-b font-semibold text-sm">
+                                    Quote Details
+                                </div>
+
+                                <div>
+                                    {[
+                                        ["Quote Reference", quotation.vendor.quotation_no],
+                                        ["Quote Date", quotation.vendor.quotation_date],
+                                        ["Warranty", "12 months"],
+                                        ["Advance Payment", "Not required"],
+                                        ["Currency", "INR"],
+                                        ["Source", "PDF — AI Extracted"],
+                                    ].map(([label, value]) => (
+                                        <div
+                                            key={label}
+                                            className="flex justify-between px-4 py-2 border-b last:border-none text-sm"
+                                        >
+                                            <span className="text-gray-500">{label}</span>
+                                            <span className="font-semibold">{value}</span>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
-                        )}
 
-                        {/* Submit / Done */}
-                        <div className="flex justify-end p-4 border-t">
+                            {/* Activity */}
+                            {/* <div className="bg-white border rounded-xl shadow-sm">
+        <div className="px-4 py-3 border-b font-semibold text-sm">
+            Activity
+        </div>
 
-                            <Button onClick={handleSubmit} className="gap-2" disabled={isLoading}>
-                                Submit Quotation
-                            </Button>
-
-                        </div>
+        <div className="px-4 py-4 relative">
+            <div className="border-l pl-4 space-y-5">
+                <div>
+                    <div className="text-xs text-gray-400">12 Jan · 9:42 AM</div>
+                    <div className="font-semibold text-sm">Quote uploaded</div>
+                    <div className="text-xs text-gray-500">
+                        Mahindra_Steel.pdf
                     </div>
                 </div>
-            )}
+
+                <div>
+                    <div className="text-xs text-gray-400">12 Jan · 9:43 AM</div>
+                    <div className="font-semibold text-sm">
+                        AI extraction complete
+                    </div>
+                    <div className="text-xs text-gray-500">
+                        96% confidence
+                    </div>
+                </div>
+
+                <div>
+                    <div className="text-xs text-gray-400">12 Jan · 10:15 AM</div>
+                    <div className="font-semibold text-sm text-green-600">
+                        Confirmed
+                    </div>
+                </div>
+
+                <div>
+                    <div className="text-xs text-gray-400">Pending</div>
+                    <div className="font-semibold text-sm text-gray-400">
+                        Submit for approval
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>div className="bg-white border rounded-xl shadow-sm">
+        <div className="px-4 py-3 border-b font-semibold text-sm">
+            Activity
+        </div>
+
+        <div className="px-4 py-4 relative">
+            <div className="border-l pl-4 space-y-5">
+                <div>
+                    <div className="text-xs text-gray-400">12 Jan · 9:42 AM</div>
+                    <div className="font-semibold text-sm">Quote uploaded</div>
+                    <div className="text-xs text-gray-500">
+                        Mahindra_Steel.pdf
+                    </div>
+                </div>
+
+                <div>
+                    <div className="text-xs text-gray-400">12 Jan · 9:43 AM</div>
+                    <div className="font-semibold text-sm">
+                        AI extraction complete
+                    </div>
+                    <div className="text-xs text-gray-500">
+                        96% confidence
+                    </div>
+                </div>
+
+                <div>
+                    <div className="text-xs text-gray-400">12 Jan · 10:15 AM</div>
+                    <div className="font-semibold text-sm text-green-600">
+                        Confirmed
+                    </div>
+                </div>
+
+                <div>
+                    <div className="text-xs text-gray-400">Pending</div>
+                    <div className="font-semibold text-sm text-gray-400">
+                        Submit for approval
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> */}
+                        </div>
+                    </div>
+                </>
+
+            }
 
             {/* ── Confirm Modal ── */}
             <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
