@@ -364,22 +364,37 @@ export default function UploadQuotationPage() {
     // ── File helpers ─────────────────────────────────────────────────
     const addFile = (incoming: FileList | null) => {
         if (!incoming || incoming.length === 0) return
+    
         const selectedFile = incoming[0]
-        const isPdf = selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf')
+    
+        const isPdf =
+            selectedFile.type === 'application/pdf' ||
+            selectedFile.name.toLowerCase().endsWith('.pdf')
+    
         if (!isPdf) {
             setErrorMessage('Only PDF files are allowed.')
             setFile(null)
             return
         }
+    
+        // Check empty file
+        if (selectedFile.size === 0) {
+            setErrorMessage('PDF file is empty.')
+            setFile(null)
+            return
+        }
+    
         setErrorMessage('')
         setQuotation(null)
         setVendors(null)
         setLineItems([])
         setFile(selectedFile)
+    
         if (!uploadMutation.isPending) {
             uploadMutation.mutate(selectedFile)
         }
     }
+    
 
     const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragging(true) }
     const handleDragLeave = () => setDragging(false)
