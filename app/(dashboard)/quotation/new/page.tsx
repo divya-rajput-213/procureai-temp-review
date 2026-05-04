@@ -143,6 +143,26 @@ export default function UploadQuotationPage() {
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
 
+    const getApiErrorMessage = (error: any, fallback: string) => {
+        const data = error?.response?.data
+        let message = fallback
+
+        if (data) {
+            if (typeof data === 'string') message = data
+            else if (typeof data?.error === 'string') message = data.error
+            else if (typeof data?.message === 'string') message = data.message
+            else if (typeof data?.detail === 'string') message = data.detail
+            else message = Object.entries(data).map(([k, v]) => Array.isArray(v) ? `${k}: ${v.join(', ')}` : `${k}: ${v}`).join(' | ')
+        }
+
+        const normalized = String(message || '').trim()
+        if (normalized.toLowerCase().includes('vendor details are required')) {
+            return 'Vendor details are required to submit the quotation'
+        }
+
+        return normalized || fallback
+    }
+
     const { data: plants = [] } = useQuery({
         queryKey: ['plants'],
         queryFn: async () => {
@@ -265,13 +285,7 @@ export default function UploadQuotationPage() {
             )
         },
         onError: (error: any) => {
-            const data = error?.response?.data
-            let message = 'Failed to upload quotation.'
-            if (data) {
-                if (typeof data === 'string') message = data
-                else if (data.detail) message = data.detail
-                else message = Object.entries(data).map(([k, v]) => Array.isArray(v) ? `${k}: ${v.join(', ')}` : `${k}: ${v}`).join(' | ')
-            }
+            const message = getApiErrorMessage(error, 'Failed to upload quotation.')
             setErrorMessage(message)
         },
     })
@@ -344,7 +358,7 @@ export default function UploadQuotationPage() {
             router.push('/quotation')
         },
         onError: (error: any) => {
-            const message = error?.response?.data?.message ?? error?.response?.data?.detail ?? 'Failed to save quotation.'
+            const message = getApiErrorMessage(error, 'Failed to save quotation.')
             setErrorMessage(message)
             toast({ title: 'Error', description: message, variant: 'destructive' })
         },
