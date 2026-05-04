@@ -144,7 +144,6 @@ export default function UploadQuotationPage() {
     const [departmentId, setDepartmentId] = useState<string>('')
     const [categoryId, setCategoryId] = useState<string>('')
     const [prLinkId, setPrLinkId] = useState<string>('')
-    console.log('vendors', vendors)
     // ── Change Vendor Modal ──────────────────────────────────────────
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
