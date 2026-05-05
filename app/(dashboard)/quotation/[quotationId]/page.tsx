@@ -409,6 +409,22 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const sgstAmount = quotation?.sgst_amount ?? subtotal * ((quotation?.sgst_rate ?? 9) / 100)
   const grandTotal = quotation?.grand_total ?? subtotal + cgstAmount + sgstAmount
 
+  const displaySubtotal = useMemo(() => {
+    if (isEditing) {
+      return editItems.reduce(
+        (sum, it) => sum + Number(it.quantity || 0) * Number(it.price_per_unit || 0),
+        0
+      )
+    }
+    return items.reduce((sum, it) => sum + Number(it.amount || 0), 0)
+  }, [editItems, isEditing, items])
+
+  const displayCgstRate = quotation?.cgst_rate ?? 9
+  const displaySgstRate = quotation?.sgst_rate ?? 9
+  const displayCgstAmount = quotation?.cgst_amount ?? displaySubtotal * (displayCgstRate / 100)
+  const displaySgstAmount = quotation?.sgst_amount ?? displaySubtotal * (displaySgstRate / 100)
+  const displayGrandTotal = quotation?.grand_total ?? displaySubtotal + displayCgstAmount + displaySgstAmount
+
   const extractedOn = useMemo(() => {
     const raw = quotation?.created_at || quotation?.quotation_date
     if (!raw) return null
@@ -768,8 +784,46 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                       </tr>
                     )
                   })}
-                </tbody>
-              </table>
+	                </tbody>
+                  <tfoot className="bg-white">
+                    <tr className="border-t">
+                      <td colSpan={5} className="p-3 text-right text-sm text-muted-foreground">
+                        Subtotal
+                      </td>
+                      <td className="p-3 text-right text-sm font-medium tabular-nums">
+                        {formatINR(displaySubtotal)}
+                      </td>
+                      {isEditing && <td className="p-3" />}
+                    </tr>
+                    <tr>
+                      <td colSpan={5} className="px-3 pb-2 text-right text-xs text-muted-foreground">
+                        CGST @ {displayCgstRate}%
+                      </td>
+                      <td className="px-3 pb-2 text-right text-xs tabular-nums text-muted-foreground">
+                        {formatINR(displayCgstAmount)}
+                      </td>
+                      {isEditing && <td className="px-3 pb-2" />}
+                    </tr>
+                    <tr>
+                      <td colSpan={5} className="px-3 pb-3 text-right text-xs text-muted-foreground">
+                        SGST @ {displaySgstRate}%
+                      </td>
+                      <td className="px-3 pb-3 text-right text-xs tabular-nums text-muted-foreground">
+                        {formatINR(displaySgstAmount)}
+                      </td>
+                      {isEditing && <td className="px-3 pb-3" />}
+                    </tr>
+                    <tr className="border-t bg-slate-50">
+                      <td colSpan={5} className="p-3 text-right text-sm font-semibold">
+                        Total
+                      </td>
+                      <td className="p-3 text-right text-sm font-semibold tabular-nums">
+                        {formatINR(displayGrandTotal)}
+                      </td>
+                      {isEditing && <td className="p-3" />}
+                    </tr>
+                  </tfoot>
+	              </table>
             </div>
           </div>
         </div>
