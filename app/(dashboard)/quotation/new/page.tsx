@@ -144,6 +144,7 @@ export default function UploadQuotationPage() {
     const [departmentId, setDepartmentId] = useState<string>('')
     const [categoryId, setCategoryId] = useState<string>('')
     const [prLinkId, setPrLinkId] = useState<string>('')
+    const [financialYear, setFinancialYear] = useState<string>('')
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
     const getApiErrorMessage = (error: any, fallback: string) => {
@@ -542,7 +543,7 @@ export default function UploadQuotationPage() {
     const isLoading = uploadMutation.isPending || quotationSaveMutation.isPending
 
     return (
-        <div className="relative min-h-screen space-y-6 mx-auto">
+        <div className="relative min-h-screen space-y-4 mx-auto">
 
             {/* Loading overlay */}
             {isLoading && (
@@ -555,28 +556,45 @@ export default function UploadQuotationPage() {
             )}
 
             {/* Header */}
-            <div className="flex items-start gap-2">
+            <div className="flex items-start justify-between gap-2">
+
+                {/* Left */}
                 <div>
                     <h1 className="text-xl font-semibold tracking-tight text-foreground">
-                        {hasData
-                            ? vendors?.company_name
-                            : "Upload Quotation"}
+                        {hasData ? `${vendors?.company_name}  — Quote` : "Upload Quotation"}
                     </h1>
+
                     <p className="text-sm text-muted-foreground mt-0.5">
-                        {hasData ? `AI-extracted 12 Jan 2025 ${linkedPR?.pr_number ? `· Linked to ${linkedPR?.pr_number}` : ""}` : " Drop a PDF — AI extracts vendor and items."}
+                        {hasData
+                            ? `AI-extracted 12 Jan 2025 ${linkedPR?.pr_number ? `· Linked to ${linkedPR?.pr_number} ` : ""
+                            } `
+                            : "Drop a PDF — AI extracts vendor and items."}
                     </p>
                 </div>
 
+                {/* Right */}
+                <div className="flex items-center gap-2">
 
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => router.push('/quotation')}
-                    className="gap-2 ml-auto"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back
-                </Button>
+                    {quotation?.file_url && (
+                        <a href={quotation.file_url} target="_blank" rel="noopener noreferrer">
+                            <Button variant="outline" size="sm" className="gap-1.5">
+                                <Download className="w-3.5 h-3.5" />
+                                Download
+                            </Button>
+                        </a>
+                    )}
+
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => router.push('/quotation')}
+                        className="gap-2"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Back
+                    </Button>
+
+                </div>
             </div>
 
             {/* Error */}
@@ -608,6 +626,8 @@ export default function UploadQuotationPage() {
                         setCategoryId={setCategoryId}
                         prLinkId={prLinkId}
                         setPrLinkId={setPrLinkId}
+                        financialYear={financialYear}
+                        setFinancialYear={setFinancialYear} // Financial year is auto-detected from the document, so no setter needed here
                         plants={plants}
                         departments={departments}
                         categories={categories}
@@ -615,97 +635,53 @@ export default function UploadQuotationPage() {
                         formatSize={formatSize}
                     />
                 ) : (
-                    <div className="flex items-center gap-3 p-4 rounded-xl border bg-background">
+                    ""
+                    // <div className="flex items-center gap-3 p-4 rounded-xl border bg-background">
 
-                        {/* PDF Icon */}
-                        <div className="w-10 h-8 rounded-lg border bg-muted/40 flex items-center justify-center text-xs font-bold text-foreground">
-                            PDF
-                        </div>
+                    //     {/* PDF Icon */}
+                    //     <div className="w-10 h-8 rounded-lg border bg-muted/40 flex items-center justify-center text-xs font-bold text-foreground">
+                    //         PDF
+                    //     </div>
 
-                        {/* File Info */}
-                        <div className="flex-1 min-w-0">
-                            <p className="font-medium text-foreground text-sm truncate">
-                                {file?.name || 'Quotation File'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {file
-                                    ? `${formatSize(file.size)} · uploaded just now`
-                                    : 'Uploaded from system'}
-                            </p>
-                        </div>
+                    //     {/* File Info */}
+                    //     <div className="flex-1 min-w-0">
+                    //         <p className="font-medium text-foreground text-sm truncate">
+                    //             {file?.name || 'Quotation File'}
+                    //         </p>
+                    //         <p className="text-xs text-muted-foreground">
+                    //             {file
+                    //                 ? `${formatSize(file.size)} · uploaded just now`
+                    //                 : 'Uploaded from system'}
+                    //         </p>
+                    //     </div>
 
-                        {/* Status */}
-                        {(!hasData || !quotation?.file_url) && (
-                            <Badge variant="secondary" className="text-xs">
-                                {uploadMutation.isPending ? 'Processing…' : 'Waiting'}
-                            </Badge>
-                        )}
-                        {hasData && quotation?.file_url && (
-                            <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">Ready</Badge>
-                        )}
+                    //     {/* Status */}
+                    //     {(!hasData || !quotation?.file_url) && (
+                    //         <Badge variant="secondary" className="text-xs">
+                    //             {uploadMutation.isPending ? 'Processing…' : 'Waiting'}
+                    //         </Badge>
+                    //     )}
+                    //     {hasData && quotation?.file_url && (
+                    //         <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">Ready</Badge>
+                    //     )}
 
-                        {quotation?.file_url && (
-                            <a href={quotation.file_url} target="_blank" rel="noopener noreferrer">
-                                <Button variant="outline" size="sm" className="gap-1.5">
-                                    <Download className="w-3.5 h-3.5" />
-                                    Download
-                                </Button>
-                            </a>
-                        )}
-
-                        {/* REMOVE only for local file */}
-                        {file && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    setFile(null); handleRemoveTagState()
-                                }}
-                                className="shrink-0 text-muted-foreground hover:text-destructive"
-                            >
-                                Remove
-                            </Button>
-                        )}
-                    </div>
+                    //     {/* REMOVE only for local file */}
+                    //     {file && (
+                    //         <Button
+                    //             variant="ghost"
+                    //             size="sm"
+                    //             onClick={() => {
+                    //                 setFile(null); handleRemoveTagState()
+                    //             }}
+                    //             className="shrink-0 text-muted-foreground hover:text-destructive"
+                    //         >
+                    //             Remove
+                    //         </Button>
+                    //     )}
+                    // </div>
                 )
                 }
             </div>
-            {!uploadMutation.isPending && hasData &&
-                <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-r from-[#000000] to-[#1a2127] text-white mb-5">
-
-                    {/* Icon */}
-                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-white/10 border border-white/20 text-sm">
-                        ✦
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1">
-                        <div className="text-sm font-semibold">
-                            AI Extraction Complete — 96% Confidence
-                        </div>
-
-                        <div className="text-xs text-white/70 mt-1 leading-relaxed">
-                            All fields extracted from the PDF.{" "}
-                           { <span className="text-white font-semibold">
-                               { vendors.is_new === false ?"Existing vendor detected":"New vendor detected"}
-                            </span>}{" "}
-                            — matched to Mahindra Steel Ltd (VND-00423, 12 previous transactions).
-                            Please review and confirm.
-                        </div>
-                    </div>
-
-                    {/* Chips */}
-                    <div className="flex gap-2 flex-wrap">
-                        <span className="px-2 py-1 text-xs rounded-full bg-white/10 text-white/80">
-                            8 extracted
-                        </span>
-                        <span className="px-2 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400">
-                            2 need review
-                        </span>
-                    </div>
-
-                </div>
-            }
 
             {!uploadMutation.isPending && hasData &&
                 <>
@@ -717,39 +693,7 @@ export default function UploadQuotationPage() {
                             {/* Vendor Card */}
                             {vendors && (
                                 <>
-                                    <div className="rounded-xl border bg-white p-4">
-                                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                                            Plant & Department <span className="font-normal normal-case text-[10px]">(optional)</span>
-                                        </p>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Plant</label>
-                                                <select
-                                                    className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
-                                                    value={plantId}
-                                                    onChange={e => setPlantId(e.target.value)}
-                                                >
-                                                    <option value="">— Not specified —</option>
-                                                    {plants.map((p: any) => (
-                                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Department</label>
-                                                <select
-                                                    className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
-                                                    value={departmentId}
-                                                    onChange={e => setDepartmentId(e.target.value)}
-                                                >
-                                                    <option value="">— Not specified —</option>
-                                                    {departments.map((d: any) => (
-                                                        <option key={d.id} value={d.id}>{d.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
+
                                     <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
 
                                         {/* Banner */}
@@ -768,12 +712,12 @@ export default function UploadQuotationPage() {
                                                     {vendors.company_name || "-"}
                                                 </div>
 
-                                                <div className="flex flex-wrap gap-3 text-xs text-white/70 mt-1">
+                                                {/* <div className="flex flex-wrap gap-3 text-xs text-white/70 mt-1">
                                                     <span className="flex items-center gap-1">
                                                         <MapPin className="w-3 h-3" />
                                                         {vendors.address}, {vendors.pincode}, {vendors.city}, {vendors.state}, {vendors.country}
                                                     </span>
-                                                </div>
+                                                </div> */}
 
                                                 <div className="flex flex-wrap gap-3 text-xs text-white/70 mt-1">
                                                     <span className="flex items-center gap-1">
@@ -889,8 +833,8 @@ export default function UploadQuotationPage() {
 
                                                         <div
                                                             className={`font-semibold ${label === "Quote Valid Until"
-                                                                    ? "text-yellow-600"
-                                                                    : "text-gray-900"
+                                                                ? "text-yellow-600"
+                                                                : "text-gray-900"
                                                                 }`}
                                                         >
                                                             {value}
@@ -900,7 +844,39 @@ export default function UploadQuotationPage() {
                                             </div>
                                         </div>
                                     </div>
-
+                                    <div className="rounded-xl border bg-white p-4">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                                            Plant & Department <span className="font-normal normal-case text-[10px]">(optional)</span>
+                                        </p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Plant</label>
+                                                <select
+                                                    className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
+                                                    value={plantId}
+                                                    onChange={e => setPlantId(e.target.value)}
+                                                >
+                                                    <option value="">— Not specified —</option>
+                                                    {plants.map((p: any) => (
+                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Department</label>
+                                                <select
+                                                    className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
+                                                    value={departmentId}
+                                                    onChange={e => setDepartmentId(e.target.value)}
+                                                >
+                                                    <option value="">— Not specified —</option>
+                                                    {departments.map((d: any) => (
+                                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </>
                             )}
 
@@ -969,12 +945,12 @@ export default function UploadQuotationPage() {
                                 </div>
 
                                 {/* Table */}
-                                <div className="max-h-[400px] overflow-auto">
-                                    <div className="min-w-[900px]">
-                                        <table className="w-full text-sm">
-                                            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                                                <tr>
-                                                    <th className="p-2">  <div className="flex items-center gap-2">
+                                <div className="relative max-h-[400px] overflow-y-auto overflow-x-hidden">
+                                    <table className="w-full text-sm min-w-[900px]">
+                                        <thead className="bg-gray-50 text-gray-500 text-xs uppercase sticky top-0 z-10">
+                                            <tr>
+                                                <th className="p-2">
+                                                    <div className="flex items-center gap-2">
                                                         <Checkbox
                                                             id="select-all-create-new"
                                                             checked={
@@ -982,7 +958,6 @@ export default function UploadQuotationPage() {
                                                                 filteredItems.every((item: any) => item.createNew)
                                                             }
                                                             onCheckedChange={(checked) => {
-                                                                // Build a Set of filtered item references by index in lineItems
                                                                 const filteredSet = new Set(
                                                                     filteredItems.map((fi: any) =>
                                                                         lineItems.findIndex(
@@ -1005,34 +980,35 @@ export default function UploadQuotationPage() {
                                                         />
                                                         Create
                                                     </div>
-                                                    </th>
-                                                    <th className="p-2 text-left">Item</th>
-                                                    <th className="p-2 text-left">Master Item</th>
-                                                    <th className="p-2 text-left">HSN</th>
-                                                    <th className="p-2 text-left">Qty</th>
-                                                    <th className="p-2 text-left">UOM</th>
-                                                    <th className="p-2 text-left">Rate</th>
-                                                    <th className="p-2 text-left">Amount</th>
-                                                    <th className="py-2 px-3" />
-                                                </tr>
-                                            </thead>
+                                                </th>
+                                                <th className="p-2 text-left">Item</th>
+                                                <th className="p-2 text-left">Master Item</th>
+                                                <th className="p-2 text-left">HSN</th>
+                                                <th className="p-2 text-left">Qty</th>
+                                                <th className="p-2 text-left">UOM</th>
+                                                <th className="p-2 text-left">Rate</th>
+                                                <th className="p-2 text-left">Amount</th>
+                                                <th className="py-2 px-3" />
+                                            </tr>
+                                        </thead>
 
-                                            <tbody>
-                                                {filteredItems.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan={9} className="py-10 text-center text-muted-foreground text-sm">
-                                                            No items match the selected filter.
-                                                        </td>
-                                                    </tr>
-                                                ) : filteredItems.map((item: any, index: number) => {
-                                                    const options = (item.suggestions ?? []).map((s: any) => ({
-                                                        value: String(s.master_item_id),
-                                                        label: `${s.code} - ${s.description}`,
-                                                        group: 'Matched Suggestions',
-                                                    }))
-                                                    return (
-                                                        <tr key={`${item.item_code || item.item_name}-${index}`} className="border-t">
-                                                            <td className="p-2 text-gray-400">  {!item.isCustomAdd && !item.isPendingSearch ? (
+                                        <tbody>
+                                            {filteredItems.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={9} className="py-10 text-center text-muted-foreground text-sm">
+                                                        No items match the selected filter.
+                                                    </td>
+                                                </tr>
+                                            ) : filteredItems.map((item: any, index: number) => {
+                                                const options = (item.suggestions ?? []).map((s: any) => ({
+                                                    value: String(s.master_item_id),
+                                                    label: `${s.code} - ${s.description}`,
+                                                    group: 'Matched Suggestions',
+                                                }))
+                                                return (
+                                                    <tr key={`${item.item_code || item.item_name}-${index}`} className="border-t">
+                                                        <td className="p-2 text-gray-400">
+                                                            {!item.isCustomAdd && !item.isPendingSearch ? (
                                                                 <Checkbox
                                                                     id={`create-new-${item.item_code}`}
                                                                     checked={item.createNew || false}
@@ -1050,66 +1026,70 @@ export default function UploadQuotationPage() {
                                                                         )
                                                                     }
                                                                 />
-                                                            ) : null}</td>
+                                                            ) : null}
+                                                        </td>
 
-                                                            <td className="p-2">
-                                                                {item.isPendingSearch ? (
-                                                                    <RowItemSearch
-                                                                        masterItems={masterItems as any[]}
-                                                                        lineItems={lineItems}
-                                                                        rowIndex={index}
-                                                                        onPick={(m: any) => {
-                                                                            setLineItems((prev: any) => prev.map((i: any, iIdx: number) =>
-                                                                                iIdx === index
-                                                                                    ? {
-                                                                                        ...i,
-                                                                                        item_name: m.description,
-                                                                                        item_code: m.code,
-                                                                                        hsn_code: m.hsn_code ?? '',
-                                                                                        unit_of_measure: m.unit_of_measure ?? 'NOS',
-                                                                                        item_price: Number(m.unit_rate ?? 0),
-                                                                                        suggestions: [{
-                                                                                            master_item_id: m.id,
-                                                                                            code: m.code,
-                                                                                            description: m.description,
-                                                                                            unit_of_measure: m.unit_of_measure,
-                                                                                            hsn_code: m.hsn_code,
-                                                                                        }],
-                                                                                        is_new: false,
-                                                                                        is_duplicate: true,
-                                                                                        createNew: false,
-                                                                                        selectedMasterId: String(m.id),
-                                                                                        isPendingSearch: false,
-                                                                                    }
-                                                                                    : i
-                                                                            ))
-                                                                        }}
-                                                                        onCreateCustom={(name: string) => {
-                                                                            setLineItems((prev: any) => prev.map((i: any, iIdx: number) =>
-                                                                                iIdx === index
-                                                                                    ? { ...i, item_name: name, createNew: true, isPendingSearch: false, is_new: true, is_duplicate: false, isCustomAdd: true }
-                                                                                    : i
-                                                                            ))
-                                                                        }}
-                                                                        onCancel={() => {
-                                                                            setLineItems((prev: any) => prev.filter((_: any, iIdx: number) => iIdx !== index))
-                                                                        }}
-                                                                    />
-                                                                ) : (
-                                                                    <div className="flex items-center gap-2 min-w-0">
-                                                                        <p className="font-medium text-foreground truncate min-w-0" title={item.item_name}>{item.item_name}</p>
-                                                                        {item.is_new && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">New</Badge>}
-                                                                        {item.is_duplicate && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Matched</Badge>}
-                                                                    </div>
-                                                                )}
-                                                            </td>
+                                                        <td className="p-2 max-w-[160px]">
+                                                            {item.isPendingSearch ? (
+                                                                <RowItemSearch
+                                                                    masterItems={masterItems as any[]}
+                                                                    lineItems={lineItems}
+                                                                    rowIndex={index}
+                                                                    onPick={(m: any) => {
+                                                                        setLineItems((prev: any) => prev.map((i: any, iIdx: number) =>
+                                                                            iIdx === index
+                                                                                ? {
+                                                                                    ...i,
+                                                                                    item_name: m.description,
+                                                                                    item_code: m.code,
+                                                                                    hsn_code: m.hsn_code ?? '',
+                                                                                    unit_of_measure: m.unit_of_measure ?? 'NOS',
+                                                                                    item_price: Number(m.unit_rate ?? 0),
+                                                                                    suggestions: [{
+                                                                                        master_item_id: m.id,
+                                                                                        code: m.code,
+                                                                                        description: m.description,
+                                                                                        unit_of_measure: m.unit_of_measure,
+                                                                                        hsn_code: m.hsn_code,
+                                                                                    }],
+                                                                                    is_new: false,
+                                                                                    is_duplicate: true,
+                                                                                    createNew: false,
+                                                                                    selectedMasterId: String(m.id),
+                                                                                    isPendingSearch: false,
+                                                                                }
+                                                                                : i
+                                                                        ))
+                                                                    }}
+                                                                    onCreateCustom={(name: string) => {
+                                                                        setLineItems((prev: any) => prev.map((i: any, iIdx: number) =>
+                                                                            iIdx === index
+                                                                                ? { ...i, item_name: name, createNew: true, isPendingSearch: false, is_new: true, is_duplicate: false, isCustomAdd: true }
+                                                                                : i
+                                                                        ))
+                                                                    }}
+                                                                    onCancel={() => {
+                                                                        setLineItems((prev: any) => prev.filter((_: any, iIdx: number) => iIdx !== index))
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div className="flex items-center gap-2 min-w-0">
+                                                                    <p className="font-medium text-foreground truncate min-w-0" title={item.item_name}>
+                                                                        {item.item_name}
+                                                                    </p>
+                                                                    {item.is_new && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 shrink-0">New</Badge>}
+                                                                    {item.is_duplicate && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 shrink-0">Matched</Badge>}
+                                                                </div>
+                                                            )}
+                                                        </td>
 
-                                                            <td className="p-2"> {item.isPendingSearch || item.isCustomAdd ? null : item.createNew ? (
-                                                                <div className="h-9 flex items-center px-3 rounded-md border border-dashed bg-blue-50/50 text-xs text-blue-700">
+                                                        <td className="p-2 max-w-[200px]">
+                                                            {item.isPendingSearch || item.isCustomAdd ? null : item.createNew ? (
+                                                                <div className="h-9 flex items-center px-3 rounded-md border border-dashed bg-blue-50/50 text-xs text-blue-700 truncate">
                                                                     Will create as new master item
                                                                 </div>
                                                             ) : options.length === 0 ? (
-                                                                <div className="h-9 flex items-center px-3 rounded-md border bg-muted/40 text-xs text-muted-foreground">
+                                                                <div className="h-9 flex items-center px-3 rounded-md border bg-muted/40 text-xs text-muted-foreground truncate">
                                                                     No matching master — tick "Create New"
                                                                 </div>
                                                             ) : (
@@ -1128,79 +1108,78 @@ export default function UploadQuotationPage() {
                                                                     placeholder={`Choose from ${options.length} match${options.length === 1 ? '' : 'es'}…`}
                                                                     className="w-full"
                                                                 />
-                                                            )}</td>
-                                                            <td className="p-2">{
-                                                                item.hsn_code
+                                                            )}
+                                                        </td>
+
+                                                        <td className="p-2 max-w-[80px] truncate">
+                                                            {item.hsn_code
                                                                 ?? item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))?.hsn_code
                                                                 ?? masterItems?.find((m: any) => String(m.id) === String(item.selectedMasterId))?.hsn_code
                                                                 ?? item.suggestions?.[0]?.hsn_code
-                                                                ?? '—'
-                                                            }</td>
-                                                            <td className="p-2">{Number(item.quantity) || 1}</td>
-                                                            <td className="p-2">{item.unit_of_measure}</td>
-                                                            <td className="p-2">₹ {Number(item.item_price ?? 0).toLocaleString('en-IN')}</td>
-                                                            <td className="p-2">₹ {((Number(item.quantity) || 1) * (Number(item.item_price) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                            <td className="p-2 text-right font-semibold">
-                                                                <div className="flex items-center justify-center">
-                                                                    <button
-                                                                        type="button"
-                                                                        aria-label="Remove line item"
-                                                                        onClick={() => {
-                                                                            setLineItems((prev: any) => prev.filter((_: any, i: number) => i !== index))
-                                                                            toast({ title: 'Item removed', description: item.item_name || 'Line item' })
-
-                                                                        }}
-                                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                                                    >
-                                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    )
-                                                })}
-                                            </tbody>
-
-                                            {/* Footer */}
-                                            {(subtotal != null || cgstAmount != null || sgstAmount != null || igstAmount != null || grandTotal != null) &&
-                                                <tfoot>
-                                                    <tr className="bg-gray-50">
-                                                        <td colSpan={8} className="text-right p-2">
-                                                            Subtotal
+                                                                ?? '—'}
                                                         </td>
-                                                        <td className="text-right p-2">₹ {subtotal?.toLocaleString('en-IN')}</td>
+                                                        <td className="p-2">{Number(item.quantity) || 1}</td>
+                                                        <td className="p-2 max-w-[60px] truncate">{item.unit_of_measure}</td>
+                                                        <td className="p-2 whitespace-nowrap">₹ {Number(item.item_price ?? 0).toLocaleString('en-IN')}</td>
+                                                        <td className="p-2 whitespace-nowrap">₹ {((Number(item.quantity) || 1) * (Number(item.item_price) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                        <td className="p-2 text-right font-semibold">
+                                                            <div className="flex items-center justify-center">
+                                                                <button
+                                                                    type="button"
+                                                                    aria-label="Remove line item"
+                                                                    onClick={() => {
+                                                                        setLineItems((prev: any) => prev.filter((_: any, i: number) => i !== index))
+                                                                        toast({ title: 'Item removed', description: item.item_name || 'Line item' })
+                                                                    }}
+                                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
                                                     </tr>
+                                                )
+                                            })}
+                                        </tbody>
 
-                                                    {cgstAmount != null && <tr className="bg-gray-50">
-                                                        <td colSpan={8} className="text-right p-2 text-gray-500">
-                                                            CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}                                        </td>
-                                                        <td className="text-right p-2 text-gray-500">
-                                                            {cgstAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}                                        </td>
-                                                    </tr>}
-                                                    {sgstAmount != null && <tr className="bg-gray-50">
-                                                        <td colSpan={8} className="text-right p-2 text-gray-500">
-                                                            SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}                                      </td>
-                                                        <td className="text-right p-2 text-gray-500">
-                                                            {sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}                                       </td>
-                                                    </tr>}
-                                                    {igstAmount != null && <tr className="bg-gray-50">
-                                                        <td colSpan={8} className="text-right p-2 text-gray-500">
-                                                            IGST{igstRate != null ? ` @ ${igstRate}%` : ''}
-                                                        </td>
-                                                        <td className="text-right p-2 text-gray-500">
-                                                            {igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}                                      </td>
-                                                    </tr>}
-                                                    {grandTotal != null && <tr className="bg-[#000000] text-white font-bold">
-                                                        <td colSpan={8} className="text-right p-2">
-                                                            Total
-                                                        </td>
-                                                        <td className="text-right p-2 text-lg">
-                                                            {grandTotal.toLocaleString('en-IN')}
-                                                        </td>
-                                                    </tr>}
-                                                </tfoot>}
-                                        </table>
-                                    </div>
+                                        {(subtotal != null || cgstAmount != null || sgstAmount != null || igstAmount != null || grandTotal != null) &&
+                                            <tfoot className="sticky bottom-0 z-10">
+                                                <tr className="bg-gray-50">
+                                                    <td colSpan={8} className="text-right p-2">Subtotal</td>
+                                                    <td className="text-right p-2">₹ {subtotal?.toLocaleString('en-IN')}</td>
+                                                </tr>
+                                                {cgstAmount != null && <tr className="bg-gray-50">
+                                                    <td colSpan={8} className="text-right p-2 text-gray-500">
+                                                        CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}
+                                                    </td>
+                                                    <td className="text-right p-2 text-gray-500">
+                                                        {cgstAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </td>
+                                                </tr>}
+                                                {sgstAmount != null && <tr className="bg-gray-50">
+                                                    <td colSpan={8} className="text-right p-2 text-gray-500">
+                                                        SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}
+                                                    </td>
+                                                    <td className="text-right p-2 text-gray-500">
+                                                        {sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </td>
+                                                </tr>}
+                                                {igstAmount != null && <tr className="bg-gray-50">
+                                                    <td colSpan={8} className="text-right p-2 text-gray-500">
+                                                        IGST{igstRate != null ? ` @ ${igstRate}%` : ''}
+                                                    </td>
+                                                    <td className="text-right p-2 text-gray-500">
+                                                        {igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </td>
+                                                </tr>}
+                                                {grandTotal != null && <tr className="bg-[#000000] text-white font-bold">
+                                                    <td colSpan={8} className="text-right p-2">Total</td>
+                                                    <td className="text-right p-2 text-lg">
+                                                        {grandTotal.toLocaleString('en-IN')}
+                                                    </td>
+                                                </tr>}
+                                            </tfoot>}
+                                    </table>
                                 </div>
                             </div>}
                             {vendors?.terms_and_conditions?.length > 0 && (
@@ -1215,13 +1194,6 @@ export default function UploadQuotationPage() {
                             )}
                             {/* Actions */}
                             <div className="flex justify-end gap-3">
-                                {/* <button className="px-4 py-2 border rounded-md text-sm">
-            Download PDF
-        </button>
-
-        <button className="px-4 py-2 border border-blue-200 text-blue-600 rounded-md text-sm">
-            View in PR Comparison
-        </button> */}
 
                                 <button className="px-4 py-2 bg-green-700 text-white rounded-md text-sm font-semibold flex items-center gap-2" onClick={handleSubmit} disabled={isLoading}>
                                     ✓ Confirm & Proceed
@@ -1231,84 +1203,86 @@ export default function UploadQuotationPage() {
                         </div>
                         <div className="flex flex-col gap-4">
                             {/* AI Panel */}
-                            <div className="rounded-xl overflow-hidden bg-gradient-to-br from-[#000000] via-[#14202b] to-[#1a2127] text-white">
+                            <div className="flex flex-col gap-4">
+                                {/* AI Panel */}
+                                <div className="rounded-xl overflow-hidden border border-orange-400 bg-[#fff7ed]">
 
-                                {/* Header */}
-                                <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
-                                    <span className="text-sm">✦</span>
-                                    <span className="font-semibold text-sm">AI Analysis</span>
-                                    <span className="ml-auto text-[10px] font-bold px-2 py-[2px] rounded-full bg-white/10 text-white/70">
-                                        96% confident
-                                    </span>
-                                </div>
-
-                                {/* Section */}
-                                <div className="px-4 py-3 border-b border-white/10">
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-2">
-                                        ✦ Extraction
-                                    </div>
-
-                                    <div className="flex gap-2 bg-white/5 border border-white/10 rounded-md p-2 text-xs mb-2">
-                                        <span>✓</span>
-                                        <span>
-                                            All line items, quantities, and HSN codes extracted correctly.
+                                    {/* Header */}
+                                    <div className="flex items-center gap-2 px-4 py-3 bg-[#9a3412] text-white">
+                                        <span className="text-sm">✦</span>
+                                        <span className="font-semibold text-sm">AI Analysis</span>
+                                        <span className="ml-auto text-[10px] font-bold px-2 py-[2px] rounded-full bg-white/20">
+                                            96% confident
                                         </span>
                                     </div>
 
-                                    <div className="flex gap-2 bg-amber-500/10 border border-amber-400/30 rounded-md p-2 text-xs">
-                                        <span>⚠</span>
-                                        <span>
-                                            Line item 3 — unit price extracted as ₹328/MT —{" "}
-                                            <strong>verify.</strong>
-                                        </span>
-                                    </div>
-                                </div>
+                                    {/* Section */}
+                                    <div className="px-4 py-3 ">
+                                        <div className="text-[10px] font-bold uppercase tracking-wide text-[#9a3412] mb-2">
+                                            ✦ Extraction Notes
+                                        </div>
 
-                                {/* Section */}
-                                <div className="px-4 py-3 border-b border-white/10">
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-2">
-                                        ✦ Vendor Intel
-                                    </div>
+                                        <div className="flex gap-2 bg-white border rounded-md p-2 text-xs mb-2">
+                                            <span>✓</span>
+                                            <span>
+                                                All line items, quantities and HSN codes extracted correctly.
+                                            </span>
+                                        </div>
 
-                                    <div className="flex gap-2 bg-green-500/20 border border-green-400/20 rounded-md p-2 text-xs mb-2">
-                                        <span>★</span>
-                                        <span>12 POs · OTD Rate: <strong>96.2%</strong></span>
-                                    </div>
-
-                                    <div className="flex gap-2 bg-green-500/20 border border-green-400/20 rounded-md p-2 text-xs">
-                                        <span>✓</span>
-                                        <span>IATF + ISO certifications valid</span>
-                                    </div>
-                                </div>
-
-                                {/* Section */}
-                                <div className="px-4 py-3 border-b border-white/10">
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-2">
-                                        ✦ Price Benchmark
+                                        <div className="flex gap-2 bg-amber-50 border border-amber-300 rounded-md p-2 text-xs">
+                                            <span>⚠</span>
+                                            <span>
+                                                Line item 3 — unit price ₹328/MT — <strong>verify</strong>
+                                            </span>
+                                        </div>
                                     </div>
 
-                                    <div className="flex gap-2 bg-white/5 border border-white/10 rounded-md p-2 text-xs mb-2">
-                                        <span>📊</span>
-                                        <span>2mm coil +2.1% vs last purchase</span>
+                                    {/* Section */}
+                                    <div className="px-4 py-3 ">
+                                        <div className="text-[10px] font-bold uppercase tracking-wide text-[#9a3412] mb-2">
+                                            ✦ Vendor Intelligence
+                                        </div>
+
+                                        <div className="flex gap-2 bg-green-50 border border-green-300 rounded-md p-2 text-xs mb-2">
+                                            <span>★</span>
+                                            <span>12 POs · OTD Rate: <strong>96.2%</strong></span>
+                                        </div>
+
+                                        <div className="flex gap-2 bg-green-50 border border-green-300 rounded-md p-2 text-xs">
+                                            <span>✓</span>
+                                            <span>IATF + ISO certifications valid</span>
+                                        </div>
                                     </div>
 
-                                    <div className="flex gap-2 bg-white/5 border border-white/10 rounded-md p-2 text-xs">
-                                        <span>📊</span>
-                                        <span>Within LME range</span>
-                                    </div>
-                                </div>
+                                    {/* Section */}
+                                    <div className="px-4 py-3 ">
+                                        <div className="text-[10px] font-bold uppercase tracking-wide text-[#9a3412] mb-2">
+                                            ✦ Price Benchmark
+                                        </div>
 
-                                {/* Section */}
-                                <div className="px-4 py-3">
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-2">
-                                        ✦ Validity Alert
+                                        <div className="flex gap-2 bg-white border rounded-md p-2 text-xs mb-2">
+                                            <span>📊</span>
+                                            <span>2mm coil +2.1% vs last purchase</span>
+                                        </div>
+
+                                        <div className="flex gap-2 bg-white border rounded-md p-2 text-xs">
+                                            <span>📊</span>
+                                            <span>Within LME range</span>
+                                        </div>
                                     </div>
 
-                                    <div className="flex gap-2 bg-amber-500/10 border border-amber-400/30 rounded-md p-2 text-xs">
-                                        <span>⏱</span>
-                                        <span>
-                                            Valid until <strong>15 Mar 2025</strong>
-                                        </span>
+                                    {/* Section */}
+                                    <div className="px-4 py-3">
+                                        <div className="text-[10px] font-bold uppercase tracking-wide text-[#9a3412] mb-2">
+                                            ✦ Validity Alert
+                                        </div>
+
+                                        <div className="flex gap-2 bg-amber-50 border border-amber-300 rounded-md p-2 text-xs">
+                                            <span>⏱</span>
+                                            <span>
+                                                Valid until <strong>15 Mar 2025</strong>
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
-import React from 'react'
+import React, { useEffect } from 'react'
 type UploadFileProps = {
     selectedFile: File | null
     setSelectedFile: (file: File | null) => void
@@ -23,7 +23,8 @@ type UploadFileProps = {
     setCategoryId: (v: string) => void
     prLinkId: string
     setPrLinkId: (v: string) => void
-
+    financialYear: string
+    setFinancialYear: (v: string) => void
     // data
     plants: any[]
     departments: any[]
@@ -50,12 +51,21 @@ const UploadFile = ({
     setCategoryId,
     prLinkId,
     setPrLinkId,
+    financialYear,
+    setFinancialYear,
     plants,
     departments,
     categories,
     PRs,
     formatSize,
 }: UploadFileProps) => {
+
+    useEffect(() => {
+        if (plants.length && !plantId) setPlantId(plants[0].id)
+        if (departments.length && !departmentId) setDepartmentId(departments[0].id)
+        if (categories.length && !categoryId) setCategoryId(categories[0].id)
+        if (!financialYear) setFinancialYear('2025-26')
+    }, [plants, departments, categories])
 
     return (
         <div className="space-y-6">
@@ -97,11 +107,11 @@ const UploadFile = ({
                 </div>
 
                 <h3 className="text-lg font-semibold mb-1">
-                    Drop the quotation file here
+                    Drop your vendor quote here
                 </h3>
 
                 <p className="text-sm text-muted-foreground mb-5">
-                    PDF — AI extracts everything.
+                    or click to browse — PDF only, up to 20MB
                 </p>
 
                 <Button
@@ -125,33 +135,63 @@ const UploadFile = ({
             }
 
             {/* Tag Section */}
-            <div className="mt-4">
-                {/* Tag Section */}
-                <div className="mt-4">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                        Tag this quote <span className="font-normal normal-case text-[10px]">(optional)</span>
+            <div className="bg-white border rounded-xl shadow-sm w-full overflow-hidden">
+                <div className="flex justify-between items-center px-4 py-3 border-b">
+                    <div className="font-semibold text-sm">Tag & Categorise This Quote</div>
+
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 font-semibold">
+                            Required Before Processing
+                        </span>
                     </div>
+                </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Tag Section */}
+                <div className="space-y-4 p-6">
 
-                        {/* Plant */}
+                    {/* Row 1 → 2 items */}
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* PR Link */}
                         <div>
-                            <label className="text-sm font-medium mb-1 block">Plant</label>
+                            <label className="text-sm font-medium mb-1 block">
+                                Link to Purchase Request
+                                <span className="font-normal text-[11px] text-gray-500"> (optional)</span>
+                            </label>
                             <select
-                                className={`w-full h-10 border rounded-md px-3 text-sm bg-background`} value={plantId}
-                                onChange={e => setPlantId(e.target.value)}
+                                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                                value={prLinkId}
+                                onChange={e => setPrLinkId(e.target.value)}
                             >
                                 <option value="">— Not specified —</option>
-                                {plants.map((p: any) => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                {PRs?.map((d: any) => (
+                                    <option key={d.id} value={d.id}>{d.pr_number}</option>
                                 ))}
                             </select>
                         </div>
+
+                        {/* Category */}
+                        <div>
+                            <label className="text-sm font-medium mb-1 block">Spend Category</label>
+                            <select
+                                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                                value={categoryId}
+                                onChange={e => setCategoryId(e.target.value)}
+                            >
+                                <option value="">— Not specified —</option>
+                                {categories?.map((d: any) => (
+                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Row 2 → 3 items */}
+                    <div className="grid grid-cols-3 gap-4">
                         {/* Department */}
                         <div>
                             <label className="text-sm font-medium mb-1 block">Department</label>
                             <select
-                                className={`w-full h-10 border rounded-md px-3 text-sm bg-background`}
+                                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
                                 value={departmentId}
                                 onChange={e => setDepartmentId(e.target.value)}
                             >
@@ -162,44 +202,50 @@ const UploadFile = ({
                             </select>
                         </div>
 
-
-                        {/* Category */}
+                        {/* Plant */}
                         <div>
-                            <label className="text-sm font-medium mb-1 block">Category</label>
-                            <select className={`w-full h-10 border rounded-md px-3 text-sm bg-background`}
-                                value={categoryId}
-                                onChange={e => setCategoryId(e.target.value)}
+                            <label className="text-sm font-medium mb-1 block">Plant / Location</label>
+                            <select
+                                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                                value={plantId}
+                                onChange={e => setPlantId(e.target.value)}
                             >
-
                                 <option value="">— Not specified —</option>
-                                {categories?.map((d: any) => (
-                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                {plants.map((p: any) => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
                             </select>
                         </div>
 
-                        {/* PR Link */}
+                        {/* Financial Year */}
                         <div>
-                            <label className="text-sm font-medium mb-1 block">
-                                Link to PR
-                            </label>
-                            <select className={`w-full h-10 border rounded-md px-3 text-sm bg-background`}
-                                value={prLinkId}
-                                onChange={e => setPrLinkId(e.target.value)}
+                            <label className="text-sm font-medium mb-1 block">Financial Year</label>
+                            <select
+                                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                                value={financialYear}
+                                onChange={e => setFinancialYear(e.target.value)}
                             >
                                 <option value="">— Not specified —</option>
-                                {PRs?.map((d: any) => (
-                                    <option key={d.id} value={d.id}>{d.pr_number
-                                    }</option>
-                                ))}
                             </select>
                         </div>
                     </div>
+
+                    {/* Row 3 → Full width textarea */}
+                    <div>
+                        <label className="text-sm font-medium mb-1 block">
+                            Internal Notes
+                            <span className="font-normal text-[11px] text-gray-500"> (optional)</span>
+                        </label>
+                        <textarea
+                            rows={3}
+                            placeholder="Add any notes about this quote for the approver..."
+                            className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none"
+                        />
+                    </div>
+
                 </div>
 
-                {/* your grid unchanged */}
-
-                <div className="flex justify-end gap-3 mt-5">
+                <div className="flex justify-end gap-3 m-4">
                     <Button
                         className="flex items-center gap-2"
                         disabled={!selectedFile || uploadMutation.isPending}
