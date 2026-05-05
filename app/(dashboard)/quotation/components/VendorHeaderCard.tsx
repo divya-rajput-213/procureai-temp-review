@@ -29,12 +29,12 @@ export default function VendorHeaderCard({
                         {vendors.company_name || '-'}
                     </div>
 
-                    <div className="flex flex-wrap gap-3 text-xs text-white/70 mt-1">
+                    {/* <div className="flex flex-wrap gap-3 text-xs text-white/70 mt-1">
                         <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
                             {vendors.address}, {vendors.pincode}, {vendors.city}, {vendors.state}, {vendors.country}
                         </span>
-                    </div>
+                    </div> */}
 
                     <div className="flex flex-wrap gap-3 text-xs text-white/70 mt-1">
                         <span className="flex items-center gap-1">
