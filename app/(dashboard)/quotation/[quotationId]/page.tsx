@@ -15,6 +15,30 @@ import AIAnalysisPanel from '../new/components/AIAnalysisPanel'
 import QuoteDetailsCard from '../new/components/QuoteDetailsCard'
 import VendorHeaderCard from '../new/components/VendorHeaderCard'
 
+const DEFAULT_TERMS: string[] = [
+  '1 year warranty from the date of Installation (No warranty on any electrical short circuit or physical damage caused).',
+  'Once goods sold cant be taken back or exchanged.',
+  'Service or visiting charges are extra.',
+  'For Remote view or p2p view in Mobile, internet is required through Lan Cable only.',
+  'Prices are valid for 15 days from the date of quotation.',
+  '50% advance along with PO; balance against delivery.',
+]
+
+const normalizeTerm = (value: string) => value.trim().toLowerCase()
+
+const mergeTerms = (terms: string[]) => {
+  const cleaned = (terms ?? [])
+    .map(t => String(t ?? '').replace(/^\d+[).]\s*/, '').trim())
+    .filter(Boolean)
+
+  const existing = new Set(cleaned.map(normalizeTerm))
+  const merged = [...cleaned]
+  for (const t of DEFAULT_TERMS) {
+    if (!existing.has(normalizeTerm(t))) merged.push(t)
+  }
+  return merged
+}
+
 type ExtractedLineItem = {
   id?: number | string
   line_no: number
@@ -332,7 +356,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     if (!quotation) return
     setEditQuotationNo(quotation.quotation_no === '—' ? '' : quotation.quotation_no)
     setEditQuotationDate(quotation.quotation_date === '—' ? '' : quotation.quotation_date)
-    setEditTerms(quotation.terms.join('\n'))
+    setEditTerms(mergeTerms(quotation.terms).join('\n'))
     setEditItems(items.map(it => ({ ...it })))
     setEditPlantId(quotation.plant_id ? String(quotation.plant_id) : '')
     setEditDepartmentId(quotation.department_id ? String(quotation.department_id) : '')
@@ -392,6 +416,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     if (Number.isNaN(d.getTime())) return null
     return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(d)
   }, [quotation?.created_at, quotation?.quotation_date])
+
+  const displayTerms = useMemo(() => mergeTerms(quotation?.terms ?? []), [quotation?.terms])
 
   if (isLoading) {
     return (
@@ -755,7 +781,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         )}
 
         {/* Footer: Bank + T&C */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 ">
           {/* Bank Details */}
           {/* <div className="space-y-2">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Bank Details</p>
@@ -783,24 +809,24 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             )}
           </div> */}
 
-	          {/* Terms & Conditions */}
-	          <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-	            <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Terms and Conditions</p>
-	            {isEditing ? (
-	              <textarea
-	                className="w-full min-h-[140px] border rounded-md p-2 text-sm bg-white"
-	                placeholder="One term per line"
-	                value={editTerms}
-	                onChange={e => setEditTerms(e.target.value)}
-	              />
-	            ) : quotation.terms.length > 0 ? (
-	              <ol className="rounded-md bg-slate-50 p-3 text-xs space-y-1 list-decimal pl-6 text-muted-foreground">
-	                {quotation.terms.map((term, idx) => (
-	                  <li key={`term-${idx}-${term.slice(0, 16)}`}>
-	                    {term.replace(/^\d+[).]\s*/, '')}
-	                  </li>
-	                ))}
-	              </ol>
+		          {/* Terms & Conditions */}
+		          <div className="space-y-2">
+		            <p className="font-semibold text-sm">Terms &amp; Conditions</p>
+		            {isEditing ? (
+		              <textarea
+		                className="w-full min-h-[140px] border rounded-md p-2 text-sm bg-white"
+		                placeholder="One term per line"
+		                value={editTerms}
+		                onChange={e => setEditTerms(e.target.value)}
+		              />
+		            ) : displayTerms.length > 0 ? (
+		              <ul className="pl-5 list-disc space-y-1 text-sm text-foreground">
+		                {displayTerms.map((term, idx) => (
+		                  <li key={`term-${idx}-${term.slice(0, 16)}`}>
+		                    {term.replace(/^\d+[).]\s*/, '')}
+		                  </li>
+		                ))}
+		              </ul>
 	            ) : (
 	              <p className="text-muted-foreground text-xs">—</p>
 	            )}
