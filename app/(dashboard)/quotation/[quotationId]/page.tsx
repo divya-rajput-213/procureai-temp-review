@@ -597,23 +597,24 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         {/* Line Items (styled like new quotation UI) */}
 	        <div className="-mx-6 mt-4 bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
 	          {/* Header */}
-	          <div className="flex justify-between items-center px-4 py-3 border-b">
-	            <div className="font-semibold text-sm">Line Items</div>
+		          <div className="flex justify-between items-center px-4 py-3 border-b">
+		            <div className="font-semibold text-sm">Line Items</div>
 
-	            <div className="flex items-center gap-2 text-sm">
-	              <Button
-	                type="button"
-	                variant="outline"
-	                size="sm"
-	                className="h-7 gap-1.5 text-xs"
-	                disabled={!isEditing}
-	                onClick={() => setAddItemOpen(true)}
-	              >
-	                <Plus className="h-3.5 w-3.5" />
-	                Add Line
-	              </Button>
-	            </div>
-	          </div>
+		            <div className="flex items-center gap-2 text-sm">
+		              {isEditing && (
+		                <Button
+		                  type="button"
+		                  variant="outline"
+		                  size="sm"
+		                  className="h-7 gap-1.5 text-xs"
+		                  onClick={() => setAddItemOpen(true)}
+		                >
+		                  <Plus className="h-3.5 w-3.5" />
+		                  Add Line
+		                </Button>
+		              )}
+		            </div>
+		          </div>
 
           {/* Table */}
           <div className="max-h-[400px] overflow-auto">
