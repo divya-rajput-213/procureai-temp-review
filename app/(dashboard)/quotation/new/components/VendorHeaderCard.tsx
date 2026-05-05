@@ -13,7 +13,7 @@ export default function VendorHeaderCard({
     onChangeVendor: () => void
 }) {
     return (
-        <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
             {/* Banner */}
             <div className="bg-gradient-to-br from-[#000000] to-[#0A1E30] text-white p-5 flex items-center gap-4">
                 {/* Monogram */}
@@ -61,7 +61,7 @@ export default function VendorHeaderCard({
 
                 {/* Action */}
                 <div className="ml-auto flex items-center">
-                    <Button
+                    {/* <Button
                         variant="outline"
                         size="sm"
                         className="flex items-center gap-1.5 text-black"
@@ -69,7 +69,7 @@ export default function VendorHeaderCard({
                     >
                         <Pencil className="w-3 h-3" />
                         Change vendor
-                    </Button>
+                    </Button> */}
                 </div>
             </div>
 

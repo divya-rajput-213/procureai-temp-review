@@ -16,7 +16,7 @@ export default function QuoteDetailsCard({ quotation }: { quotation: any }) {
     const quoteDate = String(quoteDateRaw || '').trim() || '—'
 
     return (
-        <div className="bg-white border rounded-xl shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
             <div className="px-4 py-3 border-b font-semibold text-sm">
                 Quote Details
             </div>
