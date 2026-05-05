@@ -8,9 +8,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import apiClient from '@/lib/api/client'
+import AIAnalysisPanel from '../new/components/AIAnalysisPanel'
+import QuoteDetailsCard from '../new/components/QuoteDetailsCard'
+import VendorHeaderCard from '../new/components/VendorHeaderCard'
 
 type ExtractedLineItem = {
   id?: number | string
@@ -261,6 +265,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [itemSearch, setItemSearch] = useState('')
+  const [lineItemFilter, setLineItemFilter] = useState<'all' | 'new' | 'matched'>('all')
 
   const { data: itemSearchResults, isFetching: searchingItems } = useQuery({
     queryKey: ['master-items-search', itemSearch],
@@ -372,6 +377,18 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   }, [items, isEditing])
 
   const displayItems = isEditing ? editItems : items
+  const lineItemCounts = useMemo(() => {
+    const all = displayItems.length
+    const matched = displayItems.filter((it) => it.master_item_id != null).length
+    const fresh = all - matched
+    return { all, matched, fresh }
+  }, [displayItems])
+
+  const filteredDisplayItems = useMemo(() => {
+    if (lineItemFilter === 'all') return displayItems
+    if (lineItemFilter === 'matched') return displayItems.filter((it) => it.master_item_id != null)
+    return displayItems.filter((it) => it.master_item_id == null)
+  }, [displayItems, lineItemFilter])
 
   const computedSubtotal = useMemo(
     () => items.reduce((sum, item) => sum + item.amount, 0),
@@ -424,6 +441,23 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     .filter(Boolean)
     .join(', ')
 
+  const vendorHeaderData = vendor
+    ? {
+      company_name: vendor.company_name,
+      address: vendor.address,
+      city: vendor.city,
+      state: vendor.state,
+      pincode: vendor.pincode,
+      country: vendor.country,
+      is_new: false,
+      gst_number: vendor.gst_number,
+      pan_number: vendor.pan_number,
+      bank_name: vendor.bank_name,
+      bank_account: vendor.bank_account,
+      bank_ifsc: vendor.bank_ifsc,
+    }
+    : null
+
   return (
     <div className="space-y-2">
       {/* Action bar */}
@@ -471,11 +505,13 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         </div>
       </div>
 
-      {/* Document */}
-      <div className="bg-white border rounded-lg max-w-7xl mx-auto p-6 shadow-sm text-sm text-foreground">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 items-start">
+        <div>
+          {/* Document */}
+          <div className="bg-white border rounded-xl p-6 shadow-sm text-sm text-foreground">
         <div className="flex items-center justify-between gap-6 border-b pb-3">
           {/* Left - Quotation No */}
-          <div className="flex items-center gap-2 ">
+          {/* <div className="flex items-center gap-2 ">
             <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
               Quotation No
             </span>
@@ -489,10 +525,10 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             ) : (
               <span className="font-semibold">{quotation.quotation_no}</span>
             )}
-          </div>
+          </div> */}
 
           {/* Right - Date */}
-          <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
               Date
             </span>
@@ -506,57 +542,42 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             ) : (
               <span>{quotation.quotation_date}</span>
             )}
-          </div>
+          </div> */}
         </div>
 
-        {/* Top: vendor info (left) (right) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-3  border-b">
-          <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">From</p>
-            <p className="text-base font-semibold">{vendor?.company_name ?? '—'}</p>
-            {vendorAddress && <p className="text-muted-foreground">{vendorAddress}</p>}
-            {vendor?.gst_number && (
-              <p className="text-xs"><span className="text-muted-foreground">GSTIN: </span>{vendor.gst_number}</p>
-            )}
-            {(vendor?.contact_phone || vendor?.contact_email) && (
-              <p className="text-xs text-muted-foreground">
-                {vendor?.contact_phone && <>{vendor.contact_phone}</>}
-                {vendor?.contact_phone && vendor?.contact_email && <> · </>}
-                {vendor?.contact_email && <>{vendor.contact_email}</>}
+        {/* Vendor header (shared from new/upload page) */}
+        {vendorHeaderData && (
+          <div className="py-3 border-b">
+            <VendorHeaderCard vendors={vendorHeaderData} category={null} onChangeVendor={() => { }} />
+          </div>
+        )}
+
+        {/* Bill To */}
+        {billTo && (
+          <div className="py-3 border-b">
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                Billed To
               </p>
-            )}
-          </div>
-
-          <div className="md:text-right space-y-2">
-            {/* Bill To */}
-            {billTo && (
-              <div className=" space-y-2">
-                <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-                  Billed To
+              {billTo.name && <p className="font-semibold">{billTo.name}</p>}
+              {billTo.address && (
+                <p className="text-muted-foreground leading-relaxed">
+                  {billTo.address}
                 </p>
-
-                {billTo.name && <p className="font-semibold">{billTo.name}</p>}
-
-                {billTo.address && (
-                  <p className="text-muted-foreground leading-relaxed">
-                    {billTo.address}
-                  </p>
-                )}
-
-                <div className="text-xs text-muted-foreground space-y-1">
-                  {billTo.ref && <p>Ref: {billTo.ref}</p>}
-                  {billTo.contact_no && <p>Contact: {billTo.contact_no}</p>}
-                  {billTo.email && <p>Email: {billTo.email}</p>}
-                  {billTo.state && <p>State: {billTo.state}</p>}
-                  {billTo.gst_number && <p>GST: {billTo.gst_number}</p>}
-                  {billTo.pan_number && <p>PAN: {billTo.pan_number}</p>}
-                  {billTo.plant_name && <p>Plant: {billTo.plant_name}</p>}
-                  {billTo.plant_code && <p>Plant Code: {billTo.plant_code}</p>}
-                </div>
+              )}
+              <div className="text-xs text-muted-foreground space-y-1">
+                {billTo.ref && <p>Ref: {billTo.ref}</p>}
+                {billTo.contact_no && <p>Contact: {billTo.contact_no}</p>}
+                {billTo.email && <p>Email: {billTo.email}</p>}
+                {billTo.state && <p>State: {billTo.state}</p>}
+                {billTo.gst_number && <p>GST: {billTo.gst_number}</p>}
+                {billTo.pan_number && <p>PAN: {billTo.pan_number}</p>}
+                {billTo.plant_name && <p>Plant: {billTo.plant_name}</p>}
+                {billTo.plant_code && <p>Plant Code: {billTo.plant_code}</p>}
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Plant & Department — compact inline */}
         {(quotation.plant_name || quotation.department_name || isEditing) && (
@@ -598,154 +619,223 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           </div>
         )}
 
-        {/* Items table */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Line Items</p>
-            {isEditing && (
+        {/* Line Items (styled like new quotation UI) */}
+        <div className="mt-4 bg-white border rounded-xl shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="flex justify-between items-center px-4 py-3 border-b">
+            <div className="font-semibold text-sm">Line Items</div>
+
+            <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setLineItemFilter('all')}
+                  className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${lineItemFilter === 'all'
+                    ? 'bg-foreground text-background border-foreground'
+                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                    }`}
+                >
+                  All
+                  <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${lineItemFilter === 'all'
+                    ? 'bg-background/20 text-background'
+                    : 'bg-muted text-muted-foreground'
+                    }`}>{lineItemCounts.all}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLineItemFilter('new')}
+                  className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${lineItemFilter === 'new'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                    }`}
+                >
+                  New
+                  <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${lineItemFilter === 'new'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-muted text-muted-foreground'
+                    }`}>{lineItemCounts.fresh}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLineItemFilter('matched')}
+                  className={`h-7 px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${lineItemFilter === 'matched'
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'bg-background hover:bg-muted border-border text-muted-foreground'
+                    }`}
+                >
+                  Matched
+                  <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${lineItemFilter === 'matched'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-muted text-muted-foreground'
+                    }`}>{lineItemCounts.matched}</span>
+                </button>
+              </div>
+
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 className="h-7 gap-1.5 text-xs"
+                disabled={!isEditing}
                 onClick={() => setAddItemOpen(true)}
               >
                 <Plus className="h-3.5 w-3.5" />
-                Add Item
+                Add Line
               </Button>
-            )}
-          </div>
-          <table className="w-full text-sm border rounded-lg overflow-hidden">
-            <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground w-10">#</th>
-                <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Item</th>
-                <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">HSN/SAC</th>
-                <th className="text-right py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Qty</th>
-                <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Unit</th>
-                <th className="text-right py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Rate</th>
-                <th className="text-right py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Amount</th>
-                {isEditing && <th className="py-2.5 px-2 w-10" />}
-              </tr>
-            </thead>
-            <tbody>
-              {displayItems.length === 0 ? (
-                <tr>
-                  <td colSpan={isEditing ? 8 : 7} className="py-10 text-center text-muted-foreground">
-                    No line items were returned for this quotation.
-                  </td>
-                </tr>
-              ) : (
-                displayItems.map((item, idx) => {
-                  const lineAmount = isEditing
-                    ? Number(item.quantity || 0) * Number(item.price_per_unit || 0)
-                    : item.amount
-                  return (
-                    <tr key={`${quotation.id}-${item.id ?? item.line_no}`} className="border-b">
-                      <td className="py-2 px-2 align-top text-center">{item.line_no}</td>
-                      <td className="py-2 px-3 align-top">
-                        <p className="font-bold">{item.item_name}</p>
-                        {item.item_sub_name && (
-                          <p className="text-muted-foreground text-xs">({item.item_sub_name})</p>
-                        )}
-                      </td>
-                      <td className="py-2 px-3 align-top text-muted-foreground">
-                        {isEditing ? (
-                          <Input
-                            type="text"
-                            className="h-7 text-sm w-28"
-                            value={item.hsn_sac === '—' ? '' : item.hsn_sac}
-                            onChange={e => updateEditItem(idx, { hsn_sac: e.target.value })}
-                            placeholder="HSN/SAC"
-                          />
-                        ) : (
-                          item.hsn_sac
-                        )}
-                      </td>
-                      <td className="py-2 px-3 align-top tabular-nums text-right">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            min="1"
-                            step="1"
-                            className="h-7 text-sm w-20 text-right ml-auto"
-                            value={item.quantity}
-                            onChange={e => updateEditItem(idx, { quantity: Number(e.target.value) })}
-                          />
-                        ) : (
-                          item.quantity
-                        )}
-                      </td>
-                      <td className="py-2 px-3 align-top">{item.unit}</td>
-                      <td className="py-2 px-3 align-top text-right tabular-nums">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            className="h-7 text-sm w-28 text-right"
-                            value={item.price_per_unit}
-                            onChange={e => updateEditItem(idx, { price_per_unit: Number(e.target.value) })}
-                          />
-                        ) : (
-                          formatINR(item.price_per_unit)
-                        )}
-                      </td>
-                      <td className="py-2 px-3 align-top text-right tabular-nums">
-                        {formatINR(lineAmount)}
-                      </td>
-                      {isEditing && (
-                        <td className="py-2 px-2 align-top text-center">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => removeEditItem(idx)}
-                            aria-label="Remove item"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      )}
-                    </tr>
-                  )
-                })
-              )}
 
-              {/* Totals */}
-              <tr>
-                <td colSpan={6} className="py-2 px-3 text-right font-bold">
-                  Subtotal
-                </td>
-                <td className="py-2 px-3 text-right tabular-nums">{formatINR(subtotal)}</td>
-                {isEditing && <td />}
-              </tr>
-              <tr>
-                <td colSpan={6} className="py-2 px-3 text-right">
-                  CGST @ {quotation.cgst_rate}%
-                </td>
-                <td className="py-2 px-3 text-right tabular-nums">{formatINR(cgstAmount)}</td>
-                {isEditing && <td />}
-              </tr>
-              <tr>
-                <td colSpan={6} className="py-2 px-3 text-right">
-                  SGST @ {quotation.sgst_rate}%
-                </td>
-                <td className="py-2 px-3 text-right tabular-nums">{formatINR(sgstAmount)}</td>
-                {isEditing && <td />}
-              </tr>
-              <tr className="border-t border-b-2 border-foreground/60">
-                <td colSpan={6} className="py-2 px-3 text-right font-bold">
-                  Grand Total
-                </td>
-                <td className="py-2 px-3 text-right font-bold tabular-nums">
-                  {formatINR(grandTotal)}
-                </td>
-                {isEditing && <td />}
-              </tr>
-            </tbody>
-          </table>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => toast({ title: 'Export', description: 'Export is not implemented on this page yet.' })}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export
+              </Button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="max-h-[400px] overflow-auto">
+            <div className="min-w-[900px]">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                  <tr>
+                    <th className="p-2 w-10">
+                      <Checkbox
+                        id="select-all-line-items"
+                        checked={false}
+                        onCheckedChange={() => { }}
+                        aria-label="Select all line items"
+                      />
+                    </th>
+                    <th className="p-2 text-left">Item</th>
+                    <th className="p-2 text-left">Master Item</th>
+                    <th className="p-2 text-left">HSN</th>
+                    <th className="p-2 text-left">Qty</th>
+                    <th className="p-2 text-left">UOM</th>
+                    <th className="p-2 text-left">Rate</th>
+                    <th className="p-2 text-left">Amount</th>
+                    {isEditing && <th className="py-2 px-3" />}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredDisplayItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={isEditing ? 9 : 8} className="py-10 text-center text-muted-foreground text-sm">
+                        No items match the selected filter.
+                      </td>
+                    </tr>
+                  ) : filteredDisplayItems.map((item, idx) => {
+                    const globalIndex = displayItems.indexOf(item)
+                    const isMatched = item.master_item_id != null
+                    const lineAmount = isEditing
+                      ? Number(item.quantity || 0) * Number(item.price_per_unit || 0)
+                      : item.amount
+
+                    return (
+                      <tr key={`${quotation.id}-${item.id ?? item.line_no}`} className="border-t">
+                        <td className="p-2">
+                          <Checkbox
+                            id={`li-select-${item.id ?? item.line_no}`}
+                            checked={false}
+                            onCheckedChange={() => { }}
+                            aria-label={`Select line item ${item.line_no}`}
+                          />
+                        </td>
+                        <td className="p-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{item.item_name}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isMatched ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                              {isMatched ? 'Matched' : 'New'}
+                            </span>
+                          </div>
+                          {item.item_sub_name && (
+                            <div className="text-xs text-muted-foreground mt-0.5">({item.item_sub_name})</div>
+                          )}
+                        </td>
+
+                        <td className="p-2">
+                          <div className="h-9 border rounded-md px-3 flex items-center text-sm bg-background">
+                            {item.item_code
+                              ? <span className="truncate">{item.item_code} — {item.item_name}</span>
+                              : <span className="text-muted-foreground">—</span>}
+                          </div>
+                        </td>
+
+                        <td className="p-2">
+                          {isEditing ? (
+                            <Input
+                              type="text"
+                              className="h-9 text-sm w-28"
+                              value={item.hsn_sac === '—' ? '' : item.hsn_sac}
+                              onChange={e => updateEditItem(globalIndex, { hsn_sac: e.target.value })}
+                              placeholder="HSN"
+                            />
+                          ) : (
+                            <span className="text-muted-foreground">{item.hsn_sac}</span>
+                          )}
+                        </td>
+
+                        <td className="p-2">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              min="1"
+                              step="1"
+                              className="h-9 text-sm w-20 text-right"
+                              value={item.quantity}
+                              onChange={e => updateEditItem(globalIndex, { quantity: Number(e.target.value) })}
+                            />
+                          ) : (
+                            <span className="tabular-nums">{item.quantity}</span>
+                          )}
+                        </td>
+
+                        <td className="p-2">{item.unit}</td>
+
+                        <td className="p-2">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="h-9 text-sm w-28 text-right"
+                              value={item.price_per_unit}
+                              onChange={e => updateEditItem(globalIndex, { price_per_unit: Number(e.target.value) })}
+                            />
+                          ) : (
+                            <span className="tabular-nums">{formatINR(item.price_per_unit)}</span>
+                          )}
+                        </td>
+
+                        <td className="p-2 tabular-nums">
+                          {formatINR(lineAmount)}
+                        </td>
+
+                        {isEditing && (
+                          <td className="p-2 text-right">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => removeEditItem(globalIndex)}
+                              aria-label="Remove item"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
         {/* Amount in words */}
@@ -832,6 +922,13 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             </Button>
           </div>
         )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <AIAnalysisPanel />
+          <QuoteDetailsCard quotation={quotation} />
+        </div>
       </div>
 
       {/* Add Item Dialog */}
