@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Download, Loader2, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -11,6 +11,33 @@ import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import apiClient from '@/lib/api/client'
+import AIAnalysisPanel from '../components/AIAnalysisPanel'
+import QuoteDetailsCard from '../components/QuoteDetailsCard'
+import VendorHeaderCard from '../components/VendorHeaderCard'
+
+const DEFAULT_TERMS: string[] = [
+  '1 year warranty from the date of Installation (No warranty on any electrical short circuit or physical damage caused).',
+  'Once goods sold cant be taken back or exchanged.',
+  'Service or visiting charges are extra.',
+  'For Remote view or p2p view in Mobile, internet is required through Lan Cable only.',
+  'Prices are valid for 15 days from the date of quotation.',
+  '50% advance along with PO; balance against delivery.',
+]
+
+const normalizeTerm = (value: string) => value.trim().toLowerCase()
+
+const mergeTerms = (terms: string[]) => {
+  const cleaned = (terms ?? [])
+    .map(t => String(t ?? '').replace(/^\d+[).]\s*/, '').trim())
+    .filter(Boolean)
+
+  const existing = new Set(cleaned.map(normalizeTerm))
+  const merged = [...cleaned]
+  for (const t of DEFAULT_TERMS) {
+    if (!existing.has(normalizeTerm(t))) merged.push(t)
+  }
+  return merged
+}
 
 type ExtractedLineItem = {
   id?: number | string
@@ -329,7 +356,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     if (!quotation) return
     setEditQuotationNo(quotation.quotation_no === '—' ? '' : quotation.quotation_no)
     setEditQuotationDate(quotation.quotation_date === '—' ? '' : quotation.quotation_date)
-    setEditTerms(quotation.terms.join('\n'))
+    setEditTerms(mergeTerms(quotation.terms).join('\n'))
     setEditItems(items.map(it => ({ ...it })))
     setEditPlantId(quotation.plant_id ? String(quotation.plant_id) : '')
     setEditDepartmentId(quotation.department_id ? String(quotation.department_id) : '')
@@ -341,7 +368,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       const { data } = await apiClient.get(
         `quotations/${quotation?.id}/generate-pdf/`
       )
-  
+
       if (data?.pdf_url) {
         window.open(data.pdf_url, "_blank")
       }
@@ -355,7 +382,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     setIsEditing(false)
   }
 
-  
+
   const updateEditItem = (idx: number, patch: Partial<ExtractedLineItem>) => {
     setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it))
   }
@@ -381,6 +408,16 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const cgstAmount = quotation?.cgst_amount ?? subtotal * ((quotation?.cgst_rate ?? 9) / 100)
   const sgstAmount = quotation?.sgst_amount ?? subtotal * ((quotation?.sgst_rate ?? 9) / 100)
   const grandTotal = quotation?.grand_total ?? subtotal + cgstAmount + sgstAmount
+
+  const extractedOn = useMemo(() => {
+    const raw = quotation?.created_at || quotation?.quotation_date
+    if (!raw) return null
+    const d = new Date(raw)
+    if (Number.isNaN(d.getTime())) return null
+    return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(d)
+  }, [quotation?.created_at, quotation?.quotation_date])
+
+  const displayTerms = useMemo(() => mergeTerms(quotation?.terms ?? []), [quotation?.terms])
 
   if (isLoading) {
     return (
@@ -424,20 +461,40 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     .filter(Boolean)
     .join(', ')
 
+  const vendorHeaderData = vendor
+    ? {
+      company_name: vendor.company_name,
+      address: vendor.address,
+      city: vendor.city,
+      state: vendor.state,
+      pincode: vendor.pincode,
+      country: vendor.country,
+      is_new: false,
+      gst_number: vendor.gst_number,
+      pan_number: vendor.pan_number,
+      bank_name: vendor.bank_name,
+      bank_account: vendor.bank_account,
+      bank_ifsc: vendor.bank_ifsc,
+    }
+    : null
+
   return (
     <div className="space-y-2">
-      {/* Action bar */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <StatusBadge status={quotation.status} />
-        </div>
-        <div className="flex items-center gap-2">
-          {quotation.status === 'draft' && !isEditing && (
-            <>
+      {/* Page header (title + actions) */}
+      <div className="overflow-hidden">
+        <div className="  flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+              {(vendor?.company_name || 'Quotation')} — Quote
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {extractedOn ? `AI-extracted ${extractedOn}` : 'AI-extracted'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start">
+            <StatusBadge status={quotation.status} />
+            {quotation.status === 'draft' && !isEditing && (
               <Button
                 size="sm"
                 variant="outline"
@@ -447,318 +504,285 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 <Pencil className="h-4 w-4" />
                 Edit
               </Button>
-            </>
-          )}
-          {isEditing && (
-            <span className="text-xs text-muted-foreground italic">Editing…</span>
-          )}
-          <select
-            className="border rounded-md h-9 px-2 text-sm bg-white"
-            onChange={(e) => {
-              if (e.target.value === "original") {
-                window.open(quotation.pdf_url, "_blank")
-              } else if (e.target.value === "generated") {
-                handleDownloadGeneratedPdf()
-              }
-              e.target.value = "" // reset
-            }}
-          >
-            <option value="">Download PDF</option>
-            {quotation.pdf_url && <option value="original">Original PDF</option>}
-            <option value="generated">Generated PDF</option>
-          </select>
-
+            )}
+            {isEditing && (
+              <span className="text-xs text-muted-foreground italic">Editing…</span>
+            )}
+            <select
+              className="border rounded-md h-9 px-2 text-sm bg-white"
+              onChange={(e) => {
+                if (e.target.value === "original") {
+                  window.open(quotation.pdf_url, "_blank")
+                } else if (e.target.value === "generated") {
+                  handleDownloadGeneratedPdf()
+                }
+                e.target.value = "" // reset
+              }}
+            >
+              <option value="">Download PDF</option>
+              {quotation.pdf_url && <option value="original">Original PDF</option>}
+              <option value="generated">Generated PDF</option>
+            </select>
+            <Button variant="ghost" size="sm" className="gap-2" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Document */}
-      <div className="bg-white border rounded-lg max-w-7xl mx-auto p-6 shadow-sm text-sm text-foreground">
-        <div className="flex items-center justify-between gap-6 border-b pb-3">
-          {/* Left - Quotation No */}
-          <div className="flex items-center gap-2 ">
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-              Quotation No
-            </span>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 items-start">
+          {/* Document */}
+          <div className=" p-6 text-sm text-foreground">
 
-            {isEditing ? (
-              <Input
-                className="h-7 text-sm max-w-[200px]"
-                value={editQuotationNo}
-                onChange={e => setEditQuotationNo(e.target.value)}
-              />
-            ) : (
-              <span className="font-semibold">{quotation.quotation_no}</span>
+            {/* Vendor header (shared from new/upload page) */}
+            {vendorHeaderData && (
+              <div className="-mx-6 -mt-6 mb-4">
+                <VendorHeaderCard vendors={vendorHeaderData} category={null} onChangeVendor={() => { }} />
+              </div>
             )}
-          </div>
 
-          {/* Right - Date */}
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-              Date
-            </span>
-
-            {isEditing ? (
-              <Input
-                className="h-7 text-sm max-w-[200px]"
-                value={editQuotationDate}
-                onChange={e => setEditQuotationDate(e.target.value)}
-              />
-            ) : (
-              <span>{quotation.quotation_date}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Top: vendor info (left) (right) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-3  border-b">
-          <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">From</p>
-            <p className="text-base font-semibold">{vendor?.company_name ?? '—'}</p>
-            {vendorAddress && <p className="text-muted-foreground">{vendorAddress}</p>}
-            {vendor?.gst_number && (
-              <p className="text-xs"><span className="text-muted-foreground">GSTIN: </span>{vendor.gst_number}</p>
-            )}
-            {(vendor?.contact_phone || vendor?.contact_email) && (
-              <p className="text-xs text-muted-foreground">
-                {vendor?.contact_phone && <>{vendor.contact_phone}</>}
-                {vendor?.contact_phone && vendor?.contact_email && <> · </>}
-                {vendor?.contact_email && <>{vendor.contact_email}</>}
-              </p>
-            )}
-          </div>
-
-          <div className="md:text-right space-y-2">
-            {/* Bill To */}
-            {billTo && (
-              <div className=" space-y-2">
-                <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-                  Billed To
-                </p>
-
-                {billTo.name && <p className="font-semibold">{billTo.name}</p>}
-
-                {billTo.address && (
-                  <p className="text-muted-foreground leading-relaxed">
-                    {billTo.address}
+            {/* Plant & Department */}
+            {(quotation.plant_name || quotation.department_name || isEditing) && (
+              <div className="-mx-6 mb-4">
+                <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    Plant &amp; Department <span className="font-normal normal-case text-[10px]">(optional)</span>
                   </p>
-                )}
-
-                <div className="text-xs text-muted-foreground space-y-1">
-                  {billTo.ref && <p>Ref: {billTo.ref}</p>}
-                  {billTo.contact_no && <p>Contact: {billTo.contact_no}</p>}
-                  {billTo.email && <p>Email: {billTo.email}</p>}
-                  {billTo.state && <p>State: {billTo.state}</p>}
-                  {billTo.gst_number && <p>GST: {billTo.gst_number}</p>}
-                  {billTo.pan_number && <p>PAN: {billTo.pan_number}</p>}
-                  {billTo.plant_name && <p>Plant: {billTo.plant_name}</p>}
-                  {billTo.plant_code && <p>Plant Code: {billTo.plant_code}</p>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Plant</label>
+                      {isEditing ? (
+                        <select
+                          className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
+                          value={editPlantId}
+                          onChange={e => setEditPlantId(e.target.value)}
+                        >
+                          <option value="">— Not specified —</option>
+                          {plants.map((p: any) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="mt-1 h-10 flex items-center px-3 rounded-md bg-muted/30 text-sm font-medium">
+                          {quotation.plant_name || <span className="text-muted-foreground font-normal">—</span>}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Department</label>
+                      {isEditing ? (
+                        <select
+                          className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
+                          value={editDepartmentId}
+                          onChange={e => setEditDepartmentId(e.target.value)}
+                        >
+                          <option value="">— Not specified —</option>
+                          {departments.map((d: any) => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="mt-1 h-10 flex items-center px-3 rounded-md bg-muted/30 text-sm font-medium">
+                          {quotation.department_name || <span className="text-muted-foreground font-normal">—</span>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Plant & Department — compact inline */}
-        {(quotation.plant_name || quotation.department_name || isEditing) && (
-          <div className="py-3 border-b flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground shrink-0">Plant</span>
-              {isEditing ? (
-                <select
-                  className="h-7 border border-input rounded-md px-2 text-xs bg-background min-w-[140px]"
-                  value={editPlantId}
-                  onChange={e => setEditPlantId(e.target.value)}
-                >
-                  <option value="">—</option>
-                  {plants.map((p: any) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <span className="font-medium truncate">{quotation.plant_name || <span className="text-muted-foreground font-normal">—</span>}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground shrink-0">Department</span>
-              {isEditing ? (
-                <select
-                  className="h-7 border border-input rounded-md px-2 text-xs bg-background min-w-[140px]"
-                  value={editDepartmentId}
-                  onChange={e => setEditDepartmentId(e.target.value)}
-                >
-                  <option value="">—</option>
-                  {departments.map((d: any) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <span className="font-medium truncate">{quotation.department_name || <span className="text-muted-foreground font-normal">—</span>}</span>
-              )}
-            </div>
-          </div>
-        )}
+            {/* Line Items (styled like new quotation UI) */}
+            <div className="-mx-6 mt-4 bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
+              {/* Header */}
+              <div className="flex justify-between items-center px-4 py-3 border-b">
+                <div className="font-semibold text-sm">Line Items</div>
 
-        {/* Items table */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Line Items</p>
-            {isEditing && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 gap-1.5 text-xs"
-                onClick={() => setAddItemOpen(true)}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Item
-              </Button>
+                <div className="flex items-center gap-2 text-sm">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 text-xs"
+                    disabled={!isEditing}
+                    onClick={() => setAddItemOpen(true)}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Line
+                  </Button>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="max-h-[400px] overflow-auto">
+                <div className="min-w-[900px]">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                      <tr>
+                        <th className="p-2 text-left">Item</th>
+                        <th className="p-2 text-left">HSN</th>
+                        <th className="p-2 text-left">Qty</th>
+                        <th className="p-2 text-left">Unit</th>
+                        <th className="p-2 text-left">Rate</th>
+                        <th className="p-2 text-left">Amount</th>
+                        {isEditing && <th className="py-2 px-3" />}
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {displayItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={isEditing ? 7 : 6} className="py-10 text-center text-muted-foreground text-sm">
+                            No line items available.
+                          </td>
+                        </tr>
+                      ) : displayItems.map((item) => {
+                        const globalIndex = displayItems.indexOf(item)
+                        const isMatched = item.master_item_id != null
+                        const lineAmount = isEditing
+                          ? Number(item.quantity || 0) * Number(item.price_per_unit || 0)
+                          : item.amount
+
+                        return (
+                          <tr key={`${quotation.id}-${item.id ?? item.line_no}`} className="border-t">
+                            <td className="p-2">
+                              <div className="flex items-center gap-2">
+                                {isEditing ? (
+                                  <Input
+                                    className="h-9 text-sm min-w-[260px]"
+                                    value={item.item_name === '—' ? '' : item.item_name}
+                                    onChange={e => updateEditItem(globalIndex, { item_name: e.target.value })}
+                                    placeholder="Item"
+                                  />
+                                ) : (
+                                  <span className="font-semibold">{item.item_name}</span>
+                                )}
+                                {!isMatched && (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                    New
+                                  </span>
+                                )}
+                              </div>
+                              {item.item_sub_name && (
+                                <div className="text-xs text-muted-foreground mt-0.5">({item.item_sub_name})</div>
+                              )}
+                            </td>
+
+                            <td className="p-2">
+                              {isEditing ? (
+                                <Input
+                                  type="text"
+                                  className="h-9 text-sm w-28"
+                                  value={item.hsn_sac === '—' ? '' : item.hsn_sac}
+                                  onChange={e => updateEditItem(globalIndex, { hsn_sac: e.target.value })}
+                                  placeholder="HSN"
+                                />
+                              ) : (
+                                <span className="text-muted-foreground">{item.hsn_sac}</span>
+                              )}
+                            </td>
+
+                            <td className="p-2">
+                              {isEditing ? (
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  className="h-9 text-sm w-20 text-right"
+                                  value={item.quantity}
+                                  onChange={e => updateEditItem(globalIndex, { quantity: Number(e.target.value) })}
+                                />
+                              ) : (
+                                <span className="tabular-nums">{item.quantity}</span>
+                              )}
+                            </td>
+
+                            <td className="p-2">
+                              {isEditing ? (
+                                <Input
+                                  type="text"
+                                  className="h-9 text-sm w-20"
+                                  value={item.unit === '—' ? '' : item.unit}
+                                  onChange={e => updateEditItem(globalIndex, { unit: e.target.value })}
+                                  placeholder="Unit"
+                                />
+                              ) : (
+                                <span className="text-muted-foreground">{item.unit}</span>
+                              )}
+                            </td>
+
+                            <td className="p-2">
+                              {isEditing ? (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  className="h-9 text-sm w-28 text-right"
+                                  value={item.price_per_unit}
+                                  onChange={e => updateEditItem(globalIndex, { price_per_unit: Number(e.target.value) })}
+                                />
+                              ) : (
+                                <span className="tabular-nums">{formatINR(item.price_per_unit)}</span>
+                              )}
+                            </td>
+
+                            <td className="p-2 tabular-nums">
+                              {isEditing ? (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  className="h-9 text-sm w-32 text-right"
+                                  value={Number(lineAmount || 0)}
+                                  onChange={e => {
+                                    const nextAmount = Number(e.target.value)
+                                    const qty = Number(item.quantity || 0)
+                                    updateEditItem(globalIndex, {
+                                      amount: nextAmount,
+                                      price_per_unit: qty > 0 ? nextAmount / qty : 0,
+                                    })
+                                  }}
+                                />
+                              ) : (
+                                formatINR(lineAmount)
+                              )}
+                            </td>
+
+                            {isEditing && (
+                              <td className="p-2 text-right">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => removeEditItem(globalIndex)}
+                                  aria-label="Remove item"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Amount in words */}
+            {quotation.amount_in_words && (
+              <p className="mt-4">
+                <span className="font-bold">Amount in words:</span> {quotation.amount_in_words}
+              </p>
             )}
-          </div>
-          <table className="w-full text-sm border rounded-lg overflow-hidden">
-            <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground w-10">#</th>
-                <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Item</th>
-                <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">HSN/SAC</th>
-                <th className="text-right py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Qty</th>
-                <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Unit</th>
-                <th className="text-right py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Rate</th>
-                <th className="text-right py-2.5 px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Amount</th>
-                {isEditing && <th className="py-2.5 px-2 w-10" />}
-              </tr>
-            </thead>
-            <tbody>
-              {displayItems.length === 0 ? (
-                <tr>
-                  <td colSpan={isEditing ? 8 : 7} className="py-10 text-center text-muted-foreground">
-                    No line items were returned for this quotation.
-                  </td>
-                </tr>
-              ) : (
-                displayItems.map((item, idx) => {
-                  const lineAmount = isEditing
-                    ? Number(item.quantity || 0) * Number(item.price_per_unit || 0)
-                    : item.amount
-                  return (
-                    <tr key={`${quotation.id}-${item.id ?? item.line_no}`} className="border-b">
-                      <td className="py-2 px-2 align-top text-center">{item.line_no}</td>
-                      <td className="py-2 px-3 align-top">
-                        <p className="font-bold">{item.item_name}</p>
-                        {item.item_sub_name && (
-                          <p className="text-muted-foreground text-xs">({item.item_sub_name})</p>
-                        )}
-                      </td>
-                      <td className="py-2 px-3 align-top text-muted-foreground">
-                        {isEditing ? (
-                          <Input
-                            type="text"
-                            className="h-7 text-sm w-28"
-                            value={item.hsn_sac === '—' ? '' : item.hsn_sac}
-                            onChange={e => updateEditItem(idx, { hsn_sac: e.target.value })}
-                            placeholder="HSN/SAC"
-                          />
-                        ) : (
-                          item.hsn_sac
-                        )}
-                      </td>
-                      <td className="py-2 px-3 align-top tabular-nums text-right">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            min="1"
-                            step="1"
-                            className="h-7 text-sm w-20 text-right ml-auto"
-                            value={item.quantity}
-                            onChange={e => updateEditItem(idx, { quantity: Number(e.target.value) })}
-                          />
-                        ) : (
-                          item.quantity
-                        )}
-                      </td>
-                      <td className="py-2 px-3 align-top">{item.unit}</td>
-                      <td className="py-2 px-3 align-top text-right tabular-nums">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            className="h-7 text-sm w-28 text-right"
-                            value={item.price_per_unit}
-                            onChange={e => updateEditItem(idx, { price_per_unit: Number(e.target.value) })}
-                          />
-                        ) : (
-                          formatINR(item.price_per_unit)
-                        )}
-                      </td>
-                      <td className="py-2 px-3 align-top text-right tabular-nums">
-                        {formatINR(lineAmount)}
-                      </td>
-                      {isEditing && (
-                        <td className="py-2 px-2 align-top text-center">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => removeEditItem(idx)}
-                            aria-label="Remove item"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      )}
-                    </tr>
-                  )
-                })
-              )}
 
-              {/* Totals */}
-              <tr>
-                <td colSpan={6} className="py-2 px-3 text-right font-bold">
-                  Subtotal
-                </td>
-                <td className="py-2 px-3 text-right tabular-nums">{formatINR(subtotal)}</td>
-                {isEditing && <td />}
-              </tr>
-              <tr>
-                <td colSpan={6} className="py-2 px-3 text-right">
-                  CGST @ {quotation.cgst_rate}%
-                </td>
-                <td className="py-2 px-3 text-right tabular-nums">{formatINR(cgstAmount)}</td>
-                {isEditing && <td />}
-              </tr>
-              <tr>
-                <td colSpan={6} className="py-2 px-3 text-right">
-                  SGST @ {quotation.sgst_rate}%
-                </td>
-                <td className="py-2 px-3 text-right tabular-nums">{formatINR(sgstAmount)}</td>
-                {isEditing && <td />}
-              </tr>
-              <tr className="border-t border-b-2 border-foreground/60">
-                <td colSpan={6} className="py-2 px-3 text-right font-bold">
-                  Grand Total
-                </td>
-                <td className="py-2 px-3 text-right font-bold tabular-nums">
-                  {formatINR(grandTotal)}
-                </td>
-                {isEditing && <td />}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Amount in words */}
-        {quotation.amount_in_words && (
-          <p className="mt-4">
-            <span className="font-bold">Amount in words:</span> {quotation.amount_in_words}
-          </p>
-        )}
-
-        {/* Footer: Bank + T&C */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
-          {/* Bank Details */}
-          <div className="space-y-2">
+            {/* Footer: Bank + T&C */}
+            <div className="  gap-6 pt-4 ">
+              {/* Bank Details */}
+              {/* <div className="space-y-2">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Bank Details</p>
             {vendor?.bank_name ? (
               <div className="rounded-md bg-slate-50 p-3 text-xs space-y-1">
@@ -782,56 +806,94 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             ) : (
               <p className="text-muted-foreground text-xs">—</p>
             )}
-          </div>
+          </div> */}
 
-          {/* Terms & Conditions */}
-          <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Terms and Conditions</p>
-            {isEditing ? (
-              <textarea
-                className="w-full min-h-[140px] border rounded-md p-2 text-sm"
-                placeholder="One term per line"
-                value={editTerms}
-                onChange={e => setEditTerms(e.target.value)}
-              />
-            ) : quotation.terms.length > 0 ? (
-              <ol className="rounded-md bg-slate-50 p-3 text-xs space-y-1 list-decimal pl-6 text-muted-foreground">
-                {quotation.terms.map((term, idx) => (
-                  <li key={`term-${idx}-${term.slice(0, 16)}`}>
-                    {term.replace(/^\d+[).]\s*/, '')}
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="text-muted-foreground text-xs">—</p>
+              {/* Terms & Conditions */}
+
+            </div>
+            <div className="space-y-2">
+              <p className="font-semibold text-sm">Terms &amp; Conditions</p>
+              {isEditing ? (
+                <textarea
+                  className="w-full min-h-[140px] border rounded-md p-2 text-sm bg-white"
+                  placeholder="One term per line"
+                  value={editTerms}
+                  onChange={e => setEditTerms(e.target.value)}
+                />
+              ) : displayTerms.length > 0 ? (
+                <ul className="pl-5 list-disc space-y-1 text-sm text-foreground">
+                  {displayTerms.map((term, idx) => (
+                    <li key={`term-${idx}-${term.slice(0, 16)}`}>
+                      {term.replace(/^\d+[).]\s*/, '')}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-muted-foreground text-xs">—</p>
+              )}
+            </div>
+            {/* Bottom action bar (edit mode only) */}
+            {isEditing && (
+              <div className="mt-6 pt-4 border-t flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  disabled={editMutation.isPending}
+                  onClick={cancelEdit}
+                >
+                  <X className="h-4 w-4" />
+                  Cancel
+                </Button>
+                <Button
+                  className="gap-2"
+                  disabled={editMutation.isPending}
+                  onClick={() => editMutation.mutate()}
+                >
+                  {editMutation.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Save className="h-4 w-4" />}
+                  Save Changes
+                </Button>
+              </div>
             )}
           </div>
-        </div>
 
-        {/* Bottom action bar (edit mode only) */}
-        {isEditing && (
-          <div className="mt-6 pt-4 border-t flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              className="gap-2"
-              disabled={editMutation.isPending}
-              onClick={cancelEdit}
-            >
-              <X className="h-4 w-4" />
-              Cancel
-            </Button>
-            <Button
-              className="gap-2"
-              disabled={editMutation.isPending}
-              onClick={() => editMutation.mutate()}
-            >
-              {editMutation.isPending
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Save className="h-4 w-4" />}
-              Save Changes
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-col gap-4">
+          <AIAnalysisPanel />
+          <QuoteDetailsCard quotation={quotation} />
+          {billTo && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+              <div className="px-4 py-3 border-b font-semibold text-sm">
+                Billed To
+              </div>
+
+              <div>
+                {[
+                  ['Name', billTo.name],
+                  ['Address', billTo.address],
+                  ['Ref', billTo.ref],
+                  ['Contact', billTo.contact_no],
+                  ['Email', billTo.email],
+                  ['State', billTo.state],
+                  ['GST', billTo.gst_number],
+                  ['PAN', billTo.pan_number],
+                  ['Plant', billTo.plant_name],
+                  ['Plant Code', billTo.plant_code],
+                ]
+                  .filter(([, value]) => Boolean(String(value ?? '').trim()))
+                  .map(([label, value]) => (
+                    <div
+                      key={String(label)}
+                      className="flex justify-between gap-6 px-4 py-2 border-b last:border-none text-sm"
+                    >
+                      <span className="text-gray-500 shrink-0">{label}</span>
+                      <span className="font-semibold text-right break-words">{String(value ?? '—')}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add Item Dialog */}

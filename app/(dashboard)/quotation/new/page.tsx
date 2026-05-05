@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Combobox } from '@/components/ui/combobox'
 import { Checkbox } from '@/components/ui/checkbox'
-import UploadFile from './components/UploadFile'
+import UploadFile from '../components/UploadFile'
 
 interface FilterState {
     all: string;
@@ -1078,7 +1078,6 @@ export default function UploadQuotationPage() {
                                                                         {item.item_name}
                                                                     </p>
                                                                     {item.is_new && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 shrink-0">New</Badge>}
-                                                                    {item.is_duplicate && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 shrink-0">Matched</Badge>}
                                                                 </div>
                                                             )}
                                                         </td>
