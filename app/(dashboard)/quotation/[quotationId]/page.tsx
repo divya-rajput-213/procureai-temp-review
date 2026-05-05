@@ -339,7 +339,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     try {
       setLoading(true)
       const { data } = await apiClient.get(
-        `/api/v1/quotations/${quotation?.id}/generate-pdf/`
+        `quotations/${quotation?.id}/generate-pdf/`
       )
   
       if (data?.pdf_url) {
