@@ -385,6 +385,14 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const sgstAmount = quotation?.sgst_amount ?? subtotal * ((quotation?.sgst_rate ?? 9) / 100)
   const grandTotal = quotation?.grand_total ?? subtotal + cgstAmount + sgstAmount
 
+  const extractedOn = useMemo(() => {
+    const raw = quotation?.created_at || quotation?.quotation_date
+    if (!raw) return null
+    const d = new Date(raw)
+    if (Number.isNaN(d.getTime())) return null
+    return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(d)
+  }, [quotation?.created_at, quotation?.quotation_date])
+
   if (isLoading) {
     return (
       <Card>
@@ -444,22 +452,10 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     }
     : null
 
-  const extractedOn = useMemo(() => {
-    const raw = quotation?.created_at || quotation?.quotation_date
-    if (!raw) return null
-    const d = new Date(raw)
-    if (Number.isNaN(d.getTime())) return null
-    return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(d)
-  }, [quotation?.created_at, quotation?.quotation_date])
-
   return (
     <div className="space-y-2">
       {/* Page header (title + actions) */}
       <div className="rounded-xl shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center justify-between gap-4">
-          <StatusBadge status={quotation.status} />
-        </div>
-
         <div className="px-4 py-4 bg-slate-50 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">
@@ -471,6 +467,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           </div>
 
           <div className="flex items-center gap-2 self-start">
+            <StatusBadge status={quotation.status} />
             {quotation.status === 'draft' && !isEditing && (
               <Button
                 size="sm"
@@ -511,7 +508,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 items-start">
         <div>
           {/* Document */}
-          <div className="bg-white rounded-xl p-6 shadow-sm text-sm text-foreground">
+          <div className="bg-transparent p-6 shadow-sm text-sm text-foreground">
 
         {/* Vendor header (shared from new/upload page) */}
         {vendorHeaderData && (
