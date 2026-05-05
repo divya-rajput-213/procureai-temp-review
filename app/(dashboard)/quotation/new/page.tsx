@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { AlertCircle, ArrowLeft, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, User, Star, Clock, ShieldCheck } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { AlertCircle, ArrowLeft, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, User, Star, Clock, ShieldCheck, MapPin } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -144,10 +144,8 @@ export default function UploadQuotationPage() {
     const [departmentId, setDepartmentId] = useState<string>('')
     const [categoryId, setCategoryId] = useState<string>('')
     const [prLinkId, setPrLinkId] = useState<string>('')
-    // ── Change Vendor Modal ──────────────────────────────────────────
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
-
     const getApiErrorMessage = (error: any, fallback: string) => {
         const data = error?.response?.data
         let message = fallback
@@ -227,6 +225,7 @@ export default function UploadQuotationPage() {
         setDepartmentId('')
         setCategoryId('')
         setPrLinkId('')
+        setSelectedFile(null)
     }
     // ── Export Mutation ──────────────────────────────────────────────
     const exportMutation = useMutation({
@@ -311,7 +310,9 @@ export default function UploadQuotationPage() {
                     selectedMasterId: item?.is_new ? '' : (item?.selectedMasterId ?? ''),
                 }))
             )
-            handleRemoveTagState()
+            setPlantId(data.plant_id)
+            setDepartmentId(data.department_id)
+
         },
         onError: (error: any) => {
             const message = getApiErrorMessage(error, 'Failed to upload quotation.')
@@ -406,6 +407,16 @@ export default function UploadQuotationPage() {
         }
     }, [file])
 
+    const category = useMemo(
+        () => categories?.find((c: Category) => c?.id === Number(quotation?.category_id)),
+        [categories, quotation?.category_id]
+    )
+    const linkedPR = useMemo(
+        () => PRs?.find((c: Category) => c?.id === Number(quotation?.pr_id
+        )),
+        [PRs, quotation?.pr_id
+        ]
+    )
     // ── File helpers ─────────────────────────────────────────────────
     const addFile = (selectedFile: File | null) => {
         if (!selectedFile) return
@@ -552,7 +563,7 @@ export default function UploadQuotationPage() {
                             : "Upload Quotation"}
                     </h1>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                        {hasData ? "AI-extracted 12 Jan 2025 · Linked to PR-2025-0342 · Q1 Steel Procurement" : " Drop a PDF — AI extracts vendor and items."}
+                        {hasData ? `AI-extracted 12 Jan 2025 ${linkedPR?.pr_number ? `· Linked to ${linkedPR?.pr_number}` : ""}` : " Drop a PDF — AI extracts vendor and items."}
                     </p>
                 </div>
 
@@ -675,9 +686,9 @@ export default function UploadQuotationPage() {
 
                         <div className="text-xs text-white/70 mt-1 leading-relaxed">
                             All fields extracted from the PDF.{" "}
-                            <span className="text-white font-semibold">
-                                Existing vendor detected
-                            </span>{" "}
+                           { <span className="text-white font-semibold">
+                               { vendors.is_new === false ?"Existing vendor detected":"New vendor detected"}
+                            </span>}{" "}
                             — matched to Mahindra Steel Ltd (VND-00423, 12 previous transactions).
                             Please review and confirm.
                         </div>
@@ -752,42 +763,42 @@ export default function UploadQuotationPage() {
                                             </div>
 
                                             {/* Info */}
-
                                             <div>
                                                 <div className="text-base font-bold">
-                                                    {vendors.company_name || "Mahindra Steel Ltd"}
+                                                    {vendors.company_name || "-"}
                                                 </div>
 
                                                 <div className="flex flex-wrap gap-3 text-xs text-white/70 mt-1">
+                                                    <span className="flex items-center gap-1">
+                                                        <MapPin className="w-3 h-3" />
+                                                        {vendors.address}, {vendors.pincode}, {vendors.city}, {vendors.state}, {vendors.country}
+                                                    </span>
+                                                </div>
 
-                                                    {/* Vendor Type */}
+                                                <div className="flex flex-wrap gap-3 text-xs text-white/70 mt-1">
                                                     <span className="flex items-center gap-1">
                                                         <User className="w-3 h-3" />
                                                         {vendors.is_new === false ? "Existing vendor" : "New vendor"}
                                                     </span>
 
-                                                    {/* Score */}
                                                     <span className="flex items-center gap-1">
                                                         <Star className="w-3 h-3" />
                                                         Score {vendors.vendor_score || "94"}/100
                                                     </span>
 
-                                                    {/* Transactions */}
                                                     <span className="flex items-center gap-1">
                                                         <Clock className="w-3 h-3" />
                                                         {vendors.transaction_count || "12"} past transactions
                                                     </span>
 
-                                                    {/* Certification */}
                                                     <span className="flex items-center gap-1">
                                                         <ShieldCheck className="w-3 h-3" />
                                                         {vendors.certification || "IATF 16949 Certified"}
                                                     </span>
-
                                                 </div>
                                             </div>
 
-
+                                            {/* Action */}
                                             <div className="ml-auto flex items-center">
                                                 <Button
                                                     variant="outline"
@@ -802,79 +813,94 @@ export default function UploadQuotationPage() {
                                                     Change vendor
                                                 </Button>
                                             </div>
-
-
                                         </div>
 
-                                        {/* Chips */}
-                                        <div className="flex flex-wrap gap-2 px-4 py-3 border-b">
-                                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 font-semibold">
-                                                {vendors.tier || "Tier-1 Vendor"}
-                                            </span>
+                                        {/*  Scrollable Section */}
+                                        <div className="overflow-auto max-h-[300px]">
 
-                                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 font-semibold">
-                                                {vendors.vendor_code || "SAP VND-00423"}
-                                            </span>
+                                            {/* Chips */}
+                                            <div className="flex flex-wrap gap-2 px-4 py-3 border-b min-w-[700px]">
+                                                <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 font-semibold">
+                                                    {vendors.tier || "Tier-1 Vendor"}
+                                                </span>
 
-                                            <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
-                                                {vendors.contract_status || "Rate Contract Active"}
-                                            </span>
+                                                <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 font-semibold">
+                                                    {vendors.vendor_code || "SAP VND-00423"}
+                                                </span>
 
-                                            <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 font-semibold">
-                                                {vendors.category || "Raw Materials"}
-                                            </span>
+                                                <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
+                                                    {vendors.contract_status || "Rate Contract Active"}
+                                                </span>
 
-                                            <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 font-semibold">
-                                                {vendors.gst_number ? "GST Verified" : "GST Pending"}
-                                            </span>
-                                        </div>
+                                                {category?.name && (
+                                                    <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 font-semibold">
+                                                        {category?.name}
+                                                    </span>
+                                                )}
 
-                                        {/* Fields */}
-                                        <div className="grid grid-cols-2">
-                                            {[
-                                                ["Legal Name", vendors.company_name || "Mahindra Steel Ltd"],
-                                                ["GSTIN", vendors.gst_number || "27AAACM8123F1Z4"],
-                                                ["PAN", vendors.pan_number || "AAACM8123F"],
-                                                [
-                                                    "Contact Person",
-                                                    vendors.contact_name
-                                                        ? `${vendors.contact_name} — ${vendors.contact_phone || ""}`
-                                                        : vendors.contact_phone || "Ashok Mehta — +91 98200 45612",
-                                                ],
-                                                ["Payment Terms", vendors.payment_terms || "Net 30 days"],
-                                                [
-                                                    "Delivery Terms",
-                                                    vendors.delivery_terms || "FOR Destination — Manesar",
-                                                ],
-                                                [
-                                                    "Quote Valid Until",
-                                                    vendors.valid_until || "15 March 2025 (62 days)",
-                                                ],
-                                                [
-                                                    "Lead Time",
-                                                    vendors.lead_time || "12 working days from PO",
-                                                ],
-                                            ].map(([label, value], i) => (
-                                                <div
-                                                    key={i}
-                                                    className="p-3 border-b border-r last:border-r-0 text-sm"
-                                                >
-                                                    <div className="text-gray-400 text-[11px] uppercase font-semibold">
-                                                        {label}
-                                                    </div>
+                                                <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 font-semibold">
+                                                    {vendors.gst_number ? "GST Verified" : "GST Pending"}
+                                                </span>
+                                            </div>
 
+                                            {/* Fields */}
+                                            <div className="grid grid-cols-2 min-w-[700px]">
+                                                {[
+                                                    ["Legal Name", vendors.company_name || "-"],
+                                                    ["GSTIN", vendors.gst_number || "-"],
+                                                    ["PAN", vendors.pan_number || "-"],
+                                                    [
+                                                        "Contact Person",
+                                                        vendors.contact_name
+                                                            ? `${vendors.contact_name} — ${vendors.contact_phone || "-"}`
+                                                            : vendors.contact_phone || "-",
+                                                    ],
+                                                    ["Payment Terms", vendors.payment_terms || "Net 30 days"],
+                                                    [
+                                                        "Bank Details",
+                                                        vendors.bank_name || vendors.bank_ifsc
+                                                            ? `${vendors.bank_name || "-"}${vendors.bank_ifsc ? ` — IFSC: ${vendors.bank_ifsc}` : ""}`
+                                                            : "-"
+                                                    ],
+                                                    [
+                                                        "Bank A/C",
+                                                        vendors.bank_account || "-"
+                                                    ],
+                                                    [
+                                                        "Delivery Terms",
+                                                        vendors.delivery_terms || "FOR Destination — Manesar",
+                                                    ],
+                                                    [
+                                                        "Quote Valid Until",
+                                                        vendors.valid_until || "-",
+                                                    ],
+                                                    [
+                                                        "Lead Time",
+                                                        vendors.lead_time || "12 working days from PO",
+                                                    ],
+                                                ].map(([label, value], i) => (
                                                     <div
-                                                        className={`font-semibold ${label === "Quote Valid Until"
-                                                            ? "text-yellow-600"
-                                                            : "text-gray-900"
-                                                            }`}
+                                                        key={i}
+                                                        className="p-3 border-b border-r last:border-r-0 text-sm"
                                                     >
-                                                        {value}
+                                                        <div className="text-gray-400 text-[11px] uppercase font-semibold">
+                                                            {label}
+                                                        </div>
+
+                                                        <div
+                                                            className={`font-semibold ${label === "Quote Valid Until"
+                                                                    ? "text-yellow-600"
+                                                                    : "text-gray-900"
+                                                                }`}
+                                                        >
+                                                            {value}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
+
                                 </>
                             )}
 
@@ -943,7 +969,7 @@ export default function UploadQuotationPage() {
                                 </div>
 
                                 {/* Table */}
-                                <div className="max-h-[500px] overflow-auto">
+                                <div className="max-h-[400px] overflow-auto">
                                     <div className="min-w-[900px]">
                                         <table className="w-full text-sm">
                                             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
@@ -1122,6 +1148,7 @@ export default function UploadQuotationPage() {
                                                                         onClick={() => {
                                                                             setLineItems((prev: any) => prev.filter((_: any, i: number) => i !== index))
                                                                             toast({ title: 'Item removed', description: item.item_name || 'Line item' })
+
                                                                         }}
                                                                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                                                                     >
@@ -1138,33 +1165,33 @@ export default function UploadQuotationPage() {
                                             {(subtotal != null || cgstAmount != null || sgstAmount != null || igstAmount != null || grandTotal != null) &&
                                                 <tfoot>
                                                     <tr className="bg-gray-50">
-                                                        <td colSpan={7} className="text-right p-2">
+                                                        <td colSpan={8} className="text-right p-2">
                                                             Subtotal
                                                         </td>
                                                         <td className="text-right p-2">₹ {subtotal?.toLocaleString('en-IN')}</td>
                                                     </tr>
 
                                                     {cgstAmount != null && <tr className="bg-gray-50">
-                                                        <td colSpan={7} className="text-right p-2 text-gray-500">
+                                                        <td colSpan={8} className="text-right p-2 text-gray-500">
                                                             CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}                                        </td>
                                                         <td className="text-right p-2 text-gray-500">
                                                             {cgstAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}                                        </td>
                                                     </tr>}
                                                     {sgstAmount != null && <tr className="bg-gray-50">
-                                                        <td colSpan={7} className="text-right p-2 text-gray-500">
+                                                        <td colSpan={8} className="text-right p-2 text-gray-500">
                                                             SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}                                      </td>
                                                         <td className="text-right p-2 text-gray-500">
                                                             {sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}                                       </td>
                                                     </tr>}
                                                     {igstAmount != null && <tr className="bg-gray-50">
-                                                        <td colSpan={7} className="text-right p-2 text-gray-500">
+                                                        <td colSpan={8} className="text-right p-2 text-gray-500">
                                                             IGST{igstRate != null ? ` @ ${igstRate}%` : ''}
                                                         </td>
                                                         <td className="text-right p-2 text-gray-500">
                                                             {igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}                                      </td>
                                                     </tr>}
                                                     {grandTotal != null && <tr className="bg-[#000000] text-white font-bold">
-                                                        <td colSpan={7} className="text-right p-2">
+                                                        <td colSpan={8} className="text-right p-2">
                                                             Total
                                                         </td>
                                                         <td className="text-right p-2 text-lg">
