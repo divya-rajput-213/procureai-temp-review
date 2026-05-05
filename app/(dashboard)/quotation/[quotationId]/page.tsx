@@ -711,10 +711,9 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                       />
                     </th>
                     <th className="p-2 text-left">Item</th>
-                    <th className="p-2 text-left">Master Item</th>
                     <th className="p-2 text-left">HSN</th>
                     <th className="p-2 text-left">Qty</th>
-                    <th className="p-2 text-left">UOM</th>
+                    <th className="p-2 text-left">Unit</th>
                     <th className="p-2 text-left">Rate</th>
                     <th className="p-2 text-left">Amount</th>
                     {isEditing && <th className="py-2 px-3" />}
@@ -724,11 +723,11 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 <tbody>
                   {filteredDisplayItems.length === 0 ? (
                     <tr>
-                      <td colSpan={isEditing ? 9 : 8} className="py-10 text-center text-muted-foreground text-sm">
+                      <td colSpan={isEditing ? 8 : 7} className="py-10 text-center text-muted-foreground text-sm">
                         No items match the selected filter.
                       </td>
                     </tr>
-                  ) : filteredDisplayItems.map((item, idx) => {
+                  ) : filteredDisplayItems.map((item) => {
                     const globalIndex = displayItems.indexOf(item)
                     const isMatched = item.master_item_id != null
                     const lineAmount = isEditing
@@ -755,14 +754,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                           {item.item_sub_name && (
                             <div className="text-xs text-muted-foreground mt-0.5">({item.item_sub_name})</div>
                           )}
-                        </td>
-
-                        <td className="p-2">
-                          <div className="h-9 border rounded-md px-3 flex items-center text-sm bg-background">
-                            {item.item_code
-                              ? <span className="truncate">{item.item_code} — {item.item_name}</span>
-                              : <span className="text-muted-foreground">—</span>}
-                          </div>
                         </td>
 
                         <td className="p-2">
