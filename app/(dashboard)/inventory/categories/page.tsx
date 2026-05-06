@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
-import { DIGITS_REGEX, ALPHA_REGEX } from '@/lib/utils'
+import { CATEGORY_NAME_REGEX } from '@/lib/utils'
 import {
   Plus, Search, Pencil, Loader2, X, Trash2, Download, Upload,
   CheckCircle, XCircle, ArrowLeft,
@@ -103,8 +103,7 @@ function CategoryModal({ category, onClose }: Readonly<{ category: Category | nu
     const errs: Partial<Record<keyof CategoryFormData, string>> = {}
     const trimmedName = form.name.trim()
     if (!trimmedName) errs.name = 'Name is required'
-    else if (DIGITS_REGEX.test(trimmedName)) errs.name = 'Name cannot contain digits'
-    else if (!ALPHA_REGEX.test(trimmedName)) errs.name = 'Name must contain at least one letter'
+    else if (!CATEGORY_NAME_REGEX.test(trimmedName)) errs.name = 'Name can contain only letters, numbers, and spaces'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -117,9 +116,7 @@ function CategoryModal({ category, onClose }: Readonly<{ category: Category | nu
         ...prev,
         name: !trimmedName
           ? 'Name is required'
-          : (DIGITS_REGEX.test(trimmedName)
-            ? 'Name cannot contain digits'
-            : (!ALPHA_REGEX.test(trimmedName) ? 'Name must contain at least one letter' : undefined)),
+          : (!CATEGORY_NAME_REGEX.test(trimmedName) ? 'Name can contain only letters, numbers, and spaces' : undefined),
       }))
     } else {
       setErrors(prev => ({ ...prev, [field]: undefined }))
