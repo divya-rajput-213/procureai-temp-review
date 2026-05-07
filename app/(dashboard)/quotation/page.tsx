@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, VALIDITY_DAYS, parseLooseDate, diffDays } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import Link from 'next/link'
@@ -93,29 +93,6 @@ function mapQuotation(raw: any): Quotation {
     }
 }
 
-const VALIDITY_DAYS = 15
-
-function parseLooseDate(value: string) {
-    const trimmed = String(value ?? '').trim()
-    if (!trimmed || trimmed === '—') return null
-    const direct = new Date(trimmed)
-    if (!Number.isNaN(direct.getTime())) return direct
-    // try DD-MM-YYYY
-    const m = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/)
-    if (m) {
-        const [, dd, mm, yyyy] = m
-        const dt = new Date(Number(yyyy), Number(mm) - 1, Number(dd))
-        return Number.isNaN(dt.getTime()) ? null : dt
-    }
-    return null
-}
-
-function diffDays(from: Date, to: Date) {
-    const start = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime()
-    const end = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime()
-    return Math.round((end - start) / (1000 * 60 * 60 * 24))
-}
-
 function getValidity(quotation: Quotation) {
     const base = parseLooseDate(quotation.quotation_date) ?? parseLooseDate(quotation.created_at)
     if (!base) return null
@@ -130,6 +107,7 @@ export default function QuotationPage() {
     const [search, setSearch] = useState('')
     const [vendorFilter, setVendorFilter] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
+    const [statusFilterSource, setStatusFilterSource] = useState<'tab' | 'manual'>('tab')
     const [departmentFilter, setDepartmentFilter] = useState('')
     const [categoryFilter, setCategoryFilter] = useState('')
     const [view, setView] = useState<'all' | 'pending' | 'confirmed' | 'attached' | 'expiring'>('all')
@@ -159,11 +137,10 @@ export default function QuotationPage() {
     })
 
     const { data, isLoading, isError } = useQuery({
-        queryKey: ['quotations', search, statusFilter],
+        queryKey: ['quotations', search],
         queryFn: async () => {
             const params = new URLSearchParams()
             if (search) params.set('search', search)
-            if (statusFilter) params.set('status', statusFilter)
 
             const queryString = params.toString()
             const { data } = await apiClient.get(`/quotations/${queryString ? `?${queryString}` : ''}`)
@@ -239,7 +216,14 @@ export default function QuotationPage() {
         return matchesSearch && matchesStatus && matchesVendor && matchesDepartment && matchesCategory && matchesView
     })
 
-    const hasFilters =
+    const showClear =
+        Boolean(search.trim()) ||
+        Boolean(vendorFilter.trim()) ||
+        (statusFilterSource === 'manual' && Boolean(statusFilter)) ||
+        Boolean(departmentFilter) ||
+        Boolean(categoryFilter)
+
+    const hasFiltersForEmptyState =
         Boolean(search.trim()) ||
         Boolean(vendorFilter.trim()) ||
         Boolean(statusFilter) ||
@@ -308,34 +292,44 @@ export default function QuotationPage() {
 
             {/* Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                <Card className="rounded-2xl border border-slate-200">
-                    <CardContent className="p-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Total Quotes</p>
-                        <p className="text-3xl font-semibold mt-2">{totalQuotes}</p>
-                        <p className="text-xs text-muted-foreground mt-2">This month <span className="text-emerald-700 font-medium">+5</span></p>
-                    </CardContent>
-                </Card>
-                <Card className="rounded-2xl border border-slate-200">
-                    <CardContent className="p-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Pending Review</p>
-                        <p className="text-3xl font-semibold mt-2 text-amber-700">{pendingReviewCount}</p>
-                        <p className="text-xs text-muted-foreground mt-2">Awaiting confirmation</p>
-                    </CardContent>
-                </Card>
-                <Card className="rounded-2xl border border-slate-200">
-                    <CardContent className="p-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Attached To PRs</p>
-                        <p className="text-3xl font-semibold mt-2 text-indigo-700">{attachedCount}</p>
-                        <p className="text-xs text-muted-foreground mt-2">In approval process</p>
-                    </CardContent>
-                </Card>
-                <Card className="rounded-2xl border border-slate-200">
-                    <CardContent className="p-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Expiring Soon</p>
-                        <p className="text-3xl font-semibold mt-2 text-red-700">{expiringSoonCount}</p>
-                        <p className="text-xs text-muted-foreground mt-2">Within next 7 days</p>
-                    </CardContent>
-                </Card>
+                {[
+                    {
+                        title: 'Total Quotes',
+                        value: totalQuotes,
+                        valueClass: '',
+                        caption: (
+                            <>
+                                This month <span className="text-emerald-700 font-medium">+5</span>
+                            </>
+                        ),
+                    },
+                    {
+                        title: 'Pending Review',
+                        value: pendingReviewCount,
+                        valueClass: 'text-amber-700',
+                        caption: 'Awaiting confirmation',
+                    },
+                    {
+                        title: 'Attached To PRs',
+                        value: attachedCount,
+                        valueClass: 'text-indigo-700',
+                        caption: 'In approval process',
+                    },
+                    {
+                        title: 'Expiring Soon',
+                        value: expiringSoonCount,
+                        valueClass: 'text-red-700',
+                        caption: 'Within next 7 days',
+                    },
+                ].map((c) => (
+                    <Card key={c.title} className="rounded-2xl border border-slate-200">
+                        <CardContent className="p-5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{c.title}</p>
+                            <p className={['text-3xl font-semibold mt-2', c.valueClass].filter(Boolean).join(' ')}>{c.value}</p>
+                            <p className="text-xs text-muted-foreground mt-2">{c.caption}</p>
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
 
             {/* Tabs + Filters */}
@@ -400,6 +394,7 @@ export default function QuotationPage() {
                                     type="button"
                                     onClick={() => {
                                         setView(t.key as any)
+                                        setStatusFilterSource('tab')
                                         if (t.key === 'pending') setStatusFilter('pending_approval')
                                         else if (t.key === 'confirmed') setStatusFilter('approved')
                                         else setStatusFilter('')
@@ -418,7 +413,7 @@ export default function QuotationPage() {
                     </div>
 
                     <div className="ml-auto flex items-center gap-2 flex-wrap">
-                        {hasFilters && (
+                        {showClear && (
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -428,6 +423,7 @@ export default function QuotationPage() {
                                 setSearch('')
                                 setVendorFilter('')
                                 setStatusFilter('')
+                                setStatusFilterSource('tab')
                                 setDepartmentFilter('')
                                 setCategoryFilter('')
                                 setView('all')
@@ -457,7 +453,7 @@ export default function QuotationPage() {
                 ) : filtered.length === 0 ? (
                     <Card className="h-full">
                         <CardContent className="h-full p-8 text-center text-muted-foreground flex items-center justify-center">
-                            {hasFilters ? 'No quotations match your filters.' : 'No quotations found.'}
+                            {hasFiltersForEmptyState ? 'No quotations match your filters.' : 'No quotations found.'}
                         </CardContent>
                     </Card>
                 ) : (
@@ -577,7 +573,7 @@ export default function QuotationPage() {
                                                     >
                                                         {actionLabel}
                                                     </Button>
-                                                    {q.status === 'draft' && (
+                                                    {q.status === 'Pending' && (
                                                         <Button
                                                             type="button"
                                                             variant="ghost"
@@ -585,7 +581,7 @@ export default function QuotationPage() {
                                                             className="h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                                                             disabled={deletingId === q.id}
                                                             onClick={() => setPendingDelete(q)}
-                                                            aria-label="Delete draft quotation"
+                                                            aria-label="Delete pending quotation"
                                                         >
                                                             {deletingId === q.id
                                                                 ? <Loader2 className="h-4 w-4 animate-spin" />
