@@ -283,7 +283,7 @@ export default function QuotationPage() {
     }
 
     return (
-        <div className="space-y-5">
+        <div className="h-full min-h-0 flex flex-col gap-5">
             {/* Header */}
             <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="min-w-0">
@@ -441,29 +441,30 @@ export default function QuotationPage() {
             </div>
 
             {/* List */}
-            {isLoading ? (
-                <Card>
-                    <CardContent className="p-8 text-center text-muted-foreground">
-                        Loading quotations...
-                    </CardContent>
-                </Card>
-            ) : isError ? (
-                <Card>
-                    <CardContent className="p-8 text-center text-destructive">
-                        Failed to load quotations.
-                    </CardContent>
-                </Card>
-            ) : filtered.length === 0 ? (
-                <Card>
-                    <CardContent className="p-8 text-center text-muted-foreground">
-                        {hasFilters ? 'No quotations match your filters.' : 'No quotations found.'}
-                    </CardContent>
-                </Card>
-            ) : (
-                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-slate-50 text-muted-foreground">
+            <div className="flex-1 min-h-0">
+                {isLoading ? (
+                    <Card className="h-full">
+                        <CardContent className="h-full p-8 text-center text-muted-foreground flex items-center justify-center">
+                            Loading quotations...
+                        </CardContent>
+                    </Card>
+                ) : isError ? (
+                    <Card className="h-full">
+                        <CardContent className="h-full p-8 text-center text-destructive flex items-center justify-center">
+                            Failed to load quotations.
+                        </CardContent>
+                    </Card>
+                ) : filtered.length === 0 ? (
+                    <Card className="h-full">
+                        <CardContent className="h-full p-8 text-center text-muted-foreground flex items-center justify-center">
+                            {hasFilters ? 'No quotations match your filters.' : 'No quotations found.'}
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="h-full rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                        <div className="h-full overflow-auto">
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0 z-10 bg-slate-50 text-muted-foreground">
                                 <tr className="border-b border-slate-200">
                                     <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Quote Ref</th>
                                     <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Vendor</th>
@@ -476,8 +477,8 @@ export default function QuotationPage() {
                                     <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Status</th>
                                     <th className="px-4 py-3" />
                                 </tr>
-                            </thead>
-                            <tbody>
+                                </thead>
+                                <tbody>
                                 {filtered.map((q) => {
                                     const validity = getValidity(q)
                                     const pr = q.pr_number && q.pr_number !== '—' ? q.pr_number : null
@@ -596,11 +597,12 @@ export default function QuotationPage() {
                                         </tr>
                                     )
                                 })}
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
 
             {/* Delete Confirmation Modal */}
             <Dialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open) setPendingDelete(null) }}>
