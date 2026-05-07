@@ -97,8 +97,10 @@ type Quotation = {
   subtotal: number | null
   cgst_amount: number | null
   sgst_amount: number | null
+  igst_amount: number | null
   cgst_rate: number
   sgst_rate: number
+  igst_rate: number | null
   grand_total: number | null
   amount_in_words: string
   terms: string[]
@@ -228,8 +230,10 @@ function mapQuotation(raw: any): Quotation {
     subtotal: nullableNumber(taxes.subtotal ?? raw.subtotal),
     cgst_amount: nullableNumber(taxes.cgst_amount ?? raw.cgst_amount ?? raw.cgst),
     sgst_amount: nullableNumber(taxes.sgst_amount ?? raw.sgst_amount ?? raw.sgst),
+    igst_amount: nullableNumber(taxes.igst_amount ?? raw.igst_amount ?? raw.igst),
     cgst_rate: toNumber(taxes.cgst_rate ?? raw.cgst_rate, 9),
     sgst_rate: toNumber(taxes.sgst_rate ?? raw.sgst_rate, 9),
+    igst_rate: nullableNumber(taxes.igst_rate ?? raw.igst_rate),
     grand_total: nullableNumber(taxes.grand_total ?? raw.grand_total ?? raw.total),
     amount_in_words: raw.amount_in_words ?? '',
     terms: Array.isArray(raw.terms_and_conditions)
@@ -407,7 +411,10 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const subtotal = quotation?.subtotal ?? computedSubtotal
   const cgstAmount = quotation?.cgst_amount ?? subtotal * ((quotation?.cgst_rate ?? 9) / 100)
   const sgstAmount = quotation?.sgst_amount ?? subtotal * ((quotation?.sgst_rate ?? 9) / 100)
-  const grandTotal = quotation?.grand_total ?? subtotal + cgstAmount + sgstAmount
+  const backendIgstAmount = quotation?.igst_amount
+  const backendIgstRate = quotation?.igst_rate
+  const igstAmount = backendIgstAmount ?? 0
+  const grandTotal = quotation?.grand_total ?? subtotal + cgstAmount + sgstAmount + (backendIgstAmount != null ? igstAmount : 0)
 
   const displaySubtotal = useMemo(() => {
     if (isEditing) {
@@ -423,7 +430,9 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const displaySgstRate = quotation?.sgst_rate ?? 9
   const displayCgstAmount = quotation?.cgst_amount ?? displaySubtotal * (displayCgstRate / 100)
   const displaySgstAmount = quotation?.sgst_amount ?? displaySubtotal * (displaySgstRate / 100)
-  const displayGrandTotal = quotation?.grand_total ?? displaySubtotal + displayCgstAmount + displaySgstAmount
+  const displayIgstRate = backendIgstRate
+  const displayIgstAmount = backendIgstAmount ?? 0
+  const displayGrandTotal = quotation?.grand_total ?? displaySubtotal + displayCgstAmount + displaySgstAmount + (backendIgstAmount != null ? displayIgstAmount : 0)
 
   const extractedOn = useMemo(() => {
     const raw = quotation?.created_at || quotation?.quotation_date
@@ -495,7 +504,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     : null
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {/* Page header (title + actions) */}
       <div className="overflow-hidden">
         <div className="  flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -508,7 +517,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start">
+          <div className="flex flex-wrap items-center gap-2 self-start">
             <StatusBadge status={quotation.status} />
             {quotation.status === 'draft' && !isEditing && (
               <Button
@@ -525,7 +534,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               <span className="text-xs text-muted-foreground italic">Editing…</span>
             )}
             <select
-              className="border rounded-md h-9 px-2 text-sm bg-white"
+              className="border rounded-md h-9 px-2 text-sm bg-white max-w-full"
               onChange={(e) => {
                 if (e.target.value === "original") {
                   window.open(quotation.pdf_url, "_blank")
@@ -549,18 +558,18 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 items-start">
           {/* Document */}
-          <div className=" p-6 text-sm text-foreground">
+          <div className="p-3 sm:p-6 text-sm text-foreground">
 
             {/* Vendor header (shared from new/upload page) */}
             {vendorHeaderData && (
-              <div className="-mx-6 -mt-6 mb-4">
+              <div className="-mx-3 sm:-mx-6 -mt-3 sm:-mt-6 mb-4">
                 <VendorHeaderCard vendors={vendorHeaderData} category={null} onChangeVendor={() => { }} />
               </div>
             )}
 
             {/* Plant & Department */}
             {(quotation.plant_name || quotation.department_name || isEditing) && (
-              <div className="-mx-6 mb-4">
+              <div className="-mx-3 sm:-mx-6 mb-4">
                 <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                     Plant &amp; Department <span className="font-normal normal-case text-[10px]">(optional)</span>
@@ -610,7 +619,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             )}
 
             {/* Line Items (styled like new quotation UI) */}
-            <div className="-mx-6 mt-4 bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
+            <div className="-mx-3 sm:-mx-6 mt-4 bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
               {/* Header */}
               <div className="flex justify-between items-center px-4 py-3 border-b">
                 <div className="font-semibold text-sm">Line Items</div>
@@ -667,7 +676,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                               <div className="flex items-center gap-2">
                                 {isEditing ? (
                                   <Input
-                                    className="h-9 text-sm min-w-[260px]"
+                                    className="h-9 text-sm min-w-[200px] sm:min-w-[260px]"
                                     value={item.item_name === '—' ? '' : item.item_name}
                                     onChange={e => updateEditItem(globalIndex, { item_name: e.target.value })}
                                     placeholder="Item"
@@ -812,6 +821,17 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                       </td>
                       {isEditing && <td className="px-3 pb-3" />}
                     </tr>
+                    {backendIgstAmount != null && (
+                      <tr>
+                        <td colSpan={5} className="px-3 pb-3 text-right text-xs text-muted-foreground">
+                          IGST{displayIgstRate != null ? ` @ ${displayIgstRate}%` : ''}
+                        </td>
+                        <td className="px-3 pb-3 text-right text-xs tabular-nums text-muted-foreground">
+                          {formatINR(displayIgstAmount)}
+                        </td>
+                        {isEditing && <td className="px-3 pb-3" />}
+                      </tr>
+                    )}
                     <tr className="border-t bg-slate-50">
                       <td colSpan={5} className="p-3 text-right text-sm font-semibold">
                         Total
@@ -939,10 +959,10 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                   .map(([label, value]) => (
                     <div
                       key={String(label)}
-                      className="flex justify-between gap-6 px-4 py-2 border-b last:border-none text-sm"
+                      className="flex flex-col gap-1 px-4 py-2 border-b last:border-none text-sm sm:flex-row sm:justify-between sm:gap-6"
                     >
                       <span className="text-gray-500 shrink-0">{label}</span>
-                      <span className="font-semibold text-right break-words">{String(value ?? '—')}</span>
+                      <span className="font-semibold break-words sm:text-right">{String(value ?? '—')}</span>
                     </div>
                   ))}
               </div>
