@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Loader2, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
@@ -273,6 +273,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const [editItems, setEditItems] = useState<ExtractedLineItem[]>([])
   const [editPlantId, setEditPlantId] = useState<string>('')
   const [editDepartmentId, setEditDepartmentId] = useState<string>('')
+  const [deleteItemOpen, setDeleteItemOpen] = useState(false)
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null)
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -393,6 +395,17 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
   const removeEditItem = (idx: number) => {
     setEditItems(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const requestRemoveEditItem = (idx: number) => {
+    setPendingDeleteIndex(idx)
+    setDeleteItemOpen(true)
+  }
+
+  const confirmRemoveEditItem = () => {
+    if (pendingDeleteIndex != null) removeEditItem(pendingDeleteIndex)
+    setDeleteItemOpen(false)
+    setPendingDeleteIndex(null)
   }
 
   // Reset edit state if data refetches while not editing (e.g. status changed)
@@ -782,7 +795,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                                   variant="ghost"
                                   size="sm"
                                   className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => removeEditItem(globalIndex)}
+                                  onClick={() => requestRemoveEditItem(globalIndex)}
                                   aria-label="Remove item"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -1035,6 +1048,28 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddItemOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Line Item Confirm */}
+      <Dialog
+        open={deleteItemOpen}
+        onOpenChange={(open) => {
+          setDeleteItemOpen(open)
+          if (!open) setPendingDeleteIndex(null)
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Item</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this item?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteItemOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmRemoveEditItem}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
