@@ -13,6 +13,7 @@ import {
   Plus, Search, Pencil, Loader2, X, Trash2, Download, Upload,
   CheckCircle, XCircle, ArrowLeft,
 } from 'lucide-react'
+import { REGEX_ALPHA_NUM, REGEX_ALPHA_SPACE} from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -113,7 +114,9 @@ function CategoryModal({ category, onClose }: Readonly<{
   function validate(): boolean {
     const errs: Partial<Record<keyof CategoryFormData, string>> = {}
     if (!form.series_code) errs.series_code = 'Series code is required'
+    else if (REGEX_ALPHA_NUM.test(form.series_code)) errs.series_code = 'Series Code can contain only letters, numbers, commas (,) and dots (.)'
     if (!form.name.trim()) errs.name = 'Name is required'
+    else if (REGEX_ALPHA_SPACE.test(form.name)) errs.name = 'Name should contain valid characters only'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -138,7 +141,14 @@ function CategoryModal({ category, onClose }: Readonly<{
               <Label>Series Code <span className="text-destructive">*</span></Label>
               <Input
                 value={form.series_code}
-                onChange={e => set('series_code', e.target.value)}
+                onChange={e => {
+                  const value = e.target.value
+                  setForm(prev => ({ ...prev, series_code: value }))
+                  setErrors(prev => ({
+                    ...prev,
+                    series_code: REGEX_ALPHA_NUM.test(value) ? 'Series Code can contain only letters, numbers, commas (,) and dots (.)' : undefined,
+                  }))
+                }}
                 placeholder="e.g. 15, 45, 50"
                 disabled={isEdit}
               />
@@ -146,7 +156,18 @@ function CategoryModal({ category, onClose }: Readonly<{
             </div>
             <div className="space-y-1">
               <Label>Name <span className="text-destructive">*</span></Label>
-              <Input value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Capital Expenditure" />
+              <Input
+                value={form.name}
+                onChange={e => {
+                  const value = e.target.value
+                  setForm(prev => ({ ...prev, name: value }))
+                  setErrors(prev => ({
+                    ...prev,
+                    name: REGEX_ALPHA_SPACE.test(value) ? 'Name should contain valid characters only' : undefined,
+                  }))
+                }}
+                placeholder="e.g. Capital Expenditure"
+              />
               {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
             </div>
             <div className="flex items-center gap-2">
