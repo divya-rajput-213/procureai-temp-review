@@ -10,20 +10,26 @@ const apiClient = axios.create({
 // Attach JWT token from localStorage on every request
 apiClient.interceptors.request.use((config) => {
   const isAuthEndpoint =
-      config.url?.includes('/auth/login/') ||
-      config.url?.includes('/auth/refresh/') ||
-      config.url?.includes('/auth/azure-callback/')
+    config.url?.includes('/auth/login/') ||
+    config.url?.includes('/auth/refresh/') ||
+    config.url?.includes('/auth/azure-callback/')
 
-    if (!isAuthEndpoint) {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('access_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+  if (!isAuthEndpoint) {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('access_token')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
     }
   }
-} 
+
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+  }
+
   return config
 })
+
 
 // Auto-refresh on 401
 apiClient.interceptors.response.use(
