@@ -115,6 +115,8 @@ export const DIGITS_REGEX = /\d/
 export const ALPHA_REGEX = /[A-Za-z]/
 export const ALPHANUM_REGEX = /^[A-Za-z0-9]+$/
 export const NON_ALPHANUM_REGEX = /[^A-Za-z0-9]/g
+export const CATEGORY_NAME_REGEX = /^[A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)*$/
+
 
 export function normalizeLeadingWhitespace(value: string) {
   return value.replace(/^\s+/, '')
