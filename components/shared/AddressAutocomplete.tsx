@@ -9,6 +9,7 @@ interface AddressResult {
   address: string
   city: string
   state: string
+  country: string
   pincode: string
 }
 
@@ -68,6 +69,7 @@ function extractAddressComponents(place: google.maps.places.PlaceResult): Addres
     address,
     city: get('locality') || get('administrative_area_level_2'),
     state: get('administrative_area_level_1'),
+    country: get('country'),
     pincode: get('postal_code'),
   }
 }

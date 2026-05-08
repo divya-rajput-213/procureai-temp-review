@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Routes that don't require authentication
-const PUBLIC_PATHS = ['/login', '/register', '/setup-password', '/azure-callback']
+const PUBLIC_PATHS = ['/login', '/register', '/setup-password', '/azure-callback', '/vendor-portal']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

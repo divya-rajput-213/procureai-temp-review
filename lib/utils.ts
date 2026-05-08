@@ -69,6 +69,7 @@ export function getSLAColor(percentage: number): string {
 export const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
   pending_approval: 'bg-amber-100 text-amber-700',
+  approval_required: 'bg-amber-100 text-amber-700',
   pending_finance: 'bg-amber-100 text-amber-700',
   approved: 'bg-green-100 text-green-700',
   vendor_selected: 'bg-teal-100 text-teal-700',
@@ -78,11 +79,93 @@ export const STATUS_COLORS: Record<string, string> = {
   po_created: 'bg-purple-100 text-purple-700',
   cancelled: 'bg-gray-100 text-gray-500',
   exhausted: 'bg-orange-100 text-orange-700',
+  // Contract statuses
+  internal_review: 'bg-indigo-100 text-indigo-700',
+  pending_vendor_negotiation: 'bg-cyan-100 text-cyan-700',
+  active: 'bg-green-100 text-green-800',
+  extended: 'bg-teal-100 text-teal-700',
+  closed: 'bg-gray-200 text-gray-600',
+  terminated: 'bg-red-100 text-red-700',
+  // Review / negotiation statuses
+  changes_requested: 'bg-amber-100 text-amber-700',
+  held: 'bg-amber-100 text-amber-700',
+  accepted: 'bg-green-100 text-green-700',
+  proposed: 'bg-cyan-100 text-cyan-700',
+  counter_proposed: 'bg-indigo-100 text-indigo-700',
+  requested: 'bg-amber-100 text-amber-700',
+  under_review: 'bg-blue-100 text-blue-700',
+  pending: 'bg-amber-100 text-amber-700',
+  in_progress: 'bg-blue-100 text-blue-700',
+  // PO statuses
+  issued: 'bg-blue-100 text-blue-700',
+  sent_to_vendor: 'bg-indigo-100 text-indigo-700',
+  acknowledged: 'bg-cyan-100 text-cyan-700',
+  partially_received: 'bg-amber-100 text-amber-700',
+  fully_received: 'bg-green-100 text-green-700',
+  on_hold: 'bg-amber-100 text-amber-700',
+  // Invoice statuses
+  submitted: 'bg-blue-100 text-blue-700',
+  matched: 'bg-teal-100 text-teal-700',
+  disputed: 'bg-orange-100 text-orange-700',
+  payment_initiated: 'bg-indigo-100 text-indigo-700',
+  paid: 'bg-green-100 text-green-800',
 }
-export   const nameRegex = /^[A-Za-z]{2,}$/
+export const nameRegex = /^[A-Za-z]{2,}$/
+export const DIGITS_REGEX = /\d/
+export const ALPHA_REGEX = /[A-Za-z]/
+export const ALPHANUM_REGEX = /^[A-Za-z0-9]+$/
+export const NON_ALPHANUM_REGEX = /[^A-Za-z0-9]/g
+export const CATEGORY_NAME_REGEX = /^[A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)*$/
+
 
 export function normalizeLeadingWhitespace(value: string) {
   return value.replace(/^\s+/, '')
 }
 
 export const ALPHANUM_WITH_SPACES = /^[a-z0-9 ]+$/i
+export const REGEX_ALPHA = /[^A-Za-z]/;
+export const REGEX_ALPHA_SPACE = /[^A-Za-z ]/;
+export const REGEX_PHONE_INVALID = /[^0-9+]/;
+export const VALIDITY_DAYS = 15
+
+export function parseLooseDate(value: string) {
+    const trimmed = String(value ?? '').trim()
+    if (!trimmed || trimmed === '—') return null
+    const direct = new Date(trimmed)
+    if (!Number.isNaN(direct.getTime())) return direct
+    // try DD-MM-YYYY
+    const m = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/)
+    if (m) {
+        const [, dd, mm, yyyy] = m
+        const dt = new Date(Number(yyyy), Number(mm) - 1, Number(dd))
+        return Number.isNaN(dt.getTime()) ? null : dt
+    }
+    return null
+}
+
+export function diffDays(from: Date, to: Date) {
+    const start = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime()
+    const end = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime()
+    return Math.round((end - start) / (1000 * 60 * 60 * 24))
+}
+
+
+export const DOC_CONFIG: Record<string, { docType: string; title: string }> = {
+  gst_certificate: {
+    docType: 'gst_certificate',
+    title: 'GST Certificate',
+  },
+  pan_card: {
+    docType: 'pan_card',
+    title: 'PAN Card',
+  },
+  bank_details: {
+    docType: 'bank_details',
+    title: 'Bank Details',
+  },
+  msme_certificate: {
+    docType: 'msme_certificate',
+    title: 'MSME Certificate',
+  },
+}
+
