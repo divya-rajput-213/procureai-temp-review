@@ -275,6 +275,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const [editItems, setEditItems] = useState<ExtractedLineItem[]>([])
   const [rateErrors, setRateErrors] = useState<(string | null)[]>([])
   const [amountErrors, setAmountErrors] = useState<(string | null)[]>([])
+  const [hsnErrors, setHsnErrors] = useState<(string | null)[]>([])
   const [editPlantId, setEditPlantId] = useState<string>('')
   const [editDepartmentId, setEditDepartmentId] = useState<string>('')
   const [deleteItemOpen, setDeleteItemOpen] = useState(false)
@@ -324,13 +325,14 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     setEditItems(prev => [...prev, newItem])
     setRateErrors(prev => [...prev, null])
     setAmountErrors(prev => [...prev, null])
+    setHsnErrors(prev => [...prev, null])
     setAddItemOpen(false)
     setItemSearch('')
   }
 
   const editMutation = useMutation({
     mutationFn: async () => {
-      if (rateErrors.some(Boolean) || amountErrors.some(Boolean)) {
+      if (rateErrors.some(Boolean) || amountErrors.some(Boolean) || hsnErrors.some(Boolean)) {
         throw new Error('Item price must be positive.')
       }
       const payload = {
@@ -376,6 +378,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     setEditItems(nextItems)
     setRateErrors(nextItems.map(() => null))
     setAmountErrors(nextItems.map(() => null))
+    setHsnErrors(nextItems.map(() => null))
     setEditPlantId(quotation.plant_id ? String(quotation.plant_id) : '')
     setEditDepartmentId(quotation.department_id ? String(quotation.department_id) : '')
     setIsEditing(true)
@@ -409,6 +412,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     setEditItems(prev => prev.filter((_, i) => i !== idx))
     setRateErrors(prev => prev.filter((_, i) => i !== idx))
     setAmountErrors(prev => prev.filter((_, i) => i !== idx))
+    setHsnErrors(prev => prev.filter((_, i) => i !== idx))
   }
 
   const requestRemoveEditItem = (idx: number) => {
@@ -428,6 +432,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       setEditItems(items.map(it => ({ ...it })))
       setRateErrors([])
       setAmountErrors([])
+      setHsnErrors([])
     }
   }, [items, isEditing])
 
@@ -726,13 +731,39 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2">
                               {isEditing ? (
-                                <Input
-                                  type="text"
-                                  className="h-9 text-sm w-28"
-                                  value={item.hsn_sac === '—' ? '' : item.hsn_sac}
-                                  onChange={e => updateEditItem(globalIndex, { hsn_sac: e.target.value })}
-                                  placeholder="HSN"
-                                />
+                                <div className="w-28">
+                                  <Input
+                                    type="text"
+                                    className="h-9 text-sm w-28"
+                                    value={item.hsn_sac === '—' ? '' : item.hsn_sac}
+                                    onChange={e => {
+                                      const next = e.target.value
+                                      updateEditItem(globalIndex, { hsn_sac: next })
+
+                                      const trimmed = next.trim()
+                                      if (trimmed.length === 0) {
+                                        setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
+                                        return
+                                      }
+
+                                      if (!/^\d+$/.test(trimmed)) {
+                                        setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? 'HSN must contain only digits.' : v))
+                                        return
+                                      }
+
+                                      if (trimmed.length > 8) {
+                                        setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? 'HSN must be exactly 8 digits.' : v))
+                                        return
+                                      }
+
+                                      setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
+                                    }}
+                                    placeholder="HSN"
+                                  />
+                                  {hsnErrors[globalIndex] && (
+                                    <p className="mt-1 text-xs text-destructive">{hsnErrors[globalIndex]}</p>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-muted-foreground">{item.hsn_sac}</span>
                               )}
