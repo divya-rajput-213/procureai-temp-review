@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import DeleteDialog from '@/components/shared/DeleteDialog'
 import { useToast } from '@/components/ui/use-toast'
 import apiClient from '@/lib/api/client'
 import AIAnalysisPanel from '../components/AIAnalysisPanel'
@@ -1129,26 +1130,14 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       </Dialog>
 
       {/* Delete Line Item Confirm */}
-      <Dialog
+      <DeleteDialog
         open={deleteItemOpen}
         onOpenChange={(open) => {
           setDeleteItemOpen(open)
           if (!open) setPendingDeleteIndex(null)
         }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Item</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this item?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteItemOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmRemoveEditItem}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onConfirm={confirmRemoveEditItem}
+      />
     </div>
   )
 }
