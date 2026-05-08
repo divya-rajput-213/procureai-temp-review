@@ -122,6 +122,29 @@ export function normalizeLeadingWhitespace(value: string) {
   return value.replace(/^\s+/, '')
 }
 
+export const VALIDITY_DAYS = 15
+
+export function parseLooseDate(value: string) {
+    const trimmed = String(value ?? '').trim()
+    if (!trimmed || trimmed === '—') return null
+    const direct = new Date(trimmed)
+    if (!Number.isNaN(direct.getTime())) return direct
+    // try DD-MM-YYYY
+    const m = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/)
+    if (m) {
+        const [, dd, mm, yyyy] = m
+        const dt = new Date(Number(yyyy), Number(mm) - 1, Number(dd))
+        return Number.isNaN(dt.getTime()) ? null : dt
+    }
+    return null
+}
+
+export function diffDays(from: Date, to: Date) {
+    const start = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime()
+    const end = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime()
+    return Math.round((end - start) / (1000 * 60 * 60 * 24))
+}
+
 
 export const DOC_CONFIG: Record<string, { docType: string; title: string }> = {
   gst_certificate: {
@@ -141,3 +164,4 @@ export const DOC_CONFIG: Record<string, { docType: string; title: string }> = {
     title: 'MSME Certificate',
   },
 }
+
