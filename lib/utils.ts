@@ -122,9 +122,10 @@ export function normalizeLeadingWhitespace(value: string) {
   return value.replace(/^\s+/, '')
 }
 
+export const ALPHANUM_WITH_SPACES = /^[a-z0-9 ]+$/i
+export const REGEX_ALPHA = /[^A-Za-z]/;
 export const REGEX_ALPHA_NUM = /[^A-Za-z0-9,.]/;
 export const REGEX_ALPHA_SPACE = /[^A-Za-z ]/;
-export const REGEX_ALPHA = /[^A-Za-z]/;
 export const REGEX_PHONE_INVALID = /[^0-9+]/;
 export const VALIDITY_DAYS = 15
 
