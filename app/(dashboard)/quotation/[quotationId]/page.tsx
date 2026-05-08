@@ -39,6 +39,8 @@ const mergeTerms = (terms: string[]) => {
   return merged
 }
 
+const UNIT_OPTIONS = ['EA', 'KG', 'LTR', 'MTR', 'PCS', 'SET', 'BOX', 'BAG', 'TON', 'NOS'] as const
+
 type ExtractedLineItem = {
   id?: number | string
   line_no: number
@@ -271,6 +273,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const [editQuotationDate, setEditQuotationDate] = useState('')
   const [editTerms, setEditTerms] = useState('')
   const [editItems, setEditItems] = useState<ExtractedLineItem[]>([])
+  const [rateErrors, setRateErrors] = useState<(string | null)[]>([])
+  const [amountErrors, setAmountErrors] = useState<(string | null)[]>([])
   const [editPlantId, setEditPlantId] = useState<string>('')
   const [editDepartmentId, setEditDepartmentId] = useState<string>('')
   const [deleteItemOpen, setDeleteItemOpen] = useState(false)
@@ -318,12 +322,17 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       master_item_id: master.id,
     }
     setEditItems(prev => [...prev, newItem])
+    setRateErrors(prev => [...prev, null])
+    setAmountErrors(prev => [...prev, null])
     setAddItemOpen(false)
     setItemSearch('')
   }
 
   const editMutation = useMutation({
     mutationFn: async () => {
+      if (rateErrors.some(Boolean) || amountErrors.some(Boolean)) {
+        throw new Error('Item price must be positive.')
+      }
       const payload = {
         quotation_no: editQuotationNo || null,
         quotation_date: editQuotationDate || null,
@@ -363,7 +372,10 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     setEditQuotationNo(quotation.quotation_no === '—' ? '' : quotation.quotation_no)
     setEditQuotationDate(quotation.quotation_date === '—' ? '' : quotation.quotation_date)
     setEditTerms(mergeTerms(quotation.terms).join('\n'))
-    setEditItems(items.map(it => ({ ...it })))
+    const nextItems = items.map(it => ({ ...it }))
+    setEditItems(nextItems)
+    setRateErrors(nextItems.map(() => null))
+    setAmountErrors(nextItems.map(() => null))
     setEditPlantId(quotation.plant_id ? String(quotation.plant_id) : '')
     setEditDepartmentId(quotation.department_id ? String(quotation.department_id) : '')
     setIsEditing(true)
@@ -395,6 +407,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
   const removeEditItem = (idx: number) => {
     setEditItems(prev => prev.filter((_, i) => i !== idx))
+    setRateErrors(prev => prev.filter((_, i) => i !== idx))
+    setAmountErrors(prev => prev.filter((_, i) => i !== idx))
   }
 
   const requestRemoveEditItem = (idx: number) => {
@@ -412,6 +426,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   useEffect(() => {
     if (!isEditing) {
       setEditItems(items.map(it => ({ ...it })))
+      setRateErrors([])
+      setAmountErrors([])
     }
   }, [items, isEditing])
 
@@ -739,13 +755,19 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2">
                               {isEditing ? (
-                                <Input
-                                  type="text"
-                                  className="h-9 text-sm w-20"
+                                <select
+                                  className="h-9 text-sm w-24 border border-input rounded-md px-3 bg-background"
                                   value={item.unit === '—' ? '' : item.unit}
                                   onChange={e => updateEditItem(globalIndex, { unit: e.target.value })}
-                                  placeholder="Unit"
-                                />
+                                >
+                                  <option value="" disabled>Select</option>
+                                  {item.unit && item.unit !== '—' && !UNIT_OPTIONS.includes(item.unit as any) && (
+                                    <option value={item.unit}>{item.unit}</option>
+                                  )}
+                                  {UNIT_OPTIONS.map(u => (
+                                    <option key={u} value={u}>{u}</option>
+                                  ))}
+                                </select>
                               ) : (
                                 <span className="text-muted-foreground">{item.unit}</span>
                               )}
@@ -753,14 +775,27 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2">
                               {isEditing ? (
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  className="h-9 text-sm w-28 text-right"
-                                  value={item.price_per_unit}
-                                  onChange={e => updateEditItem(globalIndex, { price_per_unit: Number(e.target.value) })}
-                                />
+                                <div className="w-28">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="h-9 text-sm w-28 text-right"
+                                    value={item.price_per_unit}
+                                    onChange={e => {
+                                      const next = Number(e.target.value)
+                                      if (Number.isFinite(next) && next < 0) {
+                                        setRateErrors(prev => prev.map((v, i) => i === globalIndex ? 'Item price must be positive.' : v))
+                                        return
+                                      }
+                                      setRateErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
+                                      updateEditItem(globalIndex, { price_per_unit: next })
+                                    }}
+                                  />
+                                  {rateErrors[globalIndex] && (
+                                    <p className="mt-1 text-xs text-destructive">{rateErrors[globalIndex]}</p>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="tabular-nums">{formatINR(item.price_per_unit)}</span>
                               )}
@@ -768,21 +803,31 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2 tabular-nums">
                               {isEditing ? (
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  className="h-9 text-sm w-32 text-right"
-                                  value={Number(lineAmount || 0)}
-                                  onChange={e => {
-                                    const nextAmount = Number(e.target.value)
-                                    const qty = Number(item.quantity || 0)
-                                    updateEditItem(globalIndex, {
-                                      amount: nextAmount,
-                                      price_per_unit: qty > 0 ? nextAmount / qty : 0,
-                                    })
-                                  }}
-                                />
+                                <div className="w-32">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="h-9 text-sm w-32 text-right"
+                                    value={Number(lineAmount || 0)}
+                                    onChange={e => {
+                                      const nextAmount = Number(e.target.value)
+                                      if (Number.isFinite(nextAmount) && nextAmount < 0) {
+                                        setAmountErrors(prev => prev.map((v, i) => i === globalIndex ? 'Item price must be positive.' : v))
+                                        return
+                                      }
+                                      setAmountErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
+                                      const qty = Number(item.quantity || 0)
+                                      updateEditItem(globalIndex, {
+                                        amount: nextAmount,
+                                        price_per_unit: qty > 0 ? nextAmount / qty : 0,
+                                      })
+                                    }}
+                                  />
+                                  {amountErrors[globalIndex] && (
+                                    <p className="mt-1 text-xs text-destructive">{amountErrors[globalIndex]}</p>
+                                  )}
+                                </div>
                               ) : (
                                 formatINR(lineAmount)
                               )}
