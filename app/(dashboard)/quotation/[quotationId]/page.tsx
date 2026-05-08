@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import DeleteDialog from '@/components/shared/DeleteDialog'
+import DeleteDialog from '@/components/shared/CommonModal'
 import { useToast } from '@/components/ui/use-toast'
 import apiClient from '@/lib/api/client'
 import AIAnalysisPanel from '../components/AIAnalysisPanel'
@@ -754,10 +754,10 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2">
                               {isEditing ? (
-                                <div className="w-28">
+                                <div className="relative group w-full">
                                   <Input
                                     type="text"
-                                    className="h-9 text-sm w-28"
+                                    className={`h-9 text-sm w-full ${hsnErrors[globalIndex] ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                                     value={item.hsn_sac === '—' ? '' : item.hsn_sac}
                                     onChange={e => {
                                       const next = e.target.value
@@ -784,7 +784,9 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                                     placeholder="HSN"
                                   />
                                   {hsnErrors[globalIndex] && (
-                                    <p className="mt-1 text-xs text-destructive">{hsnErrors[globalIndex]}</p>
+                                    <div className="absolute left-0 top-full z-50 mt-1 whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-xs text-white shadow-lg opacity-0 pointer-events-none group-hover:opacity-100">
+                                      {hsnErrors[globalIndex]}
+                                    </div>
                                   )}
                                 </div>
                               ) : (
@@ -798,7 +800,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                                   type="number"
                                   min="1"
                                   step="1"
-                                  className="h-9 text-sm w-20 text-right"
+                                  className="h-9 text-sm w-full text-right"
                                   value={item.quantity}
                                   onChange={e => updateEditItem(globalIndex, { quantity: Number(e.target.value) })}
                                 />
@@ -810,7 +812,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                             <td className="p-2">
                               {isEditing ? (
                                 <select
-                                  className="h-9 text-sm w-24 border border-input rounded-md px-3 bg-background"
+                                  className="h-9 text-sm w-full border border-input rounded-md px-3 bg-background"
                                   value={item.unit === '—' ? '' : item.unit}
                                   onChange={e => updateEditItem(globalIndex, { unit: e.target.value })}
                                 >
@@ -829,12 +831,12 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2">
                               {isEditing ? (
-                                <div className="w-28">
+                                <div className="w-full">
                                   <Input
                                     type="number"
                                     min="0"
                                     step="0.01"
-                                    className="h-9 text-sm w-28 text-right"
+                                    className="h-9 text-sm w-full text-right"
                                     value={item.price_per_unit}
                                     onChange={e => {
                                       const next = Number(e.target.value)
@@ -857,12 +859,12 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2 tabular-nums">
                               {isEditing ? (
-                                <div className="w-32">
+                                <div className="w-full">
                                   <Input
                                     type="number"
                                     min="0"
                                     step="0.01"
-                                    className="h-9 text-sm w-32 text-right"
+                                    className="h-9 text-sm w-full text-right"
                                     value={Number(lineAmount || 0)}
                                     onChange={e => {
                                       const nextAmount = Number(e.target.value)
