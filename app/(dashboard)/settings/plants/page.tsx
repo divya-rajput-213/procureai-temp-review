@@ -17,15 +17,50 @@ import apiClient from '@/lib/api/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Plant { id: number; hash_id: string; code: string; name: string; location: string; is_active: boolean }
-interface PlantFormData { code: string; name: string; location: string; is_active: boolean }
+interface Plant {
+  id: number
+  hash_id: string
+  code: string
+  name: string
+  address: string
+  city: string
+  state: string
+  country: string
+  pincode: string
+  is_active: boolean
+}
 
-const EMPTY_FORM: PlantFormData = { code: '', name: '', location: '', is_active: true }
+interface PlantFormData {
+  code: string
+  name: string
+  address: string
+  city: string
+  state: string
+  country: string
+  pincode: string
+  is_active: boolean
+}
+
+
+const EMPTY_FORM: PlantFormData = {
+  code: '',
+  name: '',
+  address: '',
+  city: '',
+  state: '',
+  country: '',
+  pincode: '',
+  is_active: true,
+}
 
 const PLANT_FIELDS = [
-  { key: 'code',     label: 'Code',     required: true },
-  { key: 'name',     label: 'Name',     required: true },
-  { key: 'location', label: 'Location', required: false },
+  { key: 'code', label: 'Code', required: true },
+  { key: 'name', label: 'Name', required: true },
+  { key: 'address', label: 'Address', required: true },
+  { key: 'city', label: 'City', required: true },
+  { key: 'state', label: 'State', required: true },
+  { key: 'country', label: 'Country', required: true },
+  { key: 'pincode', label: 'Pincode', required: true },
   { key: 'is_active', label: 'Is Active', required: false },
 ]
 
@@ -82,14 +117,26 @@ function PlantModal({ plant, onClose }: Readonly<{ plant: Plant | null; onClose:
   const isEdit = plant !== null
 
   const [form, setForm] = useState<PlantFormData>(
-    isEdit ? { code: plant.code, name: plant.name, location: plant.location, is_active: plant.is_active } : { ...EMPTY_FORM }
+    isEdit
+      ? {
+        code: plant.code,
+        name: plant.name,
+        address: plant.address,
+        city: plant.city,
+        state: plant.state,
+        country: plant.country,
+        pincode: plant.pincode,
+        is_active: plant.is_active,
+      }
+      : { ...EMPTY_FORM }
   )
+
   const [errors, setErrors] = useState<Partial<Record<keyof PlantFormData, string>>>({})
 
   const saveMutation = useMutation({
     mutationFn: async (data: PlantFormData) =>
       isEdit ? (await apiClient.patch(`/users/plants/${plant.hash_id}/`, data)).data
-             : (await apiClient.post('/users/plants/', data)).data,
+        : (await apiClient.post('/users/plants/', data)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plants-manage'] })
       toast({ title: isEdit ? 'Plant updated' : 'Plant created' })
@@ -111,11 +158,19 @@ function PlantModal({ plant, onClose }: Readonly<{ plant: Plant | null; onClose:
 
   function validate(): boolean {
     const errs: Partial<Record<keyof PlantFormData, string>> = {}
+
     if (!form.code.trim()) errs.code = 'Code is required'
     if (!form.name.trim()) errs.name = 'Name is required'
+    if (!form.address.trim()) errs.address = 'Address is required'
+    if (!form.city.trim()) errs.city = 'City is required'
+    if (!form.state.trim()) errs.state = 'State is required'
+    if (!form.country.trim()) errs.country = 'Country is required'
+    if (!form.pincode.trim()) errs.pincode = 'Pincode is required'
+
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
+
 
   function set(field: keyof PlantFormData, value: string | boolean) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -124,7 +179,7 @@ function PlantModal({ plant, onClose }: Readonly<{ plant: Plant | null; onClose:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
           <h2 className="text-base font-semibold">{isEdit ? 'Edit Plant' : 'Add Plant'}</h2>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -145,10 +200,64 @@ function PlantModal({ plant, onClose }: Readonly<{ plant: Plant | null; onClose:
                 {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
               </div>
             </div>
+            {/* Address */}
             <div className="space-y-1">
-              <Label>Location</Label>
-              <Input value={form.location} onChange={e => set('location', e.target.value)} placeholder="e.g. Gurgaon, Haryana" />
+              <Label>Address <span className="text-destructive">*</span></Label>
+              <Input
+                value={form.address}
+                onChange={e => set('address', e.target.value)}
+                placeholder="e.g. DLF Phase 1, Sector 28"
+              />
+              {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
             </div>
+
+            {/* City + State */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>City <span className="text-destructive">*</span></Label>
+                <Input
+                  value={form.city}
+                  onChange={e => set('city', e.target.value)}
+                  placeholder="e.g. Gurgaon"
+                />
+                {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
+              </div>
+
+              <div className="space-y-1">
+                <Label>State <span className="text-destructive">*</span></Label>
+                <Input
+                  value={form.state}
+                  onChange={e => set('state', e.target.value)}
+                  placeholder="e.g. Haryana"
+                />
+                {errors.state && <p className="text-xs text-destructive">{errors.state}</p>}
+              </div>
+            </div>
+
+            {/* Country + Pincode */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Country <span className="text-destructive">*</span></Label>
+                <Input
+                  value={form.country}
+                  onChange={e => set('country', e.target.value)}
+                  placeholder="e.g. India"
+                />
+                {errors.country && <p className="text-xs text-destructive">{errors.country}</p>}
+              </div>
+
+              <div className="space-y-1">
+                <Label>Pincode <span className="text-destructive">*</span></Label>
+                <Input
+                  value={form.pincode}
+                  onChange={e => set('pincode', e.target.value)}
+                  placeholder="e.g. 122001"
+                />
+                {errors.pincode && <p className="text-xs text-destructive">{errors.pincode}</p>}
+              </div>
+            </div>
+
+
             <div className="flex items-center gap-2">
               <input id="is_active" type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="accent-primary w-4 h-4" />
               <Label htmlFor="is_active" className="cursor-pointer">Active</Label>
@@ -296,7 +405,7 @@ function ImportPanel({ onClose, onDone }: Readonly<{ onClose: () => void; onDone
                 type="button"
                 className="text-xs text-primary underline underline-offset-2"
                 onClick={() => {
-                  const csv = 'code,name,location,is_active\nPLT-01,Gurgaon Plant,Gurgaon Haryana,true\nPLT-02,Pune Plant,Pune Maharashtra,true'
+                  const csv = 'code,name,address,city,state,country,pincode,is_active\nPLT-01,Gurgaon Plant,DLF Phase 1,Gurgaon,Haryana,India,122001,true'
                   const a = document.createElement('a')
                   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
                   a.download = 'sample_plants.csv'
@@ -530,7 +639,6 @@ export default function PlantsPage() {
                   <tr className="bg-slate-50 border-b text-xs text-muted-foreground">
                     <th className="px-4 py-3 text-left font-medium">Code</th>
                     <th className="px-4 py-3 text-left font-medium">Name</th>
-                    <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Location</th>
                     <th className="px-4 py-3 text-left font-medium">Status</th>
                     <th className="px-4 py-3" />
                   </tr>
@@ -540,7 +648,6 @@ export default function PlantsPage() {
                     <tr key={p.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs font-medium">{p.code}</td>
                       <td className="px-4 py-3 font-medium">{p.name}</td>
-                      <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">{p.location || '—'}</td>
                       <td className="px-4 py-3">
                         <Badge
                           variant={p.is_active ? 'default' : 'secondary'}
