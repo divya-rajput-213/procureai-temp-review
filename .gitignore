@@ -64,3 +64,4 @@ Thumbs.db
 # Vercel
 .vercel
 .next
+.codex
