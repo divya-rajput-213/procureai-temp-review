@@ -676,21 +676,43 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               </div>
 
               {/* Table */}
-              <div className="max-h-[400px] overflow-auto">
-                <div className="min-w-[900px]">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                      <tr>
-                        <th className="p-2 text-left">Item</th>
-                        <th className="p-2 text-left">HSN</th>
-                        <th className="p-2 text-left">Qty</th>
-                        <th className="p-2 text-left">Unit</th>
-                        <th className="p-2 text-left">Rate</th>
-                        <th className="p-2 text-left">Amount</th>
-                        {isEditing && <th className="py-2 px-3" />}
-                      </tr>
-                    </thead>
+              <div className="min-w-[900px]">
+                {/* Header (fixed) */}
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col />
+                    <col className="w-28" />
+                    <col className="w-20" />
+                    <col className="w-24" />
+                    <col className="w-28" />
+                    <col className="w-32" />
+                    {isEditing && <col className="w-12" />}
+                  </colgroup>
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <tr>
+                      <th className="p-2 text-left">Item</th>
+                      <th className="p-2 text-left">HSN</th>
+                      <th className="p-2 text-left">Qty</th>
+                      <th className="p-2 text-left">Unit</th>
+                      <th className="p-2 text-left">Rate</th>
+                      <th className="p-2 text-left">Amount</th>
+                      {isEditing && <th className="py-2 px-3" />}
+                    </tr>
+                  </thead>
+                </table>
 
+                {/* Body (scroll only here) */}
+                <div className="max-h-[400px] overflow-auto">
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col />
+                      <col className="w-28" />
+                      <col className="w-20" />
+                      <col className="w-24" />
+                      <col className="w-28" />
+                      <col className="w-32" />
+                      {isEditing && <col className="w-12" />}
+                    </colgroup>
                     <tbody>
                       {displayItems.length === 0 ? (
                         <tr>
@@ -883,6 +905,20 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                         )
                       })}
 	                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer (fixed) */}
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col />
+                    <col className="w-28" />
+                    <col className="w-20" />
+                    <col className="w-24" />
+                    <col className="w-28" />
+                    <col className="w-32" />
+                    {isEditing && <col className="w-12" />}
+                  </colgroup>
                   <tfoot className="bg-white">
                     <tr className="border-t">
                       <td colSpan={5} className="p-3 text-right text-sm text-muted-foreground">
@@ -932,8 +968,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                       {isEditing && <td className="p-3" />}
                     </tr>
                   </tfoot>
-	                  </table>
-                </div>
+                </table>
               </div>
             </div>
 
