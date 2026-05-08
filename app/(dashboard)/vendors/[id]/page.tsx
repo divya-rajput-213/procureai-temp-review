@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -12,207 +12,12 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download } from 'lucide-react'
-import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
+import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_CONFIG } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 
-// ─── Compliance rows config ───────────────────────────────────────────────────
-
-const COMPLIANCE_ROWS: Array<{
-  docType: string
-  label: string
-  fieldLabel: string
-  fieldKey: string
-  show: (v: any) => boolean
-}> = [
-    { docType: 'gst_certificate', label: 'GST Certificate', fieldLabel: 'GST Number', fieldKey: 'gst_number', show: () => true },
-    { docType: 'pan_card', label: 'PAN Card', fieldLabel: 'PAN Number', fieldKey: 'pan_number', show: () => true },
-    { docType: 'bank_details', label: 'Bank Details / Cancelled Cheque', fieldLabel: 'Bank Account', fieldKey: 'bank_account', show: () => true },
-    { docType: 'incorporation', label: 'Incorporation Certificate', fieldLabel: 'Company', fieldKey: 'company_name', show: () => true },
-    { docType: 'msme_certificate', label: 'MSME Certificate', fieldLabel: 'MSME No.', fieldKey: 'msme_number', show: (v: any) => !!v.is_msme },
-    { docType: 'sez_certificate', label: 'SEZ Certificate', fieldLabel: 'SEZ Unit', fieldKey: '', show: (v: any) => !!v.is_sez },
-  ]
-
-// ─── Compliance doc row ────────────────────────────────────────────────────────
-
-function ComplianceDocRow({ docType, label, fieldLabel, fieldValue, fieldKey, doc, vendorId, canEdit, onRefresh, onFieldUpdate }: {
-  docType: string
-  label: string
-  fieldLabel: string
-  fieldValue: string
-  fieldKey: string
-  doc: any | null
-  vendorId: string | string[]
-  canEdit: boolean
-  onRefresh: () => void
-  onFieldUpdate?: (key: string, value: string) => Promise<void>
-}) {
-  const { toast } = useToast()
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [isEditingField, setIsEditingField] = useState(false)
-  const [fieldEditValue, setFieldEditValue] = useState(fieldValue)
-  const [savingField, setSavingField] = useState(false)
-
-  const upload = async (file: File) => {
-    setUploading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('doc_type', docType)
-      await apiClient.post(`/vendors/${vendorId}/documents/`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      onRefresh()
-      toast({ title: 'Document uploaded. AI validation running...' })
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' })
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const remove = async () => {
-    setDeleting(true)
-    try {
-      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id}/`)
-      onRefresh()
-      toast({ title: 'Document removed.' })
-    } catch {
-      toast({ title: 'Delete failed', variant: 'destructive' })
-    } finally {
-      setDeleting(false)
-    }
-  }
-
-  const saveField = async () => {
-    if (!onFieldUpdate || !fieldKey) return
-    setSavingField(true)
-    try {
-      await onFieldUpdate(fieldKey, fieldEditValue)
-      setIsEditingField(false)
-    } catch {
-      toast({ title: 'Update failed', variant: 'destructive' })
-    } finally {
-      setSavingField(false)
-    }
-  }
-
-  const openFieldEdit = () => {
-    setFieldEditValue(fieldValue)
-    setIsEditingField(true)
-  }
-
-  return (
-    <div className="flex items-center gap-4 py-3 px-4 border-b last:border-0">
-      {/* Field value — editable inline for draft vendors */}
-      <div className="w-44 shrink-0">
-        <p className="text-xs text-muted-foreground">{fieldLabel}</p>
-        {isEditingField ? (
-          <div className="flex items-center gap-1 mt-0.5">
-            <input
-              type="text"
-              value={fieldEditValue}
-              onChange={e => setFieldEditValue(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { saveField() } else if (e.key === 'Escape') { setIsEditingField(false) } }}
-              className="border rounded px-1.5 py-0.5 text-xs font-mono w-full focus:outline-none focus:ring-1 focus:ring-primary"
-              autoFocus
-            />
-            <button
-              onClick={saveField}
-              disabled={savingField}
-              className="shrink-0 text-green-600 hover:text-green-800 disabled:opacity-50"
-              title="Save"
-            >
-              {savingField ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-            </button>
-            <button
-              onClick={() => setIsEditingField(false)}
-              className="shrink-0 text-muted-foreground hover:text-foreground"
-              title="Cancel"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 group">
-            <p className="text-sm font-mono font-medium truncate">{fieldValue || '—'}</p>
-            {canEdit && fieldKey && onFieldUpdate && (
-              <button
-                onClick={openFieldEdit}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                title={`Edit ${fieldLabel}`}
-              >
-                <Pencil className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-      {/* Doc type label */}
-      <p className="text-xs text-muted-foreground w-52 shrink-0">{label}</p>
-      {/* Document or upload action */}
-      <div className="flex-1 flex items-center justify-end gap-2">
-        {doc && (
-          <>
-            <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs font-medium truncate max-w-[180px]">{doc.original_filename}</p>
-              <div className="mt-0.5"><span className="text-xs text-muted-foreground">{doc.original_filename}</span></div>
-            </div>
-            {doc.file_url && (
-              <a href={doc.file_url} target="_blank" rel="noreferrer">
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Button>
-              </a>
-            )}
-            {canEdit && (
-              <Button
-                variant="ghost" size="sm"
-                className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                onClick={remove}
-                disabled={deleting}
-              >
-                {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              </Button>
-            )}
-          </>
-        )}
-        {!doc && canEdit && (
-          <>
-            <input
-              ref={inputRef}
-              type="file"
-              className="hidden"
-              accept=".pdf,.jpg,.jpeg,.png"
-              onChange={e => {
-                const file = e.target.files?.[0]
-                if (file) upload(file)
-                e.target.value = ''
-              }}
-            />
-            <Button
-              variant="outline" size="sm"
-              className="gap-1.5 text-xs"
-              onClick={() => inputRef.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-              Upload
-            </Button>
-          </>
-        )}
-        {!doc && !canEdit && (
-          <span className="text-xs text-muted-foreground italic">No document</span>
-        )}
-      </div>
-    </div>
-  )
-}
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   gst_certificate: 'GST Certificate',
@@ -465,20 +270,20 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
               }}
             />
           )}
-            <div className="flex justify-end mt-4">
-        <Button
-          onClick={submit}
-          disabled={submitting || (matrixCount > 0 && selectedMatrix === null)}
-          className="gap-1.5"
-        >
-          {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
-          Submit for Approval
-        </Button>
-      </div>
+          <div className="flex justify-end mt-4">
+            <Button
+              onClick={submit}
+              disabled={submitting || (matrixCount > 0 && selectedMatrix === null)}
+              className="gap-1.5"
+            >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
+              Submit for Approval
+            </Button>
+          </div>
         </CardContent>
-      
+
       </Card>
-  
+
     </>
   )
 }
@@ -606,100 +411,134 @@ function ComplianceFieldInput({ value, placeholder, canEdit, onSave, onChange }:
 }
 
 // ─── Inline doc upload widget ─────────────────────────────────────────────────
-function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true }: {
+function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true, setFieldError }: {
   vendorId: string | string[]
   docType: string
   doc: any | null
   onRefresh: () => void
   editable?: boolean
+  setFieldError?: (msg: string) => void
 }) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const upload = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Max file size is 5 MB', variant: 'destructive' }); return
+    }
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+    if (!validTypes.includes(file.type)) {
+      toast({ title: 'Only PDF, JPG, PNG files are allowed', variant: 'destructive' }); return
+    }
     setUploading(true)
     try {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('doc_type', docType)
-      await apiClient.post(`/vendors/${vendorId}/documents/`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      fd.append('title', DOC_CONFIG[docType]?.title || docType)
+      const res = await apiClient.post(`/vendors/${vendorId}/documents/`, fd)
+      const data = res.data
+      if (data?.ai_validation_status === 'invalid' || data?.ai_validation_status === 'failed') {
+        setFieldError?.(data?.ai_validation_notes || `${docType} validation failed`)
+        toast({ title: 'Document validation failed', description: data?.ai_validation_notes || '', variant: 'destructive' })
+      } else {
+        setFieldError?.('')
+        toast({ title: 'Document verified by AI' })
+      }
       onRefresh()
-      toast({ title: 'Document uploaded. AI validation running...' })
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' })
-    } finally {
-      setUploading(false)
-    }
+    } catch (err: any) {
+      const errData = err?.response?.data
+      const notes = errData?.ai_validation_notes || errData?.error || 'Upload failed'
+      setFieldError?.(notes)
+      toast({ title: 'Document validation failed', description: notes, variant: 'destructive' })
+    } finally { setUploading(false) }
   }
 
   const remove = async () => {
     if (!doc) return
     setDeleting(true)
     try {
-      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id}/`)
+      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id ?? doc.id}/`)
       onRefresh()
       toast({ title: 'Document removed.' })
+      setFieldError?.('')
     } catch {
       toast({ title: 'Delete failed', variant: 'destructive' })
-    } finally {
-      setDeleting(false)
-    }
+    } finally { setDeleting(false) }
   }
 
-  if (doc) {
+  const extracted = doc?.ai_extracted_data || {}
+  const status = doc?.ai_validation_status
+  const isValid = status === 'passed' || status === 'valid'
+  const isFailed = status === 'failed' || status === 'invalid'
+  const hasExtracted = isValid && Object.values(extracted).some(v => v && String(v).trim())
+
+  // Validated — show extracted data
+  if (doc && hasExtracted) {
     return (
-      <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[38px]">
-        <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-        <span className="text-xs truncate flex-1 min-w-0">{doc.original_filename}</span>
-        {doc.file_url && (
-          <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0">
-            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
-          </a>
-        )}
-        {editable && (
-          <button
-            type="button"
-            onClick={remove}
-            disabled={deleting}
-            className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-50"
-            title="Remove"
-          >
-            {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-          </button>
-        )}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border-b border-green-200">
+          <CheckCircle className="w-3.5 h-3.5 text-green-600 shrink-0" />
+          <span className="text-xs font-medium text-green-700 flex-1">AI Verified</span>
+          {doc.file_url && <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-xs text-green-600 hover:underline">View</a>}
+          {editable && (
+            <button type="button" onClick={remove} disabled={deleting} className="shrink-0 text-xs text-red-400 hover:text-red-600">
+              {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Remove'}
+            </button>
+          )}
+        </div>
+        <div className="px-3 py-2 bg-green-50/30 space-y-1">
+          {extracted.gst_number && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">GSTIN:</span> <span className="font-mono font-medium">{extracted.gst_number}</span></div>}
+          {extracted.pan_number && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">PAN:</span> <span className="font-mono font-medium">{extracted.pan_number}</span></div>}
+          {extracted.bank_account_number && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">A/C:</span> <span className="font-mono font-medium">{extracted.bank_account_number}</span></div>}
+          {extracted.ifsc_code && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">IFSC:</span> <span className="font-mono font-medium">{extracted.ifsc_code}</span></div>}
+          {extracted.bank_name && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">Bank:</span> <span className="font-medium">{extracted.bank_name}</span></div>}
+          {extracted.legal_name && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">Name:</span> <span className="font-medium">{extracted.legal_name}</span></div>}
+        </div>
       </div>
     )
   }
 
-  if (!editable) {
+  // Doc exists but failed
+  if (doc && !hasExtracted) {
     return (
-      <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[38px]">
-        <span className="text-xs text-muted-foreground italic">No document</span>
+      <div className="border rounded-lg overflow-hidden">
+        <div className={`flex items-center gap-2 px-3 py-2 ${isFailed ? 'bg-red-50' : 'bg-slate-50'}`}>
+          <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <span className="text-xs truncate flex-1">{doc.original_filename}</span>
+          {isFailed && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Failed</span>}
+          {editable && (
+            <button type="button" onClick={remove} disabled={deleting} className="shrink-0 text-red-400 hover:text-red-600">
+              {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+            </button>
+          )}
+        </div>
+        {doc.ai_validation_notes && isFailed && <p className="text-[10px] text-red-600 px-3 py-1.5 bg-red-50">{doc.ai_validation_notes}</p>}
       </div>
     )
   }
+
+  // No doc — show upload
+  if (!editable) return <div className="border rounded-md px-3 py-2 min-h-[38px]"><span className="text-xs text-muted-foreground italic">No document</span></div>
 
   return (
-    <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-background min-h-[38px]">
-      <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">No file chosen</span>
-      <label className="cursor-pointer shrink-0">
-        <span className="inline-flex items-center gap-1 text-xs border rounded px-2 py-1 hover:bg-slate-50 transition-colors">
-          {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-          Choose
-        </span>
-        <input
-          type="file"
-          className="hidden"
-          accept=".pdf,.jpg,.jpeg,.png"
-          onChange={e => {
-            const file = e.target.files?.[0]
-            if (file) upload(file)
-            e.target.value = ''
-          }}
-        />
+    <div className="border-2 border-dashed rounded-lg px-3 py-3 text-center hover:bg-slate-50 transition-colors">
+      <label className="cursor-pointer block">
+        {uploading ? (
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <span className="text-xs text-muted-foreground">Uploading & validating...</span>
+          </div>
+        ) : (
+          <div>
+            <Upload className="w-5 h-5 mx-auto text-muted-foreground mb-1" />
+            <p className="text-xs text-muted-foreground">Drop or <span className="text-primary font-medium">browse</span> (PDF, JPG, PNG)</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Max 5 MB</p>
+          </div>
+        )}
+        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" disabled={uploading}
+          onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
       </label>
     </div>
   )
@@ -1080,14 +919,14 @@ function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh, editable = true
 // ─── Vendor Dashboard ─────────────────────────────────────────────────────────
 
 const PR_STATUS_LABELS: Record<string, string> = {
-  draft:            'Draft',
+  draft: 'Draft',
   pending_approval: 'Pending Approval',
-  approved:         'Approved',
-  vendor_selected:  'Vendor Selected',
-  synced_to_sap:    'Synced to SAP',
-  po_created:       'PO Created',
-  rejected:         'Rejected',
-  cancelled:        'Cancelled',
+  approved: 'Approved',
+  vendor_selected: 'Vendor Selected',
+  synced_to_sap: 'Synced to SAP',
+  po_created: 'PO Created',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
 }
 
 function prStatusColor(s: string) {
@@ -1099,15 +938,15 @@ function prStatusColor(s: string) {
 }
 
 function bidStatusColor(s: string) {
-  if (s === 'shortlisted')      return 'bg-blue-100 text-blue-700'
+  if (s === 'shortlisted') return 'bg-blue-100 text-blue-700'
   if (s === 'pending_approval') return 'bg-purple-100 text-purple-700'
-  if (s === 'pending')          return 'bg-amber-100 text-amber-700'
+  if (s === 'pending') return 'bg-amber-100 text-amber-700'
   return 'bg-slate-100 text-slate-600'
 }
 
 const BID_STATUS_LABELS: Record<string, string> = {
-  pending:          'Pending',
-  shortlisted:      'Shortlisted',
+  pending: 'Pending',
+  shortlisted: 'Shortlisted',
   pending_approval: 'In Approval',
 }
 
@@ -1162,10 +1001,10 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
   const activeBids: any[] = dash.active_bids ?? []
 
   // Performance + risk — freshly computed by backend on every dashboard fetch
-  const perfScore  = Math.round(dash.performance_score ?? 0)
-  const riskScore  = Math.round(dash.risk_score ?? 0)
-  const riskLabel  = riskScore < 30 ? 'Low Risk' : riskScore < 60 ? 'Medium Risk' : 'High Risk'
-  const riskColor  = riskScore < 30
+  const perfScore = Math.round(dash.performance_score ?? 0)
+  const riskScore = Math.round(dash.risk_score ?? 0)
+  const riskLabel = riskScore < 30 ? 'Low Risk' : riskScore < 60 ? 'Medium Risk' : 'High Risk'
+  const riskColor = riskScore < 30
     ? 'text-green-700 bg-green-50 border-green-200'
     : riskScore < 60
       ? 'text-amber-700 bg-amber-50 border-amber-200'
@@ -1190,7 +1029,7 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
 
   const colorMap: Record<string, string> = {
     green: 'bg-green-50 border-green-200 text-green-700',
-    blue:  'bg-blue-50 border-blue-200 text-blue-700',
+    blue: 'bg-blue-50 border-blue-200 text-blue-700',
     amber: 'bg-amber-50 border-amber-200 text-amber-700',
   }
   const iconColorMap: Record<string, string> = {
@@ -1202,12 +1041,12 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KPICard label="Total Spend (YTD)"  value={stats.total_spend_ytd > 0 ? `${vendor.currency ?? ''} ${fmtSpend(stats.total_spend_ytd)}` : '—'} icon={DollarSign}    iconColor="bg-blue-50 text-blue-600" />
-        <KPICard label="Bids Won"            value={String(stats.accepted_bids)}                                                                       icon={FileText}     iconColor="bg-purple-50 text-purple-600" />
-        <KPICard label="Open PRs"            value={String(stats.open_prs)}                                                                            icon={ShoppingCart}  iconColor="bg-amber-50 text-amber-600" />
-        <KPICard label="Win Rate"            value={stats.total_bids > 0 ? `${stats.win_rate}%` : '—'}                                               icon={CheckCircle}  iconColor="bg-green-50 text-green-600" />
-        <KPICard label="Avg Lead Time"       value={stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days}d` : '—'} icon={Clock} iconColor="bg-cyan-50 text-cyan-600" />
-        <KPICard label="Performance Score"   value={perfScore > 0 ? `${perfScore}/100` : '—'}                                                          icon={Star}         iconColor="bg-rose-50 text-rose-500" />
+        <KPICard label="Total Spend (YTD)" value={stats.total_spend_ytd > 0 ? `${vendor.currency ?? ''} ${fmtSpend(stats.total_spend_ytd)}` : '—'} icon={DollarSign} iconColor="bg-blue-50 text-blue-600" />
+        <KPICard label="Bids Won" value={String(stats.accepted_bids)} icon={FileText} iconColor="bg-purple-50 text-purple-600" />
+        <KPICard label="Open PRs" value={String(stats.open_prs)} icon={ShoppingCart} iconColor="bg-amber-50 text-amber-600" />
+        <KPICard label="Win Rate" value={stats.total_bids > 0 ? `${stats.win_rate}%` : '—'} icon={CheckCircle} iconColor="bg-green-50 text-green-600" />
+        <KPICard label="Avg Lead Time" value={stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days}d` : '—'} icon={Clock} iconColor="bg-cyan-50 text-cyan-600" />
+        <KPICard label="Performance Score" value={perfScore > 0 ? `${perfScore}/100` : '—'} icon={Star} iconColor="bg-rose-50 text-rose-500" />
       </div>
 
       {/* ── Spend Trend + Transactions ── */}
@@ -1328,10 +1167,10 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
               <p className="text-xs text-muted-foreground font-medium mb-2">Vendor Profile</p>
               <div className="space-y-1.5">
                 {[
-                  { label: 'Payment Terms',   value: vendor.payment_terms?.replace('_', ' ').toUpperCase() ?? '—' },
-                  { label: 'Lead Time',        value: vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : '—' },
-                  { label: 'Pricing Model',    value: vendor.pricing_model ?? '—' },
-                  { label: 'Total Bids',       value: String(stats.total_bids ?? 0) },
+                  { label: 'Payment Terms', value: vendor.payment_terms?.replace('_', ' ').toUpperCase() ?? '—' },
+                  { label: 'Lead Time', value: vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : '—' },
+                  { label: 'Pricing Model', value: vendor.pricing_model ?? '—' },
+                  { label: 'Total Bids', value: String(stats.total_bids ?? 0) },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">{r.label}</span>
@@ -1372,10 +1211,10 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Total Bids',     value: String(stats.total_bids ?? 0),         positive: true },
-                { label: 'Bids Won',       value: String(stats.accepted_bids ?? 0),       positive: true },
-                { label: 'Win Rate',       value: stats.total_bids > 0 ? `${stats.win_rate}%` : '—', positive: (stats.win_rate ?? 0) >= 40 },
-                { label: 'Avg Lead Time',  value: stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : '—', positive: true },
+                { label: 'Total Bids', value: String(stats.total_bids ?? 0), positive: true },
+                { label: 'Bids Won', value: String(stats.accepted_bids ?? 0), positive: true },
+                { label: 'Win Rate', value: stats.total_bids > 0 ? `${stats.win_rate}%` : '—', positive: (stats.win_rate ?? 0) >= 40 },
+                { label: 'Avg Lead Time', value: stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : '—', positive: true },
               ].map(m => (
                 <div key={m.label} className="bg-slate-50 rounded-lg p-3 text-center">
                   <p className="text-xs text-muted-foreground">{m.label}</p>
@@ -1402,9 +1241,9 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
             {/* Category + Location */}
             <div className="border-t pt-3 space-y-1.5">
               {[
-                { label: 'Category',  value: vendor.category_name ?? '—' },
-                { label: 'Location',  value: vendor.city && vendor.state ? `${vendor.city}, ${vendor.state}` : '—' },
-                { label: 'Currency',  value: vendor.currency ?? '—' },
+                { label: 'Category', value: vendor.category_name ?? '—' },
+                { label: 'Location', value: vendor.city && vendor.state ? `${vendor.city}, ${vendor.state}` : '—' },
+                { label: 'Currency', value: vendor.currency ?? '—' },
                 { label: 'Incoterms', value: vendor.incoterms ?? '—' },
               ].map(r => (
                 <div key={r.label} className="flex justify-between items-center">
@@ -1471,11 +1310,11 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
   } catch { /* silently skip if unavailable */ }
 
   const statusColors: Record<string, string> = {
-    approved:         'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
-    draft:            'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0',
-    rejected:         'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
+    approved: 'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
+    draft: 'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0',
+    rejected: 'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
     pending_approval: 'background:#fef3c7;color:#92400e;border:1px solid #fde68a',
-    blocked:          'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
+    blocked: 'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
   }
   const statusStyle = statusColors[vendor.status] ?? statusColors.draft
 
@@ -1501,37 +1340,37 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
   // ── Data rows ──────────────────────────────────────────────────────────────
 
   const identityRows = [
-    frow('GST Number',     vendor.gst_number),
-    frow('PAN Number',     vendor.pan_number),
-    frow('Category',       vendor.category_name),
-    frow('Plant',          vendor.plant_name),
-    frow('Country',        vendor.country),
-    frow('MSME',           vendor.is_msme ? (vendor.msme_number ? `Yes — ${vendor.msme_number}` : 'Yes') : 'No'),
-    frow('SEZ',            vendor.is_sez ? 'Yes' : 'No'),
-    frow('International',  vendor.is_international ? 'Yes' : 'No'),
+    frow('GST Number', vendor.gst_number),
+    frow('PAN Number', vendor.pan_number),
+    frow('Category', vendor.category_name),
+    frow('Plant', vendor.plant_name),
+    frow('Country', vendor.country),
+    frow('MSME', vendor.is_msme ? (vendor.msme_number ? `Yes — ${vendor.msme_number}` : 'Yes') : 'No'),
+    frow('SEZ', vendor.is_sez ? 'Yes' : 'No'),
+    frow('International', vendor.is_international ? 'Yes' : 'No'),
   ].join('')
 
   const contactRows = [
     frow('Contact Person', vendor.contact_name),
-    frow('Email',          vendor.contact_email),
-    frow('Phone',          vendor.contact_phone),
-    frow('Address',        addr),
+    frow('Email', vendor.contact_email),
+    frow('Phone', vendor.contact_phone),
+    frow('Address', addr),
   ].join('')
 
   const bankRows = [
-    frow('Bank Name',      vendor.bank_name),
-    frow('Account No.',    vendor.bank_account),
-    frow('IFSC Code',      vendor.bank_ifsc),
+    frow('Bank Name', vendor.bank_name),
+    frow('Account No.', vendor.bank_account),
+    frow('IFSC Code', vendor.bank_ifsc),
   ].join('')
 
   const commercialRows = [
-    frow('Pricing Model',  vendor.pricing_model),
-    frow('Payment Terms',  vendor.payment_terms),
-    frow('Currency',       vendor.currency),
-    frow('Incoterms',      vendor.incoterms),
-    frow('Std Lead Time',  vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : null),
+    frow('Pricing Model', vendor.pricing_model),
+    frow('Payment Terms', vendor.payment_terms),
+    frow('Currency', vendor.currency),
+    frow('Incoterms', vendor.incoterms),
+    frow('Std Lead Time', vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : null),
     frow('Rush Lead Time', vendor.rush_lead_time_days ? `${vendor.rush_lead_time_days} days` : null),
-    frow('Min Order Qty',  vendor.min_order_quantity != null ? String(vendor.min_order_quantity) : null),
+    frow('Min Order Qty', vendor.min_order_quantity != null ? String(vendor.min_order_quantity) : null),
   ].join('')
 
   // ── Compliance documents status ──────────────────────────────────────────
@@ -1565,9 +1404,9 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
       </tr>`).join('')
     : ''
 
-  const perfScore  = vendor.performance_score != null ? `${Number(vendor.performance_score).toFixed(1)} / 100` : null
-  const riskScore  = vendor.risk_score != null ? `${Number(vendor.risk_score).toFixed(1)} / 100` : null
-  const createdAt  = vendor.created_at ? new Date(vendor.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null
+  const perfScore = vendor.performance_score != null ? `${Number(vendor.performance_score).toFixed(1)} / 100` : null
+  const riskScore = vendor.risk_score != null ? `${Number(vendor.risk_score).toFixed(1)} / 100` : null
+  const createdAt = vendor.created_at ? new Date(vendor.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null
 
   // ── HTML ───────────────────────────────────────────────────────────────────
 
@@ -1692,18 +1531,18 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
     </thead>
     <tbody>
       ${activeBids.map((bid: any, idx: number) => {
-        const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
-        const statusClr: Record<string, string> = {
-          pending:      'background:#fef3c7;color:#92400e',
-          shortlisted:  'background:#dbeafe;color:#1e40af',
-          accepted:     'background:#dcfce7;color:#166534',
-          rejected:     'background:#fee2e2;color:#991b1b',
-        }
-        const sStyle = statusClr[bid.status] ?? 'background:#f1f5f9;color:#475569'
-        const amtStr = bid.bid_amount != null
-          ? Number(bid.bid_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })
-          : '—'
-        return `<tr style="${bg}">
+    const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
+    const statusClr: Record<string, string> = {
+      pending: 'background:#fef3c7;color:#92400e',
+      shortlisted: 'background:#dbeafe;color:#1e40af',
+      accepted: 'background:#dcfce7;color:#166534',
+      rejected: 'background:#fee2e2;color:#991b1b',
+    }
+    const sStyle = statusClr[bid.status] ?? 'background:#f1f5f9;color:#475569'
+    const amtStr = bid.bid_amount != null
+      ? Number(bid.bid_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+      : '—'
+    return `<tr style="${bg}">
           <td style="padding:5px 8px;font-family:Courier New,monospace;font-size:9px;border:1px solid #e2e8f0">${bid.pr_number}</td>
           <td style="padding:5px 8px;font-size:9.5px;border:1px solid #e2e8f0">${bid.title || '—'}</td>
           <td style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0">
@@ -1712,7 +1551,7 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
           <td style="padding:5px 8px;text-align:right;font-weight:600;border:1px solid #e2e8f0;font-size:9.5px">${amtStr}</td>
           <td style="padding:5px 8px;text-align:center;color:#64748b;border:1px solid #e2e8f0;font-size:9px">${bid.submitted_at || '—'}</td>
         </tr>`
-      }).join('')}
+  }).join('')}
     </tbody>
   </table>` : ''}
 
@@ -1738,399 +1577,6 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
     iframe.contentWindow?.print()
     setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url) }, 60_000)
   })
-}
-
-// ─── Change Request Tab ─────────────────────────────────────────────────────
-
-function ChangeRequestTab({ vendorId, vendor, categories, plants }: {
-  vendorId: string | string[]
-  vendor: any
-  categories: any[]
-  plants: any[]
-}) {
-  const { toast } = useToast()
-  const queryClient = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
-  const [expandedCR, setExpandedCR] = useState<string | null>(null)
-  const [submittingCR, setSubmittingCR] = useState<string | null>(null)
-  const [selectingMatrixCR, setSelectingMatrixCR] = useState<string | null>(null)
-  const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
-  const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
-
-  const { data: matrices } = useQuery({
-    queryKey: ['approval-matrices', 'vendor_onboarding'],
-    queryFn: async () => {
-      const r = await apiClient.get('/approvals/matrices/?matrix_type=vendor_onboarding&is_active=true')
-      return r.data.results ?? r.data
-    },
-    enabled: selectingMatrixCR !== null,
-  })
-
-  const { data: changeRequests, refetch } = useQuery({
-    queryKey: ['vendor-change-requests', vendorId],
-    queryFn: async () => (await apiClient.get(`/vendors/${vendorId}/change-requests/`)).data,
-  })
-
-  const { data: crDetail } = useQuery({
-    queryKey: ['vendor-cr-detail', vendorId, expandedCR],
-    queryFn: async () => (await apiClient.get(`/vendors/${vendorId}/change-requests/${expandedCR}/`)).data,
-    enabled: !!expandedCR,
-  })
-
-  const createMutation = useMutation({
-    mutationFn: async (data: { reason: string; changes: Record<string, any> }) =>
-      (await apiClient.post(`/vendors/${vendorId}/change-requests/`, data)).data,
-    onSuccess: (cr) => {
-      toast({ title: 'Change request created.' })
-      setShowForm(false)
-      refetch()
-      setExpandedCR(cr.hash_id)
-    },
-    onError: (err: any) => {
-      toast({ title: 'Failed', description: err?.response?.data?.error || 'Could not create change request.', variant: 'destructive' })
-    },
-  })
-
-  const handleSubmitForApproval = async (crId: string, matrixId?: number) => {
-    setSubmittingCR(crId)
-    try {
-      const payload: any = {}
-      if (matrixId) payload.matrix_id = matrixId
-      await apiClient.post(`/vendors/${vendorId}/change-requests/${crId}/submit/`, payload)
-      toast({ title: 'Change request submitted for approval.' })
-      setSelectingMatrixCR(null)
-      setSelectedMatrix(null)
-      refetch()
-      queryClient.invalidateQueries({ queryKey: ['vendor', vendorId] })
-    } catch (err: any) {
-      toast({ title: 'Submit failed', description: err?.response?.data?.error || 'Failed to submit.', variant: 'destructive' })
-    } finally {
-      setSubmittingCR(null)
-    }
-  }
-
-  const FIELD_LABELS: Record<string, string> = {
-    company_name: 'Company Name', category: 'Category', plant: 'Plant',
-    gst_number: 'GST Number', pan_number: 'PAN Number',
-    bank_account: 'Bank Account', bank_ifsc: 'Bank IFSC', bank_name: 'Bank Name',
-    contact_name: 'Contact Person', contact_email: 'Contact Email', contact_phone: 'Contact Phone',
-    address: 'Address', city: 'City', state: 'State', pincode: 'PIN Code', country: 'Country',
-    is_msme: 'MSME', msme_number: 'MSME Number', is_sez: 'SEZ',
-    standard_lead_time_days: 'Lead Time (days)', rush_lead_time_days: 'Rush Lead Time (days)',
-    min_order_quantity: 'Min Order Qty', pricing_model: 'Pricing Model',
-    payment_terms: 'Payment Terms', currency: 'Currency', incoterms: 'Incoterms',
-  }
-
-  const crStatusCls = (s: string) => {
-    if (s === 'approved') return 'bg-green-100 text-green-700'
-    if (s === 'rejected') return 'bg-red-100 text-red-700'
-    if (s === 'pending_approval') return 'bg-amber-100 text-amber-700'
-    return 'bg-slate-100 text-slate-600'
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Change Requests</h3>
-        {!showForm && (
-          <Button size="sm" variant="outline" onClick={() => setShowForm(true)} className="gap-1.5">
-            <Plus className="w-3.5 h-3.5" /> Request Change
-          </Button>
-        )}
-      </div>
-
-      {/* ── Create Form ── */}
-      {showForm && (
-        <ChangeRequestForm
-          vendor={vendor}
-          categories={categories}
-          plants={plants}
-          saving={createMutation.isPending}
-          onSubmit={(data) => createMutation.mutate(data)}
-          onCancel={() => setShowForm(false)}
-        />
-      )}
-
-      {/* ── List ── */}
-      {(changeRequests ?? []).length === 0 && !showForm && (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No change requests yet. Click "Request Change" to propose changes to this vendor.
-          </CardContent>
-        </Card>
-      )}
-
-      {(changeRequests ?? []).map((cr: any) => (
-        <Card key={cr.hash_id} className="overflow-hidden">
-          <div
-            className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
-            onClick={() => setExpandedCR(expandedCR === cr.hash_id ? null : cr.hash_id)}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              {expandedCR === cr.hash_id ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium">CR-{cr.hash_id}</span>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${crStatusCls(cr.status)}`}>
-                    {cr.status.replace('_', ' ')}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground truncate max-w-md">{cr.reason}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs text-muted-foreground">{formatDateTime(cr.created_at)}</span>
-              {cr.status === 'pending' && (
-                <Button
-                  size="sm"
-                  variant="default"
-                  className="gap-1 h-7 text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setSelectingMatrixCR(selectingMatrixCR === cr.hash_id ? null : cr.hash_id)
-                    setSelectedMatrix(null)
-                    setExpandedMatrix(null)
-                  }}
-                  disabled={submittingCR === cr.hash_id}
-                >
-                  {submittingCR === cr.hash_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
-                  {selectingMatrixCR === cr.hash_id ? 'Cancel' : 'Submit'}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* ── Expanded Detail ── */}
-          {expandedCR === cr.hash_id && crDetail && (
-            <div className="border-t px-4 py-3 bg-slate-50/50 space-y-3">
-              <div className="text-xs text-muted-foreground">
-                Requested by <span className="font-medium text-slate-700">{crDetail.created_by_name}</span> on {formatDateTime(crDetail.created_at)}
-                {crDetail.applied_at && <> · Applied {formatDateTime(crDetail.applied_at)}</>}
-              </div>
-              <p className="text-sm"><span className="font-medium">Reason:</span> {crDetail.reason}</p>
-
-              {/* Changes diff table */}
-              <table className="w-full text-xs border rounded-md overflow-hidden">
-                <thead>
-                  <tr className="bg-slate-100 text-muted-foreground">
-                    <th className="text-left px-3 py-2 font-medium">Field</th>
-                    <th className="text-left px-3 py-2 font-medium">Before</th>
-                    <th className="text-left px-3 py-2 font-medium">After</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(crDetail.changed_fields ?? []).map((f: string) => (
-                    <tr key={f} className="border-t">
-                      <td className="px-3 py-2 font-medium text-slate-700">{FIELD_LABELS[f] || f}</td>
-                      <td className="px-3 py-2 text-red-600 line-through">{String(crDetail.before_snapshot?.[f] ?? '—')}</td>
-                      <td className="px-3 py-2 text-green-700 font-medium">{String(crDetail.after_snapshot?.[f] ?? '—')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* ── Matrix Selector for Submit ── */}
-          {selectingMatrixCR === cr.hash_id && (
-            <div className="border-t px-4 py-4 bg-blue-50/40 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Select Approval Matrix</p>
-              {matrices === undefined && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
-                </div>
-              )}
-              {matrices && matrices.length === 0 && (
-                <p className="text-xs text-amber-600 font-medium">No active vendor onboarding matrices configured.</p>
-              )}
-              {matrices && matrices.length > 0 && (
-                <MatrixSelectorTable
-                  matrices={matrices}
-                  selectedMatrix={selectedMatrix}
-                  expandedMatrix={expandedMatrix}
-                  onSelect={(id) => { setSelectedMatrix(id); setExpandedMatrix(id) }}
-                  onToggleExpand={(id) => setExpandedMatrix(prev => (prev === id ? null : id))}
-                />
-              )}
-              <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleSubmitForApproval(cr.hash_id, selectedMatrix ?? undefined)
-                  }}
-                  disabled={submittingCR === cr.hash_id || (matrices && matrices.length > 0 && !selectedMatrix)}
-                >
-                  {submittingCR === cr.hash_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
-                  Submit for Approval
-                </Button>
-              </div>
-            </div>
-          )}
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-function ChangeRequestForm({ vendor, categories, plants, saving, onSubmit, onCancel }: {
-  vendor: any
-  categories: any[]
-  plants: any[]
-  saving: boolean
-  onSubmit: (data: { reason: string; changes: Record<string, any> }) => void
-  onCancel: () => void
-}) {
-  const [form, setForm] = useState({
-    company_name: vendor.company_name ?? '',
-    address: vendor.address ?? '',
-    city: vendor.city ?? '',
-    state: vendor.state ?? '',
-    pincode: vendor.pincode ?? '',
-    contact_name: vendor.contact_name ?? '',
-    contact_email: vendor.contact_email ?? '',
-    contact_phone: vendor.contact_phone ?? '',
-    category: vendor.category ?? '',
-    plant: vendor.plant ?? '',
-  })
-  const [reason, setReason] = useState('')
-
-  const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
-
-  const tf = (key: string, label: string, placeholder?: string) => (
-    <div className="space-y-1.5" key={key}>
-      <Label className="text-xs font-semibold text-slate-700">{label}</Label>
-      <Input
-        value={form[key as keyof typeof form] as string}
-        onChange={e => set(key, e.target.value)}
-        placeholder={placeholder ? `e.g. ${placeholder}` : undefined}
-        className="h-10 text-sm"
-      />
-    </div>
-  )
-
-  // Build changes dict (only fields that differ from current vendor)
-  const buildChanges = (): Record<string, any> => {
-    const changes: Record<string, any> = {}
-    for (const [key, value] of Object.entries(form)) {
-      const current = vendor[key]
-      const currentStr = current == null ? '' : String(current)
-      const newStr = value == null ? '' : String(value)
-      if (currentStr !== newStr) {
-        changes[key] = value || null
-      }
-    }
-    return changes
-  }
-
-  const handleSubmit = () => {
-    const changes = buildChanges()
-    if (Object.keys(changes).length === 0) return
-    onSubmit({ reason, changes })
-  }
-
-  const changeCount = Object.keys(buildChanges()).length
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Propose Changes</CardTitle>
-        <p className="text-xs text-muted-foreground">Edit the fields you want to change. Only modified fields will be included in the request.</p>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {/* Reason */}
-        <div className="space-y-1">
-          <Label className="text-xs">Reason for Change *</Label>
-          <textarea
-            className="w-full border rounded-md p-2 text-sm resize-none h-16"
-            placeholder="Explain why this change is needed…"
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-          />
-        </div>
-
-        {/* General fields */}
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">General Information</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label className="text-xs">Vendor Category</Label>
-              <select
-                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                value={form.category}
-                onChange={e => set('category', e.target.value ? Number(e.target.value) : '')}
-              >
-                <option value="">Select category</option>
-                {categories.map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Plant</Label>
-              <select
-                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                value={form.plant}
-                onChange={e => set('plant', e.target.value ? Number(e.target.value) : '')}
-              >
-                <option value="">Select plant</option>
-                {plants.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Company fields */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tf('company_name', 'Company Name', 'Acme Pvt Ltd')}
-          <div className="space-y-1 sm:col-span-2">
-            <Label className="text-xs">Address</Label>
-            <AddressAutocomplete
-              value={form.address}
-              onChange={v => set('address', v)}
-              onSelect={result => {
-                set('address', result.address)
-                if (result.city) set('city', result.city)
-                if (result.state) set('state', result.state)
-                if (result.pincode) set('pincode', result.pincode)
-              }}
-              placeholder="Start typing an address…"
-              className="h-10 text-sm"
-            />
-          </div>
-          {tf('city', 'City', 'Mumbai')}
-          {tf('state', 'State', 'Maharashtra')}
-          {tf('pincode', 'PIN Code', '400001')}
-        </div>
-
-        {/* Contact fields */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tf('contact_name', 'Contact Person', 'John Doe')}
-          {tf('contact_email', 'Contact Email', 'john@acme.com')}
-          {tf('contact_phone', 'Contact Phone', '+91 98765 43210')}
-        </div>
-
-        {/* Summary + actions */}
-        <div className="flex items-center justify-between pt-2 border-t">
-          <span className="text-xs text-muted-foreground">
-            {changeCount > 0 ? `${changeCount} field${changeCount > 1 ? 's' : ''} changed` : 'No changes detected'}
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
-              <X className="w-3.5 h-3.5" /> Cancel
-            </Button>
-            <Button size="sm" onClick={handleSubmit} disabled={saving || !reason.trim() || changeCount === 0} className="gap-1">
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SendHorizonal className="w-3.5 h-3.5" />}
-              Create Change Request
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
 }
 
 export default function VendorDetailPage() {
@@ -2195,12 +1641,12 @@ export default function VendorDetailPage() {
   const [savingDocs, setSavingDocs] = useState(false)
 
   const initDocFields = () => setDocFields({
-    gst_number:   vendor?.gst_number   ?? '',
-    pan_number:   vendor?.pan_number   ?? '',
+    gst_number: vendor?.gst_number ?? '',
+    pan_number: vendor?.pan_number ?? '',
     bank_account: vendor?.bank_account ?? '',
-    bank_ifsc:    vendor?.bank_ifsc    ?? '',
-    bank_name:    vendor?.bank_name    ?? '',
-    msme_number:  vendor?.msme_number  ?? '',
+    bank_ifsc: vendor?.bank_ifsc ?? '',
+    bank_name: vendor?.bank_name ?? '',
+    msme_number: vendor?.msme_number ?? '',
   })
 
   const setDocField = (key: string, val: string) =>
@@ -2284,7 +1730,7 @@ export default function VendorDetailPage() {
             </Button>
           )}
           <Button variant="ghost" size="sm" onClick={() => router.push('/vendors')} className="gap-1">
-                <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" /> Back
           </Button>
         </div>
       </div>
@@ -2396,14 +1842,64 @@ export default function VendorDetailPage() {
 
             {(() => {
               const docOf = (type: string) => vendor.documents?.find((d: any) => d.doc_type === type) ?? null
-              const blockCls = () =>
-                'grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start'
+              const refreshVendor = async () => {
+                await queryClient.invalidateQueries({ queryKey: ['vendor', id] })
+              }
+              const blockCls = (hasErr: boolean) =>
+                `grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${hasErr ? 'border-destructive/50' : ''}`
+
+              const VerifiedFile = ({ doc: d, onRemove }: { doc: any; onRemove: () => void }) => (
+                <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
+                  <FileText className="w-4 h-4 text-green-600 shrink-0" />
+                  <span className="text-xs truncate flex-1 min-w-0 text-green-800">{d?.original_filename}</span>
+                  <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Verified</span>
+                  {d?.file_url && <a href={d.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-[10px] text-green-600 hover:underline">View</a>}
+                  {canEdit && isEditing && (
+                    <button type="button" onClick={onRemove} className="shrink-0 text-red-400 hover:text-red-600">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )
+
+              const removeDoc = async (d: any) => {
+                if (!d) return
+                try {
+                  await apiClient.delete(`/vendors/${id}/documents/${d.hash_id ?? d.id}/`)
+                  refreshVendor()
+                } catch { /* silent */ }
+              }
+
+              const isVerified = (d: any) => d?.ai_validation_status === 'passed' || d?.ai_validation_status === 'valid'
+
+              const gstDoc = docOf('gst_certificate')
+              const panDoc = docOf('pan_card')
+              const bankDoc = docOf('bank_details')
+
               return <>
 
                 {/* GST */}
-                <div className={`${blockCls()} ${complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate'] ? 'border-destructive/50' : ''}`}>
+                <div className={blockCls(!!(complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate']))}>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">GST Number</Label>
+                    <Label className="text-xs font-semibold text-slate-700">GST Certificate <span className="text-destructive">*</span></Label>
+                    {isVerified(gstDoc) ? (
+                      <VerifiedFile doc={gstDoc} onRemove={() => removeDoc(gstDoc)} />
+                    ) : (
+                      <>
+                        <DocUploadInline vendorId={id} docType="gst_certificate"
+                          doc={gstDoc} editable={canEdit && isEditing}
+                          onRefresh={refreshVendor} setFieldError={(msg) =>
+                            setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))
+                          } />
+                        {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
+                      </>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">
+                      GST Number <span className="text-destructive">*</span>
+                      {isVerified(gstDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                    </Label>
                     <ComplianceFieldInput
                       value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
                       placeholder="e.g. 27AAAAA0000A1Z5"
@@ -2413,19 +1909,30 @@ export default function VendorDetailPage() {
                     />
                     {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">GST Certificate</Label>
-                    <DocUploadInline vendorId={id} docType="gst_certificate"
-                      doc={docOf('gst_certificate')} editable={canEdit && isEditing}
-                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
-                    {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
-                  </div>
                 </div>
 
                 {/* PAN */}
-                <div className={`${blockCls()} ${complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card'] ? 'border-destructive/50' : ''}`}>
+                <div className={blockCls(!!(complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card']))}>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">PAN Number</Label>
+                    <Label className="text-xs font-semibold text-slate-700">PAN Card <span className="text-destructive">*</span></Label>
+                    {isVerified(panDoc) ? (
+                      <VerifiedFile doc={panDoc} onRemove={() => removeDoc(panDoc)} />
+                    ) : (
+                      <>
+                        <DocUploadInline vendorId={id} docType="pan_card"
+                          doc={panDoc} editable={canEdit && isEditing}
+                          onRefresh={refreshVendor} setFieldError={(msg) =>
+                            setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))
+                          } />
+                        {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
+                      </>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">
+                      PAN Number <span className="text-destructive">*</span>
+                      {isVerified(panDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                    </Label>
                     <ComplianceFieldInput
                       value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
                       placeholder="e.g. AAAAA9999A"
@@ -2435,25 +1942,36 @@ export default function VendorDetailPage() {
                     />
                     {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">PAN Card</Label>
-                    <DocUploadInline vendorId={id} docType="pan_card"
-                      doc={docOf('pan_card')} editable={canEdit && isEditing}
-                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
-                    {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
-                  </div>
                 </div>
 
                 {/* Bank Details */}
-                <div className={`${blockCls()} ${complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details'] ? 'border-destructive/50' : ''}`}>
+                <div className={blockCls(!!(complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details']))}>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
+                    {isVerified(bankDoc) ? (
+                      <VerifiedFile doc={bankDoc} onRemove={() => removeDoc(bankDoc)} />
+                    ) : (
+                      <>
+                        <DocUploadInline vendorId={id} docType="bank_details"
+                          doc={bankDoc} editable={canEdit && isEditing}
+                          onRefresh={refreshVendor} setFieldError={(msg) =>
+                            setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
+                          } />
+                        {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
+                      </>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     {[
-                      { key: 'bank_account', label: 'Bank Account No', placeholder: 'e.g. 12345678901234' },
-                      { key: 'bank_ifsc', label: 'Bank IFSC', placeholder: 'e.g. HDFC0001234' },
+                      { key: 'bank_account', label: 'Account No', placeholder: 'e.g. 12345678901234' },
+                      { key: 'bank_ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234' },
                       { key: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
                     ].map(({ key, label, placeholder }) => (
-                      <div key={key} className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-slate-700">{label}</Label>
+                      <div key={key} className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-700">
+                          {label} <span className="text-destructive">*</span>
+                          {isVerified(bankDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                        </Label>
                         <ComplianceFieldInput
                           value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
                           placeholder={placeholder}
@@ -2463,14 +1981,7 @@ export default function VendorDetailPage() {
                         />
                       </div>
                     ))}
-                    {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_bank_account']}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque</Label>
-                    <DocUploadInline vendorId={id} docType="bank_details"
-                      doc={docOf('bank_details')} editable={canEdit && isEditing}
-                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
-                    {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
+                    {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive">{complianceErrors['field_bank_account']}</p>}
                   </div>
                 </div>
 
@@ -2500,7 +2011,7 @@ export default function VendorDetailPage() {
 
                 {/* MSME (conditional) */}
                 {vendor.is_msme && (
-                  <div className={`${blockCls()} ${complianceErrors['field_msme_number'] || complianceErrors['doc_msme_certificate'] ? 'border-destructive/50' : ''}`}>
+                  <div className={blockCls(!!(complianceErrors['field_msme_number'] || complianceErrors['doc_msme_certificate']))}>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-700">MSME Number</Label>
                       <ComplianceFieldInput
@@ -2524,7 +2035,7 @@ export default function VendorDetailPage() {
 
                 {/* SEZ (conditional) */}
                 {vendor.is_sez && (
-                  <div className={blockCls()}>
+                  <div className={blockCls(false)}>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-700">SEZ Unit</Label>
                       <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
@@ -2539,16 +2050,15 @@ export default function VendorDetailPage() {
                 )}
 
                 {/* Incorporation */}
-                <div className={blockCls()}>
+                <div className={blockCls(false)}>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700">Incorporation Certificate</Label>
-                    <p className="text-sm text-muted-foreground">Company registration / MOA documents</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">Upload Document</Label>
                     <DocUploadInline vendorId={id} docType="incorporation"
                       doc={docOf('incorporation')} editable={canEdit && isEditing}
                       onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground mt-6">Company registration / MOA documents. Optional.</p>
                   </div>
                 </div>
 

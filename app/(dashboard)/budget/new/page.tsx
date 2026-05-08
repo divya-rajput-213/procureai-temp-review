@@ -21,16 +21,34 @@ import { normalizeLeadingWhitespace } from '@/lib/utils'
 const ALPHANUM_WITH_SPACES_DASH_UNDERSCORE = /^[a-z0-9 _-]+$/i
 
 const schema = z.object({
-  title: z.string().trim().min(3, 'Title is required').regex(ALPHANUM_WITH_SPACES_DASH_UNDERSCORE, 'Title must be alphanumeric (spaces, - and _ allowed)').refine(v => /[a-z]/i.test(v), 'Title cannot contain only numeric values'),
+  title: z.string().trim().min(3, 'Title is required')
+    .regex(ALPHANUM_WITH_SPACES_DASH_UNDERSCORE, 'Title must be alphanumeric (spaces, - and _ allowed)')
+    .refine(v => /[a-z]/i.test(v), 'Title cannot contain only numeric values'),
+
   priority: z.enum(['low', 'medium', 'high']),
   plant: z.number({ required_error: 'Plant is required' }),
   department: z.number({ required_error: 'Department is required' }),
-  description: z.string().trim().min(10, 'Description must be at least 10 characters').max(500, 'Description cannot exceed 500 characters'),
+
+  description: z.string().trim().min(10, 'Description must be at least 10 characters')
+    .max(500, 'Description cannot exceed 500 characters'),
+
   requested_amount: z
     .number({ invalid_type_error: 'Enter a valid amount' })
     .min(1000, 'Minimum budget is ₹1,000')
     .max(100_000_000, 'Maximum budget is ₹10 Crore'),
+  preferred_vendor_ids: z
+    .array(z.number())
+    .default([])
+    .refine(arr => arr.length > 0, {
+      message: 'Please select at least one vendor',
+    })
+    .refine(arr => arr.length <= 5, {
+      message: 'You can select maximum 5 vendors',
+    }),
+
+
 })
+
 
 type FormData = z.infer<typeof schema>
 
@@ -66,20 +84,12 @@ export default function NewBudgetPage() {
     queryKey: ['plants'],
     queryFn: async () => { const r = await apiClient.get('/users/plants/'); return r.data.results ?? r.data },
   })
+
   const { data: departments } = useQuery({
     queryKey: ['departments'],
     queryFn: async () => { const r = await apiClient.get('/users/departments/'); return r.data.results ?? r.data },
   })
-  const { data: vendors } = useQuery({
-    queryKey: ['vendors-approved', normalizedVendorSearch],
-    queryFn: async () => {
-      const params = new URLSearchParams({ status: 'approved' })
-      if (normalizedVendorSearch) params.set('search', normalizedVendorSearch)
-      const r = await apiClient.get(`/vendors/?${params}`)
-      return r.data.results ?? r.data
-    },
-    enabled: showVendorSearch && normalizedVendorSearch.length >= 2,
-  })
+
   const { data: matrices } = useQuery({
     queryKey: ['approval-matrices', 'budget_approval'],
     queryFn: async () => {
@@ -96,39 +106,59 @@ export default function NewBudgetPage() {
     resolver: zodResolver(schema),
     mode: 'onChange',
     reValidateMode: 'onChange',
-    defaultValues: { priority: 'medium' },
+    defaultValues: { priority: 'medium', preferred_vendor_ids: [], },
   })
-  
-  
+  const watchedPlant = watch('plant')
+
   const watchedPriority = watch('priority')
   const watchedAmount = watch('requested_amount')
+  const { data: vendors } = useQuery({
+  queryKey: ['vendors-approved', normalizedVendorSearch, watchedPlant],
+  queryFn: async () => {
+    const params = new URLSearchParams({
+      status: 'approved',
+    })
+
+    if (watchedPlant) {
+      params.set('plant', String(watchedPlant))
+    }
+
+    if (normalizedVendorSearch) {
+      params.set('search', normalizedVendorSearch)
+    }
+
+    const r = await apiClient.get(`/vendors/?${params.toString()}`)
+    return r.data.results ?? r.data
+  },
+  enabled: showVendorSearch && normalizedVendorSearch.length >= 2,
+})
 
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const mode = submitModeRef.current
-  
+
       const payload: Record<string, any> = {
         ...data,
         preferred_vendor_ids: selectedVendors.map(v => v.id),
         status: mode === 'approval' ? 'pending_approval' : 'draft',
       }
-  
+
       //  send matrix only in approval mode
       if (mode === 'approval' && selectedMatrix) {
         payload.matrix_id = selectedMatrix
       }
-  
+
       const response = await apiClient.post(
         '/budget/tracking-ids/',
         payload
       )
-  
+
       const budget =
         response.data?.data ?? response.data
-  
+
       return { budget, mode }
     },
-  
+
     onSuccess: ({ budget, mode }) => {
       toast({
         title:
@@ -136,38 +166,66 @@ export default function NewBudgetPage() {
             ? `Budget submitted for approval.`
             : `Budget saved as draft.`,
       })
-  
+
       router.push('/budget')
     },
-  
+
     onError: (err: any) => {
       const errors = err?.response?.data
-    
+
       let message = 'Something went wrong'
-    
+
       if (errors && typeof errors === 'object') {
         message = Object.entries(errors)
           .map(([field, msgs]: any) => `${field}: ${msgs.join(', ')}`)
           .join('\n')
       }
-    
+
       toast({
         title: 'Submission failed',
         description: message,
         variant: 'destructive',
       })
     }
-    
+
   })
-  
+
   const addVendor = (v: any) => {
-    if (!selectedVendors.some(x => x.id === v.id)) {
-      setSelectedVendors(prev => [...prev, v])
+    if (selectedVendors.length >= 5) {
+      toast({
+        title: 'Limit reached',
+        description: 'You can select maximum 5 vendors',
+        variant: 'destructive',
+      })
+      return
     }
+
+    if (!selectedVendors.some(x => x.id === v.id)) {
+      const updated = [...selectedVendors, v]
+      setSelectedVendors(updated)
+
+      setValue(
+        'preferred_vendor_ids',
+        updated.map(v => v.id),
+        { shouldValidate: true }
+      )
+    }
+
     setShowVendorSearch(false)
     setVendorSearch('')
   }
-  const removeVendor = (id: number) => setSelectedVendors(prev => prev.filter(v => v.id !== id))
+
+
+  const removeVendor = (id: number) => {
+    const updated = selectedVendors.filter(v => v.id !== id)
+    setSelectedVendors(updated)
+
+    setValue(
+      'preferred_vendor_ids',
+      updated.map(v => v.id),
+      { shouldValidate: true }
+    )
+  }
 
   const handleDraft = handleSubmit(data => {
     submitModeRef.current = 'draft'
@@ -295,7 +353,7 @@ export default function NewBudgetPage() {
             </div>
 
             {/* Description */}
-            <div className="space-y-1.5">
+            <div className="space-y-0">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">
                   Description <span className="text-destructive">*</span>
@@ -318,34 +376,25 @@ export default function NewBudgetPage() {
                 className={textareaCls}
                 placeholder="Brief description of what you need..."
               />
-              <div className="flex items-center justify-between">
                 {errors.description
-                  ? <p className="text-xs text-destructive">{errors.description.message}</p>
+                  ? <p className="text-xs text-destructive mt-0">{errors.description.message}</p>
                   : <span />}
-              </div>
             </div>
 
             {/* Priority / Plant / Department */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-0">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Priority <span className="text-destructive">*</span></Label>
-                <div className="flex gap-2">
-                  {PRIORITY_OPTS.map(p => {
-                    const isSelected = watchedPriority === p.value
-                    const cls = isSelected
-                      ? `${p.color} border-current shadow-sm`
-                      : 'border-input text-muted-foreground hover:border-slate-300 hover:text-foreground'
-                    return (
-                      <label key={p.value} className={`flex-1 border rounded-lg px-2 py-2.5 cursor-pointer text-center text-xs font-semibold transition-all ${cls}`}>
-                        <input type="radio" value={p.value} {...register('priority')} className="sr-only" />
-                        {p.label}
-                      </label>
-                    )
-                  })}
-                </div>
+                <select className="w-full h-10 border rounded-md px-3 text-sm bg-background" {...register('priority')}>
+                  <option value="">Select priority</option>
+                  {PRIORITY_OPTS.map(p => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+                {errors.priority && <p className="text-xs text-destructive mt-1">{errors.priority.message}</p>}
               </div>
 
-              <div className="space-y-0">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Plant <span className="text-destructive">*</span></Label>
                 <select className={selectCls} onChange={e =>
                   setValue('plant', Number(e.target.value), {
@@ -361,7 +410,7 @@ export default function NewBudgetPage() {
                 {errors.plant && <p className="text-xs text-destructive">{errors.plant.message}</p>}
               </div>
 
-              <div className="space-y-0">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Department <span className="text-destructive">*</span></Label>
                 <select className={selectCls} onChange={e =>
                   setValue('department', Number(e.target.value), {
@@ -388,11 +437,10 @@ export default function NewBudgetPage() {
                     key={amt}
                     type="button"
                     onClick={() => setValue('requested_amount', amt, { shouldValidate: true })}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                      watchedAmount === amt
-                        ? 'bg-primary text-white border-primary'
-                        : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
-                    }`}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${watchedAmount === amt
+                      ? 'bg-primary text-white border-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                      }`}
                   >
                     {amt >= 100000 ? `${currencySymbol}${amt / 100000}L` : `${currencySymbol}${amt / 1000}K`}
                   </button>
@@ -401,30 +449,31 @@ export default function NewBudgetPage() {
               <div className="max-w-xs space-y-1.5">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium select-none">{currencySymbol}</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    min={1000}
-                    max={100000000}
-                    placeholder="0"
-                    className={amountInputCls}
-                    {...register('requested_amount', {
-                      setValueAs: value => {
-                        const raw = String(value ?? '').trim()
-                        if (!raw) return undefined
-                        const intPart = raw.split('.')[0] || '0'
-                        const intVal = Number(intPart)
-                        if (Number.isNaN(intVal)) return undefined
-                        if (intVal < 1000) return intVal
-                        return Number(raw)
-                      },
-                      max: { value: 100_000_000, message: 'Maximum budget is ₹10 Crore' },
-                    })}
-                    onInput={e => {
-                      const el = e.currentTarget
-                      if (Number(el.value) > 100_000_000) el.value = '100000000'
-                    }}
-                  />
+                 <Input
+  type="number"
+  step="1"
+  min={1000}
+  max={100000000}
+  placeholder="0"
+  className={`${amountInputCls} focus:ring-0 focus:outline-none focus:border-gray-300 border-gray-300`}
+  {...register('requested_amount', {
+    setValueAs: value => {
+      const raw = String(value ?? '').trim()
+      if (!raw) return undefined
+      const intPart = raw.split('.')[0] || '0'
+      const intVal = Number(intPart)
+      if (Number.isNaN(intVal)) return undefined
+      if (intVal < 1000) return intVal
+      return Number(raw)
+    },
+    max: { value: 100_000_000, message: 'Maximum budget is ₹10 Crore' },
+  })}
+  onInput={e => {
+    const el = e.currentTarget
+    if (Number(el.value) > 100_000_000) el.value = '100000000'
+  }}
+/>
+
                 </div>
                 {errors.requested_amount && (
                   <p className="text-xs text-destructive flex items-center gap-1">
@@ -442,17 +491,28 @@ export default function NewBudgetPage() {
         <Card className="shadow-sm">
           <CardHeader className="pb-4 border-b">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Preferred Vendors</CardTitle>
-              <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Optional</span>
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Preferred Vendors <span className="text-destructive">*</span>
+              </CardTitle>
+
+              <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                Required
+              </span>
+
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               List vendors you'd prefer to source from. Finance may suggest alternatives during review.
             </p>
           </CardHeader>
-          <CardContent className="pt-5 space-y-3">
+          <CardContent className="pt-5 space-y-2">
             <div className="relative">
               <Input
-                placeholder="Search approved vendors..."
+                disabled={selectedVendors.length >= 5}
+                placeholder={
+                  selectedVendors.length >= 5
+                    ? 'Maximum 5 vendors can be select'
+                    : 'Search approved vendors...'
+                }
                 value={vendorSearch}
                 onChange={e => {
                   const nextValue = e.target.value
@@ -489,6 +549,11 @@ export default function NewBudgetPage() {
                 </div>
               )}
             </div>
+            {errors.preferred_vendor_ids && (
+              <p className="text-xs text-destructive">
+                {errors.preferred_vendor_ids.message}
+              </p>
+            )}
 
             {selectedVendors.length > 0 && (
               <div className="border border-border rounded-lg overflow-hidden">
@@ -508,24 +573,25 @@ export default function NewBudgetPage() {
                       if (v.city && v.state) location = `${v.city}, ${v.state}`
                       else if (v.city) location = v.city
                       return (
-                      <tr key={v.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-3 py-2.5 font-medium text-foreground">{v.company_name}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                          {location}
-                        </td>
-                        <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{v.contact_email || '—'}</td>
-                        <td className="px-3 py-2.5 text-center">
-                          <button
-                            type="button"
-                            onClick={() => removeVendor(v.id)}
-                            className="text-muted-foreground hover:text-destructive transition-colors"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    )})}
+                        <tr key={v.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-3 py-2.5 font-medium text-foreground">{v.company_name}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
+                            {location}
+                          </td>
+                          <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{v.contact_email || '—'}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => removeVendor(v.id)}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
 
                   </tbody>
                 </table>
@@ -541,7 +607,7 @@ export default function NewBudgetPage() {
               <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
               <p className="text-xs text-muted-foreground mt-1">Choose the approval workflow for this budget request.</p>
             </CardHeader>
-            <CardContent className="pt-5">
+            <CardContent className="pt-5 space-y-3">
               {!matrices && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                   <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices...
@@ -551,13 +617,64 @@ export default function NewBudgetPage() {
                 <p className="text-xs text-amber-600 font-medium">No active budget approval matrices configured.</p>
               )}
               {matrices && matrices.length > 0 && (
-                <MatrixSelectorTable
-                  matrices={matrices}
-                  selectedMatrix={selectedMatrix}
-                  expandedMatrix={expandedMatrix}
-                  onSelect={id => { setSelectedMatrix(id); setExpandedMatrix(id) }}
-                  onToggleExpand={toggleMatrixExpand}
-                />
+                <>
+                  <div>
+                    <Label className="text-sm font-medium">Approval Matrix <span className="text-destructive">*</span></Label>
+                    <select
+                      className="w-full h-10 border rounded-md px-3 text-sm bg-background mt-1"
+                      value={selectedMatrix ?? ''}
+                      onChange={e => {
+                        const id = Number(e.target.value) || null
+                        setSelectedMatrix(id)
+                        setExpandedMatrix(id)
+                      }}>
+                      <option value="">Select approval matrix</option>
+                      {matrices.map((m: any) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.levels?.length ?? 0} level{(m.levels?.length ?? 0) === 1 ? '' : 's'})
+                          {m.plant_name ? ` — ${m.plant_name}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Show level details when a matrix is selected */}
+                  {selectedMatrix && (() => {
+                    const matrix = matrices.find((m: any) => m.id === selectedMatrix)
+                    if (!matrix?.levels?.length) return null
+                    return (
+                      <div className="border rounded-lg overflow-hidden bg-muted/30">
+                        <div className="px-4 py-2.5 border-b bg-slate-50">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Approval Levels — {matrix.name}</p>
+                        </div>
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-muted-foreground border-b">
+                              <th className="text-left px-4 py-2 font-semibold w-12">Level</th>
+                              <th className="text-left px-4 py-2 font-semibold">Approver</th>
+                              <th className="text-left px-4 py-2 font-semibold">Role</th>
+                              <th className="text-right px-4 py-2 font-semibold w-16">SLA</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/60">
+                            {matrix.levels.map((lv: any) => (
+                              <tr key={lv.id}>
+                                <td className="px-4 py-2">
+                                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs">
+                                    {lv.level_number}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 font-medium">{lv.user_name ?? '—'}</td>
+                                <td className="px-4 py-2 text-muted-foreground">{lv.role_name ?? '—'}</td>
+                                <td className="px-4 py-2 text-right text-muted-foreground">{lv.sla_hours ? `${lv.sla_hours}h` : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })()}
+                </>
               )}
             </CardContent>
           </Card>
