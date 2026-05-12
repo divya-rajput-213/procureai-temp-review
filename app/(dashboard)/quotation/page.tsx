@@ -573,7 +573,7 @@ export default function QuotationPage() {
                                                     >
                                                         {actionLabel}
                                                     </Button>
-                                                    {q.status === 'Pending' && (
+                                                    {q.status === 'draft' && (
                                                         <Button
                                                             type="button"
                                                             variant="ghost"
