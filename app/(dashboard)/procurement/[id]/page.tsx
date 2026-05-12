@@ -21,7 +21,6 @@ import apiClient from '@/lib/api/client'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import ComparisonTab from '../components/ComparisonTab'
-import QuotationsTab from '../components/QuotationsTab'
 
 // ─── Approval Timeline ─────────────────────────────────────────────────────────
 
@@ -1154,7 +1153,7 @@ export default function PRDetailPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<'details' | 'quotations' | 'approval' | 'comparison'>('details')
+  const [activeTab, setActiveTab] = useState<  'approval' | 'comparison'>('approval')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
@@ -1173,7 +1172,7 @@ export default function PRDetailPage() {
   useEffect(() => {
     if (pr && !initialTabSet.current) {
       initialTabSet.current = true
-      setActiveTab('details')
+      setActiveTab('approval')
     }
   }, [pr])
 
@@ -1244,10 +1243,11 @@ export default function PRDetailPage() {
   }
 
   const TABS = [
-    { key: 'details' as const, label: 'Details' },
-    { key: 'quotations' as const, label: 'Quotations' },
+    // { key: 'details' as const, label: 'Details' },
+    // { key: 'quotations' as const, label: 'Quotations' },
     { key: 'approval' as const, label: 'Approval' },
     { key: 'comparison' as const, label: 'Comparison' },
+   
   ]
 
   return (
@@ -1267,7 +1267,7 @@ export default function PRDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {pr.status === 'draft' && !isEditing && activeTab === "details" && (
+          {pr.status === 'draft' && !isEditing && activeTab === "comparison" && (
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1.5">
               <Pencil className="w-3.5 h-3.5" /> Edit
             </Button>
@@ -1298,182 +1298,7 @@ export default function PRDetailPage() {
         ))}
       </div>
 
-      {/* ── Details Tab ── */}
-      {activeTab === 'details' && isEditing && (
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Edit Purchase Requisition</CardTitle></CardHeader>
-          <CardContent>
-            <EditPRForm
-              pr={pr}
-              plants={plants ?? []}
-              departments={departments ?? []}
-              trackingIds={trackingIds ?? []}
-              onSave={data => editMutation.mutate(data)}
-              onCancel={() => setIsEditing(false)}
-              saving={editMutation.isPending}
-            />
-          </CardContent>
-        </Card>
-      )}
-      {activeTab === 'details' && !isEditing && (
-        <div className="space-y-4">
-
-          {/* ── PR Dashboard ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Total Value */}
-            <div className="col-span-2 lg:col-span-1 border rounded-xl p-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Total Value</p>
-              <p className="text-2xl font-bold text-primary">{formatCurrency(pr.total_amount, pr.currency_code)}</p>
-              <p className="text-xs text-muted-foreground">{pr.currency_code} · {pr.purchase_type || 'General'}</p>
-            </div>
-            {/* Line Items */}
-            <div className="border rounded-xl p-4 bg-blue-50/50 border-blue-100 space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Line Items</p>
-              <p className="text-2xl font-bold text-blue-700">{pr.line_items?.length ?? 0}</p>
-              <p className="text-xs text-muted-foreground">items in requisition</p>
-            </div>
-            {/* Invited Vendors */}
-            <div className="border rounded-xl p-4 bg-violet-50/50 border-violet-100 space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Invited Vendors</p>
-              <p className="text-2xl font-bold text-violet-700">{pr.invited_vendors_detail?.length ?? 0}</p>
-              <p className="text-xs text-muted-foreground">vendors invited to bid</p>
-            </div>
-            {/* Status */}
-            <div className="border rounded-xl p-4 bg-slate-50 border-slate-200 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Status</p>
-              <StatusBadge status={pr.status} />
-              {pr.approved_at && (
-                <p className="text-xs text-muted-foreground">Approved {formatDate(pr.approved_at)}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Selected Vendor / SAP banner */}
-          {(pr.selected_vendor_name || pr.sap_pr_number) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {pr.selected_vendor_name && (
-                <div className="flex items-center gap-3 border border-green-200 bg-green-50/60 rounded-xl px-4 py-3">
-                  <Trophy className="w-4 h-4 text-green-600 shrink-0" />
-                  <div>
-                    <p className="text-xs text-green-700 font-medium">Selected Vendor</p>
-                    <p className="text-sm font-semibold text-green-900">{pr.selected_vendor_name}</p>
-                  </div>
-                </div>
-              )}
-              {pr.sap_pr_number && (
-                <div className="flex items-center gap-3 border border-slate-200 bg-slate-50 rounded-xl px-4 py-3">
-                  <CheckCircle className="w-4 h-4 text-slate-500 shrink-0" />
-                  <div>
-                    <p className="text-xs text-muted-foreground font-medium">SAP PR Number</p>
-                    <p className="text-sm font-mono font-semibold">{pr.sap_pr_number}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Key Info */}
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Requisition Details</CardTitle></CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
-                <div>
-                  <dt className="text-xs text-muted-foreground">Plant</dt>
-                  <dd className="font-medium mt-0.5">{pr.plant_name || '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Department</dt>
-                  <dd className="font-medium mt-0.5">{pr.department_name || '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Created On</dt>
-                  <dd className="font-medium mt-0.5">{formatDate(pr.created_at)}</dd>
-                </div>
-                {pr.tracking_code && (
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Budget Tracking</dt>
-                    <dd className="font-mono font-medium mt-0.5">{pr.tracking_code}</dd>
-                  </div>
-                )}
-                {pr.sap_po_number && (
-                  <div>
-                    <dt className="text-xs text-muted-foreground">SAP PO#</dt>
-                    <dd className="font-mono font-medium mt-0.5">{pr.sap_po_number}</dd>
-                  </div>
-                )}
-              </dl>
-              {pr.description && (
-                <div className="mt-3 pt-3 border-t">
-                  <p className="text-xs text-muted-foreground mb-1">Description</p>
-                  <p className="text-sm leading-relaxed">{pr.description}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Budget Info */}
-          {pr.budget_info && (
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-md border border-blue-200 bg-blue-50/60 px-3 py-2 text-xs">
-              <span className="font-medium text-blue-700">Budget</span>
-              <span className="font-mono text-muted-foreground">{pr.budget_info.tracking_code}</span>
-              <span className="text-muted-foreground">Approved: <span className="font-semibold text-foreground">{formatCurrency(pr.budget_info.approved_amount)}</span></span>
-              <span className="text-muted-foreground">Consumed: <span className="font-semibold text-foreground">{formatCurrency(pr.budget_info.consumed_amount)}</span></span>
-              <span className="text-muted-foreground">Remaining: <span className={`font-semibold ${Number(pr.budget_info.remaining_amount) > 0 ? 'text-green-700' : 'text-red-600'}`}>{formatCurrency(pr.budget_info.remaining_amount)}</span></span>
-            </div>
-          )}
-
-          {/* Invited Vendors */}
-          {pr.invited_vendors_detail?.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Invited Vendors</CardTitle></CardHeader>
-              <CardContent>
-                <div className="border border-border rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50 border-b border-border">
-                      <tr>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Email</th>
-                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {(pr.invited_vendors_detail as any[]).map((v: any) => (
-                        <tr key={v.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-3 py-2.5 font-medium text-foreground">{v.company_name}</td>
-                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
-                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                            {v.city ? [v.city, v.state].filter(Boolean).join(', ') : '—'}
-                          </td>
-                          <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{v.contact_email || '—'}</td>
-                          <td className="px-3 py-2.5 hidden md:table-cell">
-                            {v.status && (
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${v.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
-                                {v.status}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Line Items */}
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Line Items</CardTitle></CardHeader>
-            <CardContent>
-              <LineItemsTable items={pr.line_items ?? []} currencyCode={pr.currency_code} />
-            </CardContent>
-          </Card>
-
-        </div>
-      )}
-
+  
       {/* ── Approval Tab ── */}
       {activeTab === 'approval' && (
         <div className="space-y-4">
@@ -1489,8 +1314,6 @@ export default function PRDetailPage() {
           )}
         </div>
       )}
-      {/* ── Quotations Tab (per-quotation breakdown) ── */}
-      {activeTab === 'quotations' && <QuotationsTab linkedQuotations={pr.linked_quotations ?? []} />}
 
       {/* ── Comparison Tab ── */}
       {activeTab === 'comparison' && <ComparisonTab prId={pr.id} />}
