@@ -6,9 +6,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Loader2, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import DeleteDialog from '@/components/shared/CommonModal'
 import { useToast } from '@/components/ui/use-toast'
 import apiClient from '@/lib/api/client'
 import AIAnalysisPanel from '../components/AIAnalysisPanel'
@@ -38,6 +39,8 @@ const mergeTerms = (terms: string[]) => {
   }
   return merged
 }
+
+const UNIT_OPTIONS = ['EA', 'KG', 'LTR', 'MTR', 'PCS', 'SET', 'BOX', 'BAG', 'TON', 'NOS'] as const
 
 type ExtractedLineItem = {
   id?: number | string
@@ -271,8 +274,13 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const [editQuotationDate, setEditQuotationDate] = useState('')
   const [editTerms, setEditTerms] = useState('')
   const [editItems, setEditItems] = useState<ExtractedLineItem[]>([])
+  const [rateErrors, setRateErrors] = useState<(string | null)[]>([])
+  const [amountErrors, setAmountErrors] = useState<(string | null)[]>([])
+  const [hsnErrors, setHsnErrors] = useState<(string | null)[]>([])
   const [editPlantId, setEditPlantId] = useState<string>('')
   const [editDepartmentId, setEditDepartmentId] = useState<string>('')
+  const [deleteItemOpen, setDeleteItemOpen] = useState(false)
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null)
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -316,12 +324,18 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       master_item_id: master.id,
     }
     setEditItems(prev => [...prev, newItem])
+    setRateErrors(prev => [...prev, null])
+    setAmountErrors(prev => [...prev, null])
+    setHsnErrors(prev => [...prev, null])
     setAddItemOpen(false)
     setItemSearch('')
   }
 
   const editMutation = useMutation({
     mutationFn: async () => {
+      if (rateErrors.some(Boolean) || amountErrors.some(Boolean) || hsnErrors.some(Boolean)) {
+        throw new Error('Item price must be positive.')
+      }
       const payload = {
         quotation_no: editQuotationNo || null,
         quotation_date: editQuotationDate || null,
@@ -361,7 +375,11 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     setEditQuotationNo(quotation.quotation_no === '—' ? '' : quotation.quotation_no)
     setEditQuotationDate(quotation.quotation_date === '—' ? '' : quotation.quotation_date)
     setEditTerms(mergeTerms(quotation.terms).join('\n'))
-    setEditItems(items.map(it => ({ ...it })))
+    const nextItems = items.map(it => ({ ...it }))
+    setEditItems(nextItems)
+    setRateErrors(nextItems.map(() => null))
+    setAmountErrors(nextItems.map(() => null))
+    setHsnErrors(nextItems.map(() => null))
     setEditPlantId(quotation.plant_id ? String(quotation.plant_id) : '')
     setEditDepartmentId(quotation.department_id ? String(quotation.department_id) : '')
     setIsEditing(true)
@@ -393,12 +411,29 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
   const removeEditItem = (idx: number) => {
     setEditItems(prev => prev.filter((_, i) => i !== idx))
+    setRateErrors(prev => prev.filter((_, i) => i !== idx))
+    setAmountErrors(prev => prev.filter((_, i) => i !== idx))
+    setHsnErrors(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const requestRemoveEditItem = (idx: number) => {
+    setPendingDeleteIndex(idx)
+    setDeleteItemOpen(true)
+  }
+
+  const confirmRemoveEditItem = () => {
+    if (pendingDeleteIndex != null) removeEditItem(pendingDeleteIndex)
+    setDeleteItemOpen(false)
+    setPendingDeleteIndex(null)
   }
 
   // Reset edit state if data refetches while not editing (e.g. status changed)
   useEffect(() => {
     if (!isEditing) {
       setEditItems(items.map(it => ({ ...it })))
+      setRateErrors([])
+      setAmountErrors([])
+      setHsnErrors([])
     }
   }, [items, isEditing])
 
@@ -641,21 +676,43 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               </div>
 
               {/* Table */}
-              <div className="max-h-[400px] overflow-auto">
-                <div className="min-w-[900px]">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                      <tr>
-                        <th className="p-2 text-left">Item</th>
-                        <th className="p-2 text-left">HSN</th>
-                        <th className="p-2 text-left">Qty</th>
-                        <th className="p-2 text-left">Unit</th>
-                        <th className="p-2 text-left">Rate</th>
-                        <th className="p-2 text-left">Amount</th>
-                        {isEditing && <th className="py-2 px-3" />}
-                      </tr>
-                    </thead>
+              <div className="min-w-[900px]">
+                {/* Header (fixed) */}
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col />
+                    <col className="w-28" />
+                    <col className="w-20" />
+                    <col className="w-24" />
+                    <col className="w-28" />
+                    <col className="w-32" />
+                    {isEditing && <col className="w-12" />}
+                  </colgroup>
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <tr>
+                      <th className="p-2 text-left">Item</th>
+                      <th className="p-2 text-left">HSN</th>
+                      <th className="p-2 text-left">Qty</th>
+                      <th className="p-2 text-left">Unit</th>
+                      <th className="p-2 text-left">Rate</th>
+                      <th className="p-2 text-left">Amount</th>
+                      {isEditing && <th className="py-2 px-3" />}
+                    </tr>
+                  </thead>
+                </table>
 
+                {/* Body (scroll only here) */}
+                <div className="max-h-[400px] overflow-auto">
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col />
+                      <col className="w-28" />
+                      <col className="w-20" />
+                      <col className="w-24" />
+                      <col className="w-28" />
+                      <col className="w-32" />
+                      {isEditing && <col className="w-12" />}
+                    </colgroup>
                     <tbody>
                       {displayItems.length === 0 ? (
                         <tr>
@@ -697,13 +754,41 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2">
                               {isEditing ? (
-                                <Input
-                                  type="text"
-                                  className="h-9 text-sm w-28"
-                                  value={item.hsn_sac === '—' ? '' : item.hsn_sac}
-                                  onChange={e => updateEditItem(globalIndex, { hsn_sac: e.target.value })}
-                                  placeholder="HSN"
-                                />
+                                <div className="relative group w-full">
+                                  <Input
+                                    type="text"
+                                    className={`h-9 text-sm w-full ${hsnErrors[globalIndex] ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                                    value={item.hsn_sac === '—' ? '' : item.hsn_sac}
+                                    onChange={e => {
+                                      const next = e.target.value
+                                      updateEditItem(globalIndex, { hsn_sac: next })
+
+                                      const trimmed = next.trim()
+                                      if (trimmed.length === 0) {
+                                        setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
+                                        return
+                                      }
+
+                                      if (!/^\d+$/.test(trimmed)) {
+                                        setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? 'HSN must contain only digits.' : v))
+                                        return
+                                      }
+
+                                      if (trimmed.length > 8) {
+                                        setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? 'HSN must be exactly 8 digits.' : v))
+                                        return
+                                      }
+
+                                      setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
+                                    }}
+                                    placeholder="HSN"
+                                  />
+                                  {hsnErrors[globalIndex] && (
+                                    <div className="absolute left-0 top-full z-50 mt-1 whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-xs text-white shadow-lg opacity-0 pointer-events-none group-hover:opacity-100">
+                                      {hsnErrors[globalIndex]}
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-muted-foreground">{item.hsn_sac}</span>
                               )}
@@ -715,7 +800,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                                   type="number"
                                   min="1"
                                   step="1"
-                                  className="h-9 text-sm w-20 text-right"
+                                  className="h-9 text-sm w-full text-right"
                                   value={item.quantity}
                                   onChange={e => updateEditItem(globalIndex, { quantity: Number(e.target.value) })}
                                 />
@@ -726,13 +811,19 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2">
                               {isEditing ? (
-                                <Input
-                                  type="text"
-                                  className="h-9 text-sm w-20"
+                                <select
+                                  className="h-9 text-sm w-full border border-input rounded-md px-3 bg-background"
                                   value={item.unit === '—' ? '' : item.unit}
                                   onChange={e => updateEditItem(globalIndex, { unit: e.target.value })}
-                                  placeholder="Unit"
-                                />
+                                >
+                                  <option value="" disabled>Select</option>
+                                  {item.unit && item.unit !== '—' && !UNIT_OPTIONS.includes(item.unit as any) && (
+                                    <option value={item.unit}>{item.unit}</option>
+                                  )}
+                                  {UNIT_OPTIONS.map(u => (
+                                    <option key={u} value={u}>{u}</option>
+                                  ))}
+                                </select>
                               ) : (
                                 <span className="text-muted-foreground">{item.unit}</span>
                               )}
@@ -740,14 +831,27 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2">
                               {isEditing ? (
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  className="h-9 text-sm w-28 text-right"
-                                  value={item.price_per_unit}
-                                  onChange={e => updateEditItem(globalIndex, { price_per_unit: Number(e.target.value) })}
-                                />
+                                <div className="w-full">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="h-9 text-sm w-full text-right"
+                                    value={item.price_per_unit}
+                                    onChange={e => {
+                                      const next = Number(e.target.value)
+                                      if (Number.isFinite(next) && next < 0) {
+                                        setRateErrors(prev => prev.map((v, i) => i === globalIndex ? 'Item price must be positive.' : v))
+                                        return
+                                      }
+                                      setRateErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
+                                      updateEditItem(globalIndex, { price_per_unit: next })
+                                    }}
+                                  />
+                                  {rateErrors[globalIndex] && (
+                                    <p className="mt-1 text-xs text-destructive">{rateErrors[globalIndex]}</p>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="tabular-nums">{formatINR(item.price_per_unit)}</span>
                               )}
@@ -755,21 +859,31 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
                             <td className="p-2 tabular-nums">
                               {isEditing ? (
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  className="h-9 text-sm w-32 text-right"
-                                  value={Number(lineAmount || 0)}
-                                  onChange={e => {
-                                    const nextAmount = Number(e.target.value)
-                                    const qty = Number(item.quantity || 0)
-                                    updateEditItem(globalIndex, {
-                                      amount: nextAmount,
-                                      price_per_unit: qty > 0 ? nextAmount / qty : 0,
-                                    })
-                                  }}
-                                />
+                                <div className="w-full">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="h-9 text-sm w-full text-right"
+                                    value={Number(lineAmount || 0)}
+                                    onChange={e => {
+                                      const nextAmount = Number(e.target.value)
+                                      if (Number.isFinite(nextAmount) && nextAmount < 0) {
+                                        setAmountErrors(prev => prev.map((v, i) => i === globalIndex ? 'Item price must be positive.' : v))
+                                        return
+                                      }
+                                      setAmountErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
+                                      const qty = Number(item.quantity || 0)
+                                      updateEditItem(globalIndex, {
+                                        amount: nextAmount,
+                                        price_per_unit: qty > 0 ? nextAmount / qty : 0,
+                                      })
+                                    }}
+                                  />
+                                  {amountErrors[globalIndex] && (
+                                    <p className="mt-1 text-xs text-destructive">{amountErrors[globalIndex]}</p>
+                                  )}
+                                </div>
                               ) : (
                                 formatINR(lineAmount)
                               )}
@@ -782,7 +896,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                                   variant="ghost"
                                   size="sm"
                                   className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => removeEditItem(globalIndex)}
+                                  onClick={() => requestRemoveEditItem(globalIndex)}
                                   aria-label="Remove item"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -793,6 +907,20 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                         )
                       })}
 	                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer (fixed) */}
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col />
+                    <col className="w-28" />
+                    <col className="w-20" />
+                    <col className="w-24" />
+                    <col className="w-28" />
+                    <col className="w-32" />
+                    {isEditing && <col className="w-12" />}
+                  </colgroup>
                   <tfoot className="bg-white">
                     <tr className="border-t">
                       <td colSpan={5} className="p-3 text-right text-sm text-muted-foreground">
@@ -842,8 +970,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                       {isEditing && <td className="p-3" />}
                     </tr>
                   </tfoot>
-	                  </table>
-                </div>
+                </table>
               </div>
             </div>
 
@@ -1038,6 +1165,16 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Line Item Confirm */}
+      <DeleteDialog
+        open={deleteItemOpen}
+        onOpenChange={(open) => {
+          setDeleteItemOpen(open)
+          if (!open) setPendingDeleteIndex(null)
+        }}
+        onConfirm={confirmRemoveEditItem}
+      />
     </div>
   )
 }
