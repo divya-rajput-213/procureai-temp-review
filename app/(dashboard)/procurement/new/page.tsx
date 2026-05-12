@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, ArrowRight, Plus, Trash2, Loader2, Search, X, Send, Save, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Plus, Trash2, Loader2, Search, X, Send, Save, AlertTriangle, Check, Badge, FileText } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { useSettingsStore } from '@/lib/stores/settings.store'
@@ -55,37 +55,37 @@ const schema = z.object({
   description: z.string().optional(),
   title: z.string().optional(),
   matrix_id: z.number().optional(),
-  invited_vendor_ids: z
-    .array(z.number())
-    .min(1, 'Please select at least one vendor')
-    .max(5, 'You can select maximum 5 vendors')
-    .default([]),
+  // invited_vendor_ids: z
+  //   .array(z.number())
+  //   .min(1, 'Please select at least one vendor')
+  //   .max(5, 'You can select maximum 5 vendors')
+  //   .default([]),
 
-  line_items: z.array(
-    z.object({
-      item_code: z.number({
-        required_error: 'Item is required',
-      }).refine((val) => val > 0, {
-        message: 'Item is required',
-      }),
-      quantity: z
-        .number({ required_error: 'Quantity required' })
-        .positive('Quantity must be greater than zero')
-        .max(99999, 'Maximum Quantity limit: 99,999')
-        .refine(v => Number.isFinite(v), 'Invalid quantity'),
+  // line_items: z.array(
+  //   z.object({
+  //     item_code: z.number({
+  //       required_error: 'Item is required',
+  //     }).refine((val) => val > 0, {
+  //       message: 'Item is required',
+  //     }),
+  //     quantity: z
+  //       .number({ required_error: 'Quantity required' })
+  //       .positive('Quantity must be greater than zero')
+  //       .max(99999, 'Maximum Quantity limit: 99,999')
+  //       .refine(v => Number.isFinite(v), 'Invalid quantity'),
 
-      unit_rate: z
-        .number({ required_error: 'Unit rate required' })
-        .positive('Unit rate must be greater than zero')
-        .max(9999999.99, 'Maximum Unit Rate limit: 99,99,999.99')
-        .refine(v => /^\d+(\.\d{1,2})?$/.test(String(v)), {
-          message: 'Maximum 2 decimal places allowed',
-        }),
+  //     unit_rate: z
+  //       .number({ required_error: 'Unit rate required' })
+  //       .positive('Unit rate must be greater than zero')
+  //       .max(9999999.99, 'Maximum Unit Rate limit: 99,99,999.99')
+  //       .refine(v => /^\d+(\.\d{1,2})?$/.test(String(v)), {
+  //         message: 'Maximum 2 decimal places allowed',
+  //       }),
 
-      unit_of_measure: z.string().min(1, 'UOM required'),
-    })
-  )
-    .min(1, 'At least one line item required')
+  //     unit_of_measure: z.string().min(1, 'UOM required'),
+  //   })
+  // )
+  //   .min(1, 'At least one line item required')
 })
 
 type FormData = z.infer<typeof schema>
@@ -271,12 +271,12 @@ export default function NewPRPage() {
 
   // Stable color per vendor for line-item differentiation
   const VENDOR_COLOR_PALETTE = [
-    { border: 'border-l-blue-500',    bg: 'bg-blue-50',    pill: 'bg-blue-100 text-blue-700' },
+    { border: 'border-l-blue-500', bg: 'bg-blue-50', pill: 'bg-blue-100 text-blue-700' },
     { border: 'border-l-emerald-500', bg: 'bg-emerald-50', pill: 'bg-emerald-100 text-emerald-700' },
-    { border: 'border-l-amber-500',   bg: 'bg-amber-50',   pill: 'bg-amber-100 text-amber-700' },
-    { border: 'border-l-violet-500',  bg: 'bg-violet-50',  pill: 'bg-violet-100 text-violet-700' },
-    { border: 'border-l-rose-500',    bg: 'bg-rose-50',    pill: 'bg-rose-100 text-rose-700' },
-    { border: 'border-l-cyan-500',    bg: 'bg-cyan-50',    pill: 'bg-cyan-100 text-cyan-700' },
+    { border: 'border-l-amber-500', bg: 'bg-amber-50', pill: 'bg-amber-100 text-amber-700' },
+    { border: 'border-l-violet-500', bg: 'bg-violet-50', pill: 'bg-violet-100 text-violet-700' },
+    { border: 'border-l-rose-500', bg: 'bg-rose-50', pill: 'bg-rose-100 text-rose-700' },
+    { border: 'border-l-cyan-500', bg: 'bg-cyan-50', pill: 'bg-cyan-100 text-cyan-700' },
   ] as const
 
   const vendorColorMap = useMemo(() => {
@@ -293,7 +293,7 @@ export default function NewPRPage() {
 
   const [activeQuotationKey, setActiveQuotationKey] = useState<string | null>(null)
   const [savedPrId, setSavedPrId] = useState<string | null>(null)
-  const [prIdForComparison, setPrIdForComparison] = useState<number | null>(null) 
+  const [prIdForComparison, setPrIdForComparison] = useState<number | null>(null)
   const [quotationSearch, setQuotationSearch] = useState('')
   const [quotationOpen, setQuotationOpen] = useState(false)
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<number[]>([])
@@ -341,22 +341,22 @@ export default function NewPRPage() {
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      invited_vendor_ids: [],
-      line_items: [
-        {
-          item_code: undefined,
-          quantity: 1,
-          unit_of_measure: 'EA',
-          unit_rate: 0,
-        },
-      ],
-    },
+    // defaultValues: {
+    //   invited_vendor_ids: [],
+    //   line_items: [
+    //     {
+    //       item_code: undefined,
+    //       quantity: 1,
+    //       unit_of_measure: 'EA',
+    //       unit_rate: 0,
+    //     },
+    //   ],
+    // },
   })
 
   const watchedPlant = watch('plant')
   const watchedTrackingId = watch('tracking_id')
-  const watchedItems = watch('line_items')
+  // const watchedItems = watch('line_items')
 
   const { data: vendors } = useQuery({
     queryKey: ['vendors-approved', vendorSearch, watchedPlant],
@@ -374,10 +374,10 @@ export default function NewPRPage() {
     enabled: vendorSearch.length >= 1,
   })
 
-  const { fields: lineItemFields, append, remove, replace } = useFieldArray({
-    control,
-    name: 'line_items',
-  })
+  // const { fields: lineItemFields, append, remove, replace } = useFieldArray({
+  //   control,
+  //   // name: 'line_items',
+  // })
 
   const { data: trackingDetail } = useQuery({
     queryKey: ['tracking-detail', watchedTrackingId],
@@ -400,51 +400,49 @@ export default function NewPRPage() {
 
   // ─── Totals ───────────────────────────────────────────────────────────
 
-  const subtotal = (watchedItems ?? []).reduce(
-    (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
+  const selectedQuotationList = (quotations as any[]).filter((q: any) =>
+    selectedQuotationIds.includes(q.id)
+  )
+  
+  const subtotal = selectedQuotationList.reduce(
+    (sum, quotation) => sum + (Number(quotation.total_amount) || 0),
     0,
   )
   const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
   const grandTotal = subtotal + taxTotal
 
   // ─── Group line items by source quotation (for tabs) ────────────────────
-  const groupedLineItems = useMemo(() => {
-    const map = new Map<string, { key: string; vendor_name: string; quotation_no: string; rows: { idx: number; field: any }[]; color: typeof VENDOR_COLOR_PALETTE[number] | null }>()
-    lineItemFields.forEach((field, idx) => {
-      const src = itemSources[idx]
-      const key = src ? `${src.vendor_name}::${src.quotation_no}` : '__manual__'
-      if (!map.has(key)) {
-        map.set(key, {
-          key,
-          vendor_name: src?.vendor_name ?? 'Manual entries',
-          quotation_no: src?.quotation_no ?? '',
-          rows: [],
-          color: src?.vendor_name ? vendorColorMap.get(src.vendor_name) ?? null : null,
-        })
-      }
-      map.get(key)!.rows.push({ idx, field })
-    })
-    return Array.from(map.values())
-  }, [lineItemFields, itemSources, vendorColorMap])
+  // const groupedLineItems = useMemo(() => {
+  //   const map = new Map<string, { key: string; vendor_name: string; quotation_no: string; rows: { idx: number; field: any }[]; color: typeof VENDOR_COLOR_PALETTE[number] | null }>()
+  //   lineItemFields.forEach((field, idx) => {
+  //     const src = itemSources[idx]
+  //     const key = src ? `${src.vendor_name}::${src.quotation_no}` : '__manual__'
+  //     if (!map.has(key)) {
+  //       map.set(key, {
+  //         key,
+  //         vendor_name: src?.vendor_name ?? 'Manual entries',
+  //         quotation_no: src?.quotation_no ?? '',
+  //         rows: [],
+  //         color: src?.vendor_name ? vendorColorMap.get(src.vendor_name) ?? null : null,
+  //       })
+  //     }
+  //     map.get(key)!.rows.push({ idx, field })
+  //   })
+  //   return Array.from(map.values())
+  // }, [lineItemFields, itemSources, vendorColorMap])
 
-  const activeGroup = useMemo(() => {
-    if (groupedLineItems.length === 0) return null
-    const found = activeQuotationKey ? groupedLineItems.find(g => g.key === activeQuotationKey) : null
-    return found ?? groupedLineItems[0]
-  }, [groupedLineItems, activeQuotationKey])
+  // const activeGroup = useMemo(() => {
+  //   if (groupedLineItems.length === 0) return null
+  //   const found = activeQuotationKey ? groupedLineItems.find(g => g.key === activeQuotationKey) : null
+  //   return found ?? groupedLineItems[0]
+  // }, [groupedLineItems, activeQuotationKey])
 
-  useEffect(() => {
-    if (groupedLineItems.length > 0 && (!activeQuotationKey || !groupedLineItems.find(g => g.key === activeQuotationKey))) {
-      setActiveQuotationKey(groupedLineItems[0].key)
-    }
-  }, [groupedLineItems, activeQuotationKey])
+  // useEffect(() => {
+  //   if (groupedLineItems.length > 0 && (!activeQuotationKey || !groupedLineItems.find(g => g.key === activeQuotationKey))) {
+  //     setActiveQuotationKey(groupedLineItems[0].key)
+  //   }
+  // }, [groupedLineItems, activeQuotationKey])
 
-  const tabSubtotal = activeGroup
-    ? activeGroup.rows.reduce(
-        (sum, r) => sum + (Number(watchedItems?.[r.idx]?.quantity) || 0) * (Number(watchedItems?.[r.idx]?.unit_rate) || 0),
-        0,
-      )
-    : 0
 
   const budgetRemaining = trackingDetail
     ? Number(trackingDetail.remaining_amount ?? (trackingDetail.approved_amount ?? trackingDetail.requested_amount) - trackingDetail.consumed_amount)
@@ -453,27 +451,27 @@ export default function NewPRPage() {
 
   // ─── Vendor helpers ───────────────────────────────────────────────────
 
-  const addVendor = (v: any) => {
-    if (selectedVendors.length >= 5) {
-      toast({ title: 'Limit reached', description: 'You can select maximum 5 vendors', variant: 'destructive' })
-      return
-    }
-    if (!selectedVendors.some(x => x.id === v.id)) {
-      const updated = [...selectedVendors, v]
-      setSelectedVendors(updated)
-      setValue('invited_vendor_ids', updated.map(v => v.id), { shouldValidate: true, shouldDirty: true })
-    }
-    clearErrors('invited_vendor_ids')
-    setShowVendorSearch(false)
-    setVendorSearch('')
-  }
+  // const addVendor = (v: any) => {
+  //   if (selectedVendors.length >= 5) {
+  //     toast({ title: 'Limit reached', description: 'You can select maximum 5 vendors', variant: 'destructive' })
+  //     return
+  //   }
+  //   if (!selectedVendors.some(x => x.id === v.id)) {
+  //     const updated = [...selectedVendors, v]
+  //     setSelectedVendors(updated)
+  //     // setValue('invited_vendor_ids', updated.map(v => v.id), { shouldValidate: true, shouldDirty: true })
+  //   }
+  //   // clearErrors('invited_vendor_ids')
+  //   setShowVendorSearch(false)
+  //   setVendorSearch('')
+  // }
 
-  const removeVendor = (id: number) => {
-    const updated = selectedVendors.filter(v => v.id !== id)
-    setSelectedVendors(updated)
-    setRemovedVendorIds(prev => new Set(prev).add(id))
-    setValue('invited_vendor_ids', updated.map(v => v.id), { shouldValidate: true, shouldDirty: true })
-  }
+  // const removeVendor = (id: number) => {
+  //   const updated = selectedVendors.filter(v => v.id !== id)
+  //   setSelectedVendors(updated)
+  //   setRemovedVendorIds(prev => new Set(prev).add(id))
+  //   setValue('invited_vendor_ids', updated.map(v => v.id), { shouldValidate: true, shouldDirty: true })
+  // }
 
   // ─── Quotation aggregate apply / revert ───────────────────────────────
 
@@ -508,87 +506,87 @@ export default function NewPRPage() {
    * Applies aggregate data (vendors + items) from the API.
    * Manual rows already present are KEPT — quotation rows are merged in after them.
    */
-  const applyQuotationAggregate = useCallback((data: any) => {
-    if (!data) return
+  // const applyQuotationAggregate = useCallback((data: any) => {
+  //   if (!data) return
 
-    // 1. Vendors — exclude any the user has manually removed
-    const incomingVendors: any[] = (data.vendors ?? []).filter((v: any) => !removedVendorIds.has(v.id))
-    setSelectedVendors(incomingVendors)
-    setValue('invited_vendor_ids', incomingVendors.map((v: any) => v.id), { shouldValidate: true, shouldDirty: true })
+  //   // 1. Vendors — exclude any the user has manually removed
+  //   const incomingVendors: any[] = (data.vendors ?? []).filter((v: any) => !removedVendorIds.has(v.id))
+  //   setSelectedVendors(incomingVendors)
+  //   setValue('invited_vendor_ids', incomingVendors.map((v: any) => v.id), { shouldValidate: true, shouldDirty: true })
 
-    // 2. Build new quotation rows
-    const items: any[] = data.items ?? []
-    const quotationRows = items.map((item: any) => ({
-      item_code: item.master_item_id ? Number(item.master_item_id) : 0,
-      quantity: Number(item.quantity ?? 1),
-      unit_rate: Number(item.item_price ?? 0),
-      unit_of_measure: item.unit_of_measure ?? 'EA',
-    }))
+  //   // 2. Build new quotation rows
+  //   const items: any[] = data.items ?? []
+  //   const quotationRows = items.map((item: any) => ({
+  //     item_code: item.master_item_id ? Number(item.master_item_id) : 0,
+  //     quantity: Number(item.quantity ?? 1),
+  //     unit_rate: Number(item.item_price ?? 0),
+  //     unit_of_measure: item.unit_of_measure ?? 'EA',
+  //   }))
 
-    // 3. Get existing manual rows (so we don't wipe them)
-    const { manualItems, manualLabels } = getManualRows()
+  //   // 3. Get existing manual rows (so we don't wipe them)
+  //   const { manualItems, manualLabels } = getManualRows()
 
-    // 4. Merge: manual rows first, then quotation rows
-    const merged = [...manualItems, ...quotationRows]
-    replace(merged)
+  //   // 4. Merge: manual rows first, then quotation rows
+  //   const merged = [...manualItems, ...quotationRows]
+  //   replace(merged)
 
-    // 5. Update the ref: manual rows stay false, new quotation rows are true
-    quotationFilledRowsRef.current = [
-      ...manualItems.map(() => false),
-      ...quotationRows.map(() => true),
-    ]
+  //   // 5. Update the ref: manual rows stay false, new quotation rows are true
+  //   quotationFilledRowsRef.current = [
+  //     ...manualItems.map(() => false),
+  //     ...quotationRows.map(() => true),
+  //   ]
 
-    // 6. Labels: keep manual labels, add quotation labels after them
-    const newLabels: Record<number, string> = { ...manualLabels }
-    const newSources: Record<number, { vendor_name: string; quotation_no: string }> = {}
-    items.forEach((item: any, i: number) => {
-      const rowIdx = manualItems.length + i
-      newLabels[rowIdx] = `${item.item_code} — ${item.item_name}`
-      if (item.vendor_name) {
-        newSources[rowIdx] = {
-          vendor_name: item.vendor_name,
-          quotation_no: item.quotation_no ?? item.quotation_ref_no ?? '',
-        }
-      }
-    })
-    setItemLabels(newLabels)
-    setItemSources(newSources)
+  //   // 6. Labels: keep manual labels, add quotation labels after them
+  //   const newLabels: Record<number, string> = { ...manualLabels }
+  //   const newSources: Record<number, { vendor_name: string; quotation_no: string }> = {}
+  //   items.forEach((item: any, i: number) => {
+  //     const rowIdx = manualItems.length + i
+  //     newLabels[rowIdx] = `${item.item_code} — ${item.item_name}`
+  //     if (item.vendor_name) {
+  //       newSources[rowIdx] = {
+  //         vendor_name: item.vendor_name,
+  //         quotation_no: item.quotation_no ?? item.quotation_ref_no ?? '',
+  //       }
+  //     }
+  //   })
+  //   setItemLabels(newLabels)
+  //   setItemSources(newSources)
 
-    // 7. Clear stale validation errors and re-validate
-    clearErrors('line_items')
-    clearErrors('invited_vendor_ids')
-    setTimeout(() => {
-      trigger('line_items')
-      trigger('invited_vendor_ids')
-    }, 0)
-  }, [getManualRows, replace, setValue, clearErrors, trigger, removedVendorIds])
+  //   // 7. Clear stale validation errors and re-validate
+  //   clearErrors('line_items')
+  //   clearErrors('invited_vendor_ids')
+  //   setTimeout(() => {
+  //     trigger('line_items')
+  //     trigger('invited_vendor_ids')
+  //   }, 0)
+  // }, [getManualRows, replace, setValue, clearErrors, trigger, removedVendorIds])
 
   /**
    * Reverts only the quotation-injected rows; manual rows stay untouched.
    * Also reverts vendors back to trackingDetail preferred vendors.
    */
-  const revertQuotationData = useCallback(() => {
-    const { manualItems, manualLabels } = getManualRows()
+  // const revertQuotationData = useCallback(() => {
+  //   const { manualItems, manualLabels } = getManualRows()
 
-    if (manualItems.length > 0) {
-      replace(manualItems)
-      quotationFilledRowsRef.current = manualItems.map(() => false)
-      setItemLabels(manualLabels)
-    } else {
-      // Nothing manual — reset to one blank row
-      replace([{ item_code: undefined as any, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 }])
-      quotationFilledRowsRef.current = [false]
-      setItemLabels({})
-    }
+  //   if (manualItems.length > 0) {
+  //     replace(manualItems)
+  //     quotationFilledRowsRef.current = manualItems.map(() => false)
+  //     setItemLabels(manualLabels)
+  //   } else {
+  //     // Nothing manual — reset to one blank row
+  //     replace([{ item_code: undefined as any, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 }])
+  //     quotationFilledRowsRef.current = [false]
+  //     setItemLabels({})
+  //   }
 
-    // Revert vendors to tracking preferred vendors (or empty)
-    const preferredVendors = trackingDetail?.preferred_vendors ?? []
-    setSelectedVendors(preferredVendors)
-    setValue('invited_vendor_ids', preferredVendors.map((v: any) => v.id), { shouldValidate: true, shouldDirty: true })
+  //   // Revert vendors to tracking preferred vendors (or empty)
+  //   const preferredVendors = trackingDetail?.preferred_vendors ?? []
+  //   setSelectedVendors(preferredVendors)
+  //   setValue('invited_vendor_ids', preferredVendors.map((v: any) => v.id), { shouldValidate: true, shouldDirty: true })
 
-    clearErrors('line_items')
-    clearErrors('invited_vendor_ids')
-  }, [getManualRows, replace, setValue, clearErrors, trackingDetail])
+  //   clearErrors('line_items')
+  //   clearErrors('invited_vendor_ids')
+  // }, [getManualRows, replace, setValue, clearErrors, trackingDetail])
 
   // ─── Debounced aggregate call on checkbox change ───────────────────────
 
@@ -597,32 +595,32 @@ export default function NewPRPage() {
    * If ids drops to [] the debounce is cancelled and revert runs immediately
    * — but only after a short delay so the user can re-check if they want.
    */
-  const scheduleAggregate = useCallback((ids: number[]) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
+  // const scheduleAggregate = useCallback((ids: number[]) => {
+  //   if (debounceRef.current) clearTimeout(debounceRef.current)
 
-    if (ids.length === 0) {
-      // Small delay so unchecking one and rechecking another doesn't flash a revert
-      debounceRef.current = setTimeout(() => {
-        revertQuotationData()
-      }, 300)
-      return
-    }
+  //   if (ids.length === 0) {
+  //     // Small delay so unchecking one and rechecking another doesn't flash a revert
+  //     debounceRef.current = setTimeout(() => {
+  //       revertQuotationData()
+  //     }, 300)
+  //     return
+  //   }
 
-    // Wait 800 ms after the last toggle before hitting the API
-    debounceRef.current = setTimeout(async () => {
-      setIsApplyingQuotations(true)
-      try {
-        const { data } = await apiClient.post('/quotations/aggregate/', { quotation_ids: ids })
-        applyQuotationAggregate(data)
-        toast({ title: 'Quotations applied', description: 'Vendors and items auto-filled successfully.' })
-      } catch (err) {
-        console.error(err)
-        toast({ title: 'Failed to apply quotations', variant: 'destructive' })
-      } finally {
-        setIsApplyingQuotations(false)
-      }
-    }, 800)
-  }, [applyQuotationAggregate, revertQuotationData, toast])
+  //   // Wait 800 ms after the last toggle before hitting the API
+  //   debounceRef.current = setTimeout(async () => {
+  //     setIsApplyingQuotations(true)
+  //     try {
+  //       const { data } = await apiClient.post('/quotations/aggregate/', { quotation_ids: ids })
+  //       applyQuotationAggregate(data)
+  //       toast({ title: 'Quotations applied', description: 'Vendors and items auto-filled successfully.' })
+  //     } catch (err) {
+  //       console.error(err)
+  //       toast({ title: 'Failed to apply quotations', variant: 'destructive' })
+  //     } finally {
+  //       setIsApplyingQuotations(false)
+  //     }
+  //   }, 800)
+  // }, [applyQuotationAggregate, revertQuotationData, toast])
 
   // Cleanup on unmount
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current) }, [])
@@ -630,7 +628,7 @@ export default function NewPRPage() {
   const toggleQuotation = (id: number) => {
     setSelectedQuotationIds(prev => {
       const next = prev.includes(id) ? prev.filter(q => q !== id) : [...prev, id]
-      scheduleAggregate(next)
+      // scheduleAggregate(next)
       return next
     })
   }
@@ -790,10 +788,9 @@ export default function NewPRPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-sm font-semibold uppercase text-muted-foreground">
-                      Select Quotations
-                    </CardTitle>
+                    Attach Quotes for Evaluation                    </CardTitle>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Check quotations to auto-fill vendors and line items. Uncheck to revert.
+                    Attach the vendor quotes you've received. These will be compared in the PR detail view for the approver.
                     </p>
                   </div>
                   {isApplyingQuotations && (
@@ -829,11 +826,10 @@ export default function NewPRPage() {
                           return (
                             <label
                               key={q.id}
-                              className={`flex items-center gap-3 px-3 py-2 cursor-pointer text-sm border-l-2 transition-colors ${
-                                isSelected
+                              className={`flex items-center gap-3 px-3 py-2 cursor-pointer text-sm border-l-2 transition-colors ${isSelected
                                   ? 'bg-primary/5 border-l-primary'
                                   : 'border-l-transparent hover:bg-muted'
-                              }`}
+                                }`}
                             >
                               <input
                                 type="checkbox"
@@ -864,328 +860,117 @@ export default function NewPRPage() {
                 </div>
 
                 {/* Selected chips */}
+                {/* Selected Quotations Cards */}
                 {selectedQuotations.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedQuotations.map((q: any) => (
-                      <div key={q.id} className="flex items-center gap-2 pl-3 pr-1.5 py-1 text-xs bg-primary/10 border border-primary/30 text-primary rounded-md font-medium">
-                        <span className="font-mono">{q.ref_no}</span>
-                        {q.vendor_name && <span className="text-muted-foreground">· {q.vendor_name}</span>}
-                        {q.total_amount != null && <span className="tabular-nums">· {formatCurrency(q.total_amount)}</span>}
-                        <button
-                          type="button"
-                          onClick={() => toggleQuotation(q.id)}
-                          disabled={isApplyingQuotations}
-                          className="hover:text-red-500 disabled:opacity-50"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  <div className="space-y-3">
+  
 
-          {/* ── Invited Vendors ── */}
-          {watchedTrackingId && (
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4 border-b">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    Invited Vendors <span className="text-destructive">*</span>
-                  </CardTitle>
-                  <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">Required</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Search and add vendors who will be invited to bid on this requisition.</p>
-              </CardHeader>
-              <CardContent className="pt-5 space-y-3">
-                <div className="relative">
-                  <Input
-                    placeholder="Search approved vendors…"
-                    value={vendorSearch}
-                    onChange={e => { setVendorSearch(e.target.value); setShowVendorSearch(true) }}
-                    onFocus={() => setShowVendorSearch(true)}
-                    className={`h-10 ${errors.invited_vendor_ids ? 'border-destructive' : ''}`}
-                  />
-                  {showVendorSearch && vendorSearch && (
-                    <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
-                      {(vendors || [])
-                        .filter((v: any) => !selectedVendors.some(s => s.id === v.id))
-                        .map((v: any) => (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onMouseDown={e => e.preventDefault()}
-                            onClick={() => addVendor(v)}
-                            className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
+                    <div className="space-y-2">
+                      {selectedQuotations.map((q: any) => {
+                        const isPending = q.status === 'pending'
+                        const isNewVendor = q.is_new_vendor
+
+                        return (
+                          <div
+                            key={q.id}
+                            className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-all
+              ${isPending
+                                ? 'border-emerald-500 bg-emerald-50'
+                                : 'border-border bg-background'
+                              }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{v.company_name}</span>
-                              <span className="text-xs text-emerald-600 font-medium">{v.status}</span>
+                            {/* Left */}
+                            <div className="flex items-center gap-3 min-w-0">
+                              {/* File Icon */}
+                              <div className="w-11 h-11 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                                <FileText className="w-5 h-5 text-red-500" />
+                              </div>
+
+                              {/* Details */}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="text-sm font-semibold text-foreground truncate">
+                                    {q.vendor_name}
+                                  </h4>
+
+                                  {isNewVendor && (
+                                    <Badge
+                                      // variant="outline"
+                                      className="text-[10px] bg-amber-100 text-amber-700 border-amber-200"
+                                    >
+                                      New Vendor
+                                    </Badge>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground mt-1">
+                                  <span>{q.ref_no}</span>
+
+                                  {q.item_name && (
+                                    <>
+                                      <span>·</span>
+                                      <span>{q.item_name}</span>
+                                    </>
+                                  )}
+
+                                  {q.valid_till && (
+                                    <>
+                                      <span>·</span>
+                                      <span>Valid till {q.valid_till}</span>
+                                    </>
+                                  )}
+
+                                  {q.score && (
+                                    <>
+                                      <span>·</span>
+                                      <span>Score: {q.score}/100</span>
+                                    </>
+                                  )}
+
+                                  {isPending && (
+                                    <>
+                                      <span>·</span>
+                                      <span className="text-amber-600 font-medium">
+                                        Pending Review
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
-                              {v.category_name && <span>{v.category_name}</span>}
-                              {v.city && <span>{v.city}{v.state ? `, ${v.state}` : ''}</span>}
-                            </div>
-                          </button>
-                        ))}
-                      {(vendors || []).filter((v: any) => !selectedVendors.some(s => s.id === v.id)).length === 0 && (
-                        <p className="px-3 py-2.5 text-sm text-muted-foreground">No vendors found.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {errors.invited_vendor_ids && (
-                  <p className="text-xs text-destructive">{errors.invited_vendor_ids.message}</p>
-                )}
-                {selectedVendors.length > 0 && (
-                  <div className="border border-border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50 border-b border-border">
-                        <tr>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
-                          <th className="w-8 px-3 py-2.5" />
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {selectedVendors.map(v => (
-                          <tr key={v.id} className="hover:bg-muted/30 transition-colors">
-                            <td className="px-3 py-2.5 font-medium">{v.company_name}</td>
-                            <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
-                            <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                              {v.city ? [v.city, v.state].filter(Boolean).join(', ') : '—'}
-                            </td>
-                            <td className="px-3 py-2.5 text-center">
+
+                            {/* Right */}
+                            <div className="flex items-center gap-4 shrink-0">
+                              {/* Amount */}
+                              <div className="text-sm font-semibold tabular-nums">
+                                {formatCurrency(q.total_amount)}
+                              </div>
+
+                              {/* Selected Icon */}
+                              <div className="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center">
+                                <Check className="w-3.5 h-3.5 text-white" />
+                              </div>
+
+                              {/* Remove */}
                               <button
                                 type="button"
-                                onClick={() => removeVendor(v.id)}
-                                aria-label="Remove vendor"
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 transition-colors"
+                                onClick={() => toggleQuotation(q.id)}
+                                disabled={isApplyingQuotations}
+                                className="text-muted-foreground hover:text-red-500 transition-colors"
                               >
                                 <X className="w-4 h-4" />
                               </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
           )}
 
-          {/* ── Line Items ── */}
-          {watchedTrackingId && (
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4 border-b">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Line Items</CardTitle>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSubmit(() => {
-                      append({ item_code: 0, quantity: 1, unit_of_measure: 'EA', unit_rate: 0 })
-                      // Mark new row as manual (not quotation-filled)
-                      quotationFilledRowsRef.current = [...quotationFilledRowsRef.current, false]
-                    })}
-                    className="gap-1 shrink-0"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Row
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-3">
-                {/* Quotation tabs */}
-                {groupedLineItems.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 border-b pb-2">
-                    {groupedLineItems.map(g => {
-                      const groupTotal = g.rows.reduce(
-                        (sum, r) => sum + (Number(watchedItems?.[r.idx]?.quantity) || 0) * (Number(watchedItems?.[r.idx]?.unit_rate) || 0),
-                        0,
-                      )
-                      const isActive = activeGroup?.key === g.key
-                      return (
-                        <button
-                          key={g.key}
-                          type="button"
-                          onClick={() => setActiveQuotationKey(g.key)}
-                          className={`relative flex items-center gap-2 px-3 py-1.5 rounded-md text-xs border transition-colors ${
-                            isActive
-                              ? 'bg-foreground text-background border-foreground'
-                              : 'bg-background hover:bg-muted text-foreground border-border'
-                          }`}
-                        >
-                          {g.color && (
-                            <span className={`w-2 h-2 rounded-full ${g.color.border.replace('border-l-', 'bg-')}`} />
-                          )}
-                          <span className="font-medium">{g.vendor_name}</span>
-                          {g.quotation_no && (
-                            <span className={`font-mono text-[10px] ${isActive ? 'text-background/70' : 'text-muted-foreground'}`}>
-                              {g.quotation_no}
-                            </span>
-                          )}
-                          <span className={`text-[10px] tabular-nums ${isActive ? 'text-background/70' : 'text-muted-foreground'}`}>
-                            · {g.rows.length} item{g.rows.length === 1 ? '' : 's'}
-                          </span>
-                          <span className={`text-[10px] tabular-nums font-semibold ${isActive ? 'text-background' : 'text-foreground'}`}>
-                            {formatCurrency(groupTotal)}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-
-                <div className="border border-border rounded-lg overflow-visible">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/50 border-b">
-                      <tr>
-                        <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[40%]">Item <span className="text-destructive">*</span></th>
-                        <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">Qty <span className="text-destructive">*</span></th>
-                        <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[10%]">UOM</th>
-                        <th className="px-2 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Rate <span className="text-destructive">*</span></th>
-                        <th className="px-2 py-2 text-right font-semibold text-muted-foreground uppercase tracking-wide w-[15%]">Amount</th>
-                        <th className="px-2 py-2 w-8" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {(activeGroup?.rows ?? []).map(({ idx, field }) => {
-                        const sourceVendor = itemSources[idx]?.vendor_name
-                        const colors = sourceVendor ? vendorColorMap.get(sourceVendor) : null
-                        return (
-                        <tr
-                          key={field.id}
-                          className={`group ${colors ? `${colors.border} border-l-4` : 'border-l-4 border-l-transparent'}`}
-                        >
-                          <td className="px-2 py-1.5">
-                            <ItemSearch
-                              disabled
-                              displayValue={itemLabels[idx]}
-                              onSelect={item => {
-                                const duplicateIdx = (watchedItems ?? []).findIndex((li, i) => i !== idx && li.item_code === item.id)
-                                if (duplicateIdx !== -1) {
-                                  toast({ title: 'Duplicate item', description: `"${item.code} — ${item.description}" is already added in row ${duplicateIdx + 1}.`, variant: 'destructive' })
-                                  return
-                                }
-                                setValue(`line_items.${idx}.item_code`, item.id)
-                                setValue(`line_items.${idx}.unit_of_measure`, item.unit_of_measure ?? 'EA')
-                                if (item.unit_rate) setValue(`line_items.${idx}.unit_rate`, Number(item.unit_rate))
-                                clearErrors(`line_items.${idx}.item_code`)
-                                // Mark this row as manually edited (no longer quotation-filled)
-                                quotationFilledRowsRef.current = quotationFilledRowsRef.current.map(
-                                  (v, i) => (i === idx ? false : v)
-                                )
-                                setItemLabels(prev => ({ ...prev, [idx]: `${item.code} — ${item.description}` }))
-                                setItemSources(prev => {
-                                  const next = { ...prev }
-                                  delete next[idx]
-                                  return next
-                                })
-                              }}
-                              placeholder="Search item…"
-                              hasError={errors.line_items?.[idx]?.item_code && errors.line_items[idx]?.item_code?.message}
-                            />
-                            {errors.line_items?.[idx]?.item_code && (
-                              <p className="text-xs text-destructive mt-0.5">{errors.line_items[idx]?.item_code?.message}</p>
-                            )}
-                            {itemSources[idx] && (
-                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                                from <span className="font-medium text-foreground">{itemSources[idx].vendor_name}</span>
-                                {itemSources[idx].quotation_no && <> · {itemSources[idx].quotation_no}</>}
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <Input
-                              type="number" min="0.01" max="99999" step="0.01" placeholder="1"
-                              disabled
-                              className={`h-8 text-xs ${errors.line_items?.[idx]?.quantity ? 'border-destructive' : ''}`}
-                              {...register(`line_items.${idx}.quantity`, {
-                                valueAsNumber: true,
-                                onChange: e => {
-                                  let value = Number(e.target.value)
-                                  if (value > 99999) { value = 99999; setValue(`line_items.${idx}.quantity`, value) }
-                                  clearErrors(`line_items.${idx}.quantity`)
-                                },
-                              })}
-                            />
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <Input placeholder="EA" disabled className="h-8 text-xs" {...register(`line_items.${idx}.unit_of_measure`)} />
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <Input
-                              type="number" min="0.01" max="9999999.99" step="0.01" placeholder="0.00"
-                              disabled
-                              className={`h-8 text-xs ${errors.line_items?.[idx]?.unit_rate ? 'border-destructive' : ''}`}
-                              {...register(`line_items.${idx}.unit_rate`, {
-                                valueAsNumber: true,
-                                onChange: e => {
-                                  let value = Number(e.target.value)
-                                  if (value > 9999999.99) value = 9999999.99
-                                  value = Number(value.toFixed(2))
-                                  setValue(`line_items.${idx}.unit_rate`, value)
-                                  clearErrors(`line_items.${idx}.unit_rate`)
-                                },
-                              })}
-                            />
-                          </td>
-                          <td className="px-2 py-1.5 text-right text-sm font-medium text-muted-foreground">
-                            {formatCurrency((watchedItems?.[idx]?.quantity || 0) * (watchedItems?.[idx]?.unit_rate || 0))}
-                          </td>
-                          <td className="px-2 py-1.5 text-center" />
-
-                        </tr>
-                      )})}
-                      {activeGroup && (
-                        <tr className="bg-slate-50">
-                          <td colSpan={4} className="px-2 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                            {activeGroup.vendor_name} subtotal
-                          </td>
-                          <td className="px-2 py-2 text-right text-sm font-bold tabular-nums">
-                            {formatCurrency(tabSubtotal)}
-                          </td>
-                          <td />
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {errors.line_items?.root && (
-                  <p className="text-xs text-destructive">{errors.line_items.root.message}</p>
-                )}
-
-                {/* PR-level totals — hidden when multiple quotations are aggregated
-                    (each per-quotation tab shows its own subtotal in the items table) */}
-                {groupedLineItems.length <= 1 && (
-                  <div className="border border-border rounded-lg overflow-hidden mt-2">
-                    <table className="w-full text-sm">
-                      <tbody className="divide-y divide-border">
-                        <tr className="bg-slate-50">
-                          <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Subtotal</td>
-                          <td className="px-3 py-2 text-right font-bold">{formatCurrency(subtotal)}</td>
-                        </tr>
-                        <tr className="bg-slate-50">
-                          <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Tax ({combinedTaxRate}%)</td>
-                          <td className="px-3 py-2 text-right font-bold">{formatCurrency(taxTotal)}</td>
-                        </tr>
-                        <tr className="bg-slate-100 border-t-2">
-                          <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold">Total</td>
-                          <td className="px-3 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
 
           <div className="flex items-center justify-end">
             <Button
@@ -1193,9 +978,11 @@ export default function NewPRPage() {
               className="gap-1.5"
               disabled={isSaving}
               onClick={async () => {
-                const isValid = watchedTrackingId
-                  ? await trigger(['line_items', 'tracking_id', 'invited_vendor_ids'])
-                  : await trigger('tracking_id')
+                const isValid =
+                //  watchedTrackingId
+                //   ? await trigger(['line_items', 'tracking_id', 'invited_vendor_ids'])
+                //   : 
+                  await trigger('tracking_id')
                 if (!isValid) return
                 if (budgetExceeded) {
                   toast({ title: 'Budget exceeded', description: `PR total (${formatCurrency(grandTotal)}) exceeds remaining budget (${formatCurrency(budgetRemaining)}).`, variant: 'destructive' })
@@ -1228,17 +1015,18 @@ export default function NewPRPage() {
                   className="gap-1.5"
                   disabled={isSaving}
                   onClick={() => {
-                    const data = watch()
-                    saveDraftMutation.mutate(data, {
-                      onSuccess: (pr) => {
-                        setSavedPrId(pr.hash_id ?? pr.id)
-                        setPrIdForComparison(pr.id)
-                        queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
-                        toast({ title: 'PR saved as draft.' })
-                        setShowSaveConfirm(false)
-                        setActiveTab('comparison')
-                      },
-                    })
+                    // const data = watch()
+                    // saveDraftMutation.mutate(data, {
+                    //   onSuccess: (pr) => {
+                    //     setSavedPrId(pr.hash_id ?? pr.id)
+                    //     setPrIdForComparison(pr.id)
+                    //     queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
+                    //     toast({ title: 'PR saved as draft.' })
+                    //     setShowSaveConfirm(false)
+                    //     setActiveTab('comparison')
+                    //   },
+                    // })
+                    setActiveTab('comparison')
                   }}
                 >
                   {saveDraftMutation.isPending
@@ -1278,7 +1066,7 @@ export default function NewPRPage() {
               </Button>
               <Button
                 type="button"
-                disabled={isSaving }
+                disabled={isSaving}
                 className="gap-2"
                 onClick={() => submitApprovalMutation.mutate()}
               >
