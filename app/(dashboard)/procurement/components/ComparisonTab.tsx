@@ -228,7 +228,7 @@ function deriveVendors(data: CompareApiResponse): DerivedVendor[] {
   const highestTotal = Math.max(...vendors.map((v) => v.total_amount))
 
   return vendors.map((v, idx): DerivedVendor => {
-    const rankEntry = ranking.find((r) => r.quotation_id === v.quotation_id)
+    const rankEntry = ranking?.find((r) => r.quotation_id === v.quotation_id)
     const isRecommended = v.quotation_id === recommended.quotation_id
     const isHighRisk = rankEntry?.overall_tag?.toLowerCase().includes('high risk') ?? false
     const overallScore = rankEntry?.overall_score ?? null
