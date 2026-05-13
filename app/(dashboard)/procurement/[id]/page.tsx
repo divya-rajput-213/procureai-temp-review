@@ -1153,11 +1153,12 @@ export default function PRDetailPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<  'approval' | 'comparison'>('approval')
+  const [activeTab, setActiveTab] = useState<'approval' | 'comparison'>('approval')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
   const initialTabSet = useRef(false)
+  const [selectedVendor, setSelectedVendor] = useState<any>("")
 
   const { data: pr, isLoading } = useQuery({
     queryKey: ['pr', id],
@@ -1247,7 +1248,7 @@ export default function PRDetailPage() {
     // { key: 'quotations' as const, label: 'Quotations' },
     { key: 'approval' as const, label: 'Approval' },
     { key: 'comparison' as const, label: 'Comparison' },
-   
+
   ]
 
   return (
@@ -1298,7 +1299,7 @@ export default function PRDetailPage() {
         ))}
       </div>
 
-  
+
       {/* ── Approval Tab ── */}
       {activeTab === 'approval' && (
         <div className="space-y-4">
@@ -1316,7 +1317,8 @@ export default function PRDetailPage() {
       )}
 
       {/* ── Comparison Tab ── */}
-      {activeTab === 'comparison' && <ComparisonTab prId={pr.id} />}
+      {activeTab === 'comparison' && <ComparisonTab selectedQuotationIds={[]} selected={selectedVendor}
+        setSelected={setSelectedVendor} />}
     </div>
   )
 }
