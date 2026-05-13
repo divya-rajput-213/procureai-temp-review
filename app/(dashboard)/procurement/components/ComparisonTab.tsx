@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -328,8 +328,8 @@ function deriveSections(vendors: DerivedVendor[], items: MatrixItem[]): SectionD
               v.deliveryLeadTimeDays == null
                 ? 'warn'
                 : v.deliveryLeadTimeDays === lowestLeadTime
-                ? 'best'
-                : 'neutral'
+                  ? 'best'
+                  : 'neutral'
             ) as HighlightVariant,
           })),
         },
@@ -407,37 +407,37 @@ function deriveSections(vendors: DerivedVendor[], items: MatrixItem[]): SectionD
     },
     ...(items.length > 0
       ? [
-          {
-            id: 'items',
-            icon: <Wrench className="h-3 w-3" />,
-            label: 'Item Prices',
-            rows: items.map((item) => {
-              const prices = vendors.map((v) => item.vendor_prices[String(v.vendor_id)])
-              const validPrices = prices.filter(Boolean).map((p) => p!.unit_price)
-              const minPrice = validPrices.length ? Math.min(...validPrices) : null
-              const maxPrice = validPrices.length ? Math.max(...validPrices) : null
+        {
+          id: 'items',
+          icon: <Wrench className="h-3 w-3" />,
+          label: 'Item Prices',
+          rows: items.map((item) => {
+            const prices = vendors.map((v) => item.vendor_prices[String(v.vendor_id)])
+            const validPrices = prices.filter(Boolean).map((p) => p!.unit_price)
+            const minPrice = validPrices.length ? Math.min(...validPrices) : null
+            const maxPrice = validPrices.length ? Math.max(...validPrices) : null
 
-              return {
-                label: item.item_name,
-                cells: vendors.map((v) => {
-                  const entry = item.vendor_prices[String(v.vendor_id)]
-                  if (!entry) return { value: '—' }
-                  return {
-                    value: inr(entry.unit_price),
-                    sub: `Qty: ${entry.quantity} ${item.unit_of_measure}`,
-                    highlight: (
-                      entry.unit_price === minPrice && validPrices.length > 1
-                        ? 'best'
-                        : entry.unit_price === maxPrice && validPrices.length > 1
+            return {
+              label: item.item_name,
+              cells: vendors.map((v) => {
+                const entry = item.vendor_prices[String(v.vendor_id)]
+                if (!entry) return { value: '—' }
+                return {
+                  value: inr(entry.unit_price),
+                  sub: `Qty: ${entry.quantity} ${item.unit_of_measure}`,
+                  highlight: (
+                    entry.unit_price === minPrice && validPrices.length > 1
+                      ? 'best'
+                      : entry.unit_price === maxPrice && validPrices.length > 1
                         ? 'worst'
                         : 'neutral'
-                    ) as HighlightVariant,
-                  }
-                }),
-              }
-            }),
-          },
-        ]
+                  ) as HighlightVariant,
+                }
+              }),
+            }
+          }),
+        },
+      ]
       : []),
     {
       id: 'compliance',
@@ -572,7 +572,7 @@ function MobileVendorCard({
                   'text-[9px] px-1.5 py-0 font-bold',
                   vendor.badge.color === 'blue' && 'bg-blue-600 text-white hover:bg-blue-600',
                   vendor.badge.color === 'amber' &&
-                    'bg-amber-100 text-amber-700 border border-amber-400 hover:bg-amber-100',
+                  'bg-amber-100 text-amber-700 border border-amber-400 hover:bg-amber-100',
                 )}
               >
                 {vendor.badge.label}
@@ -896,14 +896,19 @@ const ComparisonTab = ({
     },
     enabled: selectedQuotationIds.length > 0,
   })
-console.log('data', data)
-  // Derive UI data from API response
+
   const { vendors, sections } = useMemo(() => {
     if (!data) return { vendors: [], sections: [] }
     const v = deriveVendors(data)
     const s = deriveSections(v, data.matrix.items)
     return { vendors: v, sections: s }
   }, [data])
+
+  useEffect(() => {
+    if (vendors.length === 1 && !selected) {
+      setSelected(vendors[0].key)
+    }
+  }, [vendors, selected, setSelected])
 
   const selectedVendor = vendors.find((v) => v.key === selected) ?? null
 
@@ -915,7 +920,7 @@ console.log('data', data)
   if (!data || vendors.length === 0) return <EmptyState />
 
   const aiRec = data.ai_recommendation
-
+  const isSingleQuotation = vendors?.length === 1
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -956,7 +961,7 @@ console.log('data', data)
           </div>
         )}
 
-        <AIInsightsPanel aiRec={aiRec} />
+       {!isSingleQuotation && <AIInsightsPanel aiRec={aiRec} />}
         {/* <BudgetCard selectedVendor={selectedVendor} budget={budget} /> */}
       </div>
 
@@ -1004,7 +1009,7 @@ console.log('data', data)
                                   'text-[9.5px] px-1.5 py-0 font-bold',
                                   v.badge.color === 'blue' && 'bg-blue-600 text-white hover:bg-blue-600',
                                   v.badge.color === 'amber' &&
-                                    'bg-amber-100 text-amber-700 border border-amber-400 hover:bg-amber-100',
+                                  'bg-amber-100 text-amber-700 border border-amber-400 hover:bg-amber-100',
                                 )}
                               >
                                 {v.badge.label}
@@ -1148,7 +1153,7 @@ console.log('data', data)
 
         {/* Right: sidebar */}
         <div className="w-64 flex-shrink-0 space-y-4 sticky top-5">
-          <AIInsightsPanel aiRec={aiRec} />
+          {!isSingleQuotation &&<AIInsightsPanel aiRec={aiRec} />}
           {/* <BudgetCard selectedVendor={selectedVendor} budget={budget} /> */}
         </div>
       </div>
