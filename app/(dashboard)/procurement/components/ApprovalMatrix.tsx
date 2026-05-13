@@ -60,11 +60,16 @@ const ApprovalMatrix = ({
             })
             return
         }
+        if(!selectedVendor){
+            toast({ title: 'Submission failed', description: 'No quotation selected.', variant: 'destructive' })
+            setSubmitting(false)
+            return
+          }
         setSubmitting(true)
 
         try {
             const body = selectedMatrix
-                ? { matrix_id: selectedMatrix, selected_quotation_id:selectedVendor}
+                ? { matrix_id: selectedMatrix, selected_quotation:selectedVendor}
                 : {selected_quotation:selectedVendor }
 
             await apiClient.post(`/procurement/${prId}/submit/`, body)
