@@ -182,7 +182,7 @@ export default function NewPRPage() {
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
 
   const [activeTab, setActiveTab] = useState<'details' | 'comparison'>('details')
-  const [selectedVendor, setSelectedVendor] = useState<any>("")
+  const [selectedVendor, setSelectedVendor] = useState<any>(null)
   const [showSaveConfirm, setShowSaveConfirm] = useState(false)
   const [selectedTracking, setSelectedTracking] = useState<any>(null)
   const [showApprovalModal, setShowApprovalModal] = useState(false)
@@ -195,7 +195,6 @@ export default function NewPRPage() {
   // Use a ref to track which rows are quotation-filled so we never get stale closures
   // true  = row was injected by quotation aggregate
   // false = row was added/edited manually
-
   const quotationWrapperRef = useRef<HTMLDivElement>(null)
   useClickOutside(quotationWrapperRef, () => setQuotationOpen(false))
 

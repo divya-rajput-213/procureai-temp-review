@@ -328,6 +328,16 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess, selectedVendor}:
   })
   const submit = async () => {
     setSubmitting(true)
+    if(!prId){
+      toast({ title: 'Submission failed', description: 'PR ID is missing.', variant: 'destructive' })
+      setSubmitting(false)
+      return
+    }
+    if(!selectedVendor?.length){
+      toast({ title: 'Submission failed', description: 'No quotation selected.', variant: 'destructive' })
+      setSubmitting(false)
+      return
+    }
     try {
       const body = selectedMatrix ? { matrix_id: selectedMatrix, selected_quotation_id:selectedVendor} : {selected_quotation:selectedVendor}
       await apiClient.post(`/procurement/${prId}/submit/`, body)
@@ -1246,9 +1256,7 @@ export default function PRDetailPage() {
   }
   const TABS = [
     { key: 'details' as const, label: 'Details' },
-    ...(pr?.status === 'draft'
-      ? [{ key: 'comparison' as const, label: 'Comparison' }]
-      : []),
+    { key: 'comparison' as const, label: 'Comparison' },
     { key: 'approval' as const, label: 'Approval' },
   ]
   return (
@@ -1405,7 +1413,7 @@ export default function PRDetailPage() {
           )}
 
           {/* Invited Vendors */}
-          {pr.invited_vendors_detail?.length > 0 && pr?.status!=="draft"&&(
+          {pr.invited_vendors_detail?.length > 0 && (
             <Card>
               <CardHeader><CardTitle className="text-sm">Invited Vendors</CardTitle></CardHeader>
               <CardContent>
@@ -1446,13 +1454,13 @@ export default function PRDetailPage() {
           )}
 
           {/* Line Items */}
-         {pr?.status!=="draft"&& <Card>
+         {/* {pr?.status!=="draft"&& <Card>
             <CardHeader><CardTitle className="text-sm">Line Items</CardTitle></CardHeader>
             <CardContent>
               <LineItemsTable items={pr.linked_quotations?.[0]?.items
                 ?? []} currencyCode={pr.currency_code} />
             </CardContent>
-          </Card>}
+          </Card>} */}
 
         </div>
       )}
@@ -1481,7 +1489,6 @@ export default function PRDetailPage() {
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
           <Button
             onClick={()=> setActiveTab("approval")}
-            disabled={!selectedVendor}
             className="gap-2 min-w-[160px]"
           >
             Next

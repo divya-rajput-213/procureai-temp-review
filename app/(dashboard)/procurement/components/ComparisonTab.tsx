@@ -517,7 +517,7 @@ function DataRow({ label, cells, vendors }: RowDef & { vendors: DerivedVendor[] 
       {vendors.map((v, i) => {
         const cell = cells[i]
         return (
-          <td key={v.key} className={cn('px-4 py-2.5 align-top text-sm', colBg(v), colBorder(v))}>
+          <td key={v.vendor_id} className={cn('px-4 py-2.5 align-top text-sm', colBg(v), colBorder(v))}>
             <p className={cn('font-semibold leading-snug', highlightClass(cell?.highlight))}>
               {cell?.value ?? '—'}
             </p>
@@ -542,12 +542,12 @@ function MobileVendorCard({
 }: {
   vendor: DerivedVendor
   vendorIndex: number
-  selected: string | null
-  onSelect: (key: string) => void
+  selected: any
+  onSelect: (key: any) => void
   sections: SectionDef[]
 }) {
   const [expanded, setExpanded] = useState(vendorIndex === 0)
-  const isSelected = selected === vendor.key
+  const isSelected = selected === vendor.vendor_id
 
   return (
     <Card
@@ -664,7 +664,7 @@ function MobileVendorCard({
               </div>
             ) : (
               <Button
-                onClick={() => onSelect(vendor.key)}
+                onClick={() => onSelect(vendor.vendor_id)}
                 className={cn(
                   'w-full font-bold',
                   vendor.recommended && 'bg-blue-600 hover:bg-blue-700',
@@ -781,61 +781,7 @@ function AIInsightsPanel({ aiRec }: { aiRec: AiRecommendation }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Budget card
-// ─────────────────────────────────────────────────────────────────────────────
 
-function BudgetCard({
-  selectedVendor,
-  budget,
-}: {
-  selectedVendor: DerivedVendor | null
-  budget: number
-}) {
-  const budgetPct = selectedVendor ? Math.round((selectedVendor.totalCost / budget) * 100) : 0
-  return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardHeader className="pb-2 pt-4 px-4">
-        <CardTitle className="text-[12.5px] font-bold text-slate-700">Budget Impact</CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 space-y-3">
-        <div className="space-y-1 text-[12px]">
-          <div className="flex justify-between">
-            <span className="text-slate-400">PR Budget</span>
-            <span className="font-bold text-slate-700">{inr(budget)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-400">Selected Quote</span>
-            <span className={cn('font-semibold', selectedVendor ? 'text-slate-700' : 'text-slate-300')}>
-              {selectedVendor ? inr(selectedVendor.totalCost) : 'None selected'}
-            </span>
-          </div>
-        </div>
-        <Progress
-          value={Math.min(budgetPct, 100)}
-          className={cn('h-2', budgetPct > 100 ? '[&>div]:bg-red-500' : '[&>div]:bg-blue-500')}
-        />
-        <div className="flex justify-between text-[11px]">
-          <span className="text-slate-400">
-            {selectedVendor ? `${budgetPct}% of budget` : 'Select a quote'}
-          </span>
-          {selectedVendor && budgetPct <= 100 && (
-            <span className="text-emerald-600 font-semibold flex items-center gap-1">
-              <TrendingDown className="h-3 w-3" />
-              Within by {inr(budget - selectedVendor.totalCost)}
-            </span>
-          )}
-          {selectedVendor && budgetPct > 100 && (
-            <span className="text-red-500 font-semibold flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              Over by {inr(selectedVendor.totalCost - budget)}
-            </span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Loading / Error states
@@ -883,11 +829,12 @@ const ComparisonTab = ({
   showFooter = true,
 }: {
   selectedQuotationIds: number[]
-  selected: string | null
-  setSelected: React.Dispatch<React.SetStateAction<string | null>>
+  selected: any
+  setSelected: React.Dispatch<React.SetStateAction< any>>
   budget?: number
   showFooter?: boolean
 }) => {
+  console.log('selected', selected)
   const { data, isLoading, isError, refetch } = useQuery<CompareApiResponse>({
     queryKey: ['quotation-comparison', selectedQuotationIds],
     queryFn: async () => {
@@ -905,14 +852,14 @@ const ComparisonTab = ({
     const s = deriveSections(v, data.matrix.items)
     return { vendors: v, sections: s }
   }, [data])
-
+console.log('vendors', vendors)
   useEffect(() => {
     if (vendors.length === 1 && !selected) {
-      setSelected(vendors[0].key)
+      setSelected(vendors[0]?.vendor_id)
     }
   }, [vendors, selected, setSelected])
 
-  const selectedVendor = vendors.find((v) => v.key === selected) ?? null
+  const selectedVendor = vendors.find((v) => v.vendor_id === selected) ?? null
 
   // ── States ─────────────────────────────────────────────────────────────────
 
@@ -976,7 +923,7 @@ const ComparisonTab = ({
                 <colgroup>
                   <col style={{ width: 200 }} />
                   {vendors.map((v) => (
-                    <col key={v.key} style={{ width: 210 }} />
+                    <col key={v.vendor_id} style={{ width: 210 }} />
                   ))}
                 </colgroup>
 
@@ -990,7 +937,7 @@ const ComparisonTab = ({
                     </th>
                     {vendors.map((v) => (
                       <th
-                        key={v.key}
+                        key={v.vendor_id}
                         className={cn(
                           'border-b border-slate-200 px-4 py-0 text-left align-top',
                           colBg(v),
@@ -1063,7 +1010,7 @@ const ComparisonTab = ({
                       <p className="font-bold text-slate-700 text-sm">Overall Evaluation</p>
                     </td>
                     {vendors.map((v) => (
-                      <td key={v.key} className={cn('px-4 py-4 align-top', colBg(v), colBorder(v))}>
+                      <td key={v.vendor_id} className={cn('px-4 py-4 align-top', colBg(v), colBorder(v))}>
                         <div className="flex gap-2">
                           <div className="flex-shrink-0">{v.overallIcon}</div>
                           <div>
@@ -1092,16 +1039,18 @@ const ComparisonTab = ({
                       <p className="font-bold text-slate-700 text-[12.5px]">Select Quote</p>
                       <p className="text-[11px] text-slate-400 mt-0.5">Choose a vendor to proceed</p>
                     </td>
-                    {vendors.map((v) => (
-                      <td key={v.key} className={cn('px-4 py-4', colBg(v), colBorder(v))}>
-                        {selected === v.key ? (
+                    {vendors.map((v) => {
+                      console.log('first', selected === v.vendor_id)
+                      return(
+                      <td key={v.vendor_id} className={cn('px-4 py-4', colBg(v), colBorder(v))}>
+                        {selected === v.vendor_id ? (
                           <div className="flex items-center justify-center gap-2 rounded-lg border-2 border-emerald-500 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-700">
                             <CheckCircle2 className="h-4 w-4" />
                             Selected &mdash; {v.name.split(' ')[0]}
                           </div>
                         ) : (
                           <Button
-                            onClick={() => setSelected(v.key)}
+                            onClick={() => setSelected(v.vendor_id)}
                             className={cn(
                               'w-full font-bold transition-all hover:-translate-y-0.5 hover:shadow-md active:translate-y-0',
                               v.recommended && 'bg-blue-600 hover:bg-blue-700',
@@ -1113,7 +1062,7 @@ const ComparisonTab = ({
                           </Button>
                         )}
                       </td>
-                    ))}
+                    )})}
                   </tr>}
                 </tfoot>
               </table>
