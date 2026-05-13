@@ -1,6 +1,20 @@
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
 import React, { useEffect } from 'react'
+const financialYears = [
+    {
+        label: 'FY 2024–25',
+        value: '2024-25',
+    },
+    {
+        label: 'FY 2025–26',
+        value: '2025-26',
+    },
+    {
+        label: 'FY 2026–27',
+        value: '2026-27',
+    },
+]
 type UploadFileProps = {
     selectedFile: File | null
     setSelectedFile: (file: File | null) => void
@@ -61,11 +75,30 @@ const UploadFile = ({
 }: UploadFileProps) => {
 
     useEffect(() => {
-        if (plants.length && !plantId) setPlantId(plants[0].id)
-        if (departments.length && !departmentId) setDepartmentId(departments[0].id)
-        if (categories.length && !categoryId) setCategoryId(categories[0].id)
-        if (!financialYear) setFinancialYear('2025-26')
-    }, [plants, departments, categories])
+        if (plants?.length > 0 && !plantId) {
+            setPlantId(plants[0]?.id)
+        }
+
+        if (departments?.length > 0 && !departmentId) {
+            setDepartmentId(departments[0]?.id)
+        }
+
+        if (categories?.length > 0 && !categoryId) {
+            setCategoryId(categories[0]?.id)
+        }
+
+        if (!financialYear) {
+            setFinancialYear('2025-26')
+        }
+    }, [
+        plants,
+        departments,
+        categories,
+        plantId,
+        departmentId,
+        categoryId,
+        financialYear,
+    ])
 
     return (
         <div className="space-y-6">
@@ -226,9 +259,11 @@ const UploadFile = ({
                                 onChange={e => setFinancialYear(e.target.value)}
                             >
                                 <option value="">— Not specified —</option>
-                                <option>FY 2024–25</option>
-                                <option selected>FY 2025–26</option>
-                                <option>FY 2026–27</option>
+                                {financialYears.map(year => (
+                                    <option key={year.value} value={year.value}>
+                                        {year.label}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     </div>

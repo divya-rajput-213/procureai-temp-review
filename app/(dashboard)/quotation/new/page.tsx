@@ -296,6 +296,7 @@ export default function UploadQuotationPage() {
             if (plantId) formData.append('plant_id', String(Number(plantId)))
             if (categoryId) formData.append('category_id', String(Number(categoryId)))
             if (prLinkId) formData.append('pr_id', String(Number(prLinkId)))
+            if (financialYear) formData.append('financial_year', financialYear)
             const { data } = await apiClient.post('/quotations/upload/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             })
