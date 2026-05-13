@@ -693,7 +693,7 @@ export default function NewPRPage() {
             <div className="flex items-center gap-2">
               <Button
                 type="button"
-                disabled={isSaving || selectedVendor?.length === 0}
+                disabled={isSaving || !selectedVendor}
                 className="gap-2"
                 // onClick={() => submitApprovalMutation.mutate()}
                 onClick={() => setShowApprovalModal(true)}
