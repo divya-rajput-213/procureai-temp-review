@@ -19,6 +19,7 @@ type ApprovalMatrixProps = {
     onClose: () => void
     onSuccess?: () => void
     showFooter?: boolean
+    selectedVendor?: any
 }
 
 const ApprovalMatrix = ({
@@ -28,6 +29,7 @@ const ApprovalMatrix = ({
     onClose,
     onSuccess,
     showFooter = true,
+    selectedVendor
 }: ApprovalMatrixProps) => {
     const { toast } = useToast()
 
@@ -62,8 +64,8 @@ const ApprovalMatrix = ({
 
         try {
             const body = selectedMatrix
-                ? { matrix_id: selectedMatrix }
-                : {}
+                ? { matrix_id: selectedMatrix, selected_quotation:selectedVendor}
+                : {selected_quotation:selectedVendor }
 
             await apiClient.post(`/procurement/${prId}/submit/`, body)
             onSuccess?.()

@@ -226,6 +226,9 @@ const UploadFile = ({
                                 onChange={e => setFinancialYear(e.target.value)}
                             >
                                 <option value="">— Not specified —</option>
+                                <option>FY 2024–25</option>
+                                <option selected>FY 2025–26</option>
+                                <option>FY 2026–27</option>
                             </select>
                         </div>
                     </div>

@@ -269,26 +269,7 @@ export default function QuotationPage() {
     return (
         <div className="h-full min-h-0 flex flex-col gap-5">
             {/* Header */}
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="min-w-0">
-                    <h1 className="text-2xl font-semibold tracking-tight">Quotations</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Upload, review, and manage vendor quotes for your procurement requests
-                    </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                    <Button type="button" variant="outline" className="gap-2" onClick={exportCsv} disabled={filtered.length === 0}>
-                        <Download className="h-4 w-4" />
-                        Export
-                    </Button>
-                    <Link href="/quotation/new">
-                        <Button type="button" className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            Upload Quote
-                        </Button>
-                    </Link>
-                </div>
-            </div>
+
 
             {/* Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -419,19 +400,34 @@ export default function QuotationPage() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-9 text-muted-foreground gap-1"
-                            onClick={() => {
-                                setSearch('')
-                                setVendorFilter('')
-                                setStatusFilter('')
-                                setStatusFilterSource('tab')
-                                setDepartmentFilter('')
-                                setCategoryFilter('')
-                                setView('all')
-                            }}
-                        >
-                            <X className="w-3.5 h-3.5" /> Clear
-                        </Button>
+                                onClick={() => {
+                                    setSearch('')
+                                    setVendorFilter('')
+                                    setStatusFilter('')
+                                    setStatusFilterSource('tab')
+                                    setDepartmentFilter('')
+                                    setCategoryFilter('')
+                                    setView('all')
+                                }}
+                            >
+                                <X className="w-3.5 h-3.5" /> Clear
+                            </Button>
                         )}
+                    </div>
+                    <div className="flex items-start justify-end gap-4 flex-wrap">
+
+                        <div className="flex items-center  gap-2 shrink-0">
+                            <Button type="button" variant="outline" className="gap-2" onClick={exportCsv} disabled={filtered.length === 0}>
+                                <Download className="h-4 w-4" />
+                                Export
+                            </Button>
+                            <Link href="/quotation/new">
+                                <Button type="button" className="gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    Upload Quote
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -461,138 +457,138 @@ export default function QuotationPage() {
                         <div className="h-full overflow-auto">
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 z-10 bg-slate-50 text-muted-foreground">
-                                <tr className="border-b border-slate-200">
-                                    <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Quote Ref</th>
-                                    <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Vendor</th>
-                                    <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Category</th>
-                                    <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Department / Plant</th>
-                                    <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Total Value</th>
-                                    <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Submitted</th>
-                                    <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Valid Until</th>
-                                    <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">PR Linked</th>
-                                    <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Status</th>
-                                    <th className="px-4 py-3" />
-                                </tr>
+                                    <tr className="border-b border-slate-200">
+                                        <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Quote Ref</th>
+                                        <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Vendor</th>
+                                        <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Category</th>
+                                        <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Department / Plant</th>
+                                        <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Total Value</th>
+                                        <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Submitted</th>
+                                        <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Valid Until</th>
+                                        <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">PR Linked</th>
+                                        <th className="text-left font-semibold text-[11px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">Status</th>
+                                        <th className="px-4 py-3" />
+                                    </tr>
                                 </thead>
                                 <tbody>
-                                {filtered.map((q) => {
-                                    const validity = getValidity(q)
-                                    const pr = q.pr_number && q.pr_number !== '—' ? q.pr_number : null
-                                    const category = q.category_name ?? '—'
-                                    const department = q.department_name ?? '—'
-                                    const plant = q.plant_name ?? '—'
-                                    const actionLabel = q.status === 'pending_approval' ? 'Review' : 'View'
+                                    {filtered.map((q) => {
+                                        const validity = getValidity(q)
+                                        const pr = q.pr_number && q.pr_number !== '—' ? q.pr_number : null
+                                        const category = q.category_name ?? '—'
+                                        const department = q.department_name ?? '—'
+                                        const plant = q.plant_name ?? '—'
+                                        const actionLabel = q.status === 'pending_approval' ? 'Review' : 'View'
 
-                                    return (
-                                        <tr key={q.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60">
-                                            <td className="px-4 py-4 whitespace-nowrap">
-                                                <button
-                                                    type="button"
-                                                    className="text-blue-700 font-mono text-xs hover:underline"
-                                                    onClick={() => router.push(`/quotation/${q.id}`)}
-                                                >
-                                                    {q.ref_no}
-                                                </button>
-                                            </td>
-                                            <td className="px-4 py-4 min-w-[240px]">
-                                                <div className="font-medium">{q.vendor_name}</div>
-                                                <div className="text-xs text-muted-foreground mt-0.5">
-                                                    {q.is_new_vendor ? (
-                                                        <span className="inline-flex items-center gap-1">
-                                                            <Badge variant="warning" className="h-5 px-2 py-0 text-[10px] font-semibold">New Vendor</Badge>
-                                                            {q.vendor_gstin ? <span className="font-mono">GSTIN: {q.vendor_gstin}</span> : null}
+                                        return (
+                                            <tr key={q.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60">
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <button
+                                                        type="button"
+                                                        className="text-blue-700 font-mono text-xs hover:underline"
+                                                        onClick={() => router.push(`/quotation/${q.id}`)}
+                                                    >
+                                                        {q.ref_no}
+                                                    </button>
+                                                </td>
+                                                <td className="px-4 py-4 min-w-[240px]">
+                                                    <div className="font-medium">{q.vendor_name}</div>
+                                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                                        {q.is_new_vendor ? (
+                                                            <span className="inline-flex items-center gap-1">
+                                                                <Badge variant="warning" className="h-5 px-2 py-0 text-[10px] font-semibold">New Vendor</Badge>
+                                                                {q.vendor_gstin ? <span className="font-mono">GSTIN: {q.vendor_gstin}</span> : null}
+                                                            </span>
+                                                        ) : (
+                                                            q.vendor_gstin ? <span className="font-mono">GSTIN: {q.vendor_gstin}</span> : <span>Existing vendor</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    {category && category !== '—' ? (
+                                                        <Badge variant="info" className="font-semibold border-0">
+                                                            {category}
+                                                        </Badge>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    {(() => {
+                                                        const hasDept = Boolean(department && department !== '—')
+                                                        const hasPlant = Boolean(plant && plant !== '—')
+                                                        if (!hasDept && !hasPlant) return <span className="text-muted-foreground">—</span>
+                                                        return (
+                                                            <>
+                                                                {hasDept && (
+                                                                    <Badge variant="info" className="font-semibold border-0">
+                                                                        {department}
+                                                                    </Badge>
+                                                                )}
+                                                                {hasPlant && (
+                                                                    <div className={hasDept ? 'mt-1' : ''}>
+                                                                        <Badge variant="info" className="font-semibold border-0">
+                                                                            {plant}
+                                                                        </Badge>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )
+                                                    })()}
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap tabular-nums font-semibold">{formatCurrency(q.total_amount)}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-xs text-muted-foreground">
+                                                    {q.created_at ? formatDate(q.created_at) : '—'}
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-xs">
+                                                    {validity ? (
+                                                        <span className={validity.daysLeft >= 0 && validity.daysLeft <= 7 ? 'text-red-700 font-medium' : 'text-foreground'}>
+                                                            {formatDate(validity.validUntil.toISOString())}
                                                         </span>
                                                     ) : (
-                                                        q.vendor_gstin ? <span className="font-mono">GSTIN: {q.vendor_gstin}</span> : <span>Existing vendor</span>
+                                                        <span className="text-muted-foreground">—</span>
                                                     )}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap">
-                                                {category && category !== '—' ? (
-                                                    <Badge variant="info" className="font-semibold border-0">
-                                                        {category}
-                                                    </Badge>
-                                                ) : (
-                                                    <span className="text-muted-foreground">—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap">
-                                                {(() => {
-                                                    const hasDept = Boolean(department && department !== '—')
-                                                    const hasPlant = Boolean(plant && plant !== '—')
-                                                    if (!hasDept && !hasPlant) return <span className="text-muted-foreground">—</span>
-                                                    return (
-                                                        <>
-                                                            {hasDept && (
-                                                                <Badge variant="info" className="font-semibold border-0">
-                                                                    {department}
-                                                                </Badge>
-                                                            )}
-                                                            {hasPlant && (
-                                                                <div className={hasDept ? 'mt-1' : ''}>
-                                                                    <Badge variant="info" className="font-semibold border-0">
-                                                                        {plant}
-                                                                    </Badge>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )
-                                                })()}
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap tabular-nums font-semibold">{formatCurrency(q.total_amount)}</td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-xs text-muted-foreground">
-                                                {q.created_at ? formatDate(q.created_at) : '—'}
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-xs">
-                                                {validity ? (
-                                                    <span className={validity.daysLeft >= 0 && validity.daysLeft <= 7 ? 'text-red-700 font-medium' : 'text-foreground'}>
-                                                        {formatDate(validity.validUntil.toISOString())}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-muted-foreground">—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap">
-                                                {pr ? (
-                                                    <Badge variant="info" className="font-mono font-semibold">{pr}</Badge>
-                                                ) : (
-                                                    <span className="text-muted-foreground">—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap">
-                                                <StatusBadge status={q.status} />
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => router.push(`/quotation/${q.id}`)}
-                                                        className="h-9"
-                                                    >
-                                                        {actionLabel}
-                                                    </Button>
-                                                    {q.status === 'draft' && (
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    {pr ? (
+                                                        <Badge variant="info" className="font-mono font-semibold">{pr}</Badge>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <StatusBadge status={q.status} />
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-right">
+                                                    <div className="flex items-center justify-end gap-1">
                                                         <Button
                                                             type="button"
-                                                            variant="ghost"
+                                                            variant="outline"
                                                             size="sm"
-                                                            className="h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                            disabled={deletingId === q.id}
-                                                            onClick={() => setPendingDelete(q)}
-                                                            aria-label="Delete pending quotation"
+                                                            onClick={() => router.push(`/quotation/${q.id}`)}
+                                                            className="h-9"
                                                         >
-                                                            {deletingId === q.id
-                                                                ? <Loader2 className="h-4 w-4 animate-spin" />
-                                                                : <Trash2 className="h-4 w-4" />}
+                                                            {actionLabel}
                                                         </Button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )
-                                })}
+                                                        {q.status === 'draft' && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                disabled={deletingId === q.id}
+                                                                onClick={() => setPendingDelete(q)}
+                                                                aria-label="Delete pending quotation"
+                                                            >
+                                                                {deletingId === q.id
+                                                                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    : <Trash2 className="h-4 w-4" />}
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
                                 </tbody>
                             </table>
                         </div>

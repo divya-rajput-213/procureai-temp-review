@@ -717,6 +717,7 @@ export default function NewPRPage() {
             toast({ title: 'PR submitted for approval.' })
             router.push('/procurement')
           }}
+          selectedVendor={selectedVendor}
         />
       </form>
     </div>

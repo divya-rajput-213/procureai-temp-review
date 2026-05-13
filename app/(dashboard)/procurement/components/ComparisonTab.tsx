@@ -880,11 +880,13 @@ const ComparisonTab = ({
   selected,
   setSelected,
   budget = 500000,
+  showFooter = true,
 }: {
   selectedQuotationIds: number[]
   selected: string | null
   setSelected: React.Dispatch<React.SetStateAction<string | null>>
   budget?: number
+  showFooter?: boolean
 }) => {
   const { data, isLoading, isError, refetch } = useQuery<CompareApiResponse>({
     queryKey: ['quotation-comparison', selectedQuotationIds],
@@ -960,8 +962,7 @@ const ComparisonTab = ({
             </Button>
           </div>
         )}
-
-       {!isSingleQuotation && <AIInsightsPanel aiRec={aiRec} />}
+        <AIInsightsPanel aiRec={aiRec} />
         {/* <BudgetCard selectedVendor={selectedVendor} budget={budget} /> */}
       </div>
 
@@ -1086,7 +1087,7 @@ const ComparisonTab = ({
                   </tr>
 
                   {/* Select quote */}
-                  <tr className="border-t border-slate-200">
+                  {showFooter && <tr className="border-t border-slate-200">
                     <td className="px-4 py-4 bg-slate-50">
                       <p className="font-bold text-slate-700 text-[12.5px]">Select Quote</p>
                       <p className="text-[11px] text-slate-400 mt-0.5">Choose a vendor to proceed</p>
@@ -1113,7 +1114,7 @@ const ComparisonTab = ({
                         )}
                       </td>
                     ))}
-                  </tr>
+                  </tr>}
                 </tfoot>
               </table>
               <ScrollBar orientation="horizontal" />
@@ -1153,7 +1154,7 @@ const ComparisonTab = ({
 
         {/* Right: sidebar */}
         <div className="w-64 flex-shrink-0 space-y-4 sticky top-5">
-          {!isSingleQuotation &&<AIInsightsPanel aiRec={aiRec} />}
+          <AIInsightsPanel aiRec={aiRec} />
           {/* <BudgetCard selectedVendor={selectedVendor} budget={budget} /> */}
         </div>
       </div>
