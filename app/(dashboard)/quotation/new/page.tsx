@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { AlertCircle, ArrowLeft, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, User, Star, Clock, ShieldCheck, MapPin, Check, FileText, Building2, Package, ClipboardCheck } from 'lucide-react'
+import { AlertCircle, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, Check, FileText, Building2, Package, ClipboardCheck } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Combobox } from '@/components/ui/combobox'
-import { Checkbox } from '@/components/ui/checkbox'
 import UploadFile from '../components/UploadFile'
 
 interface FilterState {
@@ -283,7 +282,11 @@ export default function UploadQuotationPage() {
             setPlantId(data.plant_id)
             setDepartmentId(data.department_id)
             // Auto-advance to step 1 (Verify vendor)
-            setCompletedSteps(prev => new Set([...prev, 0]))
+            setCompletedSteps(prev => {
+                const updated = new Set(prev)
+                updated.add(0)
+                return updated
+            })
             setCurrentStep(1)
         },
         onError: (error: any) => {
@@ -424,10 +427,20 @@ export default function UploadQuotationPage() {
 
     const handleStepContinue = () => {
         if (currentStep === 1) {
-            setCompletedSteps(prev => new Set([...prev, 1]))
+            setCompletedSteps(prev => {
+                const updated = new Set(prev)
+                updated.add(1)
+                return updated
+            })
+
             setCurrentStep(2)
         } else if (currentStep === 2) {
-            setCompletedSteps(prev => new Set([...prev, 2]))
+            setCompletedSteps(prev => {
+                const updated = new Set(prev)
+                updated.add(2)
+                return updated
+            })
+
             setCurrentStep(3)
         }
     }
@@ -890,7 +903,7 @@ export default function UploadQuotationPage() {
                                 <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => setShowExportModal(true)}>
                                     <Download className="w-3 h-3" /> Export
                                 </Button>
-     
+
                             </div>
                         </div>
                     </div>
