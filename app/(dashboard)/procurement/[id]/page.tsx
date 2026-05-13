@@ -333,7 +333,7 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess, selectedVendor}:
       setSubmitting(false)
       return
     }
-    if(!selectedVendor?.length){
+    if(!selectedVendor){
       toast({ title: 'Submission failed', description: 'No quotation selected.', variant: 'destructive' })
       setSubmitting(false)
       return
@@ -1168,7 +1168,7 @@ export default function PRDetailPage() {
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
   const initialTabSet = useRef(false)
   const [selectedVendor, setSelectedVendor] = useState<any>("")
-
+console.log('selectedVendor', selectedVendor)
   const { data: pr, isLoading } = useQuery({
     queryKey: ['pr', id],
     queryFn: async () => (await apiClient.get(`/procurement/${id}/`)).data,

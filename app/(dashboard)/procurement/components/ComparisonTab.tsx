@@ -834,7 +834,6 @@ const ComparisonTab = ({
   budget?: number
   showFooter?: boolean
 }) => {
-  console.log('selected', selected)
   const { data, isLoading, isError, refetch } = useQuery<CompareApiResponse>({
     queryKey: ['quotation-comparison', selectedQuotationIds],
     queryFn: async () => {
@@ -852,7 +851,6 @@ const ComparisonTab = ({
     const s = deriveSections(v, data.matrix.items)
     return { vendors: v, sections: s }
   }, [data])
-console.log('vendors', vendors)
   useEffect(() => {
     if (vendors.length === 1 && !selected) {
       setSelected(vendors[0]?.vendor_id)
@@ -1040,7 +1038,6 @@ console.log('vendors', vendors)
                       <p className="text-[11px] text-slate-400 mt-0.5">Choose a vendor to proceed</p>
                     </td>
                     {vendors.map((v) => {
-                      console.log('first', selected === v.vendor_id)
                       return(
                       <td key={v.vendor_id} className={cn('px-4 py-4', colBg(v), colBorder(v))}>
                         {selected === v.vendor_id ? (
