@@ -1,6 +1,14 @@
-import { Button } from '@/components/ui/button';
-import { Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button'
+import {
+    CheckCircle2,
+    Clock3,
+    FileText,
+    Mail,
+    Upload,
+    Webhook,
+} from 'lucide-react'
 import React, { useEffect } from 'react'
+
 const financialYears = [
     {
         label: 'FY 2024–25',
@@ -15,6 +23,7 @@ const financialYears = [
         value: '2026-27',
     },
 ]
+
 type UploadFileProps = {
     selectedFile: File | null
     setSelectedFile: (file: File | null) => void
@@ -28,7 +37,6 @@ type UploadFileProps = {
 
     uploadMutation: any
 
-    // tags
     plantId: string
     setPlantId: (v: string) => void
     departmentId: string
@@ -39,7 +47,7 @@ type UploadFileProps = {
     setPrLinkId: (v: string) => void
     financialYear: string
     setFinancialYear: (v: string) => void
-    // data
+
     plants: any[]
     departments: any[]
     categories: any[]
@@ -47,6 +55,7 @@ type UploadFileProps = {
 
     formatSize: (size: number) => string
 }
+
 const UploadFile = ({
     selectedFile,
     setSelectedFile,
@@ -73,7 +82,6 @@ const UploadFile = ({
     PRs,
     formatSize,
 }: UploadFileProps) => {
-
     useEffect(() => {
         if (plants?.length > 0 && !plantId) {
             setPlantId(plants[0]?.id)
@@ -101,196 +109,362 @@ const UploadFile = ({
     ])
 
     return (
-        <div className="space-y-6">
-            {/* Selected File Preview (NEW) */}
-            {selectedFile ? (
-                <div className="flex items-center gap-3 p-4 rounded-xl border bg-muted/30">
-                    <div className="w-10 h-8 rounded-md border bg-white flex items-center justify-center text-xs font-bold">
-                        PDF
+        <div className="space-y-4 pb-4">
+            {/* Stepper */}
+            {/* Main Layout */}
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 items-start">
+
+                {/* LEFT SIDE */}
+                <div className="space-y-4">
+
+                    {/* Upload Card */}
+                    <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+                        <div className="px-4 py-3 border-b">
+                            <h2 className="text-lg font-semibold">
+                                Upload quotation
+                            </h2>
+                        </div>
+
+                        <div className="p-4">
+
+                            {selectedFile ? (
+                                <div className="flex items-center gap-4 p-4 rounded-xl border bg-muted/30">
+                                    <div className="w-12 h-12 rounded-xl bg-white border flex items-center justify-center">
+                                        <FileText className="w-5 h-5" />
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold truncate">
+                                            {selectedFile.name}
+                                        </p>
+
+                                        <p className="text-xs text-muted-foreground">
+                                            {formatSize(selectedFile.size)} · Ready for AI extraction
+                                        </p>
+                                    </div>
+
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setSelectedFile(null)
+                                            handleRemoveTagState()
+                                        }}
+                                    >
+                                        Remove
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div
+                                    className={`
+                    border border-dashed rounded-xl
+                    py-10 px-6 text-center bg-slate-50 transition-all
+                    ${dragging
+                                            ? 'border-primary bg-primary/5'
+                                            : 'hover:border-primary hover:bg-slate-100'}
+                  `}
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                >
+                                    <div className="w-16 h-16 rounded-full border bg-white flex items-center justify-center mx-auto mb-5 shadow-sm">
+                                        <Upload className="w-7 h-7 text-muted-foreground" />
+                                    </div>
+
+                                    <h3 className="text-xl font-semibold mb-2">
+                                        Drop quotation PDF here
+                                    </h3>
+
+                                    <p className="text-sm text-muted-foreground mb-5">
+                                        or click to browse files — supports PDF uploads up to 20MB
+                                    </p>
+
+                                    <div className="flex justify-center">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() =>
+                                                document.getElementById('quotation-file')?.click()
+                                            }
+                                        >
+                                            Browse files
+                                        </Button>
+                                    </div>
+
+                                    <div className="flex flex-wrap justify-center gap-2 mt-5">
+                                        <span className="px-3 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-medium">
+                                            AI OCR Enabled
+                                        </span>
+
+                                        <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                                            Bulk Upload Supported
+                                        </span>
+                                    </div>
+
+                                    <input
+                                        id="quotation-file"
+                                        type="file"
+                                        accept=".pdf,application/pdf"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const f = e.target.files?.[0] || null
+                                            setSelectedFile(f)
+                                        }}
+                                    />
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                            {selectedFile.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                            {formatSize(selectedFile.size)} · ready to upload
-                        </p>
-                    </div>
+                    {/* Tag Section */}
+                    <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+                        <div className="flex justify-between items-center px-4 py-3 border-b">
+                            <div className="font-semibold text-sm">
+                                Tag & Categorise This Quote
+                            </div>
 
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            setSelectedFile(null); handleRemoveTagState()
-                        }}
-                    >
-                        Remove
-                    </Button>
+                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 font-semibold">
+                                Required
+                            </span>
+                        </div>
+
+                        <div className="space-y-3 p-4">
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">
+                                        Link to Purchase Request
+                                    </label>
+
+                                    <select
+                                        className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                                        value={prLinkId}
+                                        onChange={e => setPrLinkId(e.target.value)}
+                                    >
+                                        <option value="">— Not specified —</option>
+
+                                        {PRs?.map((d: any) => (
+                                            <option key={d.id} value={d.id}>
+                                                {d.pr_number}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">
+                                        Spend Category
+                                    </label>
+
+                                    <select
+                                        className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                                        value={categoryId}
+                                        onChange={e => setCategoryId(e.target.value)}
+                                    >
+                                        <option value="">— Not specified —</option>
+
+                                        {categories?.map((d: any) => (
+                                            <option key={d.id} value={d.id}>
+                                                {d.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">
+                                        Department
+                                    </label>
+
+                                    <select
+                                        className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                                        value={departmentId}
+                                        onChange={e => setDepartmentId(e.target.value)}
+                                    >
+                                        <option value="">— Not specified —</option>
+
+                                        {departments.map((d: any) => (
+                                            <option key={d.id} value={d.id}>
+                                                {d.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">
+                                        Plant / Location
+                                    </label>
+
+                                    <select
+                                        className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                                        value={plantId}
+                                        onChange={e => setPlantId(e.target.value)}
+                                    >
+                                        <option value="">— Not specified —</option>
+
+                                        {plants.map((p: any) => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">
+                                        Financial Year
+                                    </label>
+
+                                    <select
+                                        className="w-full h-10 border rounded-md px-3 text-sm bg-background"
+                                        value={financialYear}
+                                        onChange={e => setFinancialYear(e.target.value)}
+                                    >
+                                        <option value="">— Not specified —</option>
+
+                                        {financialYears.map(year => (
+                                            <option key={year.value} value={year.value}>
+                                                {year.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium mb-1 block">
+                                    Internal Notes
+                                </label>
+
+                                <textarea
+                                    rows={3}
+                                    placeholder="Add any notes about this quote..."
+                                    className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end p-5 border-t">
+                            <Button
+                                className="flex items-center gap-2"
+                                disabled={!selectedFile || uploadMutation.isPending}
+                                onClick={() => addFile(selectedFile)}
+                            >
+                                {uploadMutation.isPending
+                                    ? 'Uploading…'
+                                    : 'Continue to AI Extraction'}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
-            ) : <div
-                className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors bg-white ${dragging ? 'border-primary bg-primary/5' : 'hover:border-border'
-                    }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-            >
-                <div className="w-14 h-14 rounded-full border bg-background flex items-center justify-center mx-auto mb-4">
-                    <Upload className="w-6 h-6 text-muted-foreground" />
-                </div>
 
-                <h3 className="text-lg font-semibold mb-1">
-                    Drop your vendor quote here
-                </h3>
+                {/* RIGHT SIDE */}
+                <div className="space-y-4 sticky top-4">
 
-                <p className="text-sm text-muted-foreground mb-5">
-                    or click to browse — PDF only, up to 20MB
-                </p>
-
-                <Button
-                    variant="outline"
-                    onClick={() => document.getElementById('quotation-file')?.click()}
-                >
-                    Browse file
-                </Button>
-
-                <input
-                    id="quotation-file"
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                        const f = e.target.files?.[0] || null
-                        setSelectedFile(f)
-                    }}
-                />
-            </div>
-            }
-
-            {/* Tag Section */}
-            <div className="bg-white border rounded-xl shadow-sm w-full overflow-hidden">
-                <div className="flex justify-between items-center px-4 py-3 border-b">
-                    <div className="font-semibold text-sm">Tag & Categorise This Quote</div>
-
-                    <div className="flex items-center gap-2 text-sm">
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 font-semibold">
-                            Required Before Processing
-                        </span>
-                    </div>
-                </div>
-
-                {/* Tag Section */}
-                <div className="space-y-4 p-6">
-
-                    {/* Row 1 → 2 items */}
-                    <div className="grid grid-cols-2 gap-4">
-                        {/* PR Link */}
-                        <div>
-                            <label className="text-sm font-medium mb-1 block">
-                                Link to Purchase Request
-                                <span className="font-normal text-[11px] text-gray-500"> (optional)</span>
-                            </label>
-                            <select
-                                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                                value={prLinkId}
-                                onChange={e => setPrLinkId(e.target.value)}
-                            >
-                                <option value="">— Not specified —</option>
-                                {PRs?.map((d: any) => (
-                                    <option key={d.id} value={d.id}>{d.pr_number}</option>
-                                ))}
-                            </select>
+                    {/* AI Next */}
+                    <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b">
+                            <h2 className="font-semibold text-sm">
+                                What AI does next
+                            </h2>
                         </div>
 
-                        {/* Category */}
-                        <div>
-                            <label className="text-sm font-medium mb-1 block">Spend Category</label>
-                            <select
-                                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                                value={categoryId}
-                                onChange={e => setCategoryId(e.target.value)}
-                            >
-                                <option value="">— Not specified —</option>
-                                {categories?.map((d: any) => (
-                                    <option key={d.id} value={d.id}>{d.name}</option>
-                                ))}
-                            </select>
+                        <div className="p-4 space-y-3">
+
+                            {[
+                                'OCR the uploaded quotation',
+                                'Identify vendor from GSTIN/PAN/email',
+                                'Extract line items with tax & quantity',
+                                'Match SKUs to master catalog',
+                                'Surface anomalies for review',
+                            ].map((step, index) => (
+                                <div
+                                    key={step}
+                                    className="flex gap-3"
+                                >
+                                    <div className="mt-0.5">
+                                        <CheckCircle2 className="w-5 h-5 text-primary" />
+                                    </div>
+
+                                    <div>
+                                        <p className="text-xs text-muted-foreground mb-1">
+                                            Step {index + 1}
+                                        </p>
+
+                                        <p className="text-sm font-medium leading-5">
+                                            {step}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Row 2 → 3 items */}
-                    <div className="grid grid-cols-3 gap-4">
-                        {/* Department */}
-                        <div>
-                            <label className="text-sm font-medium mb-1 block">Department</label>
-                            <select
-                                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                                value={departmentId}
-                                onChange={e => setDepartmentId(e.target.value)}
-                            >
-                                <option value="">— Not specified —</option>
-                                {departments.map((d: any) => (
-                                    <option key={d.id} value={d.id}>{d.name}</option>
-                                ))}
-                            </select>
+                    {/* Recent Uploads */}
+                    <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b">
+                            <h2 className="font-semibold text-sm">
+                                Recent uploads
+                            </h2>
                         </div>
 
-                        {/* Plant */}
-                        <div>
-                            <label className="text-sm font-medium mb-1 block">Plant / Location</label>
-                            <select
-                                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                                value={plantId}
-                                onChange={e => setPlantId(e.target.value)}
-                            >
-                                <option value="">— Not specified —</option>
-                                {plants.map((p: any) => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </select>
-                        </div>
+                        <div className="divide-y">
 
-                        {/* Financial Year */}
-                        <div>
-                            <label className="text-sm font-medium mb-1 block">Financial Year</label>
-                            <select
-                                className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                                value={financialYear}
-                                onChange={e => setFinancialYear(e.target.value)}
-                            >
-                                <option value="">— Not specified —</option>
-                                {financialYears.map(year => (
-                                    <option key={year.value} value={year.value}>
-                                        {year.label}
-                                    </option>
-                                ))}
-                            </select>
+                            {[
+                                {
+                                    name: 'Patel_handwritten.jpg',
+                                    status: 'Draft',
+                                },
+                                {
+                                    name: 'Sunrise_QTN_0190.pdf',
+                                    status: 'Verified',
+                                },
+                                {
+                                    name: 'Rasoi_RTF_quote.pdf',
+                                    status: 'Pending',
+                                },
+                            ].map((item) => (
+                                <div
+                                    key={item.name}
+                                    className="px-4 py-3 flex items-center justify-between"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-lg border bg-muted/30 flex items-center justify-center">
+                                            <FileText className="w-4 h-4" />
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm font-medium">
+                                                {item.name}
+                                            </p>
+
+                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                <Clock3 className="w-3 h-3" />
+                                                Uploaded recently
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <span
+                                        className={`px-2 py-1 rounded-full text-xs font-medium
+                      ${item.status === 'Verified'
+                                                ? 'bg-green-100 text-green-700'
+                                                : item.status === 'Pending'
+                                                    ? 'bg-yellow-100 text-yellow-700'
+                                                    : 'bg-slate-100 text-slate-700'
+                                            }
+                    `}
+                                    >
+                                        {item.status}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
                     </div>
-
-                    {/* Row 3 → Full width textarea */}
-                    <div>
-                        <label className="text-sm font-medium mb-1 block">
-                            Internal Notes
-                            <span className="font-normal text-[11px] text-gray-500"> (optional)</span>
-                        </label>
-                        <textarea
-                            rows={3}
-                            placeholder="Add any notes about this quote for the approver..."
-                            className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none"
-                        />
-                    </div>
-
-                </div>
-
-                <div className="flex justify-end gap-3 m-4">
-                    <Button
-                        className="flex items-center gap-2"
-                        disabled={!selectedFile || uploadMutation.isPending}
-                        onClick={() => addFile(selectedFile)}
-                    >
-                        {uploadMutation.isPending ? 'Uploading…' : 'Upload & Extract with AI'}
-                    </Button>
                 </div>
             </div>
         </div>
