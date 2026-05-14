@@ -4,48 +4,99 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3%;
+    /* Procurement AI — Graphite & Gold Theme */
+
+    --background: 220 33% 97%; /* #F4F6FB */
+    --foreground: 220 49% 12%; /* #0F1A2E */
+
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 220 49% 12%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3%;
-    --primary: 0 0% 0%;
+    --popover-foreground: 220 49% 12%;
+
+    /* Indigo Primary */
+    --primary: 217 83% 54%; /* #2563EB */
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 30% 96%;
-    --muted-foreground: 215 16% 28%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+
+    /* Surface */
+    --secondary: 220 43% 98%; /* #F7F9FD */
+    --secondary-foreground: 219 22% 27%; /* #364154 */
+
+    --muted: 220 40% 96%; /* #EEF2F8 */
+    --muted-foreground: 221 13% 47%; /* #6A7388 */
+
+    --accent: 220 43% 98%;
+    --accent-foreground: 219 22% 27%;
+
+    /* Coral destructive */
+    --destructive: 10 59% 49%; /* #C84A33 */
     --destructive-foreground: 0 0% 100%;
-    --border: 214 20% 87%;
-    --input: 214 20% 87%;
-    --ring: 0 0% 0%;
-    --radius: 0.5rem;
+
+    /* Borders */
+    --border: 217 28% 90%; /* #DDE3EE */
+    --input: 217 28% 90%;
+    --ring: 217 83% 54%;
+
+    --radius: 0.6rem;
+
+    /* Extra custom tokens */
+    --surface: 0 0% 100%;
+    --surface-2: 220 43% 98%;
+    --surface-3: 220 40% 96%;
+
+    --ink: 220 49% 12%;
+    --ink-2: 219 22% 27%;
+    --ink-3: 221 13% 47%;
+    --ink-4: 221 18% 65%;
+
+    --indigo: 217 83% 54%;
+    --indigo-2: 221 72% 48%;
+    --indigo-soft: 220 100% 96%;
+
+    --amber: 39 63% 44%;
+    --amber-soft: 42 78% 92%;
+
+    --emerald: 166 82% 33%;
+    --emerald-soft: 154 50% 91%;
+
+    --coral: 10 59% 49%;
+    --coral-soft: 16 75% 93%;
+
+    --violet: 252 63% 59%;
+    --violet-soft: 255 56% 95%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Dark Procurement Theme */
+
+    --background: 222 35% 10%;
+    --foreground: 210 40% 96%;
+
+    --card: 222 30% 13%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 222 30% 13%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 217 83% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 24% 18%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 222 24% 18%;
+    --muted-foreground: 215 20% 70%;
+
+    --accent: 222 24% 18%;
+    --accent-foreground: 210 40% 96%;
+
+    --destructive: 10 59% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 222 18% 24%;
+    --input: 222 18% 24%;
+    --ring: 217 83% 60%;
   }
 }
 
@@ -64,6 +115,8 @@
     line-height: 1.6;
     font-feature-settings: "cv11", "ss01", "ss03";
     -webkit-font-smoothing: antialiased;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 
   h1 {
@@ -81,22 +134,19 @@
   h4 {
     @apply text-base font-semibold text-foreground;
   }
+
   :disabled {
-  @apply cursor-not-allowed opacity-60;
-}
+    @apply cursor-not-allowed opacity-60;
+  }
 
-/* Strong override */
-button:disabled,
-input:disabled,
-textarea:disabled,
-select:disabled {
-  @apply bg-muted text-muted-foreground border-border opacity-60 !important;
-}
+  button:disabled,
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    @apply bg-muted text-muted-foreground border-border opacity-60 !important;
+  }
 
-/* Fix for variant buttons overriding disabled */
-button:disabled * {
-  @apply text-muted-foreground !important;
-}
-
-
+  button:disabled * {
+    @apply text-muted-foreground !important;
+  }
 }

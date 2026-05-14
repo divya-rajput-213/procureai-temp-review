@@ -38,7 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!hydrated || !authenticated) return null
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-[#F4F6FB]">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <button
@@ -59,7 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <TopBar onMenuToggle={() => setSidebarOpen(prev => !prev)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-3">
+        <main className="flex-1 overflow-y-auto p-4 md:p-3 bg-[#F4F6FB]">
           {children}
         </main>
       </div>
