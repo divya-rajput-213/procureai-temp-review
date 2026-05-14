@@ -215,147 +215,154 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   }
 
   return (
-<aside className="w-64 bg-[#ffffff] border-r border-[#D9E1EC] text-[#0F1A2E] flex flex-col h-full shrink-0 shadow-sm">      
+<aside className="w-64 bg-[#ffffff] border-r border-border text-foreground flex flex-col h-full shrink-0 shadow-sm">
   {/* Logo */}
-      <div className="h-14 px-4 flex items-center border-b border-[#DDE3EE]">
-        <div
-          className="flex items-center gap-2 cursor-pointer min-w-0"
-          onClick={() => router.push('/dashboard')}
-        >
-          {company?.logo ? (
-            <img
-              src={company.logo}
-              alt={company.name}
-              className="w-7 h-7 rounded-md object-contain bg-[#aeb1b8] border border-[#E5E7EB]"
-            />
-          ) : (
-            <div className="w-8 h-8 bg-[#e8effd] rounded-lg flex items-center justify-center shrink-0 border-[#CFE0FF]">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4 text-[#2563EB]"
-              >
-                <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
-              </svg>
-            </div>
-          )}
-
-          <div className="min-w-0">
-            <p className="text-lg font-bold leading-tight truncate">
-              {company?.name || 'ProcureAI'}
-            </p>
-            <p className="text-[10px] font-medium text-black/50 leading-tight">ProcureAI</p>
-          </div>
+  <div className="h-14 px-4 flex items-center border-b border-border">
+    <div
+      className="flex items-center gap-2 cursor-pointer min-w-0"
+      onClick={() => router.push('/dashboard')}
+    >
+      {company?.logo ? (
+        <img
+          src={company.logo}
+          alt={company.name}
+          className="w-7 h-7 rounded-md object-contain bg-card border border-border"
+        />
+      ) : (
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border border-border bg-primary/10">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4 text-primary"
+          >
+            <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
+          </svg>
         </div>
+      )}
+
+      <div className="min-w-0">
+        <p className="text-lg font-bold leading-tight truncate text-foreground">
+          {company?.name || 'ProcureAI'}
+        </p>
+
+        <p className="text-[10px] font-medium text-muted-foreground leading-tight">
+          Procurement Platform
+        </p>
       </div>
+    </div>
+  </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
-        <div className="space-y-1.5">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon
+  {/* Navigation */}
+  <nav className="flex-1 overflow-y-auto px-2 py-3">
+    <div className="space-y-1.5">
+      {NAV_ITEMS.map((item) => {
+        const Icon = item.icon
 
-            // ---------- Parent with children ----------
-            if (item.children) {
-              const isOpen = openMenus[item.label]
+        if (item.children) {
+          const isOpen = openMenus[item.label]
 
-              return (
-                <div key={item.label}>
-                  <button
-                    onClick={() =>
-                      setOpenMenus(prev => ({
-                        ...prev,
-                        [item.label]: !prev[item.label],
-                      }))
-                    }
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 h-10 rounded-lg text-[14px] font-semibold transition-all border",
-                      isOpen
-                        ? "bg-[#EEF4FF] border-[#CFE0FF] text-[#2563EB]"
-                        : "border-transparent text-[#364154] hover:bg-[#EEF2F8] hover:border-[#DDE3EE]"
-                    )}
-                  >
-                    <Icon className="w-4 h-4 text-[#6A7388]" />
-
-                    <span>{item.label}</span>
-
-                    <ChevronRight
-                      className={cn(
-                        "w-4 h-4 ml-auto text-[#95A0B6] transition-transform",
-                        isOpen && "rotate-90"
-                      )}
-                    />
-                  </button>
-
-                  {isOpen && (
-                    <div className="ml-7 mt-1 space-y-1">
-                      {item.children.map((child) => {
-                        const isActive = pathname.startsWith(child.href)
-
-                        return (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            onClick={onNavigate}
-                            className={cn(
-                              "flex items-center h-9 px-3 rounded-lg text-[13px] font-medium border transition-all",
-                              isActive
-                                ? "bg-[#E8EFFD] border-[#CFE0FF] text-[#2563EB] shadow-sm"
-                                : "border-transparent text-[#4B5563] hover:bg-[#EEF2F8] hover:border-[#DDE3EE]"
-                            )}
-                          >
-                            {child.label}
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            }
-
-            // ---------- Normal Item ----------
-            const isActive =
-              item.href === '/settings'
-                ? pathname === '/settings'
-                : pathname.startsWith(item.href)
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onNavigate}
+          return (
+            <div key={item.label}>
+              <button
+                onClick={() =>
+                  setOpenMenus(prev => ({
+                    ...prev,
+                    [item.label]: !prev[item.label],
+                  }))
+                }
                 className={cn(
-                  "group flex items-center gap-3 px-3 h-10 rounded-lg text-[14px] font-semibold border transition-all",
-                  isActive
-                    ? "bg-[#E8EFFD] border-[#CFE0FF] text-[#2563EB] shadow-sm"
-                    : "border-transparent text-[#364154] hover:bg-[#EEF2F8] hover:border-[#DDE3EE]"
+                  "w-full flex items-center gap-3 px-3 h-10 rounded-lg text-[14px] font-semibold transition-all border",
+                  isOpen
+                    ? "bg-primary/10 border-primary/20 text-primary shadow-sm"
+                    : "border-transparent text-secondary-foreground hover:bg-muted hover:border-border"
                 )}
               >
                 <Icon
                   className={cn(
-                    "w-[18px] h-[18px]", isActive
-                    ? "text-[#2563EB]"
-                    : "text-[#6A7388] group-hover:text-[#364154]"
+                    "w-4 h-4",
+                    isOpen ? "text-primary" : "text-muted-foreground"
                   )}
                 />
 
-                <span className="truncate">{item.label}</span>
-              </Link>
-            )
-          })}
-        </div>
-      </nav>
+                <span>{item.label}</span>
 
-      {/* User profile */}
-      <div className="border-t border-[#DDE3EE] bg-white">
-        <SidebarProfile user={user} onLogout={handleLogout} />
-      </div>
-    </aside>
+                <ChevronRight
+                  className={cn(
+                    "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                    isOpen && "rotate-90"
+                  )}
+                />
+              </button>
+
+              {isOpen && (
+                <div className="ml-7 mt-1 space-y-1">
+                  {item.children.map((child) => {
+                    const isActive = pathname.startsWith(child.href)
+
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        onClick={onNavigate}
+                        className={cn(
+                          "flex items-center h-9 px-3 rounded-lg text-[13px] font-medium border transition-all",
+                          isActive
+                            ? "bg-primary/10 border-primary/20 text-primary shadow-sm"
+                            : "border-transparent text-muted-foreground hover:bg-muted hover:border-border hover:text-foreground"
+                        )}
+                      >
+                        {child.label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        }
+
+        const isActive =
+          item.href === '/settings'
+            ? pathname === '/settings'
+            : pathname.startsWith(item.href)
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "group flex items-center gap-3 px-3 h-10 rounded-lg text-[14px] font-semibold border transition-all",
+              isActive
+                ? "bg-primary/10 border-primary/20 text-primary shadow-sm"
+                : "border-transparent text-secondary-foreground hover:bg-muted hover:border-border"
+            )}
+          >
+            <Icon
+              className={cn(
+                "w-[18px] h-[18px]",
+                isActive
+                  ? "text-primary"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+
+            <span className="truncate">{item.label}</span>
+          </Link>
+        )
+      })}
+    </div>
+  </nav>
+
+  {/* User profile */}
+  <div className="border-t border-border bg-card">
+    <SidebarProfile user={user} onLogout={handleLogout} />
+  </div>
+</aside>
   )
 }

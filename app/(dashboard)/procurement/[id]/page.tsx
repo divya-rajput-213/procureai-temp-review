@@ -20,7 +20,7 @@ import {
 import apiClient from '@/lib/api/client'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
-import ComparisonTab from '../components/ComparisonTab'
+import ComparisonTab from '../components/CompareStep'
 
 // ─── Approval Timeline ─────────────────────────────────────────────────────────
 
@@ -1482,7 +1482,7 @@ export default function PRDetailPage() {
       )}
 
       {/* ── Comparison Tab ── */}
-      {activeTab === 'comparison' && <>
+      {/* {activeTab === 'comparison' && <>
         <ComparisonTab selectedQuotationIds={quotationIds} selected={selectedVendor}
         setSelected={setSelectedVendor} showFooter={pr?.status === "draft"} />
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
@@ -1493,7 +1493,7 @@ export default function PRDetailPage() {
             Next
           </Button>
         </div>
-      </>}
+      </>} */}
     </div>
   )
 }
