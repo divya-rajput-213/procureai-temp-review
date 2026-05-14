@@ -64,7 +64,7 @@ function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => voi
   }, [ref, onOutside])
 }
 
-export function VendorDot({ name, color, size = 28 }: { name: string; color?: string; size?: number }) {
+ function VendorDot({ name, color, size = 28 }: { name: string; color?: string; size?: number }) {
   const colors = ['#042348', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316']
   const idx = name.charCodeAt(0) % colors.length
   const bg = color || colors[idx]
@@ -528,8 +528,13 @@ function ReviewStep({ selectedVendorId, quotations, selectedQuotationIds, tracki
   const colorPalette = ['#042348', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6']
   const vendorColor = colorPalette[0]
 
-  const otherVendors = [...new Set(selectedQuotations.filter(q => q.vendor_name !== selectedVendorId).map(q => q.vendor_name))]
-
+  const otherVendors = Array.from(
+    new Set(
+      selectedQuotations
+        .filter(q => q.vendor_name !== selectedVendorId)
+        .map(q => q.vendor_name)
+    )
+  )
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16, alignItems: 'start' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -655,7 +660,9 @@ function ReviewStep({ selectedVendorId, quotations, selectedQuotationIds, tracki
                 { label: 'Landed', value: formatCurrency(landed), sub: 'incl. GST', color: '#1e40af', bg: '#eff6ff', icon: <Package style={{ width: 10, height: 10 }} /> },
                 { label: 'Savings', value: savings > 0 ? formatCurrency(savings) : '—', sub: 'vs. worst quote', color: '#065f46', bg: '#ecfdf5', icon: <TrendingDown style={{ width: 10, height: 10 }} /> },
                 { label: 'Quotes', value: vendorQuotations.length, sub: 'selected', color: '#6d28d9', bg: '#f5f3ff', icon: <FileText style={{ width: 10, height: 10 }} /> },
-                { label: 'Vendors', value: [...new Set(selectedQuotations.map((q: any) => q.vendor_name))].length, sub: 'compared', color: '#92400e', bg: '#fffbeb', icon: <Star style={{ width: 10, height: 10 }} /> },
+                { label: 'Vendors', value: Array.from(
+                  new Set(selectedQuotations.map((q: any) => q.vendor_name))
+                ).length, sub: 'compared', color: '#92400e', bg: '#fffbeb', icon: <Star style={{ width: 10, height: 10 }} /> },
               ].map(({ label, value, sub, color, bg, icon }, i) => (
                 <div key={i} style={{ background: bg, borderRadius: 8, padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, color, fontSize: 10, fontWeight: 600, marginBottom: 4 }}>{icon}{label}</div>
@@ -900,7 +907,6 @@ export default function NewPRPage() {
         {step === 2 && (
           <CompareStep
             selectedQuotationIds={selectedQuotationIds}
-            quotations={quotations}
             selectedVendorId={selectedVendorId}
             setSelectedVendorId={setSelectedVendorId}
           />
