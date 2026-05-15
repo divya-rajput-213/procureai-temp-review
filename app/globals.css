@@ -6,7 +6,7 @@
   :root {
     /* Procurement AI — Graphite & Gold Theme */
 
-    --background: 220 33% 97%; /* #F4F6FB */
+    --background: 0 0% 100%; /* #FFFFFF */
     --foreground: 220 49% 12%; /* #0F1A2E */
 
     --card: 0 0% 100%; /* #FFFFFF */
@@ -70,7 +70,7 @@
   .dark {
     /* Dark Procurement Theme */
 
-    --background: 222 35% 10%;
+    /* --background: 222 35% 10%; */
     --foreground: 210 40% 96%;
 
     --card: 222 30% 13%;
@@ -116,7 +116,7 @@
     line-height: 1.6;
     font-feature-settings: "cv11", "ss01", "ss03";
     -webkit-font-smoothing: antialiased;
-    background-color: hsl(var(--background));
+    /* background-color: hsl(var(--background)); */
     color: hsl(var(--foreground));
   }
 

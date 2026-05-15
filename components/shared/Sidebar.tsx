@@ -278,14 +278,14 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
                 className={cn(
                   "w-full flex items-center gap-3 px-3 h-10 rounded-lg text-[14px] font-semibold transition-all border",
                   isOpen
-                    ? "bg-primary/10 border-primary/20 text-primary shadow-sm"
+                    ? "bg-primary border-primary/20 text-[white] shadow-sm"
                     : "border-transparent text-secondary-foreground hover:bg-muted hover:border-border"
                 )}
               >
                 <Icon
                   className={cn(
                     "w-4 h-4",
-                    isOpen ? "text-primary" : "text-muted-foreground"
+                    isOpen ? "text-[white]" : "text-muted-foreground"
                   )}
                 />
 
@@ -312,7 +312,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
                         className={cn(
                           "flex items-center h-9 px-3 rounded-lg text-[13px] font-medium border transition-all",
                           isActive
-                            ? "bg-primary/10 border-primary/20 text-primary shadow-sm"
+                            ? "bg-primary border-primary/20 text-[white] shadow-sm"
                             : "border-transparent text-muted-foreground hover:bg-muted hover:border-border hover:text-foreground"
                         )}
                       >
@@ -339,7 +339,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             className={cn(
               "group flex items-center gap-3 px-3 h-10 rounded-lg text-[14px] font-semibold border transition-all",
               isActive
-                ? "bg-primary/10 border-primary/20 text-primary shadow-sm"
+                ? "bg-primary border-primary/20 text-[white] shadow-sm"
                 : "border-transparent text-secondary-foreground hover:bg-muted hover:border-border"
             )}
           >
@@ -347,7 +347,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
               className={cn(
                 "w-[18px] h-[18px]",
                 isActive
-                  ? "text-primary"
+                  ? "text-[white]"
                   : "text-muted-foreground group-hover:text-foreground"
               )}
             />
