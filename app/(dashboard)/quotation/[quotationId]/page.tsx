@@ -113,6 +113,8 @@ type Quotation = {
   plant_name: string
   department_id: number | null
   department_name: string
+  category_id: number | null
+  category_name: string
   confidence_score?: number | null
 }
 
@@ -251,6 +253,8 @@ function mapQuotation(raw: any): Quotation {
     plant_name: raw.plant_name ?? '',
     department_id: raw.department ?? null,
     department_name: raw.department_name ?? '',
+    category_id: raw.category ?? null,
+    category_name: raw.category_name ?? '',
     confidence_score: nullableNumber(raw.confidence_score ?? raw.ai_confidence ?? raw.confidence),
   }
 }
@@ -294,6 +298,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const [hsnErrors, setHsnErrors] = useState<(string | null)[]>([])
   const [editPlantId, setEditPlantId] = useState<string>('')
   const [editDepartmentId, setEditDepartmentId] = useState<string>('')
+  const [editCategoryId, setEditCategoryId] = useState<string>('')
   const [deleteItemOpen, setDeleteItemOpen] = useState(false)
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null)
 
@@ -309,6 +314,14 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     queryKey: ['departments'],
     queryFn: async () => {
       const r = await apiClient.get('/users/departments/')
+      return r.data?.results ?? r.data ?? []
+    },
+  })
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['vendor-categories'],
+    queryFn: async () => {
+      const r = await apiClient.get('/vendors/categories/')
       return r.data?.results ?? r.data ?? []
     },
   })
@@ -357,6 +370,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         terms_and_conditions: editTerms.split('\n').map(t => t.trim()).filter(Boolean),
         plant_id: editPlantId ? Number(editPlantId) : null,
         department_id: editDepartmentId ? Number(editDepartmentId) : null,
+        category: editCategoryId ? Number(editCategoryId) : null,
         items: editItems.map(it => ({
           item_code: it.item_code || null,
           item_name: it.item_name,
@@ -397,6 +411,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     setHsnErrors(nextItems.map(() => null))
     setEditPlantId(quotation.plant_id ? String(quotation.plant_id) : '')
     setEditDepartmentId(quotation.department_id ? String(quotation.department_id) : '')
+    setEditCategoryId(quotation.category_id ? String(quotation.category_id) : '')
     setIsEditing(true)
   }
   const handleDownloadGeneratedPdf = async () => {
@@ -587,14 +602,14 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
       {/* 2. Tabs */}
       <div className="flex items-center border-b overflow-x-auto no-scrollbar">
-        {[
-          { id: 'overview', label: 'Overview' },
-          { id: 'ai-analysis', label: 'AI Analysis', icon: <Sparkles className="w-3.5 h-3.5" /> },
-          { id: 'line-items', label: 'Line Items', badge: items.length },
-          { id: 'price-compare', label: 'Price compare' },
-          { id: 'document', label: 'Document' },
-          { id: 'activity', label: 'Activity' }
-        ].map(tab => (
+        {(
+          [
+            { id: 'overview', label: 'Overview' },
+            { id: 'line-items', label: 'Line Items', badge: items.length },
+            { id: 'document', label: 'Document' },
+            { id: 'activity', label: 'Activity' }
+          ] as { id: string; label: string; badge?: number; icon?: React.ReactNode }[]
+        ).map(tab => (
           <button
             key={tab.id}
             className={`
@@ -687,8 +702,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                       <p className="text-sm font-semibold text-slate-900">{quotation.quotation_date}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">CURRENCY</p>
-                      <p className="text-sm font-semibold text-slate-900">INR</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">CATEGORY</p>
+                      <p className="text-sm font-semibold text-slate-900">{quotation.category_name || '—'}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">SOURCE</p>
@@ -706,201 +721,87 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 </CardContent>
               </Card>
 
-              {/* Line Items Card */}
-              <Card className="shadow-sm border-slate-200 overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50/50 border-b flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Line Items</h3>
-                    <span className="text-[10px] text-muted-foreground font-medium">{items.length} lines · auto-mapped to master</span>
-                  </div>
-                  <Button variant="outline" size="sm" className="h-7 text-xs font-semibold bg-primary/5 text-primary border-primary/20">
-                    Re-map all
-                  </Button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-50/50 border-b text-muted-foreground uppercase font-bold tracking-tight">
-                      <tr>
-                        <th className="px-4 py-2.5 w-10">#</th>
-                        <th className="px-4 py-2.5 w-32">SKU</th>
-                        <th className="px-4 py-2.5">DESCRIPTION</th>
-                        <th className="px-4 py-2.5 w-32">MATCH</th>
-                        <th className="px-4 py-2.5 w-16 text-right">QTY</th>
-                        <th className="px-4 py-2.5 w-16 text-left">UOM</th>
-                        <th className="px-4 py-2.5 w-28 text-right">UNIT PRICE</th>
-                        <th className="px-4 py-2.5 w-28 text-right">TOTAL</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {displayItems.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-4 py-3 text-muted-foreground tabular-nums">{String(idx + 1).padStart(2, '0')}</td>
-                          <td className="px-4 py-3 font-mono text-slate-500">{item.item_code || '---'}</td>
-                          <td className="px-4 py-3 font-medium text-slate-900">{item.item_name}</td>
-                          <td className="px-4 py-3">
-                            {item.master_item_id ? (
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between text-[9px] font-bold text-slate-400">
-                                  <span>MATCH</span>
-                                  <span>{90 + idx}%</span>
-                                </div>
-                                <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                                  <div className="h-full bg-primary rounded-full" style={{ width: `${90 + idx}%` }} />
-                                </div>
-                              </div>
-                            ) : (
-                              <Badge variant="outline" className="text-[9px] font-bold bg-amber-50 text-amber-700 border-amber-200">New</Badge>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right tabular-nums text-slate-900">{item.quantity}</td>
-                          <td className="px-4 py-3 text-slate-500 font-medium">{item.unit}</td>
-                          <td className="px-4 py-3 text-right tabular-nums text-slate-900">{formatINR(item.price_per_unit)}</td>
-                          <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{formatINR(item.amount)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-slate-50/30 font-medium">
-                      <tr>
-                        <td colSpan={6} className="px-4 py-2 text-right text-muted-foreground">Subtotal</td>
-                        <td colSpan={2} className="px-4 py-2 text-right tabular-nums font-bold text-slate-900">{formatINR(displaySubtotal)}</td>
-                      </tr>
-                      <tr>
-                        <td colSpan={6} className="px-4 py-2 text-right text-muted-foreground">GST</td>
-                        <td colSpan={2} className="px-4 py-2 text-right tabular-nums font-bold text-slate-900">{formatINR(displayCgstAmount + displaySgstAmount)}</td>
-                      </tr>
-                      <tr className="border-t">
-                        <td colSpan={6} className="px-4 py-4 text-right text-muted-foreground font-bold uppercase tracking-wider">Total</td>
-                        <td colSpan={2} className="px-4 py-4 text-right tabular-nums text-lg font-black text-slate-900">{formatINR(displayGrandTotal)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </Card>
+              {/* Line Items removed from Overview as it has its own tab */}
             </div>
 
             {/* Sidebar (4 cols) */}
             <div className="lg:col-span-4 space-y-6">
-              {/* Quote Intelligence */}
-              <Card className="shadow-sm border-primary/10 bg-primary/[0.02]">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Quote Intelligence</h3>
-                    </div>
-                    <span className="text-[10px] font-extrabold text-primary/40">98%</span>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed mb-6">
-                    Pricing 3.1% below 90 day average. Snack mix tier discount triggers at 50 CTN+.
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-white p-3 rounded-lg border border-primary/10">
-                      <div className="text-[9px] font-bold uppercase text-primary/40 mb-1">SAVINGS VS AVG</div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-sm font-bold text-emerald-600">₹42K</span>
-                        <span className="text-[10px] font-medium text-emerald-500">3.1%</span>
-                      </div>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-primary/10">
-                      <div className="text-[9px] font-bold uppercase text-primary/40 mb-1">WATCH-OUTS</div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-sm font-bold text-amber-600">1</span>
-                        <span className="text-[10px] font-medium text-amber-500">Tax var.</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Button className="w-full h-9 bg-slate-900 hover:bg-slate-800 text-xs font-bold gap-2">
-                      <Sparkles className="w-3.5 h-3.5" /> Open AI analysis
-                    </Button>
-                    <Button variant="outline" className="w-full h-9 text-xs font-bold gap-2 text-slate-700 bg-white">
-                      <ArrowUpRight className="w-3.5 h-3.5" /> Use in PR
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Vendor Snapshot */}
-              <Card className="shadow-sm border-slate-200">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Vendor snapshot</h3>
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-bold gap-1 text-slate-400">Open <Plus className="w-2.5 h-2.5" /></Button>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="h-10 w-10 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-sm">SS</div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900">{vendor?.company_name}</h4>
-                      <p className="text-[10px] text-slate-400 font-medium italic">Strategic · Snacks & Confectionery</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-y-5">
-                    <div className="space-y-1">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">SCORE / 100</p>
-                      <p className="text-sm font-bold text-slate-900">92 <span className="text-emerald-500 font-bold ml-1 text-[10px]">▲ +3</span></p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">ON-TIME</p>
-                      <p className="text-sm font-bold text-slate-900">96%</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">RISK</p>
-                      <p className="text-sm font-bold text-slate-400 italic">Low - L1</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">LEAD TIME</p>
-                      <p className="text-sm font-bold text-slate-900">4 days</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Price history */}
-              <Card className="shadow-sm border-slate-200">
-                <CardContent className="p-5">
-                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-4">Price history <span className="font-normal text-slate-400 lowercase italic">Top 4 SKUs</span></h3>
-
-                  <div className="space-y-4">
-                    {items.slice(0, 4).map((item, i) => (
-                      <div key={i} className="flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-bold text-slate-900 truncate">{item.item_name}</p>
-                          <p className="text-[9px] text-slate-400 font-medium">avg ₹735</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="text-[10px] font-black text-slate-900">₹{item.price_per_unit.toLocaleString()}</div>
-                          <div className="text-[9px] font-bold text-emerald-600">-3.1%</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <AIAnalysisPanel quotation={quotation} />
             </div>
           </div>
         </div>
       )}
 
       {/* Tab Content */}
-      {activeTab === 'ai-analysis' && <AIAnalysisPanel quotation={quotation} />}
 
-      {activeTab === 'price-compare' && (
-        <Card className="p-12 text-center shadow-sm border-slate-200 bg-slate-50/30">
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-primary/5 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-primary" />
+      {activeTab === 'line-items' && (
+        <Card className="shadow-sm border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 bg-slate-50/50 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Line Items</h3>
+              <span className="text-[10px] text-muted-foreground font-medium">{displayItems.length} lines · auto-mapped to master</span>
             </div>
-            <div className="space-y-1">
-              <h3 className="font-bold text-slate-900">Price Comparison</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                Comparing this quotation against historical and market benchmarks to ensure optimal pricing.
-              </p>
-            </div>
-            <Badge variant="outline" className="bg-white text-primary border-primary/20">Coming Soon</Badge>
+            <Button variant="outline" size="sm" className="h-7 text-xs font-semibold bg-primary/5 text-primary border-primary/20">
+              Re-map all
+            </Button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50/50 border-b text-muted-foreground uppercase font-bold tracking-tight">
+                <tr>
+                  <th className="px-4 py-2.5 w-10">#</th>
+                  <th className="px-4 py-2.5 w-32">SKU</th>
+                  <th className="px-4 py-2.5">DESCRIPTION</th>
+                  <th className="px-4 py-2.5 w-32">MATCH</th>
+                  <th className="px-4 py-2.5 w-16 text-right">QTY</th>
+                  <th className="px-4 py-2.5 w-16 text-left">UOM</th>
+                  <th className="px-4 py-2.5 w-28 text-right">UNIT PRICE</th>
+                  <th className="px-4 py-2.5 w-28 text-right">TOTAL</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {displayItems.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-4 py-3 text-muted-foreground tabular-nums">{String(idx + 1).padStart(2, '0')}</td>
+                    <td className="px-4 py-3 font-mono text-slate-500">{item.item_code || '---'}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900">{item.item_name}</td>
+                    <td className="px-4 py-3">
+                      {item.master_item_id ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[9px] font-bold text-slate-400">
+                            <span>MATCH</span>
+                            <span>{90 + idx}%</span>
+                          </div>
+                          <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-primary rounded-full" style={{ width: `${90 + idx}%` }} />
+                          </div>
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="text-[9px] font-bold bg-amber-50 text-amber-700 border-amber-200">New</Badge>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-slate-900">{item.quantity}</td>
+                    <td className="px-4 py-3 text-slate-500 font-medium">{item.unit}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-slate-900">{formatINR(item.price_per_unit)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{formatINR(item.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-50/30 font-medium">
+                <tr>
+                  <td colSpan={6} className="px-4 py-2 text-right text-muted-foreground">Subtotal</td>
+                  <td colSpan={2} className="px-4 py-2 text-right tabular-nums font-bold text-slate-900">{formatINR(displaySubtotal)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={6} className="px-4 py-2 text-right text-muted-foreground">GST</td>
+                  <td colSpan={2} className="px-4 py-2 text-right tabular-nums font-bold text-slate-900">{formatINR(displayCgstAmount + displaySgstAmount)}</td>
+                </tr>
+                <tr className="border-t">
+                  <td colSpan={6} className="px-4 py-4 text-right text-muted-foreground font-bold uppercase tracking-wider">Total</td>
+                  <td colSpan={2} className="px-4 py-4 text-right tabular-nums text-lg font-black text-slate-900">{formatINR(displayGrandTotal)}</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </Card>
       )}
@@ -1052,6 +953,19 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 <option value="">— Not specified —</option>
                 {departments.map((d: any) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Category</label>
+              <select
+                className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
+                value={editCategoryId}
+                onChange={e => setEditCategoryId(e.target.value)}
+              >
+                <option value="">— Not specified —</option>
+                {categories.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
