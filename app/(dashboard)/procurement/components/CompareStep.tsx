@@ -73,7 +73,6 @@ function CompareStep({
   isDisabled = false,
   prId
 }: any) {
-  const [isExporting, setIsExporting] = useState(false)
   const { data, isLoading, isError } = useQuery({
     queryKey: ['quotation-comparison', selectedQuotationIds],
     queryFn: async () => {
@@ -127,50 +126,7 @@ function CompareStep({
   const keyTakeaways: string[] = aiRec.key_takeaways || []
   const riskIndicators: string[] = aiRec.risk_indicators || []
 
-  const handleExport = async () => {
-    if (!prId) return
-    setIsExporting(true)
-    try {
-      const res = await apiClient.get(
-        `/procurement/${prId}/export-pcs/`,
-        { responseType: 'blob' }
-      )
-  
-      const disposition = res.headers?.['content-disposition'] || ''
-      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
-      const filename = match ? match[1].replace(/['"]/g, '') : `PCS-${prId}.xlsx`
-  
-      const blob = new Blob([res.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    }catch (err: any) {
-      let message = 'Could not download the PCS sheet. Please try again.'
-      
-      const blob: Blob = err?.response?.data
-      if (blob instanceof Blob) {
-        try {
-          const text = await blob.text()
-          const json = JSON.parse(text)
-          message = json.error || json.detail || message
-        } catch {
-          // not JSON, keep default message
-        }
-      }
-    
-      console.error('Export failed', err)
-      toast({ title: 'Export failed', description: message, variant: 'destructive' })
-    } finally {
-      setIsExporting(false)
-    }
-  }
+
   if (isLoading) {
     return (
       <Card className="shadow-sm">
@@ -204,19 +160,7 @@ function CompareStep({
                 </p>
               )}
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 text-xs"
-              onClick={handleExport}
-              disabled={isExporting || !prId}
-            >
-              {isExporting
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <Download className="w-3.5 h-3.5" />
-              }
-              {isExporting ? 'Exporting…' : 'Export PCS'}
-            </Button>
+
           </div>
         </CardHeader>
 

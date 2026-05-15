@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useToast } from '@/components/ui/use-toast'
+import { toast, useToast } from '@/components/ui/use-toast'
 import {
   ArrowLeft, Loader2, Search, X,
   AlertTriangle, Check, ChevronRight, Sparkles, Plus, Building2,
+  Download,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
@@ -92,44 +93,147 @@ function VendorDot({ name, color, size = 28 }: { name: string; color?: string; s
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────
 
-function StepIndicator({ step }: { step: number }) {
+function StepIndicator({ step, toast, prId }: any) {
+  const [isExporting, setIsExporting] = useState(false)
+
   const steps = ['Quotes', 'Compare & select', 'Approval matrix']
+  const handleExport = async (prId: any) => {
+    if (!prId) return
+    setIsExporting(true)
+    try {
+      const res = await apiClient.get(
+        `/procurement/${prId}/export-pcs/`,
+        { responseType: 'blob' }
+      )
+
+      const disposition = res.headers?.['content-disposition'] || ''
+      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+      const filename = match ? match[1].replace(/['"]/g, '') : `PCS-${prId}.xlsx`
+
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      let message = 'Could not download the PCS sheet. Please try again.'
+
+      const blob: Blob = err?.response?.data
+      if (blob instanceof Blob) {
+        try {
+          const text = await blob.text()
+          const json = JSON.parse(text)
+          message = json.error || json.detail || message
+        } catch {
+          // not JSON, keep default message
+        }
+      }
+
+      console.error('Export failed', err)
+      toast({ title: 'Export failed', description: message, variant: 'destructive' })
+    } finally {
+      setIsExporting(false)
+    }
+  }
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center',
+    <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       borderBottom: '1px solid hsl(var(--border))',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', flex: 1, padding: '12px 20px', gap: 0 }}>
-        {steps.map((s, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
-            {i > 0 && (
-              <div style={{
-                width: 48, height: 1, margin: '0 4px',
-                background: i < step ? 'hsl(var(--primary))' : 'hsl(var(--border))',
-              }} />
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{
-                width: 22, height: 22, borderRadius: '50%',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, fontWeight: 700, flexShrink: 0,
-                background: i < step - 1 ? '#10b981'
-                  : i === step - 1 ? 'hsl(var(--primary))'
+      padding: '12px 20px',
+    }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+      {steps.map((s, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
+          {i > 0 && (
+            <div
+              style={{
+                width: 48,
+                height: 1,
+                margin: '0 4px',
+                background:
+                  i < step
+                    ? 'hsl(var(--primary))'
+                    : 'hsl(var(--border))',
+              }}
+            />
+          )}
+  
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: '50%',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 16,
+                fontWeight: 700,
+                flexShrink: 0,
+                background:
+                  i < step - 1
+                    ? '#10b981'
+                    : i === step - 1
+                    ? 'hsl(var(--primary))'
                     : 'hsl(var(--muted))',
-                color: i <= step - 1 ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
-              }}>
-                {i < step - 1 ? <Check style={{ width: 10, height: 10 }} /> : (i + 1)}
-              </span>
-              <span style={{
+                color:
+                  i <= step - 1
+                    ? 'hsl(var(--primary-foreground))'
+                    : 'hsl(var(--muted-foreground))',
+              }}
+            >
+              {i < step - 1 ? (
+                <Check style={{ width: 10, height: 10 }} />
+              ) : (
+                i + 1
+              )}
+            </span>
+  
+            <span
+              style={{
                 fontSize: 16,
                 fontWeight: i === step - 1 ? 600 : 400,
-                color: i === step - 1 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
-              }}>{s}</span>
-            </div>
+                color:
+                  i === step - 1
+                    ? 'hsl(var(--foreground))'
+                    : 'hsl(var(--muted-foreground))',
+              }}
+            >
+              {s}
+            </span>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
+  
+    {step === 2 && (
+      <Button
+        size="sm"
+        variant="outline"
+        className="gap-1.5 text-xs"
+        onClick={() => handleExport(prId)}
+        disabled={isExporting || !prId}
+      >
+        {isExporting ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <Download className="w-3.5 h-3.5" />
+        )}
+  
+        {isExporting ? 'Exporting…' : 'Export PCS'}
+      </Button>
+    )}
+  </div>
   )
 }
 
@@ -287,11 +391,6 @@ function QuotesStep({
   const hasDate = quotations.some((q: any) => q?.quotation_date)
   const hasValidity = quotations.some((q: any) => q?.valid_until)
   const hasUploadedBy = quotations.some((q: any) => q?.uploaded_by)
-
-  // Unique vendor names for filter dropdown
-  const vendorNames: string[] = Array.from(
-    new Set((quotations as any[]).map((q: any) => q.vendor_name).filter(Boolean))
-  )
 
   // ── Filter ───────────────────────────────────────────────────────────
   const filtered = (quotations as any[]).filter((q: any) => {
@@ -751,7 +850,7 @@ export default function NewPRPage() {
       }
       saveDraftMutation.mutate(undefined, {
         onSuccess: (pr) => {
-          setSavedPrId( pr.hash_id ?? pr.id)
+          setSavedPrId(pr.hash_id ?? pr.id)
           setPrId(pr.id)
           queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
           toast({ title: 'PR saved as draft.' })
@@ -802,7 +901,8 @@ export default function NewPRPage() {
 
       <StepIndicator
         step={step}
-
+        toast={toast}
+        prId={prId}
       />
 
       <div className="pt-5">
@@ -852,24 +952,45 @@ export default function NewPRPage() {
           />
         )}
       </div>
-   { step<=2 &&  <div style={{
-        borderTop: '1px solid hsl(var(--border))',
-        padding: '12px 24px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-        marginTop:"10px"
-      }}>
-        {step > 1 &&  step<=2 &&(
-          <Button variant="outline" size="sm" onClick={() => setStep(step - 1)} className="gap-1">
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
-          </Button>
+      {step <= 2 && (
+  <div
+    style={{
+      borderTop: '1px solid hsl(var(--border))',
+      padding: '12px 24px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: '10px',
+    }}
+  >
+    {step > 1 && (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setStep(step - 1)}
+        className="gap-1"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Back
+      </Button>
+    )}
+
+    {step !== 3 && (
+      <Button
+        size="sm"
+        onClick={handleContinue}
+        disabled={isSaving}
+        className="gap-1"
+        style={{ marginLeft: 'auto' }}
+      >
+        {isSaving && (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
         )}
-        {step !== 3 && (
-          <Button size="sm" onClick={handleContinue} disabled={isSaving} className="gap-1">
-            {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Next {!isSaving && <ChevronRight className="w-3.5 h-3.5" />}
-          </Button>
-        )}
-      </div>}
+        Next {!isSaving && <ChevronRight className="w-3.5 h-3.5" />}
+      </Button>
+    )}
+  </div>
+)}
     </div>
   )
 }
