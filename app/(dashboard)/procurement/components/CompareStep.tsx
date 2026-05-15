@@ -51,7 +51,6 @@ function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendor
     enabled: selectedQuotationIds?.length > 0,
     retry: false,
   })
-  console.log('data', data)
   // API response mapping
   const vendors = data?.matrix?.vendors || []
 
