@@ -1567,53 +1567,7 @@ export default function PRDetailPage() {
 
           {/* RIGHT SIDEBAR */}
           <div className="space-y-4">
-            {/* AI SUMMARY */}
-            <Card className="overflow-hidden border-violet-200 bg-violet-50/40 shadow-sm">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold text-violet-950">
-                    AI award summary
-                  </CardTitle>
-
-                  <span className="text-xs font-semibold text-violet-700">
-                    94%
-                  </span>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  Awarded to{' '}
-                  <span className="font-semibold text-foreground">
-                    {pr.selected_vendor_name || 'selected vendor'}
-                  </span>{' '}
-                  — 12.9% saving + 4-day lead-time
-                  advantage. Risk-adjusted score 92.
-                </p>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-violet-200 bg-background p-3">
-                    <div className="text-[11px] uppercase tracking-[0.06em] text-violet-600 font-semibold">
-                      TCO Score
-                    </div>
-
-                    <div className="mt-3 text-3xl font-bold">
-                      94
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-violet-200 bg-background p-3">
-                    <div className="text-[11px] uppercase tracking-[0.06em] text-violet-600 font-semibold">
-                      Saving %
-                    </div>
-
-                    <div className="mt-3 text-3xl font-bold text-emerald-600">
-                      +12.9%
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        
 
             {/* APPROVAL CHAIN */}
             <Card className="overflow-hidden rounded-xl shadow-sm">

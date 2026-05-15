@@ -32,7 +32,12 @@ const VENDOR_PALETTE = [
   { bg: 'hsl(258 90% 66%)', text: '#fff', light: 'hsl(258 90% 96%)', border: 'hsl(258 90% 75%)' },
   { bg: 'hsl(173 80% 40%)', text: '#fff', light: 'hsl(173 80% 93%)', border: 'hsl(173 80% 55%)' },
 ]
-
+const SELECTED_COLOR = {
+  bg: 'hsl(221 83% 53%)',
+  text: '#fff',
+  light: 'hsl(221 83% 96%)',
+  border: 'hsl(221 83% 70%)',
+}
 function vendorPalette(idx: number) {
   return VENDOR_PALETTE[idx % VENDOR_PALETTE.length]
 }
@@ -194,7 +199,7 @@ function CompareStep({
                 {vendors.map((v) => {
                   const isSel = v.vendor_id === selectedVendorId
                   const pi = vendorIdx[v.vendor_id]
-                  const pal = vendorPalette(pi)
+                  const pal = SELECTED_COLOR
                   const aiRank = aiRanking.find(r => r.vendor_id === v.vendor_id)
                   const isAiPick = aiRecommended?.vendor_id === v.vendor_id
 
@@ -330,7 +335,7 @@ function CompareStep({
                     {/* Per-vendor price cell */}
                     {vendors.map((v) => {
                       const pi = vendorIdx[v.vendor_id]
-                      const pal = vendorPalette(pi)
+                      const pal = SELECTED_COLOR
                       const isSel = v.vendor_id === selectedVendorId
                       const priceInfo = item.vendor_prices?.[v.vendor_id]
                       const isBest = v.vendor_id === bestVid
@@ -444,7 +449,7 @@ function CompareStep({
                   </td>
                   {vendors.map((v) => {
                     const pi = vendorIdx[v.vendor_id]
-                    const pal = vendorPalette(pi)
+                    const pal = SELECTED_COLOR
                     const isSel = v.vendor_id === selectedVendorId
                     return (
                       <td
@@ -474,7 +479,7 @@ function CompareStep({
                 </td>
                 {vendors.map((v, i) => {
                   const pi = vendorIdx[v.vendor_id]
-                  const pal = vendorPalette(pi)
+                  const pal = SELECTED_COLOR
                   const isSel = v.vendor_id === selectedVendorId
                   const t = totals[i]
                   return (
@@ -507,7 +512,7 @@ function CompareStep({
                 </td>
                 {vendors.map((v) => {
                   const pi = vendorIdx[v.vendor_id]
-                  const pal = vendorPalette(pi)
+                  const pal =SELECTED_COLOR
                   const isSel = v.vendor_id === selectedVendorId
                   const gst = gstAmount(v, Number(v.total_amount))
                   return (
@@ -540,7 +545,7 @@ function CompareStep({
                 </td>
                 {vendors.map((v, i) => {
                   const pi = vendorIdx[v.vendor_id]
-                  const pal = vendorPalette(pi)
+                  const pal = SELECTED_COLOR
                   const isSel = v.vendor_id === selectedVendorId
                   const lt = landedTotals[i]
                   const isBestL = lt === minLanded
@@ -579,7 +584,7 @@ function CompareStep({
         {/* ── Selected vendor footer ─────────────────────────────────────────── */}
         {selV && (() => {
           const pi = vendorIdx[selV.vendor_id]
-          const pal = vendorPalette(pi)
+          const pal = SELECTED_COLOR
           const selIdx = vendors.findIndex(v => v.vendor_id === selV.vendor_id)
           const selLand = landedTotals[selIdx] ?? 0
           const savings = maxLanded - selLand
@@ -689,7 +694,6 @@ function CompareStep({
                   </p>
                   {aiRanking.map((r) => {
                     const vIdx = vendors.findIndex(v => v.vendor_id === r.vendor_id)
-                    const pal = vendorPalette(vIdx >= 0 ? vIdx : 0)
                     return (
                       <div key={r.vendor_id} className="mb-2">
                         <div className="flex items-center gap-1.5 mb-1">
