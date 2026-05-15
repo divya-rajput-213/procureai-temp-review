@@ -25,9 +25,9 @@ export default function QuoteDetailsCard({ quotation }: { quotation: any }) {
                 {[
                     ['Quote Reference', quoteReference],
                     ['Quote Date', quoteDate],
-                    ['Warranty', '12 months'],
-                    ['Advance Payment', 'Not required'],
-                    ['Currency', 'INR'],
+                    ['Valid Until', quotation?.valid_until || '—'],
+                    ['Payment Terms', quotation?.vendor?.payment_terms || 'As per policy'],
+                    ['Currency', quotation?.currency || 'INR'],
                     ['Source', 'PDF — AI Extracted'],
                 ].map(([label, value]) => (
                     <div

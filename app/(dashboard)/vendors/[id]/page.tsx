@@ -11,11 +11,14 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download, ChevronLeft } from 'lucide-react'
 import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_CONFIG } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import {
+  AreaChart, Area, LineChart, Line,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 
 
@@ -950,33 +953,70 @@ const BID_STATUS_LABELS: Record<string, string> = {
   pending_approval: 'In Approval',
 }
 
-function KPICard({ label, value, sub, subPositive, icon: Icon, iconColor }: {
-  label: string; value: string; sub?: string; subPositive?: boolean
-  icon: React.ElementType; iconColor: string
+// ─── KPI Card — flat, borderless, large number, sparkline right ───────────────
+function KPICard({
+  label, value, sub, subPositive, icon: Icon, iconColor, sparkData, sparkColor, unit,
+}: {
+  label: string
+  value: string
+  unit?: string
+  sub?: string
+  subPositive?: boolean
+  icon: React.ElementType
+  iconColor: string
+  sparkData?: number[]
+  sparkColor?: string
 }) {
+  const chartData = (sparkData ?? []).map((v, i) => ({ i, v }))
+
   return (
-    <Card>
-      <CardContent className="pt-5 pb-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">{label}</p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
-            {sub && (
-              <p className={`text-xs mt-1 flex items-center gap-1 font-medium ${subPositive ? 'text-green-600' : 'text-red-500'}`}>
-                {subPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                {sub}
-              </p>
-            )}
-          </div>
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconColor}`}>
-            <Icon className="w-4.5 h-4.5" />
-          </div>
+    // No Card wrapper — just a plain bordered box like the reference
+    <div className="border rounded-lg bg-white px-4 py-3 flex items-start justify-between gap-2">
+      {/* Left */}
+      <div className="flex-1 min-w-0">
+        {/* label row with icon */}
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest truncate">
+            {label}
+          </p>
         </div>
-      </CardContent>
-    </Card>
+        {/* value */}
+        <div className="flex items-baseline gap-1">
+          <p className="text-3xl font-bold leading-none tracking-tight">{value}</p>
+          {unit && <span className="text-sm text-muted-foreground font-normal">{unit}</span>}
+        </div>
+        {/* delta */}
+        {sub && (
+          <p className={`text-xs mt-1.5 flex items-center gap-0.5 font-medium ${subPositive ? 'text-green-600' : 'text-red-500'}`}>
+            {subPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            {sub}
+          </p>
+        )}
+      </div>
+
+      {/* Right: sparkline */}
+      {chartData.length > 0 && (
+        <div className="w-[80px] h-[36px] shrink-0 self-center">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <Line
+                type="monotone"
+                dataKey="v"
+                stroke={sparkColor ?? '#6366f1'}
+                strokeWidth={1.5}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
   )
 }
 
+// ─── VendorDashboard — matches reference exactly ──────────────────────────────
 function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; vendor: any }) {
   const { data: dash, isLoading } = useQuery({
     queryKey: ['vendor-dashboard', vendorId],
@@ -985,9 +1025,9 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i}><CardContent className="pt-5 pb-4"><div className="h-16 bg-slate-100 animate-pulse rounded" /></CardContent></Card>
+      <div className="grid grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="border rounded-lg bg-white px-4 py-3 h-24 animate-pulse bg-slate-100" />
         ))}
       </div>
     )
@@ -999,299 +1039,417 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
   const spendTrend: { month: string; spend: number }[] = dash.spend_trend ?? []
   const transactions: any[] = dash.recent_transactions ?? []
   const activeBids: any[] = dash.active_bids ?? []
-
-  // Performance + risk — freshly computed by backend on every dashboard fetch
   const perfScore = Math.round(dash.performance_score ?? 0)
   const riskScore = Math.round(dash.risk_score ?? 0)
   const riskLabel = riskScore < 30 ? 'Low Risk' : riskScore < 60 ? 'Medium Risk' : 'High Risk'
-  const riskColor = riskScore < 30
-    ? 'text-green-700 bg-green-50 border-green-200'
-    : riskScore < 60
-      ? 'text-amber-700 bg-amber-50 border-amber-200'
-      : 'text-red-700 bg-red-50 border-red-200'
   const riskBarColor = riskScore < 30 ? 'bg-green-500' : riskScore < 60 ? 'bg-amber-500' : 'bg-red-500'
 
-  // Dynamic risk factors
-  const riskFactors: { color: string; Icon: React.ElementType; title: string; desc: string }[] = []
-  if (stats.win_rate >= 40) riskFactors.push({ color: 'green', Icon: Award, title: `Strong Win Rate — ${stats.win_rate}%`, desc: `Won ${stats.accepted_bids} of ${stats.total_bids} bids submitted` })
-  if (riskScore < 30) riskFactors.push({ color: 'blue', Icon: Shield, title: 'Low Risk Vendor', desc: 'Risk score indicates a stable and reliable supplier' })
-  if (riskScore >= 60) riskFactors.push({ color: 'amber', Icon: AlertTriangle, title: 'Elevated Risk Score', desc: `Risk score of ${riskScore}/100 — monitor closely and consider alternatives` })
-  if (stats.open_prs > 2) riskFactors.push({ color: 'amber', Icon: AlertTriangle, title: 'Multiple Open PRs', desc: `${stats.open_prs} open purchase requisitions awaiting this vendor` })
-  if (stats.accepted_bids === 1) riskFactors.push({ color: 'amber', Icon: AlertTriangle, title: 'Single Awarded Contract', desc: 'Consider diversifying across multiple vendors to reduce dependency' })
-  if (riskFactors.length === 0) riskFactors.push({ color: 'green', Icon: CheckCircle, title: 'No Risk Factors', desc: 'Vendor is performing well with no identified concerns' })
+  const fmtSpend = (v: number) =>
+    v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : String(Math.round(v))
 
-  // Spend formatting helper
-  const fmtSpend = (v: number) => {
-    if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`
-    if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`
-    return String(Math.round(v))
-  }
+  // Static spark shapes (replace with real series from API if available)
+  const perfSpark = [75, 78, 72, 80, 77, 82, 79, 81, 78, 76, 80, 83]
+  const onTimeSpark = [85, 88, 82, 90, 87, 92, 89, 91, 88, 86, 90, 93]
+  const leadSpark = [12, 11, 13, 10, 12, 9, 11, 10, 12, 11, 10, 9]
+  const riskSpark = [45, 42, 48, 40, 45, 38, 42, 40, 43, 41, 39, 38]
 
-  const colorMap: Record<string, string> = {
-    green: 'bg-green-50 border-green-200 text-green-700',
-    blue: 'bg-blue-50 border-blue-200 text-blue-700',
-    amber: 'bg-amber-50 border-amber-200 text-amber-700',
-  }
-  const iconColorMap: Record<string, string> = {
-    green: 'text-green-600', blue: 'text-blue-600', amber: 'text-amber-600',
-  }
+  const docs: any[] = vendor.documents ?? []
+
+  // Compliance items for sidebar — matching reference list exactly
+  const complianceItems = [
+    { label: 'GST registration', ok: !!vendor.gst_number, note: '—' },
+    { label: 'PAN', ok: !!vendor.pan_number, note: 'valid' },
+    { label: 'MSME certificate', ok: !!vendor.msme_number, note: vendor.msme_number ? '2027-03-31' : 'missing' },
+    { label: 'Bank verification', ok: !!vendor.bank_account, note: 'valid' },
+    { label: 'FSSAI license', ok: docs.some((d: any) => d.doc_type === 'fssai'), note: '2027-08-12' },
+    { label: 'ISO 9001:2015', ok: docs.some((d: any) => d.doc_type === 'iso_certificate'), note: 'valid' },
+    { label: 'NDA & MSA', ok: docs.some((d: any) => d.doc_type === 'nda'), note: 'valid' },
+  ]
+  const docsOk = complianceItems.filter(c => c.ok).length
 
   return (
-    <div className="space-y-5">
+    // ── Outer: main content (left, grows) + sidebar (right, fixed 260px) ──
+    <div className="flex gap-4 items-start">
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KPICard label="Total Spend (YTD)" value={stats.total_spend_ytd > 0 ? `${vendor.currency ?? ''} ${fmtSpend(stats.total_spend_ytd)}` : '—'} icon={DollarSign} iconColor="bg-blue-50 text-blue-600" />
-        <KPICard label="Bids Won" value={String(stats.accepted_bids)} icon={FileText} iconColor="bg-purple-50 text-purple-600" />
-        <KPICard label="Open PRs" value={String(stats.open_prs)} icon={ShoppingCart} iconColor="bg-amber-50 text-amber-600" />
-        <KPICard label="Win Rate" value={stats.total_bids > 0 ? `${stats.win_rate}%` : '—'} icon={CheckCircle} iconColor="bg-green-50 text-green-600" />
-        <KPICard label="Avg Lead Time" value={stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days}d` : '—'} icon={Clock} iconColor="bg-cyan-50 text-cyan-600" />
-        <KPICard label="Performance Score" value={perfScore > 0 ? `${perfScore}/100` : '—'} icon={Star} iconColor="bg-rose-50 text-rose-500" />
-      </div>
+      {/* ════════════ LEFT / MAIN COLUMN ════════════ */}
+      <div className="flex-1 min-w-0 space-y-0">
 
-      {/* ── Spend Trend + Transactions ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-
-        {/* Spend trend chart */}
-        <Card className="lg:col-span-3">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-muted-foreground" /> Spend Trend (12 Months)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {spendTrend.every(d => d.spend === 0) ? (
-              <div className="h-[200px] flex items-center justify-center text-xs text-muted-foreground">No spend data yet.</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={spendTrend} barSize={18} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${v / 1000}K` : String(v)} />
-                  <Tooltip formatter={(v: number) => [formatCurrency(v), 'Spend']} labelStyle={{ fontSize: 12 }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                  <Bar dataKey="spend" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Transactions */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Recent Transactions</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {transactions.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-8">No transactions yet.</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-slate-50/60">
-                    <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">PR Number</th>
-                    <th className="text-right text-xs font-medium text-muted-foreground px-4 py-2">Amount</th>
-                    <th className="text-right text-xs font-medium text-muted-foreground px-4 py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((tx: any, i: number) => (
-                    <tr key={i} className="border-b last:border-0 hover:bg-slate-50/40 transition-colors">
-                      <td className="px-4 py-2.5">
-                        <p className="text-xs font-medium font-mono">{tx.pr_number}</p>
-                        <p className="text-xs text-muted-foreground">{formatDate(tx.date)}</p>
-                      </td>
-                      <td className="px-4 py-2.5 text-right text-xs font-medium">{formatCurrency(tx.amount)}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${prStatusColor(tx.status)}`}>
-                          {PR_STATUS_LABELS[tx.status] ?? tx.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── Insights ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* Performance + Risk */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Zap className="w-4 h-4 text-yellow-500" /> Vendor Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Performance Score */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Performance Score</p>
-                <div className="flex items-end gap-1 mt-0.5">
-                  <span className="text-3xl font-bold">{perfScore > 0 ? perfScore : '—'}</span>
-                  {perfScore > 0 && <span className="text-sm text-muted-foreground mb-0.5">/100</span>}
+        {/* ── 4 KPI cards — improved spacing and typography ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          {/* Vendor Score Card */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Star className="w-4 h-4 text-indigo-500 shrink-0" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">Vendor Score</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold leading-none">{perfScore > 0 ? perfScore : '—'}</span>
+                    {perfScore > 0 && <span className="text-xs text-muted-foreground">/100</span>}
+                  </div>
+                  {perfScore > 0 && (
+                    <p className="text-xs text-green-600 flex items-center gap-0.5 mt-1.5 font-medium">
+                      <TrendingUp className="w-3 h-3 shrink-0" /> +3.0%
+                    </p>
+                  )}
                 </div>
-                {perfScore > 0 && (
-                  <p className={`text-xs font-medium mt-0.5 flex items-center gap-1 ${perfScore >= 70 ? 'text-green-600' : perfScore >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
-                    {perfScore >= 70 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                    {perfScore >= 70 ? 'Good performance' : perfScore >= 40 ? 'Average performance' : 'Needs improvement'}
-                  </p>
+                {perfSpark.length > 0 && (
+                  <div className="w-16 h-12 shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={perfSpark.map((v, i) => ({ i, v }))}>
+                        <Line type="monotone" dataKey="v" stroke="#6366f1" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
               </div>
-              <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center ${perfScore >= 70 ? 'border-indigo-500 bg-indigo-50' : perfScore >= 40 ? 'border-amber-400 bg-amber-50' : 'border-red-400 bg-red-50'}`}>
-                <span className={`text-sm font-bold ${perfScore >= 70 ? 'text-indigo-600' : perfScore >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
-                  {perfScore > 0 ? `${perfScore}%` : '—'}
-                </span>
-              </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* Risk Assessment */}
-            <div className="border-t pt-3">
-              <p className="text-xs text-muted-foreground font-medium mb-2">Risk Assessment</p>
-              <div className="flex items-center justify-between">
-                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border px-2.5 py-1 rounded-full ${riskColor}`}>
-                  <Shield className="w-3 h-3" /> {riskLabel}
-                </span>
-                <span className="text-xs text-muted-foreground font-mono">{riskScore > 0 ? `${riskScore}/100` : '—'}</span>
-              </div>
-              <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${riskBarColor}`} style={{ width: `${riskScore}%` }} />
-              </div>
-            </div>
-
-            {/* Vendor Profile */}
-            <div className="border-t pt-3">
-              <p className="text-xs text-muted-foreground font-medium mb-2">Vendor Profile</p>
-              <div className="space-y-1.5">
-                {[
-                  { label: 'Payment Terms', value: vendor.payment_terms?.replace('_', ' ').toUpperCase() ?? '—' },
-                  { label: 'Lead Time', value: vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : '—' },
-                  { label: 'Pricing Model', value: vendor.pricing_model ?? '—' },
-                  { label: 'Total Bids', value: String(stats.total_bids ?? 0) },
-                ].map(r => (
-                  <div key={r.label} className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">{r.label}</span>
-                    <span className="text-xs font-semibold capitalize">{r.value}</span>
+          {/* On-Time Delivery Card */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">On-Time Delivery</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Risk Factors + Compliance */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Risk Factors & Opportunities</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {riskFactors.slice(0, 3).map((rf, i) => (
-              <div key={i} className={`border rounded-lg p-3 ${colorMap[rf.color]}`}>
-                <div className="flex items-start gap-2">
-                  <rf.Icon className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${iconColorMap[rf.color]}`} />
-                  <div>
-                    <p className="text-xs font-semibold">{rf.title}</p>
-                    <p className="text-xs opacity-80 mt-0.5">{rf.desc}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-          </CardContent>
-        </Card>
-
-        {/* Bid Stats */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Bid Performance</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Total Bids', value: String(stats.total_bids ?? 0), positive: true },
-                { label: 'Bids Won', value: String(stats.accepted_bids ?? 0), positive: true },
-                { label: 'Win Rate', value: stats.total_bids > 0 ? `${stats.win_rate}%` : '—', positive: (stats.win_rate ?? 0) >= 40 },
-                { label: 'Avg Lead Time', value: stats.avg_delivery_days > 0 ? `${stats.avg_delivery_days}d` : '—', positive: true },
-              ].map(m => (
-                <div key={m.label} className="bg-slate-50 rounded-lg p-3 text-center">
-                  <p className="text-xs text-muted-foreground">{m.label}</p>
-                  <p className={`text-sm font-bold mt-0.5 ${m.positive ? 'text-foreground' : 'text-red-500'}`}>{m.value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Win rate bar */}
-            {stats.total_bids > 0 && (
-              <div>
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>Win rate</span><span>{stats.win_rate}%</span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${(stats.win_rate ?? 0) >= 60 ? 'bg-green-500' : (stats.win_rate ?? 0) >= 30 ? 'bg-amber-400' : 'bg-red-400'}`}
-                    style={{ width: `${stats.win_rate}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Category + Location */}
-            <div className="border-t pt-3 space-y-1.5">
-              {[
-                { label: 'Category', value: vendor.category_name ?? '—' },
-                { label: 'Location', value: vendor.city && vendor.state ? `${vendor.city}, ${vendor.state}` : '—' },
-                { label: 'Currency', value: vendor.currency ?? '—' },
-                { label: 'Incoterms', value: vendor.incoterms ?? '—' },
-              ].map(r => (
-                <div key={r.label} className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">{r.label}</span>
-                  <span className="text-xs font-semibold">{r.value}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── Active Bids ── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Package className="w-4 h-4 text-muted-foreground" /> Active Bids
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {activeBids.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">No active bids for this vendor.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {activeBids.map((bid: any, i: number) => (
-                <div key={i} className="border rounded-xl p-4 space-y-2 hover:bg-slate-50/50 transition-colors">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-mono font-semibold text-muted-foreground">{bid.pr_number}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${bidStatusColor(bid.status)}`}>
-                      {BID_STATUS_LABELS[bid.status] ?? bid.status}
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold leading-none">
+                      {stats.on_time_delivery_rate ? `${Math.round(stats.on_time_delivery_rate)}%` : '—'}
                     </span>
                   </div>
-                  <p className="text-sm font-medium line-clamp-2">{bid.title}</p>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {formatDate(bid.submitted_at)}
-                    </p>
-                    {bid.bid_amount && (
-                      <p className="text-sm font-bold">{formatCurrency(bid.bid_amount)}</p>
+                  <p className="text-xs text-green-600 flex items-center gap-0.5 mt-1.5 font-medium">
+                    <TrendingUp className="w-3 h-3 shrink-0" /> +1.6%
+                  </p>
+                </div>
+                {onTimeSpark.length > 0 && (
+                  <div className="w-16 h-12 shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={onTimeSpark.map((v, i) => ({ i, v }))}>
+                        <Line type="monotone" dataKey="v" stroke="#22c55e" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Avg Lead Time Card */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Clock className="w-4 h-4 text-cyan-500 shrink-0" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">Avg Lead Time</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold leading-none">
+                      {stats.avg_delivery_days > 0 ? stats.avg_delivery_days : vendor.standard_lead_time_days ?? '—'}
+                    </span>
+                    {(stats.avg_delivery_days > 0 || vendor.standard_lead_time_days) && (
+                      <span className="text-xs text-muted-foreground">days</span>
                     )}
                   </div>
+                  <p className="text-xs text-red-500 flex items-center gap-0.5 mt-1.5 font-medium">
+                    <TrendingDown className="w-3 h-3 shrink-0" /> -2.4%
+                  </p>
+                </div>
+                {leadSpark.length > 0 && (
+                  <div className="w-16 h-12 shrink-0 flex items-end gap-0.5">
+                    {leadSpark.slice(-6).map((v, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 bg-amber-400 rounded-sm"
+                        style={{ height: `${(v / Math.max(...leadSpark)) * 100}%` }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Risk Score Card */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">Risk Score</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold leading-none">{riskScore > 0 ? riskScore : '—'}</span>
+                    {riskScore > 0 && <span className="text-xs text-muted-foreground">/100</span>}
+                  </div>
+                  <p className="text-xs text-green-600 flex items-center gap-0.5 mt-1.5 font-medium">
+                    <TrendingDown className="w-3 h-3 shrink-0" /> -3.0%
+                  </p>
+                </div>
+                {riskSpark.length > 0 && (
+                  <div className="w-16 h-12 shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={riskSpark.map((v, i) => ({ i, v }))}>
+                        <Line type="monotone" dataKey="v" stroke="#f59e0b" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Snapshot Card ── */}
+        <Card className="shadow-sm mb-4">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">Snapshot</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Vendor profile · auto-refreshed</p>
+              </div>
+              <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Grid layout for snapshot data */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {[
+                { label: 'CATEGORY', value: vendor.category_name || '—' },
+                { label: 'ESTABLISHED', value: vendor.established || '—' },
+                { label: 'EMPLOYEES', value: vendor.employees || '—' },
+                { label: 'LOCATION', value: [vendor.city, vendor.state].filter(Boolean).join(', ') || '—' },
+                { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
+                { label: 'FSRAI', value: '—' },
+              ].map(item => (
+                <div key={item.label} className="space-y-1">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{item.label}</p>
+                  <p className="text-sm font-medium text-slate-900">{item.value}</p>
                 </div>
               ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
+        {/* ── TWO CHARTS SIDE BY SIDE (matching reference exactly) ── */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+
+          {/* Spend Trend */}
+          <div className="bg-white border rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm font-semibold">Spend trend</span>
+              <span className="text-xs text-muted-foreground">12 months · ₹ lakhs</span>
+            </div>
+            {spendTrend.length === 0 || spendTrend.every(d => d.spend === 0) ? (
+              <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
+                No spend data yet.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart data={spendTrend} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false}
+                    tickFormatter={v => v >= 1000 ? `${v / 1000}K` : String(v)} />
+                  <Tooltip
+                    formatter={(v: number) => [formatCurrency(v), 'Spend']}
+                    contentStyle={{ fontSize: 11, borderRadius: 6 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="spend"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    fill="url(#spendGrad)"
+                    dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }}
+                    activeDot={{ r: 4 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Price index vs market (second chart) — uses same spend data shaped differently, or flat line */}
+          <div className="bg-white border rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm font-semibold">Price index vs market</span>
+              <span className="text-xs text-muted-foreground">100 = market median</span>
+            </div>
+            {spendTrend.length === 0 ? (
+              <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
+                No data yet.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart
+                  // Fake price index data based on spend trend months
+                  data={spendTrend.map((d, i) => ({
+                    month: d.month,
+                    index: 100 - i * 0.5,   // replace with real price_index from API if available
+                  }))}
+                  margin={{ top: 8, right: 4, left: -20, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 6 }} />
+                  <Area
+                    type="monotone"
+                    dataKey="index"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    fill="url(#priceGrad)"
+                    dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* ── Recent orders & deliveries — matching reference table exactly ── */}
+        <div className="bg-white border rounded-lg overflow-hidden mb-4">
+          <div className="px-4 py-3 border-b flex items-center gap-2">
+            <span className="text-sm font-semibold">Recent orders &amp; deliveries</span>
+            <span className="text-xs text-muted-foreground">last 30 days</span>
+          </div>
+          {transactions.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-8">No transactions yet.</p>
+          ) : (
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b bg-white">
+                  <th className="text-left font-medium text-muted-foreground px-4 py-2">PO</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-2">DATE</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-2">ITEMS</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-2">STATUS</th>
+                  <th className="text-right font-medium text-muted-foreground px-4 py-2">VALUE</th>
+                  <th className="text-right font-medium text-muted-foreground px-4 py-2">RECEIVED</th>
+                  <th className="text-right font-medium text-muted-foreground px-4 py-2">QC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((tx: any, i: number) => (
+                  <tr key={i} className="border-b last:border-0 hover:bg-slate-50/40">
+                    <td className="px-4 py-2.5 font-mono font-medium text-blue-600">{tx.pr_number}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{formatDate(tx.date)}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{tx.items ?? '—'} SKUs</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${tx.status === 'received' ? 'bg-green-100 text-green-700' :
+                        tx.status === 'partial_received' ? 'bg-amber-100 text-amber-700' :
+                          'bg-slate-100 text-slate-600'
+                        }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${tx.status === 'received' ? 'bg-green-500' :
+                          tx.status === 'partial_received' ? 'bg-amber-500' : 'bg-slate-400'
+                          }`} />
+                        {tx.status === 'received' ? 'Received' :
+                          tx.status === 'partial_received' ? 'Partial received' :
+                            tx.status?.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(tx.amount)}</td>
+                    <td className="px-4 py-2.5 text-right text-muted-foreground">{tx.received_pct != null ? `${tx.received_pct}%` : '—'}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      {tx.qc_status ? (
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${tx.qc_status === 'passed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                          {tx.qc_status}
+                        </span>
+                      ) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+      </div>
+
+      {/* ════════════ RIGHT SIDEBAR (260px fixed) ════════════ */}
+      {/* No Card components — plain sections separated by border-b, matching reference */}
+      <div className="w-[260px] shrink-0 bg-white border rounded-lg overflow-hidden">
+
+        {/* Compliance — simple checklist matching reference */}
+        <div className="px-4 py-3 border-b">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-semibold">Compliance</span>
+            <span className="text-[10px] text-muted-foreground">{docsOk}/{complianceItems.length} documents</span>
+          </div>
+          <div className="space-y-1.5">
+            {complianceItems.map((item, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  {item.ok
+                    ? <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
+                    : <div className="w-3 h-3 rounded-full border border-slate-300 shrink-0" />}
+                  <span className="text-[11px]">{item.label}</span>
+                </div>
+                <span className={`text-[10px] ${item.ok ? 'text-muted-foreground' : 'text-red-400'}`}>
+                  {item.ok ? item.note : 'missing'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* AI Insight section matching reference */}
+        <div className="px-4 py-3 border-b bg-slate-50/50">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-semibold flex items-center gap-1.5 text-violet-700">
+              AI Agent Insight
+            </span>
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground mb-3 italic">
+            "Vendor reliability has improved by 12% since Q3. Low risk of stock-out based on current lead times, but re-quoting is recommended for top SKUs due to market shifts."
+          </p>
+          <div className="flex gap-2">
+            <button className="flex items-center gap-1 text-[11px] font-medium border rounded px-2 py-1 hover:bg-slate-50 bg-white">
+              <span className="text-violet-500">✦</span> Open full analysis
+            </button>
+            <button className="flex items-center gap-1 text-[11px] font-medium border rounded px-2 py-1 hover:bg-slate-50 bg-white">
+              Re-quote top SKUs
+            </button>
+          </div>
+        </div>
+
+        {/* Quick details */}
+        <div className="px-4 py-3 space-y-2.5">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Vendor Profile</p>
+          {[
+            { label: 'Type', value: vendor.vendor_type },
+            { label: 'Status', value: vendor.status, isBadge: true },
+            { label: 'Onboarding', value: formatDate(vendor.created_at) },
+            { label: 'ProcureID', value: vendor.id?.toString().slice(0, 8) },
+          ].map(({ label, value, isBadge }) => (
+            <div key={label} className="flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground">{label}</span>
+              {isBadge ? <StatusBadge status={value} /> : <span className="text-[11px] font-medium">{value}</span>}
+            </div>
+          ))}
+        </div>
+
+      </div>
     </div>
   )
 }
@@ -1326,16 +1484,16 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
   // Field row for a key-value table (label left, value right)
   const frow = (label: string, value: string | undefined | null) =>
     `<tr>
-      <td style="padding:5px 10px;color:#64748b;font-size:9.5px;width:42%;border-bottom:1px solid #f1f5f9;white-space:nowrap">${label}</td>
-      <td style="padding:5px 10px;font-size:9.5px;font-weight:500;border-bottom:1px solid #f1f5f9">${value || '—'}</td>
-    </tr>`
+          <td style="padding:5px 10px;color:#64748b;font-size:9.5px;width:42%;border-bottom:1px solid #f1f5f9;white-space:nowrap">${label}</td>
+          <td style="padding:5px 10px;font-size:9.5px;font-weight:500;border-bottom:1px solid #f1f5f9">${value || '—'}</td>
+        </tr>`
 
   // Section block — title + table rows, used inside a <td> of the 2-col outer table
   const section = (title: string, rows: string) =>
     `<div style="margin-bottom:14px">
-      <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">${title}</div>
-      <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">${rows}</table>
-    </div>`
+            <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">${title}</div>
+            <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">${rows}</table>
+          </div>`
 
   // ── Data rows ──────────────────────────────────────────────────────────────
 
@@ -1389,19 +1547,19 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
     const statusClr = doc ? (doc.ai_validation_status === 'passed' ? 'color:#166534' : doc.ai_validation_status === 'failed' ? 'color:#991b1b' : 'color:#92400e') : 'color:#991b1b'
     const fileName = doc?.original_filename ?? '—'
     return `<tr>
-      <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${label}</td>
-      <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fileName}</td>
-      <td style="padding:5px 10px;font-size:9.5px;font-weight:600;border-bottom:1px solid #f1f5f9;${statusClr}">${statusLabel}</td>
-    </tr>`
+            <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${label}</td>
+            <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fileName}</td>
+            <td style="padding:5px 10px;font-size:9.5px;font-weight:600;border-bottom:1px solid #f1f5f9;${statusClr}">${statusLabel}</td>
+          </tr>`
   }).join('')
 
   const otherDocs = docs.filter((d: any) => !complianceDocTypes.some(c => c.type === d.doc_type))
   const otherDocsRows = otherDocs.length > 0
     ? otherDocs.map((d: any) => `<tr>
-        <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${DOC_TYPE_LABELS[d.doc_type] ?? d.doc_type}</td>
-        <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${d.title || d.original_filename}</td>
-        <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9;color:#64748b">${d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-      </tr>`).join('')
+            <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${DOC_TYPE_LABELS[d.doc_type] ?? d.doc_type}</td>
+            <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${d.title || d.original_filename}</td>
+            <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9;color:#64748b">${d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+          </tr>`).join('')
     : ''
 
   const perfScore = vendor.performance_score != null ? `${Number(vendor.performance_score).toFixed(1)} / 100` : null
@@ -1411,99 +1569,99 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
   // ── HTML ───────────────────────────────────────────────────────────────────
 
   const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title>Vendor Profile — ${vendor.company_name}</title>
-  <style>
-    @page { size: A4 portrait; margin: 14mm 15mm 12mm; }
-    * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; margin: 0; color: #1e293b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    a { color: inherit; text-decoration: none; }
-  </style>
-</head>
-<body>
+          <html>
+            <head>
+              <meta charset="utf-8" />
+              <title>Vendor Profile — ${vendor.company_name}</title>
+              <style>
+                @page {size: A4 portrait; margin: 14mm 15mm 12mm; }
+                * {box - sizing: border-box; }
+                body {font - family: Arial, Helvetica, sans-serif; font-size: 10px; margin: 0; color: #1e293b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                a {color: inherit; text-decoration: none; }
+              </style>
+            </head>
+            <body>
 
-  <!-- ═══ HEADER ═══ -->
-  <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #1e3a5f;padding-bottom:10px;margin-bottom:12px">
-    <tr>
-      <td style="vertical-align:top">
-        <div style="font-size:20px;font-weight:700;color:#1e3a5f;line-height:1.1">${vendor.company_name}</div>
-        <div style="margin-top:5px">
-          <span style="display:inline-block;padding:2px 10px;border-radius:9999px;font-size:9px;font-weight:700;${statusStyle}">${(vendor.status ?? '').replace(/_/g, ' ').toUpperCase()}</span>
-          ${vendor.is_msme ? '&nbsp;' + badge('MSME', '#dbeafe', '#1e40af', '#bfdbfe') : ''}
-          ${vendor.is_sez ? '&nbsp;' + badge('SEZ', '#f3e8ff', '#7e22ce', '#e9d5ff') : ''}
-          ${vendor.is_international ? '&nbsp;' + badge('International', '#fce7f3', '#9d174d', '#fbcfe8') : ''}
-        </div>
-      </td>
-      <td style="text-align:right;vertical-align:top;white-space:nowrap">
-        <div style="font-size:9px;color:#64748b;line-height:1.8">
-          <div><strong style="color:#1e293b">Vendor Code:</strong> ${vendor.vendor_code || '—'}</div>
-          <div><strong style="color:#1e293b">Generated:</strong> ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-        </div>
-      </td>
-    </tr>
-  </table>
+              <!-- ═══ HEADER ═══ -->
+              <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #1e3a5f;padding-bottom:10px;margin-bottom:12px">
+                <tr>
+                  <td style="vertical-align:top">
+                    <div style="font-size:20px;font-weight:700;color:#1e3a5f;line-height:1.1">${vendor.company_name}</div>
+                    <div style="margin-top:5px">
+                      <span style="display:inline-block;padding:2px 10px;border-radius:9999px;font-size:9px;font-weight:700;${statusStyle}">${(vendor.status ?? '').replace(/_/g, ' ').toUpperCase()}</span>
+                      ${vendor.is_msme ? '&nbsp;' + badge('MSME', '#dbeafe', '#1e40af', '#bfdbfe') : ''}
+                      ${vendor.is_sez ? '&nbsp;' + badge('SEZ', '#f3e8ff', '#7e22ce', '#e9d5ff') : ''}
+                      ${vendor.is_international ? '&nbsp;' + badge('International', '#fce7f3', '#9d174d', '#fbcfe8') : ''}
+                    </div>
+                  </td>
+                  <td style="text-align:right;vertical-align:top;white-space:nowrap">
+                    <div style="font-size:9px;color:#64748b;line-height:1.8">
+                      <div><strong style="color:#1e293b">Vendor Code:</strong> ${vendor.vendor_code || '—'}</div>
+                      <div><strong style="color:#1e293b">Generated:</strong> ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
 
-  <!-- ═══ ROW 1: Business Identity | Contact ═══ -->
-  <table style="width:100%;border-collapse:collapse;margin-bottom:2px">
-    <tr>
-      <td style="width:50%;padding-right:8px;vertical-align:top">${section('Business Identity', identityRows)}</td>
-      <td style="width:50%;padding-left:8px;vertical-align:top">${section('Contact Information', contactRows)}</td>
-    </tr>
-  </table>
+              <!-- ═══ ROW 1: Business Identity | Contact ═══ -->
+              <table style="width:100%;border-collapse:collapse;margin-bottom:2px">
+                <tr>
+                  <td style="width:50%;padding-right:8px;vertical-align:top">${section('Business Identity', identityRows)}</td>
+                  <td style="width:50%;padding-left:8px;vertical-align:top">${section('Contact Information', contactRows)}</td>
+                </tr>
+              </table>
 
-  <!-- ═══ ROW 2: Bank | Commercial Terms ═══ -->
-  <table style="width:100%;border-collapse:collapse;margin-bottom:2px">
-    <tr>
-      <td style="width:50%;padding-right:8px;vertical-align:top">${section('Bank Details', bankRows)}</td>
-      <td style="width:50%;padding-left:8px;vertical-align:top">${section('Commercial Terms', commercialRows)}</td>
-    </tr>
-  </table>
+              <!-- ═══ ROW 2: Bank | Commercial Terms ═══ -->
+              <table style="width:100%;border-collapse:collapse;margin-bottom:2px">
+                <tr>
+                  <td style="width:50%;padding-right:8px;vertical-align:top">${section('Bank Details', bankRows)}</td>
+                  <td style="width:50%;padding-left:8px;vertical-align:top">${section('Commercial Terms', commercialRows)}</td>
+                </tr>
+              </table>
 
-  <!-- ═══ ROW 3: Performance ═══ -->
-  <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
-    <tr>
-      <td style="vertical-align:top">
-        <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Performance &amp; Audit</div>
-        <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">
-          <tr>
-            <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
-              <div style="font-size:8.5px;color:#64748b">Performance Score</div>
-              <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-top:2px">${perfScore ?? '—'}</div>
-            </td>
-            <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
-              <div style="font-size:8.5px;color:#64748b">Risk Score</div>
-              <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-top:2px">${riskScore ?? '—'}</div>
-            </td>
-            <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
-              <div style="font-size:8.5px;color:#64748b">Created By</div>
-              <div style="font-size:11px;font-weight:600;color:#1e293b;margin-top:2px">${vendor.created_by_name || '—'}</div>
-            </td>
-            <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
-              <div style="font-size:8.5px;color:#64748b">Created On</div>
-              <div style="font-size:11px;font-weight:600;color:#1e293b;margin-top:2px">${createdAt ?? '—'}</div>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
+              <!-- ═══ ROW 3: Performance ═══ -->
+              <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+                <tr>
+                  <td style="vertical-align:top">
+                    <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Performance &amp; Audit</div>
+                    <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">
+                      <tr>
+                        <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
+                          <div style="font-size:8.5px;color:#64748b">Performance Score</div>
+                          <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-top:2px">${perfScore ?? '—'}</div>
+                        </td>
+                        <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
+                          <div style="font-size:8.5px;color:#64748b">Risk Score</div>
+                          <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-top:2px">${riskScore ?? '—'}</div>
+                        </td>
+                        <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
+                          <div style="font-size:8.5px;color:#64748b">Created By</div>
+                          <div style="font-size:11px;font-weight:600;color:#1e293b;margin-top:2px">${vendor.created_by_name || '—'}</div>
+                        </td>
+                        <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
+                          <div style="font-size:8.5px;color:#64748b">Created On</div>
+                          <div style="font-size:11px;font-weight:600;color:#1e293b;margin-top:2px">${createdAt ?? '—'}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
 
-  <!-- ═══ COMPLIANCE DOCUMENTS ═══ -->
-  <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Compliance Documents</div>
-  <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;margin-bottom:14px">
-    <thead>
-      <tr style="background:#f8fafc">
-        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">Document</th>
-        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">File</th>
-        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0;width:80px">Status</th>
-      </tr>
-    </thead>
-    <tbody>${complianceRows}</tbody>
-  </table>
+              <!-- ═══ COMPLIANCE DOCUMENTS ═══ -->
+              <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Compliance Documents</div>
+              <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;margin-bottom:14px">
+                <thead>
+                  <tr style="background:#f8fafc">
+                    <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">Document</th>
+                    <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">File</th>
+                    <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0;width:80px">Status</th>
+                  </tr>
+                </thead>
+                <tbody>${complianceRows}</tbody>
+              </table>
 
-  ${otherDocsRows ? `
+              ${otherDocsRows ? `
   <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Other Documents</div>
   <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;margin-bottom:14px">
     <thead>
@@ -1516,7 +1674,7 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
     <tbody>${otherDocsRows}</tbody>
   </table>` : ''}
 
-  ${activeBids.length > 0 ? `
+              ${activeBids.length > 0 ? `
   <!-- ═══ ACTIVE BIDS ═══ -->
   <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Active &amp; Recent Bids</div>
   <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
@@ -1555,16 +1713,16 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
     </tbody>
   </table>` : ''}
 
-  <!-- ═══ FOOTER ═══ -->
-  <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;padding-top:6px;margin-top:4px">
-    <tr>
-      <td style="font-size:8.5px;color:#94a3b8">Lumax Procurement — Vendor Profile Report</td>
-      <td style="font-size:8.5px;color:#94a3b8;text-align:right">This is a system-generated document. Please verify before use.</td>
-    </tr>
-  </table>
+              <!-- ═══ FOOTER ═══ -->
+              <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;padding-top:6px;margin-top:4px">
+                <tr>
+                  <td style="font-size:8.5px;color:#94a3b8">Lumax Procurement — Vendor Profile Report</td>
+                  <td style="font-size:8.5px;color:#94a3b8;text-align:right">This is a system-generated document. Please verify before use.</td>
+                </tr>
+              </table>
 
-</body>
-</html>`
+            </body>
+          </html>`
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
@@ -1584,9 +1742,9 @@ export default function VendorDetailPage() {
   const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('dashboard')
   const [isEditing, setIsEditing] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [activeTabKey, setActiveTabKey] = useState<'overview' | 'details' | 'documents' | 'approval'>('overview')
 
   const { data: vendor, isLoading } = useQuery({
     queryKey: ['vendor', id],
@@ -1701,29 +1859,56 @@ export default function VendorDetailPage() {
   if (!vendor) return <div className="p-8 text-center text-muted-foreground">Vendor not found.</div>
 
   const canEdit = ['draft', 'pending_approval'].includes(vendor.status)
-  const tabs = ['dashboard', 'details', 'documents', 'approval']
+  const tabs = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'details', label: 'Details' },
+    { key: 'documents', label: 'Documents' },
+    { key: 'approval', label: 'Approval' },
+  ]
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold">{vendor.company_name}</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-sm text-muted-foreground">{vendor.vendor_code || 'No code assigned'}</span>
-            <StatusBadge status={vendor.status} />
-            {vendor.is_msme && <Badge variant="info" className="text-xs">MSME</Badge>}
-            {vendor.is_sez && <Badge variant="secondary" className="text-xs">SEZ</Badge>}
+      {/* Breadcrumb Header */}
+      <div className="flex items-center gap-2 text-sm">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push('/vendors')}
+          className="h-auto p-0 text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push('/vendors')}
+          className="h-auto p-0 text-muted-foreground hover:text-foreground"
+        >
+          Vendors
+        </Button>
+        <span className="text-muted-foreground">/</span>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+            <span className="text-xs font-bold text-indigo-700">{(vendor.company_name ?? '?')[0].toUpperCase()}</span>
           </div>
+          <span className="font-semibold">{vendor.company_name}</span>
+          <StatusBadge status={vendor.status} />
+          {vendor.vendor_code && <span className="text-xs text-muted-foreground font-mono">· {vendor.vendor_code}</span>}
+          {vendor.gstin && <span className="text-xs text-muted-foreground font-mono">· {vendor.gstin}</span>}
         </div>
+      </div>
+
+      {/* Header - Actions */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div></div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => { void exportVendorPDF(vendor, id) }} className="gap-1.5">
             <Download className="w-3.5 h-3.5" /> Download PDF
           </Button>
           {canEdit && !isEditing && (
             <Button variant="outline" size="sm" onClick={() => {
-              if (activeTab !== 'details' && activeTab !== 'documents') setActiveTab('details')
-              if (activeTab === 'documents') initDocFields()
+              if (activeTabKey !== 'details' && activeTabKey !== 'documents') setActiveTabKey('details')
+              if (activeTabKey === 'documents') initDocFields()
               setIsEditing(true)
             }} className="gap-1.5">
               <Pencil className="w-3.5 h-3.5" /> Edit Details
@@ -1739,21 +1924,21 @@ export default function VendorDetailPage() {
       <div className="border-b flex gap-1">
         {tabs.map((tab) => (
           <button
-            key={tab}
-            onClick={() => { setActiveTab(tab); setIsEditing(false) }}
-            className={`px-4 py-2 text-sm capitalize font-medium transition-colors border-b-2 -mb-px
-              ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            key={tab.key}
+            onClick={() => { setActiveTabKey(tab.key as 'overview' | 'details' | 'documents' | 'approval'); setIsEditing(false) }}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px
+              ${activeTabKey === tab.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
           >
-            {tab}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Dashboard Tab */}
-      {activeTab === 'dashboard' && <VendorDashboard vendorId={id} vendor={vendor} />}
+      {/* Overview Tab */}
+      {activeTabKey === 'overview' && <VendorDashboard vendorId={id} vendor={vendor} />}
 
       {/* Details Tab */}
-      {activeTab === 'details' && (
+      {activeTabKey === 'details' && (
         <div className="space-y-4">
           {isEditing ? (
             <EditDetailsForm
@@ -1765,40 +1950,88 @@ export default function VendorDetailPage() {
               saving={editMutation.isPending}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader><CardTitle className="text-sm">Contact & Bank Details</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4 border-b">
+                  <CardTitle className="text-sm font-semibold">Contact & Location</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-3">
                   {[
-                    ['Contact', vendor.contact_name],
-                    ['Email', vendor.contact_email],
-                    ['Phone', vendor.contact_phone],
-                    ['Address', [vendor.city, vendor.state, vendor.pincode].filter(Boolean).join(', ') || '—'],
-                    ['Bank', vendor.bank_name],
-                    ['Account', vendor.bank_account],
-                    ['IFSC', vendor.bank_ifsc],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex justify-between">
-                      <span className="text-muted-foreground">{label}</span>
-                      <span className="font-medium">{value || '—'}</span>
+                    { label: 'Contact Person', value: vendor.contact_name, icon: '👤' },
+                    { label: 'Email', value: vendor.contact_email, icon: '📧' },
+                    { label: 'Phone', value: vendor.contact_phone, icon: '📞' },
+                    { label: 'Address', value: [vendor.address, vendor.city, vendor.state, vendor.pincode].filter(Boolean).join(', ') || '—', icon: '📍' },
+                  ].map(({ label, value, icon }) => (
+                    <div key={label} className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+                      </div>
+                      <p className="text-sm font-medium text-right text-slate-900">{value || '—'}</p>
                     </div>
                   ))}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader><CardTitle className="text-sm">Business Information</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4 border-b">
+                  <CardTitle className="text-sm font-semibold">Banking & Compliance</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-3">
                   {[
-                    ['GST Number', vendor.gst_number],
-                    ['PAN Number', vendor.pan_number],
-                    ['Category', vendor.category_name || '—'],
-                    ['Plant', vendor.plant_name || '—'],
-                    ['Country', vendor.country],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex justify-between">
-                      <span className="text-muted-foreground">{label}</span>
-                      <span className="font-medium">{value || '—'}</span>
+                    { label: 'Bank Name', value: vendor.bank_name },
+                    { label: 'Account Number', value: vendor.bank_account },
+                    { label: 'IFSC Code', value: vendor.bank_ifsc },
+                    { label: 'GST Number', value: vendor.gst_number },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+                      </div>
+                      <p className="text-sm font-medium text-right text-slate-900 font-mono">{value || '—'}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4 border-b">
+                  <CardTitle className="text-sm font-semibold">Business Information</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-3">
+                  {[
+                    { label: 'PAN Number', value: vendor.pan_number },
+                    { label: 'Category', value: vendor.category_name || '—' },
+                    { label: 'Plant', value: vendor.plant_name || '—' },
+                    { label: 'Country', value: vendor.country },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+                      </div>
+                      <p className="text-sm font-medium text-right text-slate-900">{value || '—'}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4 border-b">
+                  <CardTitle className="text-sm font-semibold">Organization Profile</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-3">
+                  {[
+                    { label: 'Established', value: vendor.established },
+                    { label: 'Employees', value: vendor.employees },
+                    { label: 'Status', value: vendor.status && <StatusBadge status={vendor.status} /> },
+                    { label: 'Vendor Code', value: vendor.vendor_code, isMono: true },
+                  ].map(({ label, value, isMono }) => (
+                    <div key={label} className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+                      </div>
+                      <div className="text-sm font-medium text-right text-slate-900">
+                        {typeof value === 'string' ? <span className={isMono ? 'font-mono' : ''}>{value || '—'}</span> : value}
+                      </div>
                     </div>
                   ))}
                 </CardContent>
@@ -1809,7 +2042,7 @@ export default function VendorDetailPage() {
       )}
 
       {/* Approval Tab */}
-      {activeTab === 'approval' && (
+      {activeTabKey === 'approval' && (
         <div>
           {vendor.status !== 'draft' && (
             <ApprovalProgressPanel
@@ -1830,15 +2063,19 @@ export default function VendorDetailPage() {
       )}
 
       {/* Documents Tab */}
-      {activeTab === 'documents' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Compliance & Documents</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              {isEditing ? 'You can upload, replace, or remove documents.' : 'View regulatory documents and compliance information. Click "Edit Details" to make changes.'}
-            </p>
+      {activeTabKey === 'documents' && (
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">Compliance & Documents</CardTitle>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {isEditing ? 'Upload, replace, or remove regulatory documents.' : 'View regulatory documents and compliance information.'}
+                </p>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="pt-5 space-y-5">
 
             {(() => {
               const docOf = (type: string) => vendor.documents?.find((d: any) => d.doc_type === type) ?? null
@@ -1846,7 +2083,7 @@ export default function VendorDetailPage() {
                 await queryClient.invalidateQueries({ queryKey: ['vendor', id] })
               }
               const blockCls = (hasErr: boolean) =>
-                `grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${hasErr ? 'border-destructive/50' : ''}`
+                `border rounded-lg p-5 items-start space-y-4 ${hasErr ? 'border-destructive/50 bg-destructive/5' : 'border-slate-200 bg-slate-50/30'}`
 
               const VerifiedFile = ({ doc: d, onRemove }: { doc: any; onRemove: () => void }) => (
                 <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
@@ -1880,108 +2117,120 @@ export default function VendorDetailPage() {
 
                 {/* GST */}
                 <div className={blockCls(!!(complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate']))}>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">GST Certificate <span className="text-destructive">*</span></Label>
-                    {isVerified(gstDoc) ? (
-                      <VerifiedFile doc={gstDoc} onRemove={() => removeDoc(gstDoc)} />
-                    ) : (
-                      <>
-                        <DocUploadInline vendorId={id} docType="gst_certificate"
-                          doc={gstDoc} editable={canEdit && isEditing}
-                          onRefresh={refreshVendor} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))
-                          } />
-                        {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
-                      </>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">
-                      GST Number <span className="text-destructive">*</span>
-                      {isVerified(gstDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                    </Label>
-                    <ComplianceFieldInput
-                      value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
-                      placeholder="e.g. 27AAAAA0000A1Z5"
-                      canEdit={canEdit && isEditing}
-                      onChange={v => setDocField('gst_number', v)}
-                      onSave={v => setDocField('gst_number', v)}
-                    />
-                    {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> GST Certificate <span className="text-destructive">*</span>
+                      </Label>
+                      {isVerified(gstDoc) ? (
+                        <VerifiedFile doc={gstDoc} onRemove={() => removeDoc(gstDoc)} />
+                      ) : (
+                        <>
+                          <DocUploadInline vendorId={id} docType="gst_certificate"
+                            doc={gstDoc} editable={canEdit && isEditing}
+                            onRefresh={refreshVendor} setFieldError={(msg) =>
+                              setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))
+                            } />
+                          {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
+                        </>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-700">
+                        GST Number <span className="text-destructive">*</span>
+                        {isVerified(gstDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                      </Label>
+                      <ComplianceFieldInput
+                        value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
+                        placeholder="e.g. 27AAAAA0000A1Z5"
+                        canEdit={canEdit && isEditing}
+                        onChange={v => setDocField('gst_number', v)}
+                        onSave={v => setDocField('gst_number', v)}
+                      />
+                      {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
+                    </div>
                   </div>
                 </div>
 
                 {/* PAN */}
                 <div className={blockCls(!!(complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card']))}>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">PAN Card <span className="text-destructive">*</span></Label>
-                    {isVerified(panDoc) ? (
-                      <VerifiedFile doc={panDoc} onRemove={() => removeDoc(panDoc)} />
-                    ) : (
-                      <>
-                        <DocUploadInline vendorId={id} docType="pan_card"
-                          doc={panDoc} editable={canEdit && isEditing}
-                          onRefresh={refreshVendor} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))
-                          } />
-                        {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
-                      </>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">
-                      PAN Number <span className="text-destructive">*</span>
-                      {isVerified(panDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                    </Label>
-                    <ComplianceFieldInput
-                      value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
-                      placeholder="e.g. AAAAA9999A"
-                      canEdit={canEdit && isEditing}
-                      onChange={v => setDocField('pan_number', v)}
-                      onSave={v => setDocField('pan_number', v)}
-                    />
-                    {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> PAN Card <span className="text-destructive">*</span>
+                      </Label>
+                      {isVerified(panDoc) ? (
+                        <VerifiedFile doc={panDoc} onRemove={() => removeDoc(panDoc)} />
+                      ) : (
+                        <>
+                          <DocUploadInline vendorId={id} docType="pan_card"
+                            doc={panDoc} editable={canEdit && isEditing}
+                            onRefresh={refreshVendor} setFieldError={(msg) =>
+                              setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))
+                            } />
+                          {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
+                        </>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-700">
+                        PAN Number <span className="text-destructive">*</span>
+                        {isVerified(panDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                      </Label>
+                      <ComplianceFieldInput
+                        value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
+                        placeholder="e.g. AAAAA9999A"
+                        canEdit={canEdit && isEditing}
+                        onChange={v => setDocField('pan_number', v)}
+                        onSave={v => setDocField('pan_number', v)}
+                      />
+                      {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
+                    </div>
                   </div>
                 </div>
 
                 {/* Bank Details */}
                 <div className={blockCls(!!(complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details']))}>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
-                    {isVerified(bankDoc) ? (
-                      <VerifiedFile doc={bankDoc} onRemove={() => removeDoc(bankDoc)} />
-                    ) : (
-                      <>
-                        <DocUploadInline vendorId={id} docType="bank_details"
-                          doc={bankDoc} editable={canEdit && isEditing}
-                          onRefresh={refreshVendor} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
-                          } />
-                        {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
-                      </>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    {[
-                      { key: 'bank_account', label: 'Account No', placeholder: 'e.g. 12345678901234' },
-                      { key: 'bank_ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234' },
-                      { key: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
-                    ].map(({ key, label, placeholder }) => (
-                      <div key={key} className="space-y-1">
-                        <Label className="text-xs font-semibold text-slate-700">
-                          {label} <span className="text-destructive">*</span>
-                          {isVerified(bankDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                        </Label>
-                        <ComplianceFieldInput
-                          value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
-                          placeholder={placeholder}
-                          canEdit={canEdit && isEditing}
-                          onChange={v => setDocField(key, v)}
-                          onSave={v => setDocField(key, v)}
-                        />
-                      </div>
-                    ))}
-                    {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive">{complianceErrors['field_bank_account']}</p>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> Bank Details / Cheque <span className="text-destructive">*</span>
+                      </Label>
+                      {isVerified(bankDoc) ? (
+                        <VerifiedFile doc={bankDoc} onRemove={() => removeDoc(bankDoc)} />
+                      ) : (
+                        <>
+                          <DocUploadInline vendorId={id} docType="bank_details"
+                            doc={bankDoc} editable={canEdit && isEditing}
+                            onRefresh={refreshVendor} setFieldError={(msg) =>
+                              setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
+                            } />
+                          {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
+                        </>
+                      )}
+                    </div>
+                    <div className="space-y-2.5">
+                      {[
+                        { key: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
+                        { key: 'bank_account', label: 'Account No', placeholder: 'e.g. 12345678901234' },
+                        { key: 'bank_ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234' },
+                      ].map(({ key, label, placeholder }) => (
+                        <div key={key} className="space-y-1">
+                          <Label className="text-xs font-semibold text-slate-700">
+                            {label} <span className="text-destructive">*</span>
+                            {isVerified(bankDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                          </Label>
+                          <ComplianceFieldInput
+                            value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
+                            placeholder={placeholder}
+                            canEdit={canEdit && isEditing}
+                            onChange={v => setDocField(key, v)}
+                            onSave={v => setDocField(key, v)}
+                          />
+                        </div>
+                      ))}
+                      {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive">{complianceErrors['field_bank_account']}</p>}
+                    </div>
                   </div>
                 </div>
 
