@@ -80,8 +80,8 @@ function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendor
   const gst = (t: number) => Math.round(t * 0.15)
   const landed = (t: number) => t + gst(t)
 
-  const selV = vendors?.find((v: any) => v.vendor_name === selectedVendorId) || vendors[0]
-  const selTotal = selV ? Number(selV.total_amount) : 0
+  const selV = vendors?.find((v: any) => v.vendor_id === selectedVendorId) || vendors[0]
+    const selTotal = selV ? Number(selV.total_amount) : 0
   const selLanded = landed(selTotal)
   const savings = landed(maxTotal) - selLanded
   if (isLoading) {
@@ -116,7 +116,9 @@ function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendor
         </div>
         {selV && vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_name !== selV.vendor_name && (
           <Button size="sm" variant="outline" className="gap-1 text-indigo-700 border-indigo-200 bg-white text-xs shrink-0"
-            onClick={() => setSelectedVendorId(vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_name)}>
+          onClick={() => setSelectedVendorId(
+            vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_id
+          )}>
             <Sparkles className="w-3 h-3" />Use AI pick
           </Button>
         )}
@@ -143,104 +145,102 @@ function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendor
               <tr style={{ borderBottom: '1px solid hsl(var(--border))' }}>
                 <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: 'hsl(var(--muted-foreground))', minWidth: 140 }}>Quotation</th>
                 {vendors.map((v: any) => {
-                  const isSel = v.vendor_name === selectedVendorId
+                  const isSel = v.vendor_id === selectedVendorId
                   const color = vendorColors[v.vendor_name]
                   return (
                     <th
-                    key={v.vendor_name}
-                    onClick={() => {
-                      if (!isDisabled) {
-                        setSelectedVendorId(v.vendor_name)
-                      }
-                    }}
-                    style={{
-                      padding: '10px 14px',
-                      textAlign: 'left',
-                      cursor: isDisabled ? 'not-allowed' : 'pointer',
-                      minWidth: 160,
-                      opacity: isDisabled ? 0.6 : 1,
-                      pointerEvents: isDisabled ? 'none' : 'auto',
-                      background: isSel ? 'rgba(99,102,241,0.06)' : 'transparent',
-                      borderLeft: isSel ? '2px solid #042348' : '2px solid transparent',
-                      transition: 'background .1s',
-                    }}
-                  >
-                    <div
+                      key={v.vendor_id}
+                      onClick={() => {
+                        if (!isDisabled) setSelectedVendorId(v.vendor_id)
+                      }}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
+                        padding: '10px 14px',
+                        textAlign: 'left',
+                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        minWidth: 160,
+                        opacity: isDisabled ? 0.6 : 1,
+                        pointerEvents: isDisabled ? 'none' : 'auto',
+                        background: isSel ? 'rgba(99,102,241,0.06)' : 'transparent',
+                        borderLeft: isSel ? '2px solid #042348' : '2px solid transparent',
+                        transition: 'background .1s',
                       }}
                     >
-                      <span
+                      <div
                         style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: '50%',
-                          border: isSel
-                            ? 'none'
-                            : '1.5px solid hsl(var(--border))',
-                          background: isSel ? '#042348' : 'transparent',
-                          display: 'inline-block',
-                          transition: 'all .1s',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
                         }}
-                      />
-                  
-                      <VendorDot
-                        name={v.vendor_name}
-                        color={color}
-                        size={20}
-                      />
-                  
-                      <div>
-                        <div
+                      >
+                        <span
                           style={{
-                            fontWeight: 600,
-                            fontSize: 12.5,
+                            width: 10,
+                            height: 10,
+                            borderRadius: '50%',
+                            border: isSel
+                              ? 'none'
+                              : '1.5px solid hsl(var(--border))',
+                            background: isSel ? '#042348' : 'transparent',
+                            display: 'inline-block',
+                            transition: 'all .1s',
                           }}
-                        >
-                          {v.vendor_name}
-                        </div>
-                  
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: 'hsl(var(--muted-foreground))',
-                            fontWeight: 400,
-                          }}
-                        >
-                          {v.score ? `${v.score}/100` : '—'}
+                        />
+
+                        <VendorDot
+                          name={v.vendor_name}
+                          color={color}
+                          size={20}
+                        />
+
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: 12.5,
+                            }}
+                          >
+                            {v.vendor_name}
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: 10,
+                              color: 'hsl(var(--muted-foreground))',
+                              fontWeight: 400,
+                            }}
+                          >
+                            {v.score ? `${v.score}/100` : '—'}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  
-                    <div
-                      style={{
-                        marginTop: 6,
-                        fontSize: 11,
-                        padding: '2px 8px',
-                        borderRadius: 6,
-                        textAlign: 'center',
-                        fontWeight: 600,
-                        background: isDisabled
-                          ? 'hsl(var(--muted))'
+
+                      <div
+                        style={{
+                          marginTop: 6,
+                          fontSize: 11,
+                          padding: '2px 8px',
+                          borderRadius: 6,
+                          textAlign: 'center',
+                          fontWeight: 600,
+                          background: isDisabled
+                            ? 'hsl(var(--muted))'
+                            : isSel
+                              ? '#042348'
+                              : 'hsl(var(--muted))',
+                          color: isDisabled
+                            ? 'hsl(var(--muted-foreground))'
+                            : isSel
+                              ? '#fff'
+                              : 'hsl(var(--muted-foreground))',
+                        }}
+                      >
+                        {isDisabled
+                          ? 'Unavailable'
                           : isSel
-                            ? '#042348'
-                            : 'hsl(var(--muted))',
-                        color: isDisabled
-                          ? 'hsl(var(--muted-foreground))'
-                          : isSel
-                            ? '#fff'
-                            : 'hsl(var(--muted-foreground))',
-                      }}
-                    >
-                      {isDisabled
-                        ? 'Unavailable'
-                        : isSel
-                          ? '✓ Selected'
-                          : 'Select vendor'}
-                    </div>
-                  </th>
+                            ? '✓ Selected'
+                            : 'Select vendor'}
+                      </div>
+                    </th>
                   )
                 })}
                 <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 600 }}>Best</th>
@@ -260,8 +260,8 @@ function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendor
                       const isSel = v.vendor_name === selectedVendorId
                       const isThisVendor = v.vendor_name === q.vendor_name
                       return (
-                        <td key={v.vendor_name}
-                          onClick={() => setSelectedVendorId(v.vendor_name)}
+                        <td  key={v.vendor_id}
+                        onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
                           style={{
                             padding: '9px 14px', textAlign: 'right', cursor: 'pointer',
                             background: isSel ? 'rgba(99,102,241,0.04)' : 'transparent',
@@ -304,7 +304,7 @@ function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendor
                   {vendors?.map((v: any) => {
                     const isSel = v.vendor_name === selectedVendorId
                     return (
-                      <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_name)}
+                      <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_id)}
                         style={{ padding: '8px 14px', textAlign: 'right', cursor: 'pointer', fontSize: 12, background: isSel ? 'rgba(99,102,241,0.04)' : 'transparent', borderLeft: isSel ? '2px solid #042348' : '2px solid transparent' }}>
                         {v[field] || '—'}
                       </td>
@@ -321,7 +321,7 @@ function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendor
                   const isSel = v.vendor_name === selectedVendorId
                   const t = totals[i]
                   return (
-                    <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_name)}
+                    <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_id)}
                       style={{
                         padding: '8px 14px', textAlign: 'right', fontWeight: 700, cursor: 'pointer', fontFamily: 'monospace',
                         background: t === minTotal ? 'rgba(16,185,129,0.08)' : t === maxTotal ? 'rgba(239,68,68,0.06)' : isSel ? 'rgba(99,102,241,0.04)' : 'transparent',
@@ -339,7 +339,7 @@ function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendor
                 {vendors.map((v: any, i: any) => {
                   const isSel = v.vendor_name === selectedVendorId
                   return (
-                    <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_name)}
+                    <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_id)}
                       style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, fontFamily: 'monospace', cursor: 'pointer', background: isSel ? 'rgba(99,102,241,0.04)' : 'transparent', borderLeft: isSel ? '2px solid #042348' : '2px solid transparent' }}>
                       {formatCurrency(gst(totals[i]))}
                     </td>
@@ -352,7 +352,7 @@ function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendor
                 {vendors.map((v: any, i: any) => {
                   const isSel = v.vendor_name === selectedVendorId
                   return (
-                    <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_name)}
+                    <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_id)}
                       style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, fontSize: 14, fontFamily: 'monospace', cursor: 'pointer', background: isSel ? 'rgba(99,102,241,0.08)' : 'transparent', borderLeft: isSel ? '2px solid #042348' : '2px solid transparent' }}>
                       {formatCurrency(landed(totals[i]))}
                     </td>
@@ -420,7 +420,7 @@ function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendor
             <div className="flex items-center gap-2 mt-2">
               {selV.vendor_name !== vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_name && (
                 <Button size="sm" className="gap-1  text-white text-xs h-7"
-                  onClick={() => setSelectedVendorId(vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_name)}>
+                  onClick={() => setSelectedVendorId(vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_id)}>
                   <Sparkles className="w-3 h-3" />Switch to AI pick
                 </Button>
               )}
