@@ -258,6 +258,8 @@ function TrackingIdSearch({
 
 // ─── Step 1: Quotes ───────────────────────────────────────────────────────────
 
+// ─── Step 1: Quotes ───────────────────────────────────────────────────────────
+
 const thStyle: React.CSSProperties = {
   padding: '8px 12px',
   textAlign: 'left',
@@ -266,6 +268,14 @@ const thStyle: React.CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: '.05em',
   color: 'hsl(var(--muted-foreground))',
+}
+
+type SortKey = 'ref_no' | 'vendor_name' | 'items_count' | 'quotation_date' | 'valid_until' | 'total_amount'
+type SortDir = 'asc' | 'desc'
+
+function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: SortKey; sortDir: SortDir }) {
+  if (sortKey !== column) return <span style={{ opacity: 0.3, fontSize: 9, marginLeft: 3 }}>⇅</span>
+  return <span style={{ fontSize: 9, marginLeft: 3 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>
 }
 
 function QuotesStep({
@@ -282,29 +292,84 @@ function QuotesStep({
     return vendorColors[name]
   }
 
-  const sortedQuotations = [...(quotations as any[])].sort((a, b) => {
-    const aSelected = selectedQuotationIds.includes(a.id)
-    const bSelected = selectedQuotationIds.includes(b.id)
-    const aExceeds = budgetRemaining !== null && Number(a.total_amount) > budgetRemaining
-    const bExceeds = budgetRemaining !== null && Number(b.total_amount) > budgetRemaining
-    if (aSelected && !bSelected) return -1
-    if (!aSelected && bSelected) return 1
-    if (aExceeds && !bExceeds) return 1
-    if (!aExceeds && bExceeds) return -1
-    return 0
-  })
+  // ── Sort & filter state ──────────────────────────────────────────────
+  const [sortKey, setSortKey] = useState<SortKey>('ref_no')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [vendorFilter, setVendorFilter] = useState('')
+  const [budgetFilter, setBudgetFilter] = useState<'all' | 'within' | 'exceeds'>('all')
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
 
   const hasDate = quotations.some((q: any) => q?.quotation_date)
   const hasValidity = quotations.some((q: any) => q?.valid_until)
   const hasUploadedBy = quotations.some((q: any) => q?.uploaded_by)
 
+  // Unique vendor names for filter dropdown
+  const vendorNames: string[] = Array.from(
+    new Set((quotations as any[]).map((q: any) => q.vendor_name).filter(Boolean))
+  )
+
+  // ── Filter ───────────────────────────────────────────────────────────
+  const filtered = (quotations as any[]).filter((q: any) => {
+    if (vendorFilter && q.vendor_name !== vendorFilter) return false
+    if (budgetFilter === 'within' && budgetRemaining !== null && Number(q.total_amount) > budgetRemaining) return false
+    if (budgetFilter === 'exceeds' && (budgetRemaining === null || Number(q.total_amount) <= budgetRemaining)) return false
+    return true
+  })
+
+  // ── Sort: selected first, exceeds-budget last, then user sort ────────
+  const processedQuotations = [...filtered].sort((a, b) => {
+    const aSelected = selectedQuotationIds.includes(a.id)
+    const bSelected = selectedQuotationIds.includes(b.id)
+    const aExceeds = budgetRemaining !== null && Number(a.total_amount) > budgetRemaining
+    const bExceeds = budgetRemaining !== null && Number(b.total_amount) > budgetRemaining
+
+    if (aSelected && !bSelected) return -1
+    if (!aSelected && bSelected) return 1
+    if (aExceeds && !bExceeds) return 1
+    if (!aExceeds && bExceeds) return -1
+
+    // User-chosen column sort
+    let aVal: any = a[sortKey] ?? ''
+    let bVal: any = b[sortKey] ?? ''
+    if (sortKey === 'total_amount' || sortKey === 'items_count') {
+      aVal = Number(aVal); bVal = Number(bVal)
+    } else if (sortKey === 'quotation_date' || sortKey === 'valid_until') {
+      aVal = aVal ? new Date(aVal).getTime() : 0
+      bVal = bVal ? new Date(bVal).getTime() : 0
+    } else {
+      aVal = String(aVal).toLowerCase(); bVal = String(bVal).toLowerCase()
+    }
+    if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
+    if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
+    return 0
+  })
+
+  // Sortable <th> helper
+  function Th({ col, label, style }: { col: SortKey; label: string; style?: React.CSSProperties }) {
+    return (
+      <th
+        style={{ ...thStyle, ...style, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+        onClick={() => handleSort(col)}
+      >
+        {label}<SortIcon column={col} sortKey={sortKey} sortDir={sortDir} />
+      </th>
+    )
+  }
+
+  const activeFilterCount = (vendorFilter ? 1 : 0) + (budgetFilter !== 'all' ? 1 : 0)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
+      {/* ── Procurement details card (unchanged) ── */}
       <Card className="shadow-sm">
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Procurement details</CardTitle>
+            <CardTitle className="text-base font-semibold">Procurement details</CardTitle>
             <span className="text-xs text-muted-foreground">Step 1 of 3</span>
           </div>
         </CardHeader>
@@ -313,7 +378,6 @@ function QuotesStep({
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Tracking ID <span className="text-destructive">*</span>
             </Label>
-            {/* No trackingIds prop needed — component fetches on its own */}
             <TrackingIdSearch
               value={selectedTracking}
               onChange={(t) => {
@@ -406,162 +470,206 @@ function QuotesStep({
         </CardContent>
       </Card>
 
+      {/* ── Quotations card ── */}
       {watchedTrackingId && (
-        <Card className="shadow-sm">
-          <CardHeader className="pb-3 border-b">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-semibold">Pick quotations to compare</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {selectedQuotationIds.length}/5 selected · auto-aligns line items across vendors
-                </p>
-              </div>
-              <Link href="/quotation/new">
-                <Button type="button" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  New Quotation
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
+  <Card className="shadow-sm">
+    <CardHeader className="pb-3 border-b">
+      <div className="flex items-center justify-between">
+        <div>
+          <CardTitle className="text-base font-semibold">Pick quotations to compare</CardTitle>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {selectedQuotationIds.length}/5 selected · auto-aligns line items across vendors
+          </p>
+        </div>
+        <Link href="/quotation/new">
+          <Button type="button" className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Quotation
+          </Button>
+        </Link>
+      </div>
 
-          <div className="max-h-[520px] overflow-auto rounded-b-xl" style={{ scrollbarWidth: 'thin' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'hsl(var(--background))' }}>
-                <tr style={{
-                  background: 'hsl(var(--muted) / 0.7)',
-                  borderBottom: '1px solid hsl(var(--border))',
-                }}>
-                  <th style={{ width: 36, padding: '8px 12px' }} />
-                  <th style={thStyle}>Quote</th>
-                  <th style={thStyle}>Vendor</th>
-                  <th style={{ ...thStyle, textAlign: 'center' }}>Items</th>
-                  {hasDate && <th style={thStyle}>Date</th>}
-                  {hasValidity && <th style={thStyle}>Validity</th>}
-                  {hasUploadedBy && <th style={thStyle}>Uploaded by</th>}
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Total</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {qLoading ? (
-                  <tr>
-                    <td colSpan={9} className="text-center py-5 text-sm text-muted-foreground">
-                      <Loader2 className="inline w-4 h-4 animate-spin mr-1" /> Loading quotations…
-                    </td>
-                  </tr>
-                ) : sortedQuotations.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="text-center py-5 text-sm text-muted-foreground">
-                      No quotations found
-                    </td>
-                  </tr>
-                ) : sortedQuotations.map((q: any) => {
-                  const isSelected = selectedQuotationIds.includes(q.id)
-                  const exceedsBudget = budgetRemaining !== null && Number(q.total_amount) > budgetRemaining
-                  const vc = vendorColor(q.vendor_name || 'V')
-
-                  return (
-                    <tr
-                      key={q.id}
-                      onClick={() => !exceedsBudget && toggleQuotation(q.id)}
-                      style={{
-                        background: isSelected ? 'hsl(var(--primary) / 0.05)' : 'transparent',
-                        borderBottom: '1px solid hsl(var(--border))',
-                        borderLeft: isSelected
-                          ? '3px solid hsl(var(--primary))'
-                          : exceedsBudget
-                            ? '3px solid hsl(var(--destructive) / 0.25)'
-                            : '3px solid transparent',
-                        cursor: exceedsBudget ? 'not-allowed' : 'pointer',
-                        opacity: exceedsBudget ? 0.5 : 1,
-                        transition: 'background .12s',
-                      }}
-                      className="hover:bg-muted/20"
-                    >
-                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          width: 16, height: 16, borderRadius: 4,
-                          border: isSelected ? 'none' : '1.5px solid hsl(var(--border))',
-                          background: isSelected ? 'hsl(var(--primary))' : 'transparent',
-                        }}>
-                          {isSelected && (
-                            <Check style={{ width: 10, height: 10, color: 'hsl(var(--primary-foreground))' }} />
-                          )}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: '10px 12px' }}>
-                        <span style={{
-                          fontFamily: 'monospace', fontSize: 12, fontWeight: 600,
-                          color: isSelected ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
-                        }}>
-                          {q.ref_no}
-                        </span>
-                        {q.quotation_no && (
-                          <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>
-                            {q.quotation_no}
-                          </div>
-                        )}
-                      </td>
-
-                      <td style={{ padding: '10px 12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <VendorDot name={q.vendor_name || 'V'} color={vc} size={22} />
-                          <div>
-                            <span style={{ fontWeight: 500 }}>{q.vendor_name}</span>
-                            {q.vendor_gstin && (
-                              <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', fontFamily: 'monospace' }}>
-                                {q.vendor_gstin}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      <td style={{ padding: '10px 12px', textAlign: 'center', fontFamily: 'monospace' }}>
-                        {q.items_count ?? '—'}
-                      </td>
-
-                      {hasDate && (
-                        <td style={{ padding: '10px 12px', color: 'hsl(var(--muted-foreground))' }}>
-                          {q.quotation_date
-                            ? new Date(q.quotation_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                            : '—'}
-                        </td>
-                      )}
-
-                      {hasValidity && (
-                        <td style={{ padding: '10px 12px', color: 'hsl(var(--muted-foreground))' }}>
-                          {q.valid_until
-                            ? new Date(q.valid_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                            : '—'}
-                        </td>
-                      )}
-
-                      {hasUploadedBy && (
-                        <td style={{ padding: '10px 12px', color: 'hsl(var(--muted-foreground))' }}>
-                          {q.uploaded_by || '—'}
-                        </td>
-                      )}
-
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>
-                        {formatCurrency(q.total_amount)}
-                        {exceedsBudget && (
-                          <div className="text-[10px] text-destructive font-medium">
-                            Exceeds budget
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+      {/* ── Filter bar ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+        {budgetRemaining !== null && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['all', 'within', 'exceeds'] as const).map(f => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setBudgetFilter(f)}
+                style={{
+                  padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 500, // increased from 11 → 12
+                  border: '1px solid',
+                  borderColor: budgetFilter === f ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                  background: budgetFilter === f ? 'hsl(var(--primary))' : 'transparent',
+                  color: budgetFilter === f ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
+                  cursor: 'pointer', transition: 'all .12s',
+                }}
+              >
+                {f === 'all' ? 'All' : f === 'within' ? '✓ Within budget' : '✗ Exceeds'}
+              </button>
+            ))}
           </div>
-        </Card>
-      )}
+        )}
+
+        {activeFilterCount > 0 && (
+          <button
+            type="button"
+            onClick={() => { setVendorFilter(''); setBudgetFilter('all') }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontSize: 12, // increased from 11 → 12
+              color: 'hsl(var(--muted-foreground))',
+              background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px',
+            }}
+          >
+            <X style={{ width: 11, height: 11 }} />
+            Clear ({activeFilterCount})
+          </button>
+        )}
+
+        <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginLeft: 'auto' }}> 
+          {processedQuotations.length} of {(quotations as any[]).length}
+        </span>
+      </div>
+    </CardHeader>
+
+    <div className="max-h-[520px] overflow-auto rounded-b-xl" style={{ scrollbarWidth: 'thin' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}> {/* increased from 13 → 14 */}
+        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'hsl(var(--background))' }}>
+          <tr style={{ background: 'hsl(var(--muted) / 0.7)', borderBottom: '1px solid hsl(var(--border))' }}>
+            <th style={{ width: 36, padding: '8px 12px' }} />
+            <Th col="ref_no" label="Quote" />
+            <Th col="vendor_name" label="Vendor" />
+            <Th col="items_count" label="Items" style={{ textAlign: 'center' }} />
+            {hasDate && <Th col="quotation_date" label="Date" />}
+            {hasValidity && <Th col="valid_until" label="Validity" />}
+            {hasUploadedBy && <th style={thStyle}>Uploaded by</th>}
+            <Th col="total_amount" label="Total" style={{ textAlign: 'right' }} />
+          </tr>
+        </thead>
+
+        <tbody>
+          {qLoading ? (
+            <tr>
+              <td colSpan={9} className="text-center py-5 text-sm text-muted-foreground">
+                <Loader2 className="inline w-4 h-4 animate-spin mr-1" /> Loading quotations…
+              </td>
+            </tr>
+          ) : processedQuotations.length === 0 ? (
+            <tr>
+              <td colSpan={9} className="text-center py-5 text-sm text-muted-foreground">
+                {activeFilterCount > 0 ? 'No quotations match the current filters.' : 'No quotations found'}
+              </td>
+            </tr>
+          ) : processedQuotations.map((q: any) => {
+            const isSelected = selectedQuotationIds.includes(q.id)
+            const exceedsBudget = budgetRemaining !== null && Number(q.total_amount) > budgetRemaining
+            const vc = vendorColor(q.vendor_name || 'V')
+
+            return (
+              <tr
+                key={q.id}
+                onClick={() => !exceedsBudget && toggleQuotation(q.id)}
+                style={{
+                  background: isSelected ? 'hsl(var(--primary) / 0.05)' : 'transparent',
+                  borderBottom: '1px solid hsl(var(--border))',
+                  borderLeft: isSelected
+                    ? '3px solid hsl(var(--primary))'
+                    : exceedsBudget
+                      ? '3px solid hsl(var(--destructive) / 0.25)'
+                      : '3px solid transparent',
+                  cursor: exceedsBudget ? 'not-allowed' : 'pointer',
+                  opacity: exceedsBudget ? 0.5 : 1,
+                  transition: 'background .12s',
+                }}
+                className="hover:bg-muted/20"
+              >
+                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 16, height: 16, borderRadius: 4,
+                    border: isSelected ? 'none' : '1.5px solid hsl(var(--border))',
+                    background: isSelected ? 'hsl(var(--primary))' : 'transparent',
+                  }}>
+                    {isSelected && (
+                      <Check style={{ width: 10, height: 10, color: 'hsl(var(--primary-foreground))' }} />
+                    )}
+                  </span>
+                </td>
+
+                <td style={{ padding: '10px 12px' }}>
+                  <span style={{
+                    fontSize: 13, // increased from 12 → 13
+                    fontWeight: 600,
+                    color: isSelected ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
+                  }}>
+                    {q.ref_no}
+                  </span>
+                  {q.quotation_no && (
+                    <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}> {/* increased from 10 → 11 */}
+                      {q.quotation_no}
+                    </div>
+                  )}
+                </td>
+
+                <td style={{ padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <VendorDot name={q.vendor_name || 'V'} color={vc} size={22} />
+                    <div>
+                      <span style={{ fontWeight: 500 }}>{q.vendor_name}</span>
+                      {q.vendor_gstin && (
+                        <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}> {/* increased from 10 → 11 */}
+                          {q.vendor_gstin}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+
+                <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                  {q.items_count ?? '—'}
+                </td>
+
+                {hasDate && (
+                  <td style={{ padding: '10px 12px', color: 'hsl(var(--muted-foreground))' }}>
+                    {q.quotation_date
+                      ? new Date(q.quotation_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : '—'}
+                  </td>
+                )}
+
+                {hasValidity && (
+                  <td style={{ padding: '10px 12px', color: 'hsl(var(--muted-foreground))' }}>
+                    {q.valid_until
+                      ? new Date(q.valid_until).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : '—'}
+                  </td>
+                )}
+
+                {hasUploadedBy && (
+                  <td style={{ padding: '10px 12px', color: 'hsl(var(--muted-foreground))' }}>
+                    {q.uploaded_by || '—'}
+                  </td>
+                )}
+
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: 14 }}> {/* added fontSize */}
+                  {formatCurrency(q.total_amount)}
+                  {exceedsBudget && (
+                    <div className="text-[11px] text-destructive font-medium"> {/* increased from 10 → 11 */}
+                      Exceeds budget
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  </Card>
+)}
     </div>
   )
 }
@@ -679,7 +787,7 @@ export default function NewPRPage() {
       })
       return
     }
-  
+
     setSelectedQuotationIds(prev =>
       prev.includes(id)
         ? prev.filter(q => q !== id)

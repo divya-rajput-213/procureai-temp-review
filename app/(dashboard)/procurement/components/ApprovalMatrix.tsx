@@ -130,13 +130,10 @@ const ApprovalMatrix = ({
 
         {/* Footer — same as first design */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>
-            Cancel
-          </Button>
 
           <Button
             onClick={submit}
-            disabled={submitting}
+            disabled={submitting || (matrices && matrices.length > 0 && selectedMatrix === null) || !selectedVendor}
             className="gap-2 min-w-[160px]"
           >
             {submitting ? (
