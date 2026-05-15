@@ -283,6 +283,7 @@ function QuotesStep({
   setValue, watchedTrackingId, errors, register,
   quotations, qLoading, selectedQuotationIds, toggleQuotation,
   grandTotal, budgetRemaining, budgetExceeded,
+  setSelectedQuotationIds
 }: any) {
   const vendorColors: Record<string, string> = {}
   const colorPalette = ['#042348', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#3b82f6']
@@ -381,7 +382,16 @@ function QuotesStep({
             <TrackingIdSearch
               value={selectedTracking}
               onChange={(t) => {
-                if (!t) { onSelectTracking(null); return }
+                if (!t) {
+                  onSelectTracking(null);
+                  setValue('tracking_id', undefined as any, { shouldDirty: true, shouldValidate: false });
+                  setValue('plant', undefined as any);
+                  setValue('department', undefined as any);
+                  setValue('title', undefined as any);
+                  setValue('description', '');
+                  setSelectedQuotationIds([]);
+                  return;
+                }
                 onSelectTracking(t)
                 setValue('tracking_id', t.id, { shouldDirty: true, shouldValidate: true })
                 setValue('title', t.title)
@@ -834,6 +844,7 @@ export default function NewPRPage() {
             grandTotal={grandTotal}
             budgetRemaining={budgetRemaining}
             budgetExceeded={budgetExceeded}
+            setSelectedQuotationIds={setSelectedQuotationIds}
           />
         )}
 
