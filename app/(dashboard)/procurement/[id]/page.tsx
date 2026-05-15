@@ -1303,7 +1303,7 @@ export default function PRDetailPage() {
         ))}
       </div>
       {activeTab === 'details' && (
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 items-start">
+        <div >
           {/* LEFT */}
           <div className="space-y-4 min-w-0">
             {/* KPI ROW */}
@@ -1530,11 +1530,11 @@ export default function PRDetailPage() {
           </div>
 
           {/* RIGHT SIDEBAR */}
-          <div className="space-y-4">
+          {/* <div className="space-y-4"> */}
 
 
             {/* APPROVAL CHAIN */}
-            <Card className="overflow-hidden rounded-xl shadow-sm">
+            {/* <Card className="overflow-hidden rounded-xl shadow-sm">
               <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
                 <div className="flex h-full items-center">
                   <CardTitle className="text-sm font-semibold">
@@ -1576,54 +1576,9 @@ export default function PRDetailPage() {
                   )}
                 </div>
               </CardContent>
-            </Card>
-            {/* INVITED VENDORS */}
-            <Card className="overflow-hidden rounded-xl shadow-sm">
-              <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
-                <div className="flex h-full items-center">
-                  <CardTitle className="text-sm font-semibold">Invited vendors</CardTitle>
-                </div>
-              </CardHeader>
+            </Card> */}
 
-              <CardContent className="p-4">
-                <div className="space-y-2">
-                  {(pr.invited_vendors_detail || []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No vendors invited.</p>
-                  ) : (
-                    (pr.invited_vendors_detail || []).map((v: any) => (
-                      <div
-                        key={v.id}
-                        className="flex items-start gap-3 rounded-lg border bg-muted/20 px-3 py-2.5"
-                      >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-bold text-primary">
-                          {v.company_name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{v.company_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {[v.city, v.state].filter(Boolean).join(', ') || '—'}
-                            {v.contact_email && (
-                              <span className="ml-2 text-[11px]">· {v.contact_email}</span>
-                            )}
-                          </p>
-                        </div>
-                        <span className={cn(
-                          'shrink-0 inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold',
-                          v.status === 'approved'
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : v.status === 'draft'
-                              ? 'border-slate-200 bg-slate-50 text-slate-500'
-                              : 'border-amber-200 bg-amber-50 text-amber-700'
-                        )}>
-                          {v.status}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* </div> */}
         </div>
       )}
 
