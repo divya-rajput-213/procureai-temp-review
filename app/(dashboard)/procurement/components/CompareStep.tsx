@@ -153,7 +153,7 @@ function CompareStep({
               <CardTitle className="text-base font-semibold">Quotation comparison</CardTitle>
               {!isDisabled && (
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Click a vendor column to select · {items.length} item{items.length !== 1 ? 's' : ''} · {vendors.length} vendor{vendors.length !== 1 ? 's' : ''}
+                  Click a vendor column to select · {items.length} item{items.length !== 1 ? 's' : ""} · {vendors.length} vendor{vendors.length !== 1 ? 's' : ''}
                 </p>
               )}
             </div>
