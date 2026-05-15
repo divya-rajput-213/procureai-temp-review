@@ -19,9 +19,10 @@ import { useQuery } from '@tanstack/react-query'
 
 function VendorDot({ name, color, size = 28 }: { name: string; color?: string; size?: number }) {
   const colors = ['#042348', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316']
-  const idx = name.charCodeAt(0) % colors.length
+  const strName = String(name || '') // ← ensure it's a string
+  const idx = strName?.charCodeAt(0) % colors.length
   const bg = color || colors[idx]
-  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  const initials = strName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

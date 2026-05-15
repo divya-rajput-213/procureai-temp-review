@@ -64,11 +64,12 @@ function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => voi
   }, [ref, onOutside])
 }
 
- function VendorDot({ name, color, size = 28 }: { name: string; color?: string; size?: number }) {
+function VendorDot({ name, color, size = 28 }: { name: string; color?: string; size?: number }) {
   const colors = ['#042348', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316']
-  const idx = name.charCodeAt(0) % colors.length
+  const strName = String(name || '') // ← ensure it's a string
+  const idx = strName?.charCodeAt(0) % colors.length
   const bg = color || colors[idx]
-  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  const initials = strName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -324,9 +325,7 @@ function QuotesStep({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" className="gap-1.5 text-primary  border-indigo-200 bg-indigo-50 hover:bg-indigo-100">
-                    <Sparkles className="w-3.5 h-3.5" />AI suggest vendors
-                  </Button>
+                 
                   <Button size="sm" variant="outline" className="gap-1.5">
                     <Plus className="w-3.5 h-3.5" />Request new RFQ
                   </Button>
@@ -437,27 +436,7 @@ function QuotesStep({
 
       {/* Right sidebar */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* AI suggestions */}
-        <Card className="shadow-sm border-indigo-100 bg-gradient-to-b from-indigo-50/60 to-white">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />AI suggestions for this PR
-              </CardTitle>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#042348', background: '#ede9fe', borderRadius: 6, padding: '2px 6px' }}>91%</span>
-            </div>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground space-y-2">
-            <p>Based on your spend patterns, I recommend selecting quotations from <strong className="text-foreground">multiple vendors</strong> for comparison.</p>
-            <p>Only quotations <strong className="text-foreground">within the remaining budget</strong> of <strong className="text-emerald-700">{formatCurrency(budgetRemaining ?? 0)}</strong> are selectable.</p>
-            <div className="flex items-center gap-2 mt-3">
-              <Button size="sm" className="gap-1  text-white text-xs h-7">
-                <Sparkles className="w-3 h-3" />Use AI panel
-              </Button>
-              <Button size="sm" variant="outline" className="text-xs h-7">Skip</Button>
-            </div>
-          </CardContent>
-        </Card>
+
 
         {/* Preferred vendors from tracking */}
         {trackingDetail?.preferred_vendors?.length > 0 && (
