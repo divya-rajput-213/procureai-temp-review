@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { AlertCircle, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, Check, FileText, Building2, Package, ClipboardCheck } from 'lucide-react'
+import { AlertCircle, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, Check, FileText, Building2, Package, Sparkles } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Combobox } from '@/components/ui/combobox'
 import UploadFile from '../components/UploadFile'
+import AIExtractionStep from '../components/AIExtractionStep'
+import VerifyItemsStep from '../components/VerifyItemsStep'
 
 interface FilterState {
     all: string;
@@ -22,31 +24,31 @@ interface Category { id: number; hash_id: string; name: string; is_active: boole
 // ─── Stepper ─────────────────────────────────────────────────────────────────
 const STEPS = [
     { id: 0, label: 'Upload', icon: FileText },
-    { id: 1, label: 'Verify vendor', icon: Building2 },
-    { id: 2, label: 'Verify items', icon: Package },
-    { id: 3, label: 'Confirm & save', icon: ClipboardCheck },
+    { id: 1, label: 'AI Extraction', icon: Sparkles },
+    { id: 2, label: 'Verify vendor', icon: Building2 },
+    { id: 3, label: 'Verify items', icon: Package },
 ]
 
 function Stepper({ currentStep, completedSteps }: { currentStep: number; completedSteps: Set<number> }) {
     return (
-        <div className="flex items-center">
+        <div className="flex items-center overflow-x-auto">
             {STEPS.map((step, i) => {
                 const done = completedSteps.has(step.id)
                 const active = currentStep === step.id
                 return (
                     <div key={step.id} className="flex items-center">
                         <div className="flex items-center gap-2">
-                            <span className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[11px] font-bold transition-all shrink-0
-                                ${done ? 'bg-emerald-500 text-white' : active ? 'bg-[#2563eb] text-white' : 'bg-transparent border border-muted-foreground/40 text-muted-foreground'}`}>
-                                {done ? <Check className="w-3 h-3" strokeWidth={3} /> : step.id + 1}
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shrink-0
+                                ${done ? 'bg-primary text-primary-foreground' : active ? 'bg-primary text-primary-foreground' : 'bg-transparent border border-border text-muted-foreground'}`}>
+                                {step.id + 1}
                             </span>
-                            <span className={`text-sm transition-all ${done ? 'text-foreground' : active ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
+                            <span className={`text-sm transition-all whitespace-nowrap ${done ? 'text-primary font-semibold' : active ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
                                 {step.label}
                             </span>
                         </div>
                         {i < STEPS.length - 1 && (
                             <div className="flex items-center mx-3">
-                                <div className={`w-16 h-px transition-all ${done ? 'bg-emerald-400' : 'bg-border'}`} />
+                                <div className={`w-14 h-px transition-all ${done ? 'bg-primary/60' : 'bg-border'}`} />
                             </div>
                         )}
                     </div>
@@ -165,6 +167,7 @@ export default function UploadQuotationPage() {
     const [financialYear, setFinancialYear] = useState<string>('')
     const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
     const [vendorSearch, setVendorSearch] = useState('')
+    const [isExtracting, setIsExtracting] = useState(false)
 
     const getApiErrorMessage = (error: any, fallback: string) => {
         const data = error?.response?.data
@@ -281,13 +284,16 @@ export default function UploadQuotationPage() {
             })))
             setPlantId(data.plant_id)
             setDepartmentId(data.department_id)
-            // Auto-advance to step 1 (Verify vendor)
-            setCompletedSteps(prev => {
-                const updated = new Set(prev)
-                updated.add(0)
-                return updated
-            })
-            setCurrentStep(1)
+            // Auto-advance to step 2 after a delay
+            setTimeout(() => {
+                setIsExtracting(false)
+                setCompletedSteps(prev => {
+                    const updated = new Set(prev)
+                    updated.add(1)
+                    return updated
+                })
+                setCurrentStep(2)
+            }, 5000)
         },
         onError: (error: any) => {
             const message = getApiErrorMessage(error, 'Failed to upload quotation.')
@@ -360,6 +366,16 @@ export default function UploadQuotationPage() {
         if (!isPdf) { setErrorMessage('Only PDF files are allowed.'); setFile(null); return }
         if (selectedFile.size === 0) { setErrorMessage('PDF file is empty.'); setFile(null); return }
         setErrorMessage(''); setQuotation(null); setVendors(null); setLineItems([]); setFile(selectedFile)
+
+        // Move to AI Extraction step
+        setCurrentStep(1)
+        setIsExtracting(true)
+        setCompletedSteps(prev => {
+            const updated = new Set(prev)
+            updated.add(0)
+            return updated
+        })
+
         if (!uploadMutation.isPending) uploadMutation.mutate(selectedFile)
     }
 
@@ -374,7 +390,16 @@ export default function UploadQuotationPage() {
         setErrorMessage(''); setSelectedFile(droppedFile)
     }
 
-    const handleSubmit = () => setShowConfirmModal(true)
+    const handleSubmit = () => {
+        if (currentStep === 3) {
+            setCompletedSteps(prev => {
+                const updated = new Set(prev)
+                updated.add(3)
+                return updated
+            })
+        }
+        setShowConfirmModal(true)
+    }
     const confirmAndSubmit = () => { setShowConfirmModal(false); quotationSaveMutation.mutate() }
 
     const formatSize = (bytes: number) => {
@@ -386,7 +411,6 @@ export default function UploadQuotationPage() {
     const getVendorInitials = (name: string) =>
         name?.split(' ').filter(Boolean).slice(0, 2).map((p: string) => p[0]).join('').toUpperCase() || 'V'
 
-    const hasData = quotation && vendors && lineItems.length > 0
     const isLoading = uploadMutation.isPending || quotationSaveMutation.isPending
 
     useEffect(() => {
@@ -427,13 +451,7 @@ export default function UploadQuotationPage() {
 
     const handleStepContinue = () => {
         if (currentStep === 1) {
-            setCompletedSteps(prev => {
-                const updated = new Set(prev)
-                updated.add(1)
-                return updated
-            })
-
-            setCurrentStep(2)
+            // This is AI Extraction step, handled by mutation onSuccess
         } else if (currentStep === 2) {
             setCompletedSteps(prev => {
                 const updated = new Set(prev)
@@ -442,6 +460,13 @@ export default function UploadQuotationPage() {
             })
 
             setCurrentStep(3)
+        } else if (currentStep === 3) {
+            setCompletedSteps(prev => {
+                const updated = new Set(prev)
+                updated.add(3)
+                return updated
+            })
+            setShowConfirmModal(true)
         }
     }
 
@@ -449,11 +474,33 @@ export default function UploadQuotationPage() {
         if (currentStep > 0) setCurrentStep(currentStep - 1)
     }
 
+    const handleRetryAI = () => {
+        if (!selectedFile || uploadMutation.isPending) return
+        setErrorMessage('')
+        setIsExtracting(true)
+        uploadMutation.mutate(selectedFile)
+    }
+
+    const handleNextFromAI = () => {
+        if (!quotation || !vendors) {
+            const message = 'AI extraction is not complete yet. Please retry and wait for extraction to finish.'
+            setErrorMessage(message)
+            toast({ title: 'Cannot continue', description: message, variant: 'destructive' })
+            return
+        }
+        setCompletedSteps(prev => {
+            const updated = new Set(prev)
+            updated.add(1)
+            return updated
+        })
+        setCurrentStep(2)
+    }
+
     return (
         <div className="relative min-h-screen space-y-0 mx-auto">
 
             {/* Loading overlay */}
-            {isLoading && (
+            {isLoading && currentStep !== 1 && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
                     <div className="flex items-center gap-2 rounded-xl border bg-background px-5 py-4 text-sm text-muted-foreground shadow-sm">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -488,22 +535,53 @@ export default function UploadQuotationPage() {
             </div>
 
             {/* Stepper + nav — always visible on ALL steps including step 0 */}
-            <div className="flex items-center justify-between py-2 mb-4">
+            <div className="flex items-center justify-between py-2 mb-8 border-b border-border/80">
                 <Stepper currentStep={currentStep} completedSteps={completedSteps} />
                 <div className="flex items-center gap-2 shrink-0">
-                    {currentStep > 0 && (
+                    {currentStep > 0 && currentStep !== 1 && (
                         <Button variant="ghost" size="sm" onClick={handleStepBack}>Back</Button>
                     )}
-                    {currentStep === 0 ? null : currentStep < 3 ? (
+                    {currentStep === 0 ? (
+                        <Button
+                            size="sm"
+                            onClick={() => selectedFile && addFile(selectedFile)}
+                            disabled={!selectedFile || uploadMutation.isPending}
+                            className="gap-1.5"
+                        >
+                            {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                            Continue <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                    ) : currentStep === 1 ? (
+                        <>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleRetryAI}
+                                disabled={!selectedFile || uploadMutation.isPending}
+                                className="gap-1.5"
+                            >
+                                {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                Retry AI
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={handleNextFromAI}
+                                disabled={!quotation || !vendors}
+                                className="gap-1.5"
+                            >
+                                Next <ChevronRight className="w-3.5 h-3.5" />
+                            </Button>
+                        </>
+                    ) : currentStep < 3 ? (
                         <Button size="sm" onClick={handleStepContinue}
-                            disabled={currentStep === 1 ? !canProceedFromVendor : !canProceedFromItems}
-                            className="gap-1.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white">
+                            disabled={currentStep === 2 ? !canProceedFromVendor : !canProceedFromItems}
+                            className="gap-1.5">
                             Continue <ChevronRight className="w-3.5 h-3.5" />
                         </Button>
                     ) : (
                         <Button size="sm" onClick={handleSubmit} disabled={isLoading}
-                            className="gap-1.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white">
-                            Save quote <ChevronRight className="w-3.5 h-3.5" />
+                            className="gap-1.5">
+                            Review & save <ChevronRight className="w-3.5 h-3.5" />
                         </Button>
                     )}
                 </div>
@@ -519,47 +597,57 @@ export default function UploadQuotationPage() {
 
             {/* ── STEP 0: Upload ── */}
             {currentStep === 0 && (
-                <UploadFile
-                    selectedFile={selectedFile}
-                    setSelectedFile={setSelectedFile}
-                    addFile={addFile}
-                    handleRemoveTagState={handleRemoveTagState}
-                    dragging={dragging}
-                    handleDragOver={handleDragOver}
-                    handleDragLeave={handleDragLeave}
-                    handleDrop={handleDrop}
-                    uploadMutation={uploadMutation}
-                    plantId={plantId}
-                    setPlantId={setPlantId}
-                    departmentId={departmentId}
-                    setDepartmentId={setDepartmentId}
-                    categoryId={categoryId}
-                    setCategoryId={setCategoryId}
-                    prLinkId={prLinkId}
-                    setPrLinkId={setPrLinkId}
-                    financialYear={financialYear}
-                    setFinancialYear={setFinancialYear}
-                    plants={plants}
-                    departments={departments}
-                    categories={categories}
-                    PRs={PRs}
-                    formatSize={formatSize}
-                />
+                <div className="pt-4">
+                    <UploadFile
+                        selectedFile={selectedFile}
+                        setSelectedFile={setSelectedFile}
+                        addFile={addFile}
+                        handleRemoveTagState={handleRemoveTagState}
+                        dragging={dragging}
+                        handleDragOver={handleDragOver}
+                        handleDragLeave={handleDragLeave}
+                        handleDrop={handleDrop}
+                        uploadMutation={uploadMutation}
+                        plantId={plantId}
+                        setPlantId={setPlantId}
+                        departmentId={departmentId}
+                        setDepartmentId={setDepartmentId}
+                        categoryId={categoryId}
+                        setCategoryId={setCategoryId}
+                        prLinkId={prLinkId}
+                        setPrLinkId={setPrLinkId}
+                        financialYear={financialYear}
+                        setFinancialYear={setFinancialYear}
+                        plants={plants}
+                        departments={departments}
+                        categories={categories}
+                        PRs={PRs}
+                        formatSize={formatSize}
+                    />
+                </div>
             )}
 
-            {/* ── STEP 1: Verify Vendor ── */}
-            {currentStep === 1 && vendors && (
-                <div className="grid grid-cols-[1fr_320px] gap-5 items-start">
+            {/* ── STEP 1: AI Extraction ── */}
+            {currentStep === 1 && (
+                <div className="pt-4">
+                    <AIExtractionStep selectedFile={selectedFile} quotation={quotation} />
+                </div>
+            )}
+
+            {/* ── STEP 2: Verify Vendor ── */}
+            {currentStep === 2 && vendors && (
+                <div className="pt-4">
+                    <div className="grid grid-cols-[1fr_320px] gap-5 items-start">
                     <div className="flex flex-col gap-4">
 
                         {/* AI stripe */}
-                        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-indigo-200 bg-indigo-50 text-sm">
-                            <span className="text-indigo-600 font-bold">✦</span>
+                        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
+                            <span className="text-primary font-bold">✦</span>
                             <div className="flex-1">
-                                <span className="font-semibold text-indigo-900">Vendor identified</span>
-                                {vendors.gst_number && <span className="text-indigo-700"> — GSTIN <span className="font-mono">{vendors.gst_number}</span> matched to existing vendor with 100% confidence.</span>}
+                                <span className="font-semibold text-primary">Vendor identified</span>
+                                {vendors.gst_number && <span className="text-primary/80"> — GSTIN <span className="font-mono">{vendors.gst_number}</span> matched to existing vendor with 100% confidence.</span>}
                             </div>
-                            <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">100%</span>
+                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">100%</span>
                         </div>
 
                         {/* Matched vendor card */}
@@ -661,16 +749,16 @@ export default function UploadQuotationPage() {
                     {/* Right panel */}
                     <div className="flex flex-col gap-4">
                         {/* Why this match? */}
-                        <div className="rounded-xl overflow-hidden border border-indigo-200">
-                            <div className="flex items-center gap-2 px-4 py-3 bg-indigo-700 text-white">
+                        <div className="rounded-xl overflow-hidden border border-primary/20">
+                            <div className="flex items-center gap-2 px-4 py-3 bg-primary text-white">
                                 <span className="font-bold">✦</span>
                                 <span className="font-semibold text-sm">Why this match?</span>
                                 <span className="ml-auto text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">100%</span>
                             </div>
-                            <div className="p-4 bg-indigo-50 space-y-1.5">
+                            <div className="p-4 bg-primary/5 space-y-1.5">
                                 {['GSTIN exact match — primary identifier', 'PAN segment matches', 'Sender email domain matches vendor record', 'Letterhead logo SSIM 0.94 vs. stored asset', 'Bank account matches active vendor file'].map((t, i) => (
-                                    <div key={i} className="flex items-start gap-2 text-sm text-indigo-900">
-                                        <span className="text-indigo-500 mt-0.5">•</span>{t}
+                                    <div key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                                        <span className="text-primary mt-0.5">•</span>{t}
                                     </div>
                                 ))}
                             </div>
@@ -696,348 +784,145 @@ export default function UploadQuotationPage() {
                         </div>
                     </div>
                 </div>
-            )}
-
-            {/* ── STEP 2: Verify Items ── */}
-            {currentStep === 2 && lineItems.length > 0 && (
-                <div className="grid grid-cols-2 gap-5 h-[calc(100vh-95px)] min-h-[500px]">
-                    {/* Left: Source document preview placeholder */}
-                    <div className="bg-white border rounded-xl shadow-sm flex flex-col overflow-hidden">
-                        {/* Toolbar */}
-                        <div className="flex items-center gap-3 px-4 py-2 border-b bg-gray-50 shrink-0">
-                            <span className="text-xs font-semibold text-gray-600">Source document</span>
-                            <span className="text-xs text-muted-foreground truncate max-w-[160px]">{file?.name || 'Quotation PDF'}</span>
-                            <div className="ml-auto flex items-center gap-2">
-                                <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 border border-gray-200 rounded px-2 py-1 bg-white">
-                                    <Search className="w-3 h-3" /> Find
-                                </button>
-                                {quotation?.file_url && (
-                                    <a href={quotation.file_url} target="_blank" rel="noopener noreferrer"
-                                        className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 border border-gray-200 rounded px-2 py-1 bg-white">
-                                        <Download className="w-3 h-3" /> Save
-                                    </a>
-                                )}
-                            </div>
-                        </div>
-                        {/* PDF sub-toolbar */}
-                        <div className="flex items-center gap-3 px-4 py-1.5 border-b bg-gray-50 text-xs text-gray-500 shrink-0">
-                            <span className="font-medium text-gray-700">Page 1 / 1</span>
-                            <span>·</span>
-                            <span>Zoom 100%</span>
-                            <span>·</span>
-                            <span>Fit</span>
-                            <span className="ml-auto italic">Highlights show AI-extracted regions</span>
-                        </div>
-                        {/* PDF iframe */}
-                        <div className="flex-1 overflow-hidden">
-                            {quotation?.file_url ? (
-                                <iframe
-                                    src={`${quotation.file_url}#toolbar=0&navpanes=0&scrollbar=0`}
-                                    className="w-full h-full border-0"
-                                    title="Quotation PDF"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                                    <div className="text-center space-y-2">
-                                        <FileText className="w-10 h-10 mx-auto text-gray-300" />
-                                        <p className="text-sm text-muted-foreground">{file?.name || 'No PDF available'}</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Right: Extracted items */}
-                    <div className="bg-white border rounded-xl shadow-sm flex flex-col overflow-hidden">
-                        <div className="px-4 py-3 border-b flex items-center gap-2">
-                            <span className="font-semibold text-sm">Extracted items — verify mapping</span>
-                            <Badge className="bg-violet-100 text-violet-700 border-violet-200 gap-1 ml-1">
-                                <span>✦</span> AI suggested
-                            </Badge>
-                            <button
-                                className="ml-auto text-xs font-medium text-emerald-700 hover:text-emerald-900 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-md transition-colors"
-                                onClick={() => {
-                                    setLineItems((prev: any) => prev.map((item: any) => ({
-                                        ...item,
-                                        createNew: false,
-                                        selectedMasterId: item.suggestions?.[0]?.master_item_id ? String(item.suggestions[0].master_item_id) : item.selectedMasterId,
-                                    })))
-                                }}
-                            >
-                                ✓ Approve all matched
-                            </button>
-                        </div>
-
-                        {/* Filter tabs */}
-                        <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/20 text-xs">
-                            <button onClick={() => handleFilterChange('all', 'true')} className={`px-2.5 py-1 rounded-full font-medium transition-colors ${filters.all === 'true' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}>
-                                All <span className="ml-0.5 opacity-70">{allCount}</span>
-                            </button>
-                            <button onClick={() => handleFilterChange('duplicates', 'true')} className={`px-2.5 py-1 rounded-full font-medium transition-colors ${filters.duplicates === 'true' ? 'bg-emerald-600 text-white' : 'text-muted-foreground hover:text-foreground'}`}>
-                                Matched <span className="ml-0.5 opacity-70">{duplicatesCount}</span>
-                            </button>
-                            <button onClick={() => handleFilterChange('new', 'true')} className={`px-2.5 py-1 rounded-full font-medium transition-colors ${filters.new === 'true' ? 'bg-amber-500 text-white' : 'text-muted-foreground hover:text-foreground'}`}>
-                                New SKUs <span className="ml-0.5 opacity-70">{newCount}</span>
-                            </button>
-                        </div>
-
-                        {/* Items list */}
-                        <div className="flex-1 overflow-y-auto divide-y">
-                            {filteredItems.map((item: any, index: number) => {
-                                const options = (item.suggestions ?? []).map((s: any) => ({
-                                    value: String(s.master_item_id),
-                                    label: `${s.code} - ${s.description}`,
-                                    group: 'Matched Suggestions',
-                                }))
-                                const isMatched = !item.is_new && options.length > 0
-                                return (
-                                    <div key={`${item.item_code || item.item_name}-${index}`} className={`p-3 flex gap-3 ${item.is_new ? 'bg-amber-50/50' : ''}`}>
-                                        {/* Left: extracted item */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-[10px] font-mono text-muted-foreground">L{index + 1}</span>
-                                                {item.hsn_code && <span className="text-[10px] font-mono text-muted-foreground">{item.hsn_code}</span>}
-                                                {item.is_new ? <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-200">New SKU</Badge> : <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">Matched</Badge>}
-                                            </div>
-                                            {item.isPendingSearch ? (
-                                                <RowItemSearch masterItems={masterItems as any[]} lineItems={lineItems} rowIndex={index}
-                                                    onPick={(m: any) => {
-                                                        setLineItems((prev: any) => prev.map((i: any, iIdx: number) =>
-                                                            iIdx === index ? {
-                                                                ...i, item_name: m.description, item_code: m.code, hsn_code: m.hsn_code ?? '',
-                                                                unit_of_measure: m.unit_of_measure ?? 'NOS', item_price: Number(m.unit_rate ?? 0),
-                                                                suggestions: [{ master_item_id: m.id, code: m.code, description: m.description, unit_of_measure: m.unit_of_measure, hsn_code: m.hsn_code }],
-                                                                is_new: false, is_duplicate: true, createNew: false, selectedMasterId: String(m.id), isPendingSearch: false,
-                                                            } : i
-                                                        ))
-                                                    }}
-                                                    onCreateCustom={(name: string) => {
-                                                        setLineItems((prev: any) => prev.map((i: any, iIdx: number) =>
-                                                            iIdx === index ? { ...i, item_name: name, createNew: true, isPendingSearch: false, is_new: true, is_duplicate: false, isCustomAdd: true } : i
-                                                        ))
-                                                    }}
-                                                    onCancel={() => setLineItems((prev: any) => prev.filter((_: any, iIdx: number) => iIdx !== index))}
-                                                />
-                                            ) : (
-                                                <p className="font-medium text-sm truncate">{item.item_name}</p>
-                                            )}
-                                            <p className="text-xs text-muted-foreground mt-0.5">{Number(item.quantity) || 1} {item.unit_of_measure} · ₹{Number(item.item_price ?? 0).toLocaleString('en-IN')}/u · total ₹{((Number(item.quantity) || 1) * (Number(item.item_price) || 0)).toLocaleString('en-IN')}</p>
-                                        </div>
-
-                                        {/* Arrow */}
-                                        <div className="flex items-center text-muted-foreground shrink-0 mt-4">
-                                            <ChevronRight className="w-4 h-4" />
-                                        </div>
-
-                                        {/* Right: master match */}
-                                        <div className="flex-1 min-w-0">
-                                            {!item.isPendingSearch && !item.isCustomAdd && (
-                                                item.createNew ? (
-                                                    <div className="h-full flex items-start pt-1">
-                                                        <div className="text-xs text-blue-700 bg-blue-50 border border-dashed border-blue-200 rounded-md px-3 py-2 w-full">
-                                                            Will create as new master item
-                                                        </div>
-                                                    </div>
-                                                ) : options.length > 0 ? (
-                                                    <Combobox
-                                                        options={options}
-                                                        value={item.selectedMasterId || ''}
-                                                        onValueChange={(value) => setLineItems((prev: any) => prev.map((i: any, iIndex: number) => iIndex === index ? { ...i, selectedMasterId: value, createNew: false } : i))}
-                                                        placeholder={`Choose from ${options.length} match${options.length === 1 ? '' : 'es'}…`}
-                                                        className="w-full"
-                                                    />
-                                                ) : (
-                                                    <div className="text-xs text-muted-foreground bg-muted/40 border rounded-md px-3 py-2">
-                                                        No master match — tick "Create New"
-                                                    </div>
-                                                )
-                                            )}
-                                        </div>
-
-                                        {/* Actions */}
-                                        <div className="flex items-center gap-1 shrink-0 mt-3">
-                                            {!item.isPendingSearch && !item.isCustomAdd && (
-                                                <>
-                                                    {item.is_new && !item.createNew && (
-                                                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setLineItems((prev: any) => prev.map((i: any, iIdx: number) => iIdx === index ? { ...i, createNew: true } : i))}>
-                                                            <Plus className="w-3 h-3" /> Create
-                                                        </Button>
-                                                    )}
-                                                    {item.createNew && (
-                                                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setLineItems((prev: any) => prev.map((i: any, iIdx: number) => iIdx === index ? { ...i, createNew: false } : i))}>
-                                                            Undo
-                                                        </Button>
-                                                    )}
-                                                </>
-                                            )}
-                                            <button
-                                                type="button"
-                                                aria-label="Remove"
-                                                onClick={() => { setLineItems((prev: any) => prev.filter((_: any, i: number) => i !== index)); toast({ title: 'Item removed', description: item.item_name || 'Line item' }) }}
-                                                className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-
-                        {/* Footer */}
-                        <div className="px-4 py-3 border-t bg-muted/10 flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">
-                                <b>{duplicatesCount}</b> matched · <b>{newCount}</b> new SKUs to create
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    className="text-xs text-muted-foreground hover:text-foreground px-2.5 py-1 rounded border hover:border-border transition-colors"
-                                    onClick={() => {
-                                        setLineItems((prev: any) => [...prev, {
-                                            item_name: '', item_code: '', hsn_code: '', quantity: 1, unit_of_measure: 'NOS',
-                                            item_price: 0, suggestions: [], is_new: true, is_duplicate: false, createNew: false, selectedMasterId: '', isPendingSearch: true,
-                                        }])
-                                        handleFilterChange('all', 'true')
-                                    }}
-                                >+ Add line</button>
-                                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => setShowExportModal(true)}>
-                                    <Download className="w-3 h-3" /> Export
-                                </Button>
-
-                            </div>
-                        </div>
-                    </div>
                 </div>
             )}
 
-            {/* ── STEP 3: Confirm & Save ── */}
-            {currentStep === 3 && hasData && (
-                <div className="grid grid-cols-[1fr_320px] gap-5 items-start">
-                    <div className="flex flex-col gap-4">
-
-                        {/* All verifications passed */}
-                        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-emerald-200 bg-emerald-50 text-sm">
-                            <Check className="w-4 h-4 text-emerald-600" />
-                            <span className="font-semibold text-emerald-900">All verifications passed</span>
-                            <Badge className="ml-auto bg-emerald-100 text-emerald-700 border-emerald-200">Ready to save</Badge>
-                        </div>
-
-                        {/* Review card */}
-                        <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                            <div className="px-4 py-3 border-b font-semibold text-sm">Review & save</div>
-                            <div className="grid grid-cols-3 gap-4 p-4">
-                                {[
-                                    ['Quote #', quotation?.vendor?.quotation_no || quotation?.id || '—'],
-                                    ['Vendor', vendors?.company_name || '—'],
-                                    ['Date / Validity', quotation?.vendor?.quotation_date || '—'],
-                                    ['Items', `${allCount} lines · ${duplicatesCount} matched · ${newCount} new`],
-                                    ['Subtotal', subtotal != null ? `₹${subtotal.toLocaleString('en-IN')}` : '—'],
-                                    ['Total', grandTotal != null ? `₹${grandTotal.toLocaleString('en-IN')}` : '—'],
-                                ].map(([label, value]) => (
-                                    <div key={label}>
-                                        <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">{label}</span>
-                                        <span className="text-sm font-semibold">{value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Pending side-effects */}
-                        <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                            <div className="px-4 py-3 border-b flex items-center gap-2">
-                                <span className="font-semibold text-sm">Pending side-effects</span>
-                                <span className="text-xs text-muted-foreground">Will be applied on save</span>
-                            </div>
-                            <div className="divide-y">
-                                {newCount > 0 && (
-                                    <div className="flex items-center gap-3 px-4 py-3 text-sm">
-                                        <Plus className="w-4 h-4 text-amber-600" />
-                                        <div className="flex-1">
-                                            <div className="font-medium">Create {newCount} new master SKU{newCount > 1 ? 's' : ''}</div>
-                                            <div className="text-xs text-muted-foreground">{lineItems.filter((i: any) => i.is_new).map((i: any) => i.item_name).slice(0, 3).join(', ')}{newCount > 3 ? ` +${newCount - 3} more` : ''}</div>
-                                        </div>
-                                        <Badge className="bg-amber-100 text-amber-700 border-amber-200">new</Badge>
-                                    </div>
-                                )}
-                                {duplicatesCount > 0 && (
-                                    <div className="flex items-center gap-3 px-4 py-3 text-sm">
-                                        <Pencil className="w-4 h-4 text-indigo-600" />
-                                        <div className="flex-1">
-                                            <div className="font-medium">Link {duplicatesCount} existing SKUs to vendor</div>
-                                        </div>
-                                        <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200">update</Badge>
-                                    </div>
-                                )}
-                                <div className="flex items-center gap-3 px-4 py-3 text-sm">
-                                    <Pencil className="w-4 h-4 text-indigo-600" />
-                                    <div className="flex-1">
-                                        <div className="font-medium">Update price book</div>
-                                        <div className="text-xs text-muted-foreground">{allCount} vendor prices vs. last 90d</div>
-                                    </div>
-                                    <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200">update</Badge>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Terms & conditions */}
-                        {vendors?.terms_and_conditions?.length > 0 && (
-                            <div className="bg-white border rounded-xl p-4">
-                                <h4 className="text-sm font-medium mb-2">Terms & Conditions</h4>
-                                <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-                                    {vendors.terms_and_conditions.map((term: string, i: number) => <li key={i}>{term}</li>)}
-                                </ul>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Right: AI summary */}
-                    <div className="flex flex-col gap-4">
-                        <div className="rounded-xl overflow-hidden border border-violet-200">
-                            <div className="flex items-center gap-2 px-4 py-3 bg-violet-700 text-white">
-                                <span className="font-bold">✦</span>
-                                <span className="font-semibold text-sm">Final AI summary</span>
-                                <span className="ml-auto text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">82%</span>
-                            </div>
-                            <div className="p-4 bg-violet-50 space-y-3 text-sm text-violet-900">
-                                <p>Quote ready to save. <b>{allCount}</b> lines verified, <b>{newCount}</b> new master SKUs queued for creation.</p>
-                                {grandTotal && <p>Quote value: <b className="text-violet-700">₹{grandTotal.toLocaleString('en-IN')}</b></p>}
-                                <p className="text-violet-700 text-xs">AI will run price benchmarking and notify relevant category owners on save.</p>
-                            </div>
-                        </div>
-
-                        {/* Quote details */}
-                        <div className="bg-white border rounded-xl shadow-sm">
-                            <div className="px-4 py-3 border-b font-semibold text-sm">Quote Details</div>
-                            <div className="divide-y">
-                                {[
-                                    ['Quote Reference', quotation?.vendor?.quotation_no || '—'],
-                                    ['Quote Date', quotation?.vendor?.quotation_date || '—'],
-                                    ['Currency', 'INR'],
-                                    ['Source', 'PDF — AI Extracted'],
-                                    ['Confidence', '96%'],
-                                ].map(([label, value]) => (
-                                    <div key={label} className="flex justify-between px-4 py-2 text-sm">
-                                        <span className="text-muted-foreground">{label}</span>
-                                        <span className="font-semibold">{value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+            {/* ── STEP 3: Verify Items ── */}
+            {currentStep === 3 && (
+                <div className="pt-4">
+                    <VerifyItemsStep
+                        file={selectedFile}
+                        quotation={quotation}
+                        lineItems={lineItems}
+                        setLineItems={setLineItems}
+                        masterItems={masterItems}
+                        onContinue={handleSubmit}
+                        onBack={() => setCurrentStep(2)}
+                    />
                 </div>
             )}
 
             {/* ── Confirm Modal ── */}
             <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Submit Quotation?</DialogTitle>
-                        <DialogDescription>Once submitted, these items cannot be changed. Please verify that all selections are correct.</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="gap-2">
-                        <Button variant="outline" onClick={() => setShowConfirmModal(false)}>Go Back</Button>
-                        <Button onClick={confirmAndSubmit} disabled={isLoading}>{isLoading ? 'Submitting...' : 'Confirm'}</Button>
-                    </DialogFooter>
+                <DialogContent className="max-w-5xl p-0 overflow-hidden border border-border shadow-xl bg-background text-foreground rounded-2xl">
+                    <div className="flex h-[560px]">
+                        {/* LEFT: Identity & Status */}
+                        <div className="w-[320px] bg-muted/30 p-6 flex flex-col border-r border-border">
+                            <div className="mb-0">
+                                <DialogHeader className="text-left mb-5">
+                                    <DialogTitle className="text-2xl font-semibold text-primary">Confirm Submission</DialogTitle>
+                                    <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+                                        Review summary & side-effects<br />before system persistence
+                                    </DialogDescription>
+                                </DialogHeader>
+
+                                {/* Vendor ID Card */}
+                                <div className="space-y-4 mb-7">
+                                    <div className="p-3 bg-white border border-border rounded-xl relative overflow-hidden group shadow-sm">
+                                        <div className="text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between">
+                                            <span>Vendor Match</span>
+                                            <span className="text-emerald-600">100%</span>
+                                        </div>
+                                        <div className="text-base font-semibold truncate leading-tight text-foreground">{vendors?.company_name || '—'}</div>
+                                        <div className="text-xs text-muted-foreground mt-1 font-mono">{vendors?.gst_number || 'GSTIN —'}</div>
+                                    </div>
+
+                                    <div className="p-3 bg-white border border-border rounded-xl shadow-sm">
+                                        <div className="text-xs font-semibold text-muted-foreground mb-1.5">Quote Reference</div>
+                                        <div className="text-sm font-semibold text-foreground">{vendors?.quotation_no || 'QT/2026/1001'}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-auto pt-6 border-t border-border">
+                                <div className="grid grid-cols-1 gap-2">
+                                    <Button
+                                        onClick={confirmAndSubmit}
+                                        disabled={isLoading}
+                                        className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 font-semibold text-sm rounded-xl transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
+                                    >
+                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm & Save'}
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => setShowConfirmModal(false)}
+                                        className="h-10 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl"
+                                    >
+                                        Go Back
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT: High-Level Summary & Side Effects */}
+                        <div className="flex-1 flex flex-col bg-muted/20 p-8">
+                            <div className="text-sm font-semibold text-muted-foreground mb-6">Review Summary</div>
+
+                            <div className="grid grid-cols-3 gap-4 mb-8">
+                                <div className="bg-white border rounded-xl p-4 shadow-sm">
+                                    <div className="text-xs font-semibold text-muted-foreground mb-2">Items</div>
+                                    <div className="text-lg font-bold text-foreground leading-none">{lineItems.length} lines</div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                        {lineItems.filter((i: any) => !i.is_new).length} Matched · {lineItems.filter((i: any) => i.is_new).length} New
+                                    </div>
+                                </div>
+                                <div className="bg-white border rounded-xl p-4 shadow-sm">
+                                    <div className="text-xs font-semibold text-muted-foreground mb-2">Subtotal</div>
+                                    <div className="text-lg font-bold text-foreground leading-none">₹{subtotal?.toLocaleString('en-IN')}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">Net value</div>
+                                </div>
+                                <div className="bg-white border rounded-xl p-4 shadow-sm border-primary/20 ring-2 ring-primary/5">
+                                    <div className="text-xs font-semibold text-primary mb-2">Grand Total</div>
+                                    <div className="text-xl font-bold text-primary leading-none">₹{grandTotal?.toLocaleString('en-IN')}</div>
+                                    <div className="text-xs text-primary/70 mt-1 italic">Inclusive of taxes</div>
+                                </div>
+                            </div>
+
+                            <div className="text-sm font-semibold text-muted-foreground mb-4">Pending Side-effects <span className="ml-2 font-normal text-xs text-muted-foreground whitespace-nowrap">Will be applied on save</span></div>
+
+                            <div className="space-y-3">
+                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/20 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                        <Building2 className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-sm font-semibold text-foreground">Link {lineItems.filter((i: any) => !i.is_new).length} existing SKUs to vendor</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">Association will be recorded in the Vendor Master</div>
+                                    </div>
+                                    <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] font-semibold">UPDATE</Badge>
+                                </div>
+
+                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/20 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                        <Package className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-sm font-semibold text-foreground">Update price book</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">{lineItems.length} vendor prices vs. last 90d</div>
+                                    </div>
+                                    <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] font-semibold">UPDATE</Badge>
+                                </div>
+
+                                {lineItems.some((i: any) => i.is_new) && (
+                                    <div className="bg-white border border-primary/20 rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/40 transition-colors">
+                                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
+                                            <Plus className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="text-sm font-semibold text-primary">Queue {lineItems.filter((i: any) => i.is_new).length} new SKUs for creation</div>
+                                            <div className="text-xs text-primary/70 mt-0.5">Category owners will be notified for approval</div>
+                                        </div>
+                                        <Badge className="bg-primary/10 text-primary border-none text-[10px] font-semibold">NEW</Badge>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mt-auto pt-8 flex items-center justify-between text-xs font-medium text-muted-foreground/70">
+                                <span>Secured by ProcureAI Backend</span>
+                                <span>Session ID: {quotation?.id || 'AUTH-001'}</span>
+                            </div>
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
 
@@ -1089,7 +974,7 @@ export default function UploadQuotationPage() {
                         {!vendorsFetching && vendorSearchResults.map((v: any) => (
                             <button key={v.id} className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-muted/40 transition-colors group"
                                 onClick={() => { setVendors((prev: any) => ({ ...v, gst_percentage: prev?.gst_percentage ?? v.gst_percentage })); setShowChangeVendorModal(false); setVendorSearch('') }}>
-                                <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-xs font-semibold text-indigo-700 flex-shrink-0">
+                                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary flex-shrink-0">
                                     {getVendorInitials(v.company_name)}
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -1111,6 +996,6 @@ export default function UploadQuotationPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     )
 }

@@ -112,7 +112,7 @@ export default function VendorHeaderCard({
                                 ? `${vendors.contact_name} — ${vendors.contact_phone || '-'}`
                                 : vendors.contact_phone || '-',
                         ],
-                        ['Payment Terms', vendors.payment_terms || 'Net 30 days'],
+                        ['Payment Terms', vendors.payment_terms || 'As per master file'],
                         [
                             'Bank Details',
                             vendors.bank_name || vendors.bank_ifsc
@@ -125,15 +125,15 @@ export default function VendorHeaderCard({
                         ],
                         [
                             'Delivery Terms',
-                            vendors.delivery_terms || 'FOR Destination — Manesar',
+                            vendors.delivery_terms || 'As per quotation',
                         ],
                         [
                             'Quote Valid Until',
-                            vendors.valid_until || '-',
+                            vendors.valid_until || '—',
                         ],
                         [
                             'Lead Time',
-                            vendors.lead_time || '12 working days from PO',
+                            vendors.lead_time_days ? `${vendors.lead_time_days} days` : 'As per quotation',
                         ],
                     ].map(([label, value], i) => (
                         <div

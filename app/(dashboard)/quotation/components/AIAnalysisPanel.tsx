@@ -1,6 +1,9 @@
 'use client'
 
-export default function AIAnalysisPanel() {
+export default function AIAnalysisPanel({ quotation }: { quotation: any }) {
+    const findings = quotation?.findings || []
+    const confidence = quotation?.confidence_score ?? 96
+
     return (
         <div className="rounded-2xl overflow-hidden bg-orange-50 border border-orange-200 shadow-sm">
             {/* Header */}
@@ -8,7 +11,7 @@ export default function AIAnalysisPanel() {
                 <span className="text-sm">✦</span>
                 <span className="font-semibold text-sm">AI Analysis</span>
                 <span className="ml-auto text-[10px] font-bold px-2 py-[2px] rounded-full bg-white/15 text-white">
-                    96% confident
+                    {confidence}% confident
                 </span>
             </div>
 
@@ -20,70 +23,49 @@ export default function AIAnalysisPanel() {
                         ✦ Extraction Notes
                     </div>
 
-                    <div className="flex gap-2 bg-white border border-slate-200 rounded-md p-2 text-xs mb-2">
-                        <span className="font-semibold">✓</span>
-                        <span>
-                            All line items, quantities and HSN codes extracted correctly.
-                        </span>
-                    </div>
-
-                    <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-md p-2 text-xs">
-                        <span className="font-semibold">⚠</span>
-                        <span>
-                            Line item 3 — unit price ₹328/MT — <strong>verify</strong>
-                        </span>
-                    </div>
+                    {findings.length > 0 ? (
+                        findings.map((finding: string, idx: number) => (
+                            <div key={idx} className="flex gap-2 bg-white border border-slate-200 rounded-md p-2 text-xs mb-2">
+                                <span className="font-semibold">✓</span>
+                                <span>{finding}</span>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="text-xs text-slate-500 italic">No specific findings detected.</div>
+                    )}
                 </div>
 
                 {/* Vendor Intelligence */}
-                <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-[#9B3B17] mb-2">
-                        ✦ Vendor Intelligence
-                    </div>
+                {quotation?.vendor && (
+                    <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wide text-[#9B3B17] mb-2">
+                            ✦ Vendor Intelligence
+                        </div>
 
-                    <div className="flex gap-2 bg-emerald-50 border border-emerald-200 rounded-md p-2 text-xs mb-2">
-                        <span className="font-semibold">★</span>
-                        <span>
-                            12 POs · OTD Rate: <strong>96.2%</strong>
-                        </span>
+                        <div className="flex gap-2 bg-emerald-50 border border-emerald-200 rounded-md p-2 text-xs mb-2">
+                            <span className="font-semibold">★</span>
+                            <span>
+                                {quotation.vendor.is_new ? 'New Vendor' : 'Existing Vendor'} · {quotation.vendor.city || 'Location unknown'}
+                            </span>
+                        </div>
                     </div>
-
-                    <div className="flex gap-2 bg-emerald-50 border border-emerald-200 rounded-md p-2 text-xs">
-                        <span className="font-semibold">✓</span>
-                        <span>IATF + ISO certifications valid</span>
-                    </div>
-                </div>
-
-                {/* Price Benchmark */}
-                <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-[#9B3B17] mb-2">
-                        ✦ Price Benchmark
-                    </div>
-
-                    <div className="flex gap-2 bg-white border border-slate-200 rounded-md p-2 text-xs mb-2">
-                        <span>📊</span>
-                        <span>2mm coil +2.1% vs last purchase</span>
-                    </div>
-
-                    <div className="flex gap-2 bg-white border border-slate-200 rounded-md p-2 text-xs">
-                        <span>📊</span>
-                        <span>Within LME range</span>
-                    </div>
-                </div>
+                )}
 
                 {/* Validity Alert */}
-                <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-[#9B3B17] mb-2">
-                        ✦ Validity Alert
-                    </div>
+                {quotation?.valid_until && (
+                    <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wide text-[#9B3B17] mb-2">
+                            ✦ Validity Alert
+                        </div>
 
-                    <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-md p-2 text-xs">
-                        <span>⏱</span>
-                        <span>
-                            Valid until <strong>15 Mar 2025</strong>
-                        </span>
+                        <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-md p-2 text-xs">
+                            <span>⏱</span>
+                            <span>
+                                Valid until <strong>{quotation.valid_until}</strong>
+                            </span>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     )
