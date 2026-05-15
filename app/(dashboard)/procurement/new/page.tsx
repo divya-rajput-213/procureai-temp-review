@@ -121,7 +121,7 @@ function StepIndicator({
                 fontSize: 11, fontWeight: 700, flexShrink: 0,
                 background: i < step - 1 ? '#10b981'
                   : i === step - 1 ? 'hsl(var(--primary))'
-                  : 'hsl(var(--muted))',
+                    : 'hsl(var(--muted))',
                 color: i <= step - 1 ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
               }}>
                 {i < step - 1 ? <Check style={{ width: 10, height: 10 }} /> : (i + 1)}
@@ -325,7 +325,7 @@ function QuotesStep({
                 setValue('department', t.department)
                 setValue('description', t.description || '')
               }}
-              onSelect={() => {}}
+              onSelect={() => { }}
             />
             {errors.tracking_id && (
               <p className="text-xs text-destructive">{errors.tracking_id.message}</p>
@@ -413,7 +413,7 @@ function QuotesStep({
               <div>
                 <CardTitle className="text-sm font-semibold">Pick quotations to compare</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {selectedQuotationIds.length} selected · auto-aligns line items across vendors
+                  {selectedQuotationIds.length}/5 selected · auto-aligns line items across vendors
                 </p>
               </div>
               <Link href="/quotation/new">
@@ -471,8 +471,8 @@ function QuotesStep({
                         borderLeft: isSelected
                           ? '3px solid hsl(var(--primary))'
                           : exceedsBudget
-                          ? '3px solid hsl(var(--destructive) / 0.25)'
-                          : '3px solid transparent',
+                            ? '3px solid hsl(var(--destructive) / 0.25)'
+                            : '3px solid transparent',
                         cursor: exceedsBudget ? 'not-allowed' : 'pointer',
                         opacity: exceedsBudget ? 0.5 : 1,
                         transition: 'background .12s',
@@ -668,11 +668,24 @@ export default function NewPRPage() {
   }
 
   const toggleQuotation = (id: number) => {
+    if (
+      !selectedQuotationIds.includes(id) &&
+      selectedQuotationIds.length >= 5
+    ) {
+      toast({
+        title: 'Maximum limit reached',
+        description: 'You can compare up to 5 quotations at a time.',
+        variant: 'destructive',
+      })
+      return
+    }
+  
     setSelectedQuotationIds(prev =>
-      prev.includes(id) ? prev.filter(q => q !== id) : [...prev, id]
+      prev.includes(id)
+        ? prev.filter(q => q !== id)
+        : [...prev, id]
     )
   }
-
   // ─── Render ───────────────────────────────────────────────────────────
 
   return (
