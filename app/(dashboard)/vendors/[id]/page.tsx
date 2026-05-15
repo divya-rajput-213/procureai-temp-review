@@ -20,6 +20,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
+import VendorAnalysisPanel from '../components/VendorAnalysisPanel'
 
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -1038,417 +1039,247 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
   const stats = dash.stats ?? {}
   const spendTrend: { month: string; spend: number }[] = dash.spend_trend ?? []
   const transactions: any[] = dash.recent_transactions ?? []
-  const activeBids: any[] = dash.active_bids ?? []
-  const perfScore = Math.round(dash.performance_score ?? 0)
-  const riskScore = Math.round(dash.risk_score ?? 0)
-  const riskLabel = riskScore < 30 ? 'Low Risk' : riskScore < 60 ? 'Medium Risk' : 'High Risk'
-  const riskBarColor = riskScore < 30 ? 'bg-green-500' : riskScore < 60 ? 'bg-amber-500' : 'bg-red-500'
+  const perfScore = dash.performance_score == null ? null : Math.round(Number(dash.performance_score))
+  const riskScore = dash.risk_score == null ? null : Math.round(Number(dash.risk_score))
+  const onTimeRate = stats.on_time_delivery_rate == null ? null : Math.round(Number(stats.on_time_delivery_rate))
+  const avgLeadDays = stats.avg_delivery_days ?? vendor.standard_lead_time_days ?? null
 
-  const fmtSpend = (v: number) =>
-    v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : String(Math.round(v))
-
-  // Static spark shapes (replace with real series from API if available)
-  const perfSpark = [75, 78, 72, 80, 77, 82, 79, 81, 78, 76, 80, 83]
-  const onTimeSpark = [85, 88, 82, 90, 87, 92, 89, 91, 88, 86, 90, 93]
-  const leadSpark = [12, 11, 13, 10, 12, 9, 11, 10, 12, 11, 10, 9]
-  const riskSpark = [45, 42, 48, 40, 45, 38, 42, 40, 43, 41, 39, 38]
-
-  const docs: any[] = vendor.documents ?? []
-
-  // Compliance items for sidebar — matching reference list exactly
-  const complianceItems = [
-    { label: 'GST registration', ok: !!vendor.gst_number, note: '—' },
-    { label: 'PAN', ok: !!vendor.pan_number, note: 'valid' },
-    { label: 'MSME certificate', ok: !!vendor.msme_number, note: vendor.msme_number ? '2027-03-31' : 'missing' },
-    { label: 'Bank verification', ok: !!vendor.bank_account, note: 'valid' },
-    { label: 'FSSAI license', ok: docs.some((d: any) => d.doc_type === 'fssai'), note: '2027-08-12' },
-    { label: 'ISO 9001:2015', ok: docs.some((d: any) => d.doc_type === 'iso_certificate'), note: 'valid' },
-    { label: 'NDA & MSA', ok: docs.some((d: any) => d.doc_type === 'nda'), note: 'valid' },
-  ]
-  const docsOk = complianceItems.filter(c => c.ok).length
+  const overviewCards = [
+    {
+      title: 'Vendor Score',
+      value: perfScore == null ? '—' : perfScore,
+      subtitle: perfScore == null ? 'No score yet' : 'Overall vendor performance',
+      icon: Star,
+      color: 'bg-indigo-600',
+    },
+    {
+      title: 'On-Time Delivery',
+      value: onTimeRate == null ? '—' : `${onTimeRate}%`,
+      subtitle: onTimeRate == null ? 'No deliveries yet' : 'Delivery performance',
+      icon: CheckCircle,
+      color: 'bg-green-600',
+    },
+    {
+      title: 'Avg Lead Time',
+      value: avgLeadDays == null ? '—' : `${avgLeadDays} days`,
+      subtitle: avgLeadDays == null ? 'No lead-time data' : 'Average delivery timeline',
+      icon: Clock,
+      color: 'bg-cyan-600',
+    },
+    {
+      title: 'Risk Score',
+      value: riskScore == null ? '—' : `${riskScore}/100`,
+      subtitle: riskScore == null ? 'Risk not scored' : 'Lower is better',
+      icon: AlertTriangle,
+      color: 'bg-amber-500',
+    },
+  ] as const
 
   return (
-    // ── Outer: main content (left, grows) + sidebar (right, fixed 260px) ──
-    <div className="flex gap-4 items-start">
-
-      {/* ════════════ LEFT / MAIN COLUMN ════════════ */}
-      <div className="flex-1 min-w-0 space-y-0">
-
-        {/* ── 4 KPI cards — improved spacing and typography ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          {/* Vendor Score Card */}
-          <Card className="shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="pt-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Star className="w-4 h-4 text-indigo-500 shrink-0" />
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">Vendor Score</span>
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl font-bold leading-none">{perfScore > 0 ? perfScore : '—'}</span>
-                    {perfScore > 0 && <span className="text-xs text-muted-foreground">/100</span>}
-                  </div>
-                  {perfScore > 0 && (
-                    <p className="text-xs text-green-600 flex items-center gap-0.5 mt-1.5 font-medium">
-                      <TrendingUp className="w-3 h-3 shrink-0" /> +3.0%
-                    </p>
-                  )}
+    <div className="space-y-4">
+      {/* ── 4 KPI cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        {overviewCards.map((item) => (
+          <Card key={item.title} className="shadow-sm">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{item.title}</p>
+                  <p className="text-2xl font-bold mt-1">{item.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{item.subtitle}</p>
                 </div>
-                {perfSpark.length > 0 && (
-                  <div className="w-16 h-12 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={perfSpark.map((v, i) => ({ i, v }))}>
-                        <Line type="monotone" dataKey="v" stroke="#6366f1" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                <div className={`p-2.5 rounded-xl ${item.color}`}>
+                  <item.icon className="w-5 h-5 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>
-
-          {/* On-Time Delivery Card */}
-          <Card className="shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="pt-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">On-Time Delivery</span>
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl font-bold leading-none">
-                      {stats.on_time_delivery_rate ? `${Math.round(stats.on_time_delivery_rate)}%` : '—'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-green-600 flex items-center gap-0.5 mt-1.5 font-medium">
-                    <TrendingUp className="w-3 h-3 shrink-0" /> +1.6%
-                  </p>
-                </div>
-                {onTimeSpark.length > 0 && (
-                  <div className="w-16 h-12 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={onTimeSpark.map((v, i) => ({ i, v }))}>
-                        <Line type="monotone" dataKey="v" stroke="#22c55e" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Avg Lead Time Card */}
-          <Card className="shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="pt-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Clock className="w-4 h-4 text-cyan-500 shrink-0" />
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">Avg Lead Time</span>
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl font-bold leading-none">
-                      {stats.avg_delivery_days > 0 ? stats.avg_delivery_days : vendor.standard_lead_time_days ?? '—'}
-                    </span>
-                    {(stats.avg_delivery_days > 0 || vendor.standard_lead_time_days) && (
-                      <span className="text-xs text-muted-foreground">days</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-red-500 flex items-center gap-0.5 mt-1.5 font-medium">
-                    <TrendingDown className="w-3 h-3 shrink-0" /> -2.4%
-                  </p>
-                </div>
-                {leadSpark.length > 0 && (
-                  <div className="w-16 h-12 shrink-0 flex items-end gap-0.5">
-                    {leadSpark.slice(-6).map((v, i) => (
-                      <div
-                        key={i}
-                        className="flex-1 bg-amber-400 rounded-sm"
-                        style={{ height: `${(v / Math.max(...leadSpark)) * 100}%` }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Risk Score Card */}
-          <Card className="shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="pt-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">Risk Score</span>
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl font-bold leading-none">{riskScore > 0 ? riskScore : '—'}</span>
-                    {riskScore > 0 && <span className="text-xs text-muted-foreground">/100</span>}
-                  </div>
-                  <p className="text-xs text-green-600 flex items-center gap-0.5 mt-1.5 font-medium">
-                    <TrendingDown className="w-3 h-3 shrink-0" /> -3.0%
-                  </p>
-                </div>
-                {riskSpark.length > 0 && (
-                  <div className="w-16 h-12 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={riskSpark.map((v, i) => ({ i, v }))}>
-                        <Line type="monotone" dataKey="v" stroke="#f59e0b" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── Snapshot Card ── */}
-        <Card className="shadow-sm mb-4">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-semibold">Snapshot</CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">Vendor profile · auto-refreshed</p>
-              </div>
-              <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
-                <Pencil className="w-3.5 h-3.5" /> Edit
-              </button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {/* Grid layout for snapshot data */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {[
-                { label: 'CATEGORY', value: vendor.category_name || '—' },
-                { label: 'ESTABLISHED', value: vendor.established || '—' },
-                { label: 'EMPLOYEES', value: vendor.employees || '—' },
-                { label: 'LOCATION', value: [vendor.city, vendor.state].filter(Boolean).join(', ') || '—' },
-                { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
-                { label: 'FSRAI', value: '—' },
-              ].map(item => (
-                <div key={item.label} className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{item.label}</p>
-                  <p className="text-sm font-medium text-slate-900">{item.value}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ── TWO CHARTS SIDE BY SIDE (matching reference exactly) ── */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
-
-          {/* Spend Trend */}
-          <div className="bg-white border rounded-lg px-4 py-3">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-semibold">Spend trend</span>
-              <span className="text-xs text-muted-foreground">12 months · ₹ lakhs</span>
-            </div>
-            {spendTrend.length === 0 || spendTrend.every(d => d.spend === 0) ? (
-              <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
-                No spend data yet.
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={160}>
-                <AreaChart data={spendTrend} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false}
-                    tickFormatter={v => v >= 1000 ? `${v / 1000}K` : String(v)} />
-                  <Tooltip
-                    formatter={(v: number) => [formatCurrency(v), 'Spend']}
-                    contentStyle={{ fontSize: 11, borderRadius: 6 }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="spend"
-                    stroke="#6366f1"
-                    strokeWidth={2}
-                    fill="url(#spendGrad)"
-                    dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }}
-                    activeDot={{ r: 4 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Price index vs market (second chart) — uses same spend data shaped differently, or flat line */}
-          <div className="bg-white border rounded-lg px-4 py-3">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-semibold">Price index vs market</span>
-              <span className="text-xs text-muted-foreground">100 = market median</span>
-            </div>
-            {spendTrend.length === 0 ? (
-              <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
-                No data yet.
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={160}>
-                <AreaChart
-                  // Fake price index data based on spend trend months
-                  data={spendTrend.map((d, i) => ({
-                    month: d.month,
-                    index: 100 - i * 0.5,   // replace with real price_index from API if available
-                  }))}
-                  margin={{ top: 8, right: 4, left: -20, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 6 }} />
-                  <Area
-                    type="monotone"
-                    dataKey="index"
-                    stroke="#f59e0b"
-                    strokeWidth={2}
-                    fill="url(#priceGrad)"
-                    dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* ── Recent orders & deliveries — matching reference table exactly ── */}
-        <div className="bg-white border rounded-lg overflow-hidden mb-4">
-          <div className="px-4 py-3 border-b flex items-center gap-2">
-            <span className="text-sm font-semibold">Recent orders &amp; deliveries</span>
-            <span className="text-xs text-muted-foreground">last 30 days</span>
-          </div>
-          {transactions.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-8">No transactions yet.</p>
-          ) : (
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b bg-white">
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2">PO</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2">DATE</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2">ITEMS</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2">STATUS</th>
-                  <th className="text-right font-medium text-muted-foreground px-4 py-2">VALUE</th>
-                  <th className="text-right font-medium text-muted-foreground px-4 py-2">RECEIVED</th>
-                  <th className="text-right font-medium text-muted-foreground px-4 py-2">QC</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx: any, i: number) => (
-                  <tr key={i} className="border-b last:border-0 hover:bg-slate-50/40">
-                    <td className="px-4 py-2.5 font-mono font-medium text-blue-600">{tx.pr_number}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{formatDate(tx.date)}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{tx.items ?? '—'} SKUs</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${tx.status === 'received' ? 'bg-green-100 text-green-700' :
-                        tx.status === 'partial_received' ? 'bg-amber-100 text-amber-700' :
-                          'bg-slate-100 text-slate-600'
-                        }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${tx.status === 'received' ? 'bg-green-500' :
-                          tx.status === 'partial_received' ? 'bg-amber-500' : 'bg-slate-400'
-                          }`} />
-                        {tx.status === 'received' ? 'Received' :
-                          tx.status === 'partial_received' ? 'Partial received' :
-                            tx.status?.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(tx.amount)}</td>
-                    <td className="px-4 py-2.5 text-right text-muted-foreground">{tx.received_pct != null ? `${tx.received_pct}%` : '—'}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      {tx.qc_status ? (
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${tx.qc_status === 'passed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                          }`}>
-                          {tx.qc_status}
-                        </span>
-                      ) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
+        ))}
       </div>
 
-      {/* ════════════ RIGHT SIDEBAR (260px fixed) ════════════ */}
-      {/* No Card components — plain sections separated by border-b, matching reference */}
-      <div className="w-[260px] shrink-0 bg-white border rounded-lg overflow-hidden">
-
-        {/* Compliance — simple checklist matching reference */}
-        <div className="px-4 py-3 border-b">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-semibold">Compliance</span>
-            <span className="text-[10px] text-muted-foreground">{docsOk}/{complianceItems.length} documents</span>
-          </div>
-          <div className="space-y-1.5">
-            {complianceItems.map((item, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  {item.ok
-                    ? <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
-                    : <div className="w-3 h-3 rounded-full border border-slate-300 shrink-0" />}
-                  <span className="text-[11px]">{item.label}</span>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Main Content Area */}
+        <div className="lg:col-span-8 space-y-4">
+          {/* ── Snapshot Card ── */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold">Snapshot</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">Vendor profile · auto-refreshed</p>
                 </div>
-                <span className={`text-[10px] ${item.ok ? 'text-muted-foreground' : 'text-red-400'}`}>
-                  {item.ok ? item.note : 'missing'}
-                </span>
+                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
+                  <Pencil className="w-3.5 h-3.5" /> Edit
+                </button>
               </div>
-            ))}
-          </div>
-        </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {[
+                  { label: 'CATEGORY', value: vendor.category_name || '—' },
+                  { label: 'ESTABLISHED', value: vendor.established || '—' },
+                  { label: 'EMPLOYEES', value: vendor.employees || '—' },
+                  { label: 'LOCATION', value: [vendor.city, vendor.state].filter(Boolean).join(', ') || '—' },
+                  { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
+                  { label: 'FSRAI', value: '—' },
+                ].map(item => (
+                  <div key={item.label} className="space-y-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{item.label}</p>
+                    <p className="text-sm font-medium text-slate-900">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* AI Insight section matching reference */}
-        <div className="px-4 py-3 border-b bg-slate-50/50">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-semibold flex items-center gap-1.5 text-violet-700">
-              AI Agent Insight
-            </span>
-          </div>
-          <p className="text-[11px] leading-relaxed text-muted-foreground mb-3 italic">
-            "Vendor reliability has improved by 12% since Q3. Low risk of stock-out based on current lead times, but re-quoting is recommended for top SKUs due to market shifts."
-          </p>
-          <div className="flex gap-2">
-            <button className="flex items-center gap-1 text-[11px] font-medium border rounded px-2 py-1 hover:bg-slate-50 bg-white">
-              <span className="text-violet-500">✦</span> Open full analysis
-            </button>
-            <button className="flex items-center gap-1 text-[11px] font-medium border rounded px-2 py-1 hover:bg-slate-50 bg-white">
-              Re-quote top SKUs
-            </button>
-          </div>
-        </div>
-
-        {/* Quick details */}
-        <div className="px-4 py-3 space-y-2.5">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Vendor Profile</p>
-          {[
-            { label: 'Type', value: vendor.vendor_type },
-            { label: 'Status', value: vendor.status, isBadge: true },
-            { label: 'Onboarding', value: formatDate(vendor.created_at) },
-            { label: 'ProcureID', value: vendor.id?.toString().slice(0, 8) },
-          ].map(({ label, value, isBadge }) => (
-            <div key={label} className="flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">{label}</span>
-              {isBadge ? <StatusBadge status={value} /> : <span className="text-[11px] font-medium">{value}</span>}
+          {/* ── Two chart cards ── */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {/* Spend Trend */}
+            <div className="bg-white border rounded-lg px-4 py-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-semibold">Spend trend</span>
+                <span className="text-xs text-muted-foreground">12 months · ₹ lakhs</span>
+              </div>
+              {spendTrend.length === 0 || spendTrend.every(d => d.spend === 0) ? (
+                <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
+                  No spend data yet.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={160}>
+                  <AreaChart data={spendTrend} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false}
+                      tickFormatter={v => v >= 1000 ? `${v / 1000}K` : String(v)} />
+                    <Tooltip
+                      formatter={(v: number) => [formatCurrency(v), 'Spend']}
+                      contentStyle={{ fontSize: 11, borderRadius: 6 }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="spend"
+                      stroke="#6366f1"
+                      strokeWidth={2}
+                      fill="url(#spendGrad)"
+                      dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }}
+                      activeDot={{ r: 4 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
-          ))}
+
+            {/* Price index vs market */}
+            <div className="bg-white border rounded-lg px-4 py-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-semibold">Price index vs market</span>
+                <span className="text-xs text-muted-foreground">100 = market median</span>
+              </div>
+              {spendTrend.length === 0 ? (
+                <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
+                  No data yet.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={160}>
+                  <AreaChart
+                    data={spendTrend.map((d, i) => ({
+                      month: d.month,
+                      index: 100 - i * 0.5,
+                    }))}
+                    margin={{ top: 8, right: 4, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 6 }} />
+                    <Area
+                      type="monotone"
+                      dataKey="index"
+                      stroke="#f59e0b"
+                      strokeWidth={2}
+                      fill="url(#priceGrad)"
+                      dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* ── Recent orders & deliveries ── */}
+          <div className="bg-white border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b flex items-center gap-2">
+              <span className="text-sm font-semibold">Recent orders &amp; deliveries</span>
+              <span className="text-xs text-muted-foreground">last 30 days</span>
+            </div>
+            {transactions.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-8">No transactions yet.</p>
+            ) : (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-white">
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2">PO</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2">DATE</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2">ITEMS</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2">STATUS</th>
+                    <th className="text-right font-medium text-muted-foreground px-4 py-2">VALUE</th>
+                    <th className="text-right font-medium text-muted-foreground px-4 py-2">RECEIVED</th>
+                    <th className="text-right font-medium text-muted-foreground px-4 py-2">QC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx: any, i: number) => (
+                    <tr key={i} className="border-b last:border-0 hover:bg-slate-50/40">
+                      <td className="px-4 py-2.5 font-mono font-medium text-blue-600">{tx.pr_number}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{formatDate(tx.date)}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{tx.items ?? '—'} SKUs</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${tx.status === 'received' ? 'bg-green-100 text-green-700' :
+                          tx.status === 'partial_received' ? 'bg-amber-100 text-amber-700' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${tx.status === 'received' ? 'bg-green-500' :
+                            tx.status === 'partial_received' ? 'bg-amber-500' : 'bg-slate-400'
+                            }`} />
+                          {tx.status === 'received' ? 'Received' :
+                            tx.status === 'partial_received' ? 'Partial received' :
+                              tx.status?.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(tx.amount)}</td>
+                      <td className="px-4 py-2.5 text-right text-muted-foreground">{tx.received_pct != null ? `${tx.received_pct}%` : '—'}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        {tx.qc_status ? (
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${tx.qc_status === 'passed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                            {tx.qc_status}
+                          </span>
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
+        {/* Sidebar Area */}
+        <div className="lg:col-span-4 space-y-4">
+          <VendorAnalysisPanel vendor={vendor} />
+        </div>
       </div>
     </div>
   )
@@ -1867,41 +1698,38 @@ export default function VendorDetailPage() {
   ]
 
   return (
-    <div className="space-y-4">
-      {/* Breadcrumb Header */}
-      <div className="flex items-center gap-2 text-sm">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/vendors')}
-          className="h-auto p-0 text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/vendors')}
-          className="h-auto p-0 text-muted-foreground hover:text-foreground"
-        >
-          Vendors
-        </Button>
-        <span className="text-muted-foreground">/</span>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-            <span className="text-xs font-bold text-indigo-700">{(vendor.company_name ?? '?')[0].toUpperCase()}</span>
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-sm min-w-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/vendors')}
+            className="h-auto p-0 text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/vendors')}
+            className="h-auto p-0 text-muted-foreground hover:text-foreground"
+          >
+            Vendors
+          </Button>
+          <span className="text-muted-foreground">/</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-indigo-700">{(vendor.company_name ?? '?')[0].toUpperCase()}</span>
+            </div>
+            <span className="font-semibold truncate">{vendor.company_name}</span>
+            <StatusBadge status={vendor.status} />
+            {vendor.vendor_code && <span className="text-xs text-muted-foreground font-mono">· {vendor.vendor_code}</span>}
+            {vendor.gstin && <span className="text-xs text-muted-foreground font-mono">· {vendor.gstin}</span>}
           </div>
-          <span className="font-semibold">{vendor.company_name}</span>
-          <StatusBadge status={vendor.status} />
-          {vendor.vendor_code && <span className="text-xs text-muted-foreground font-mono">· {vendor.vendor_code}</span>}
-          {vendor.gstin && <span className="text-xs text-muted-foreground font-mono">· {vendor.gstin}</span>}
         </div>
-      </div>
-
-      {/* Header - Actions */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div></div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button variant="outline" size="sm" onClick={() => { void exportVendorPDF(vendor, id) }} className="gap-1.5">
             <Download className="w-3.5 h-3.5" /> Download PDF
           </Button>
