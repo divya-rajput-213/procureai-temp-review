@@ -349,17 +349,6 @@ const UploadFile = ({
                             </div>
                         </div>
 
-                        <div className="flex justify-end p-5 border-t">
-                            <Button
-                                className="flex items-center gap-2"
-                                disabled={!selectedFile || uploadMutation.isPending}
-                                onClick={() => addFile(selectedFile)}
-                            >
-                                {uploadMutation.isPending
-                                    ? 'Uploading…'
-                                    : 'Continue to AI Extraction'}
-                            </Button>
-                        </div>
                     </div>
                 </div>
 
