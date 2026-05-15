@@ -258,10 +258,6 @@ function CompareStep({
                     </th>
                   )
                 })}
-
-                <th style={{ ...thBase, textAlign: 'center', width: 90, background: 'hsl(var(--muted)/0.4)' }}>
-                  Best
-                </th>
               </tr>
             </thead>
 
@@ -362,25 +358,14 @@ function CompareStep({
                       )
                     })}
 
-                    {/* best column */}
-                    <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                      {bestVendor ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                          <VendorDot name={bestVendor.vendor_name} paletteIdx={bpi} size={22} />
-                          {/* abbrev: 9 → 11 */}
-                          <span style={{ fontSize: 11, fontWeight: 600, color: 'hsl(142 71% 35%)' }}>
-                            {bestVendor.vendor_name.split(' ')[0].slice(0, 3).toUpperCase()}
-                          </span>
-                        </div>
-                      ) : '—'}
-                    </td>
+      
                   </tr>
                 )
               })}
 
               {/* soft factors section header — unchanged at 15 since it's already a divider */}
               <tr style={{ background: 'hsl(var(--muted)/0.5)', borderBottom: '1px solid hsl(var(--border))', borderTop: '2px solid hsl(var(--border))' }}>
-                <td colSpan={3 + vendors.length + 1} style={{
+                <td colSpan={3 + vendors.length} style={{
                   padding: '6px 14px', fontSize: 11, fontWeight: 700,
                   textTransform: 'uppercase', letterSpacing: '.08em',
                   color: 'hsl(var(--muted-foreground))',
@@ -428,7 +413,6 @@ function CompareStep({
                       </td>
                     )
                   })}
-                  <td style={{ padding: '9px 14px' }} />
                 </tr>
               ))}
 
@@ -458,7 +442,6 @@ function CompareStep({
                     </td>
                   )
                 })}
-                <td style={{ padding: '9px 14px' }} />
               </tr>
 
               {/* GST row: amount 12 → 14, rate label 9 → 11 */}
@@ -490,7 +473,6 @@ function CompareStep({
                     </td>
                   )
                 })}
-                <td style={{ padding: '8px 14px' }} />
               </tr>
 
               {/* landed total: label 16 → 18, value 14 → 16, LOWEST badge 9 → 11 */}
@@ -525,7 +507,6 @@ function CompareStep({
                     </td>
                   )
                 })}
-                <td style={{ padding: '12px 14px' }} />
               </tr>
             </tbody>
           </table>

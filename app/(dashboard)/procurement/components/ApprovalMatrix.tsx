@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, Send } from 'lucide-react'
+import { ArrowLeft, Loader2, Send } from 'lucide-react'
 
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,8 @@ type ApprovalMatrixProps = {
     onSuccess?: () => void
     showFooter?: boolean
     selectedVendor?: any
+    setStep:any
+    step:any
 }
 
 const ApprovalMatrix = ({
@@ -30,7 +32,9 @@ const ApprovalMatrix = ({
     onClose,
     onSuccess,
     showFooter = true,
-    selectedVendor
+    selectedVendor,
+    setStep,
+    step
 }: ApprovalMatrixProps) => {
     const { toast } = useToast()
 
@@ -129,8 +133,10 @@ const ApprovalMatrix = ({
         </CardContent>
 
         {/* Footer — same as first design */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
-
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
+        <Button variant="outline" size="sm" onClick={() => setStep(step - 1)} className="gap-1">
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
+          </Button>
           <Button
             onClick={submit}
             disabled={submitting || (matrices && matrices.length > 0 && selectedMatrix === null) || !selectedVendor}
