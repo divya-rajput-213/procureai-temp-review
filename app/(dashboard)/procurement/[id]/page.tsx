@@ -1444,7 +1444,7 @@ export default function PRDetailPage() {
                       <p
                         className={cn(
                           'text-sm font-medium text-foreground leading-snug',
-                          item.mono && 'font-mono text-[13px]'
+                          item.mono && 'text-[13px]'
                         )}
                       >
                         {item.value}
@@ -1492,10 +1492,10 @@ export default function PRDetailPage() {
                       ) : (
                         (pr.linked_quotations || []).map((q: any) => (
                           <tr key={q.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                            <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{q.ref_no || q.quotation_no}</td>
+                            <td className="px-4 py-3  text-xs whitespace-nowrap">{q.ref_no || q.quotation_no}</td>
                             <td className="px-4 py-3 font-medium whitespace-nowrap">{q.vendor_name}</td>
                             <td className="px-4 py-3 whitespace-nowrap">{q.items_count} item{q.items_count !== 1 ? 's' : ''}</td>
-                            <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
+                            <td className="px-4 py-3 text-right  whitespace-nowrap">
                               {formatCurrency(q.total_amount, pr.currency_code)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">

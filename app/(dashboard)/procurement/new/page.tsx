@@ -549,7 +549,7 @@ function QuotesStep({
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>
                         {formatCurrency(q.total_amount)}
                         {exceedsBudget && (
-                          <div className="text-[10px] text-destructive font-sans font-medium">
+                          <div className="text-[10px] text-destructive font-medium">
                             Exceeds budget
                           </div>
                         )}
