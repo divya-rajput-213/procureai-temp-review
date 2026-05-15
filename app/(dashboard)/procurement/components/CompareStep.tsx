@@ -203,7 +203,15 @@ function CompareStep({
                         <div style={{ minWidth: 0 }}>
                           {/* vendor name: 14 → 16 */}
                           <div style={{ fontWeight: 700, fontSize: 16, color: 'hsl(var(--foreground))', lineHeight: 1.2 }}>
-                            {v.vendor_name}
+                            {isAiPick && (
+                              <span style={{ fontSize: 12, fontWeight: 600, background: '#ede9fe', color: '#6d28d9', borderRadius: 4, display: 'inline-flex', alignItems: 'start', gap: 3 }}>
+                                <Sparkles style={{ width: 15, height: 15 }} />
+                              </span>
+                            )}  {v.vendor_name}     {v.vendor_status === 'new' && (
+                              <span style={{ fontSize: 12, fontWeight: 600, background: '#fef3c7', color: '#92400e', borderRadius: 4, padding: '2px 7px' }}>
+                                New
+                              </span>
+                            )}
                           </div>
                           {/* meta line: 12 → 13 */}
                           <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
@@ -213,25 +221,6 @@ function CompareStep({
                               v.performance_score != null ? `${v.performance_score}/100` : null,
                             ].filter(Boolean).join(' · ') || v.city || '—'}
                           </div>
-                        </div>
-
-                        {/* badges: 11 → 12 */}
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 7 }}>
-                          {isAiPick && (
-                            <span style={{ fontSize: 12, fontWeight: 600, background: '#ede9fe', color: '#6d28d9', borderRadius: 4, padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                              <Sparkles style={{ width: 9, height: 9 }} />AI pick
-                            </span>
-                          )}
-                          {v.vendor_status === 'new' && (
-                            <span style={{ fontSize: 12, fontWeight: 600, background: '#fef3c7', color: '#92400e', borderRadius: 4, padding: '2px 7px' }}>
-                              New vendor
-                            </span>
-                          )}
-                          {v.is_msme && (
-                            <span style={{ fontSize: 12, fontWeight: 600, background: '#d1fae5', color: '#065f46', borderRadius: 4, padding: '2px 7px' }}>
-                              MSME
-                            </span>
-                          )}
                         </div>
 
                         {/* select button: 13 → 14 */}
@@ -358,7 +347,7 @@ function CompareStep({
                       )
                     })}
 
-      
+
                   </tr>
                 )
               })}
