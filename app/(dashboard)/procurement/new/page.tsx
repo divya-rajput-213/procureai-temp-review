@@ -103,7 +103,7 @@ function StepIndicator({
     <div style={{
       display: 'flex', alignItems: 'center',
       borderBottom: '1px solid hsl(var(--border))',
-      background: 'hsl(var(--background))',
+      // background: 'hsl(var(--background))',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', flex: 1, padding: '12px 20px', gap: 0 }}>
         {steps.map((s, i) => (
@@ -690,7 +690,7 @@ export default function NewPRPage() {
 
   return (
     <div className="space-y-0">
-      <div className="flex items-start justify-between px-1 pb-4">
+      {/* <div className="flex items-start justify-between px-1 pb-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">New Purchase Requisition</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Create a purchase requisition in 3 steps.</p>
@@ -698,7 +698,7 @@ export default function NewPRPage() {
         <Button type="button" variant="outline" onClick={() => router.push('/procurement')} className="gap-1.5">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
-      </div>
+      </div> */}
 
       <StepIndicator
         step={step}
