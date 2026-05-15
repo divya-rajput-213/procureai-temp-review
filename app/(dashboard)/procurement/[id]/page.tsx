@@ -1689,14 +1689,6 @@ export default function PRDetailPage() {
           setSelectedVendorId={setSelectedVendor}
           isDisabled={pr.status !== 'draft'}
         />
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
-          <Button
-            onClick={() => setActiveTab("approval")}
-            className="gap-2 min-w-[160px]"
-          >
-            Next
-          </Button>
-        </div>
       </>}
     </div>
   )

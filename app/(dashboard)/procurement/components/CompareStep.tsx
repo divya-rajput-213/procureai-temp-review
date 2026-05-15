@@ -4,7 +4,6 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-
   AlertCircle,
   Sparkles,
   Download,
@@ -12,422 +11,771 @@ import {
   CreditCard,
   Star,
   Loader2,
+  Check,
+  AlertTriangle,
+  ShieldAlert,
+  TrendingDown,
+  Info,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { useQuery } from '@tanstack/react-query'
 
-function VendorDot({ name, color, size = 28 }: { name: string; color?: string; size?: number }) {
-  const colors = ['#042348', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316']
-  const strName = String(name || '') // ← ensure it's a string
-  const idx = strName?.charCodeAt(0) % colors.length
-  const bg = color || colors[idx]
-  const initials = strName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+// ─── Palette ─────────────────────────────────────────────────────────────────
+// Fixed vendor-distinguishing palette — intentionally not using --primary
+// because these are data-series colors (like chart lines), not brand colors.
+const VENDOR_PALETTE = [
+  { bg: 'hsl(221 83% 53%)', text: '#fff', light: 'hsl(221 83% 96%)', border: 'hsl(221 83% 70%)' },
+  { bg: 'hsl(142 71% 45%)', text: '#fff', light: 'hsl(142 71% 94%)', border: 'hsl(142 71% 60%)' },
+  { bg: 'hsl(38 92% 50%)', text: '#fff', light: 'hsl(38 92% 94%)', border: 'hsl(38 92% 65%)' },
+  { bg: 'hsl(0 72% 51%)', text: '#fff', light: 'hsl(0 72% 95%)', border: 'hsl(0 72% 70%)' },
+  { bg: 'hsl(258 90% 66%)', text: '#fff', light: 'hsl(258 90% 96%)', border: 'hsl(258 90% 75%)' },
+  { bg: 'hsl(173 80% 40%)', text: '#fff', light: 'hsl(173 80% 93%)', border: 'hsl(173 80% 55%)' },
+]
+
+function vendorPalette(idx: number) {
+  return VENDOR_PALETTE[idx % VENDOR_PALETTE.length]
+}
+
+// ─── VendorDot ────────────────────────────────────────────────────────────────
+function VendorDot({ name, paletteIdx = 0, size = 28 }: { name: string; paletteIdx?: number; size?: number }) {
+  const { bg } = vendorPalette(paletteIdx)
+  const initials = String(name || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       width: size, height: size, borderRadius: size / 4,
-      background: bg, color: '#fff', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0
+      background: bg, color: '#fff', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0,
     }}>{initials}</span>
   )
 }
 
-function CompareStep({ selectedQuotationIds, selectedVendorId, setSelectedVendorId, isDisabled = false }: any) {
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const fmt = (n: number | null | undefined) =>
+  n != null ? formatCurrency(n) : '—'
+
+const thBase: React.CSSProperties = {
+  padding: '8px 14px',
+  fontSize: 11,
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em',
+  color: 'hsl(var(--muted-foreground))',
+  whiteSpace: 'nowrap',
+}
+
+// ─── CompareStep ──────────────────────────────────────────────────────────────
+function CompareStep({
+  selectedQuotationIds,
+  selectedVendorId,
+  setSelectedVendorId,
+  isDisabled = false,
+}: any) {
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['quotation-comparison', selectedQuotationIds],
     queryFn: async () => {
-      const response = await apiClient.post('/quotations/compare/', {
+      const res = await apiClient.post('/quotations/compare/', {
         quotation_ids: selectedQuotationIds,
       })
-
-      return response.data
+      return res.data
     },
     enabled: selectedQuotationIds?.length > 0,
     retry: false,
   })
-  // API response mapping
-  const vendors = data?.matrix?.vendors || []
 
-  const selectedQuotations =
-    data?.matrix?.items?.map((item: any) => {
-      const bestVendor = vendors.find((v: any) =>
-        item.vendor_prices?.[v.vendor_id]
-      )
+  // ── Derived data ────────────────────────────────────────────────────────────
+  const matrix = data?.matrix || {}
+  const aiRec = data?.ai_recommendation || {}
+  const vendors: any[] = matrix.vendors || []
+  const items: any[] = matrix.items || []
 
-      return {
-        id: item.master_item_id,
-        ref_no: item.item_code,
-        items_count: item.total_quantity,
-        vendor_name: bestVendor?.vendor_name,
-        total_amount:
-          item.vendor_prices?.[bestVendor?.vendor_id]?.total || 0,
-      }
-    }) || []
+  // Assign a stable palette index per vendor (by position in array)
+  const vendorIdx: Record<number, number> = {}
+  vendors.forEach((v, i) => { vendorIdx[v.vendor_id] = i })
 
-  const colorPalette = ['#042348', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6']
-  const vendorColors: Record<string, string> = {}
-  vendors?.forEach((v: any, i: any) => { vendorColors[v.vendor_name] = colorPalette[i % colorPalette.length] })
+  // Totals per vendor
+  const totals = vendors.map(v => Number(v.total_amount) || 0)
+  const minTotal = totals.length ? Math.min(...totals) : 0
+  const maxTotal = totals.length ? Math.max(...totals) : 0
 
-  const totals = vendors?.map((v: any) => Number(v.total_amount) || 0)
-  const minTotal = Math.min(...totals)
-  const maxTotal = Math.max(...totals)
-  const gst = (t: number) => Math.round(t * 0.15)
-  const landed = (t: number) => t + gst(t)
+  // GST: use per-vendor rates from API (cgst + sgst, or igst)
+  const gstAmount = (v: any, subtotal: number) => {
+    const rate = v.igst_rate > 0
+      ? v.igst_rate
+      : (v.cgst_rate || 0) + (v.sgst_rate || 0)
+    return Math.round(subtotal * rate / 100)
+  }
+  const landedTotal = (v: any) => Number(v.total_amount) + gstAmount(v, Number(v.total_amount))
 
-  const selV = vendors?.find((v: any) => v.vendor_id === selectedVendorId) || vendors[0]
-    const selTotal = selV ? Number(selV.total_amount) : 0
-  const selLanded = landed(selTotal)
-  const savings = landed(maxTotal) - selLanded
+  const landedTotals = vendors.map(v => landedTotal(v))
+  const minLanded = landedTotals.length ? Math.min(...landedTotals) : 0
+  const maxLanded = landedTotals.length ? Math.max(...landedTotals) : 0
+
+  const selV = vendors.find(v => v.vendor_id === selectedVendorId) || vendors[0]
+
+  // Per-item: find best (lowest) unit_price across vendors
+  const itemBestVendor = (item: any): number | null => {
+    const prices = Object.entries(item.vendor_prices || {}) as [string, any][]
+    if (!prices.length) return null
+    const sorted = prices.sort((a, b) => a[1].unit_price - b[1].unit_price)
+    return Number(sorted[0][0])
+  }
+
+  const itemWorstVendor = (item: any): number | null => {
+    const prices = Object.entries(item.vendor_prices || {}) as [string, any][]
+    if (prices.length < 2) return null
+    const sorted = prices.sort((a, b) => b[1].unit_price - a[1].unit_price)
+    return Number(sorted[0][0])
+  }
+
+  const aiRanking: any[] = aiRec.ranking || []
+  const aiRecommended = aiRec.recommended
+  const keyTakeaways: string[] = aiRec.key_takeaways || []
+  const riskIndicators: string[] = aiRec.risk_indicators || []
+
+  // ── Loading / empty states ──────────────────────────────────────────────────
   if (isLoading) {
     return (
       <Card className="shadow-sm">
-        <div className="p-8 text-center text-muted-foreground flex items-center justify-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Loading comparison...
+        <div className="p-10 text-center text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading comparison…
         </div>
       </Card>
     )
   }
-  if (vendors.length === 0) {
+
+  if (!vendors.length) {
     return (
       <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-        <AlertCircle className="w-4 h-4 mr-2" />No quotations selected. Go back and select at least one.
+        <AlertCircle className="w-4 h-4 mr-2" />
+        No quotations selected. Go back and select at least one.
       </div>
     )
   }
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* AI banner */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10, background: '#f5f3ff',
-        border: '1px solid #ede9fe', borderRadius: 10, padding: '10px 14px', fontSize: 13
-      }}>
-        <Sparkles style={{ width: 14, height: 14, color: '#042348', flexShrink: 0 }} />
-        <div style={{ flex: 1 }}>
-          Compare <strong>{selectedQuotations.length} quotes</strong> across <strong>{vendors.length} vendors</strong> · best price highlighted.
-          {vendors[0] && <> AI recommends <strong style={{ color: '#042348' }}>{vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_name}</strong> on composite score.</>}
-        </div>
-        {selV && vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_name !== selV.vendor_name && (
-          <Button size="sm" variant="outline" className="gap-1 text-indigo-700 border-indigo-200 bg-white text-xs shrink-0"
-          onClick={() => setSelectedVendorId(
-            vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_id
-          )}>
-            <Sparkles className="w-3 h-3" />Use AI pick
-          </Button>
-        )}
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* Comparison table */}
-      <Card className="shadow-sm">
+      {/* ── Main comparison table ─────────────────────────────────────────── */}
+      <Card className="shadow-sm overflow-hidden">
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-sm font-semibold">Quotation comparison</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Click a vendor column header to select · {vendors.length} vendors</p>
+              {!isDisabled&&<p className="text-xs text-muted-foreground mt-0.5">
+                Click a vendor column to select · {items.length} item{items.length !== 1 ? 's' : ''} · {vendors.length} vendor{vendors.length !== 1 ? 's' : ''}
+              </p>}
             </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" className="gap-1 text-xs">
-                <Download className="w-3.5 h-3.5" />Export
-              </Button>
-            </div>
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+              <Download className="w-3.5 h-3.5" />Export
+            </Button>
           </div>
         </CardHeader>
+
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 520 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid hsl(var(--border))' }}>
-                <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: 'hsl(var(--muted-foreground))', minWidth: 140 }}>Quotation</th>
-                {vendors.map((v: any) => {
+              {/* ── Vendor header row ── */}
+              <tr style={{ borderBottom: '2px solid hsl(var(--border))' }}>
+
+                {/* Fixed left columns */}
+                <th style={{ ...thBase, textAlign: 'left', minWidth: 220, background: 'hsl(var(--muted)/0.4)', borderRight: '1px solid hsl(var(--border))' }}>
+                  Item
+                </th>
+                <th style={{ ...thBase, textAlign: 'center', width: 80, background: 'hsl(var(--muted)/0.4)', borderRight: '1px solid hsl(var(--border))' }}>
+                  Qty
+                </th>
+                <th style={{ ...thBase, textAlign: 'center', width: 70, background: 'hsl(var(--muted)/0.4)', borderRight: '2px solid hsl(var(--border))' }}>
+                  UOM
+                </th>
+
+                {/* One column per vendor */}
+                {vendors.map((v) => {
                   const isSel = v.vendor_id === selectedVendorId
-                  const color = vendorColors[v.vendor_name]
+                  const pi = vendorIdx[v.vendor_id]
+                  const pal = vendorPalette(pi)
+                  const aiRank = aiRanking.find(r => r.vendor_id === v.vendor_id)
+                  const isAiPick = aiRecommended?.vendor_id === v.vendor_id
+
                   return (
                     <th
                       key={v.vendor_id}
-                      onClick={() => {
-                        if (!isDisabled) setSelectedVendorId(v.vendor_id)
-                      }}
+                      onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
                       style={{
-                        padding: '10px 14px',
-                        textAlign: 'left',
+                        padding: 0,
+                        minWidth: 170,
                         cursor: isDisabled ? 'not-allowed' : 'pointer',
-                        minWidth: 160,
                         opacity: isDisabled ? 0.6 : 1,
-                        pointerEvents: isDisabled ? 'none' : 'auto',
-                        background: isSel ? 'rgba(99,102,241,0.06)' : 'transparent',
-                        borderLeft: isSel ? '2px solid #042348' : '2px solid transparent',
-                        transition: 'background .1s',
+                        borderRight: '1px solid hsl(var(--border))',
+                        borderTop: isSel ? `3px solid ${pal.bg}` : '3px solid transparent',
+                        background: isSel ? pal.light : 'hsl(var(--muted)/0.2)',
+                        transition: 'background .12s',
+                        verticalAlign: 'top',
                       }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: '50%',
-                            border: isSel
-                              ? 'none'
-                              : '1.5px solid hsl(var(--border))',
-                            background: isSel ? '#042348' : 'transparent',
-                            display: 'inline-block',
-                            transition: 'all .1s',
-                          }}
-                        />
-
-                        <VendorDot
-                          name={v.vendor_name}
-                          color={color}
-                          size={20}
-                        />
-
-                        <div>
-                          <div
-                            style={{
-                              fontWeight: 600,
-                              fontSize: 12.5,
-                            }}
-                          >
-                            {v.vendor_name}
-                          </div>
-
-                          <div
-                            style={{
-                              fontSize: 10,
-                              color: 'hsl(var(--muted-foreground))',
-                              fontWeight: 400,
-                            }}
-                          >
-                            {v.score ? `${v.score}/100` : '—'}
+                      <div style={{ padding: '10px 14px' }}>
+                        {/* Radio + dot + name */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {/* <span style={{
+                            width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
+                            border: isSel ? 'none' : `2px solid hsl(var(--border))`,
+                            background: isSel ? pal.bg : 'transparent',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {isSel && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#fff' }} />}
+                          </span> */}
+                          {/* <VendorDot name={v.vendor_name} paletteIdx={pi} size={22} /> */}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: 12.5, color: 'hsl(var(--foreground))', lineHeight: 1.2 }}>
+                              {v.vendor_name}
+                            </div>
+                            <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 1 }}>
+                              {[
+                                v.delivery_lead_time_days ? `${v.delivery_lead_time_days}d` : null,
+                                v.payment_terms_display || v.payment_terms || null,
+                                v.performance_score != null ? `${v.performance_score}/100` : null,
+                              ].filter(Boolean).join(' · ') || v.city || '—'}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div
-                        style={{
-                          marginTop: 6,
+                        {/* Badges */}
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                          {isAiPick && (
+                            <span style={{ fontSize: 10, fontWeight: 600, background: '#ede9fe', color: '#6d28d9', borderRadius: 4, padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                              <Sparkles style={{ width: 8, height: 8 }} />AI pick
+                            </span>
+                          )}
+                          {v.vendor_status === 'new' && (
+                            <span style={{ fontSize: 10, fontWeight: 600, background: '#fef3c7', color: '#92400e', borderRadius: 4, padding: '1px 6px' }}>
+                              New vendor
+                            </span>
+                          )}
+                          {v.is_msme && (
+                            <span style={{ fontSize: 10, fontWeight: 600, background: '#d1fae5', color: '#065f46', borderRadius: 4, padding: '1px 6px' }}>
+                              MSME
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Select button */}
+                        <div style={{
+                          marginTop: 8,
                           fontSize: 11,
-                          padding: '2px 8px',
+                          padding: '3px 0',
                           borderRadius: 6,
                           textAlign: 'center',
                           fontWeight: 600,
-                          background: isDisabled
-                            ? 'hsl(var(--muted))'
-                            : isSel
-                              ? '#042348'
-                              : 'hsl(var(--muted))',
-                          color: isDisabled
-                            ? 'hsl(var(--muted-foreground))'
-                            : isSel
-                              ? '#fff'
-                              : 'hsl(var(--muted-foreground))',
-                        }}
-                      >
-                        {isDisabled
-                          ? 'Unavailable'
-                          : isSel
-                            ? '✓ Selected'
-                            : 'Select vendor'}
+                          background: isSel ? pal.bg : 'hsl(var(--muted))',
+                          color: isSel ? '#fff' : 'hsl(var(--muted-foreground))',
+                          width: 120,        // Set fixed width
+                          display: 'inline-block' // So it doesn’t stretch full width
+                        }}>
+                          {isSel ? (
+                            <>
+                              <Check style={{ width: 9, height: 9, display: 'inline', marginRight: 3 }} />
+                              Selected
+                            </>
+                          ) : 'Select vendor'}
+                        </div>
                       </div>
                     </th>
                   )
                 })}
-                <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 600 }}>Best</th>
+
+                {/* Best column */}
+                <th style={{ ...thBase, textAlign: 'center', width: 90, background: 'hsl(var(--muted)/0.4)' }}>
+                  Best
+                </th>
               </tr>
             </thead>
+
             <tbody>
-              {/* Quote rows */}
-              {selectedQuotations.map((q: any) => {
-                const prices = vendors.map((v: any) => v.id === q.id || v.vendor_name === q.vendor_name ? Number(q.total_amount) : null)
+              {/* ── Item price rows ─────────────────────────────────────────── */}
+              {items.map((item) => {
+                const bestVid = itemBestVendor(item)
+                const worstVid = itemWorstVendor(item)
+                const bestVendor = vendors.find(v => v.vendor_id === bestVid)
+                const bpi = bestVendor ? vendorIdx[bestVendor.vendor_id] : 0
+                const bpal = vendorPalette(bpi)
+
                 return (
-                  <tr key={q.id} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
-                    <td style={{ padding: '9px 14px' }}>
-                      <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: '#042348' }}>{q.ref_no}</span>
-                      {q.items_count && <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>{q.items_count} items</div>}
+                  <tr key={item.master_item_id} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+                    {/* Item name */}
+                    <td style={{ padding: '10px 14px', borderRight: '1px solid hsl(var(--border))' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
+                        {item.item_code}
+                      </div>
+                      <div style={{ fontWeight: 500, fontSize: 12.5, lineHeight: 1.3, marginTop: 1 }}>
+                        {item.item_name}
+                      </div>
+                      {item.hsn_code && (
+                        <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 1 }}>
+                          HSN: {item.hsn_code}
+                        </div>
+                      )}
                     </td>
-                    {vendors.map((v: any) => {
-                      const isSel = v.vendor_name === selectedVendorId
-                      const isThisVendor = v.vendor_name === q.vendor_name
+
+                    {/* Qty */}
+                    <td style={{ padding: '10px 14px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 600, borderRight: '1px solid hsl(var(--border))' }}>
+                      {item.total_quantity}
+                    </td>
+
+                    {/* UOM */}
+                    <td style={{ padding: '10px 14px', textAlign: 'center', color: 'hsl(var(--muted-foreground))', fontSize: 11, borderRight: '2px solid hsl(var(--border))' }}>
+                      {item.unit_of_measure}
+                    </td>
+
+                    {/* Per-vendor price cell */}
+                    {vendors.map((v) => {
+                      const pi = vendorIdx[v.vendor_id]
+                      const pal = vendorPalette(pi)
+                      const isSel = v.vendor_id === selectedVendorId
+                      const priceInfo = item.vendor_prices?.[v.vendor_id]
+                      const isBest = v.vendor_id === bestVid
+                      const isWorst = v.vendor_id === worstVid && vendors.length > 1
+
+                      const cellBg = isBest
+                        ? 'hsl(142 71% 96%)'
+                        : isWorst
+                          ? 'hsl(0 72% 97%)'
+                          : isSel
+                            ? pal.light
+                            : 'transparent'
+
+                      const borderL = isSel
+                        ? `2px solid ${pal.bg}`
+                        : '2px solid transparent'
+
                       return (
-                        <td  key={v.vendor_id}
-                        onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
+                        <td
+                          key={v.vendor_id}
+                          onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
                           style={{
-                            padding: '9px 14px', textAlign: 'right', cursor: 'pointer',
-                            background: isSel ? 'rgba(99,102,241,0.04)' : 'transparent',
-                            borderLeft: isSel ? '2px solid #042348' : '2px solid transparent',
-                          }}>
-                          {isThisVendor ? (
-                            <div>
-                              <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>{formatCurrency(q.total_amount)}</div>
-                            </div>
-                          ) : <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>—</span>}
+                            padding: '10px 14px',
+                            textAlign: 'right',
+                            cursor: isDisabled ? 'default' : 'pointer',
+                            background: cellBg,
+                            borderLeft: borderL,
+                            borderRight: '1px solid hsl(var(--border))',
+                            transition: 'background .1s',
+                            verticalAlign: 'top',
+                          }}
+                        >
+                          {priceInfo ? (
+                            <>
+                              {/* Unit price */}
+                              <div style={{
+                                fontWeight: 700, fontFamily: 'monospace', fontSize: 13,
+                                color: isBest ? 'hsl(142 71% 32%)' : isWorst ? 'hsl(0 72% 45%)' : 'hsl(var(--foreground))',
+                              }}>
+                                {fmt(priceInfo.unit_price)}
+                              </div>
+                              {/* Line total */}
+                              <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', fontFamily: 'monospace', marginTop: 1 }}>
+                                {fmt(priceInfo.total)}
+                              </div>
+                              {/* vs best diff */}
+                              {priceInfo.vs_best && priceInfo.vs_best.amount_diff > 0 && (
+                                <div style={{ fontSize: 10, color: 'hsl(0 72% 52%)', marginTop: 2, fontFamily: 'monospace' }}>
+                                  +{fmt(priceInfo.vs_best.amount_diff)}
+                                </div>
+                              )}
+                              {isBest && (
+                                <div style={{ marginTop: 3 }}>
+                                  <span style={{ fontSize: 9, fontWeight: 700, background: 'hsl(142 71% 88%)', color: 'hsl(142 71% 28%)', borderRadius: 3, padding: '1px 5px' }}>
+                                    BEST
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>—</span>
+                          )}
                         </td>
                       )
                     })}
-                    <td style={{ padding: '9px 14px' }}>
-                      <span style={{ fontSize: 10, background: '#d1fae5', color: '#065f46', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>
-                        {q.vendor_name?.split(' ')[0]?.slice(0, 2).toUpperCase()}
-                      </span>
+
+                    {/* Best column */}
+                    <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                      {bestVendor ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                          <VendorDot name={bestVendor.vendor_name} paletteIdx={bpi} size={20} />
+                          <span style={{ fontSize: 9, fontWeight: 600, color: 'hsl(142 71% 35%)' }}>
+                            {bestVendor.vendor_name.split(' ')[0].slice(0, 3).toUpperCase()}
+                          </span>
+                        </div>
+                      ) : '—'}
                     </td>
                   </tr>
                 )
               })}
 
-              {/* Soft factors */}
-              <tr style={{ background: 'hsl(var(--muted)/0.4)', borderBottom: '1px solid hsl(var(--border))' }}>
-                <td colSpan={vendors.length + 2} style={{ padding: '6px 14px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'hsl(var(--muted-foreground))' }}>
+              {/* ── Soft factors ──────────────────────────────────────────── */}
+              <tr style={{ background: 'hsl(var(--muted)/0.5)', borderBottom: '1px solid hsl(var(--border))', borderTop: '2px solid hsl(var(--border))' }}>
+                <td colSpan={3 + vendors.length + 1} style={{
+                  padding: '5px 14px', fontSize: 11, fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: '.06em',
+                  color: 'hsl(var(--muted-foreground))',
+                }}>
                   Soft factors
                 </td>
               </tr>
+
               {[
-                { label: 'Lead time', icon: <Truck style={{ width: 10, height: 10 }} />, field: 'lead_time' },
-                { label: 'Payment terms', icon: <CreditCard style={{ width: 10, height: 10 }} />, field: 'payment_terms' },
-                { label: 'Vendor score', icon: <Star style={{ width: 10, height: 10 }} />, field: 'score' },
-              ].map(({ label, icon, field }) => (
-                <tr key={field} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
-                  <td style={{ padding: '8px 14px' }}>
+                { label: 'Lead time', icon: <Truck style={{ width: 10, height: 10 }} />, render: (v: any) => v.delivery_lead_time_days != null ? `${v.delivery_lead_time_days}d` : '—' },
+                { label: 'Payment terms', icon: <CreditCard style={{ width: 10, height: 10 }} />, render: (v: any) => v.payment_terms_display || v.payment_terms || '—' },
+                { label: 'Vendor score', icon: <Star style={{ width: 10, height: 10 }} />, render: (v: any) => v.performance_score != null ? `${v.performance_score}/100` : '—' },
+                { label: 'Risk score (lower=better)', icon: <ShieldAlert style={{ width: 10, height: 10 }} />, render: (v: any) => v.risk_score != null ? String(v.risk_score) : '—' },
+                { label: 'Previous POs', icon: <Info style={{ width: 10, height: 10 }} />, render: (v: any) => String(v.previous_po_count ?? '—') },
+                {
+                  label: 'GST', icon: null, render: (v: any) => {
+                    const rate = v.igst_rate > 0 ? `IGST ${v.igst_rate}%` : `CGST ${v.cgst_rate}% + SGST ${v.sgst_rate}%`
+                    return rate
+                  }
+                },
+              ].map(({ label, icon, render }) => (
+                <tr key={label} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+                  <td colSpan={3} style={{ padding: '8px 14px', borderRight: '2px solid hsl(var(--border))' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
                       {icon}{label}
                     </span>
                   </td>
-                  {vendors?.map((v: any) => {
-                    const isSel = v.vendor_name === selectedVendorId
+                  {vendors.map((v) => {
+                    const pi = vendorIdx[v.vendor_id]
+                    const pal = vendorPalette(pi)
+                    const isSel = v.vendor_id === selectedVendorId
                     return (
-                      <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_id)}
-                        style={{ padding: '8px 14px', textAlign: 'right', cursor: 'pointer', fontSize: 12, background: isSel ? 'rgba(99,102,241,0.04)' : 'transparent', borderLeft: isSel ? '2px solid #042348' : '2px solid transparent' }}>
-                        {v[field] || '—'}
+                      <td
+                        key={v.vendor_id}
+                        onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
+                        style={{
+                          padding: '8px 14px', textAlign: 'right', cursor: 'pointer',
+                          fontSize: 12, fontWeight: 500,
+                          background: isSel ? pal.light : 'transparent',
+                          borderLeft: isSel ? `2px solid ${pal.bg}` : '2px solid transparent',
+                          borderRight: '1px solid hsl(var(--border))',
+                          color: 'hsl(var(--foreground))',
+                        }}
+                      >
+                        {render(v)}
                       </td>
                     )
                   })}
-                  <td style={{ padding: '8px 14px' }}></td>
+                  <td style={{ padding: '8px 14px' }} />
                 </tr>
               ))}
 
-              {/* Totals */}
-              <tr style={{ background: 'hsl(var(--muted)/0.4)', borderBottom: '1px solid hsl(var(--border))' }}>
-                <td style={{ padding: '8px 14px', fontWeight: 700, fontSize: 12.5 }}>Subtotal · INR</td>
-                {vendors.map((v: any, i: any) => {
-                  const isSel = v.vendor_name === selectedVendorId
+              {/* ── Totals ────────────────────────────────────────────────── */}
+              <tr style={{ background: 'hsl(var(--muted)/0.5)', borderTop: '2px solid hsl(var(--border))', borderBottom: '1px solid hsl(var(--border))' }}>
+                <td colSpan={3} style={{ padding: '8px 14px', fontWeight: 700, fontSize: 12.5, borderRight: '2px solid hsl(var(--border))' }}>
+                  Subtotal · INR
+                </td>
+                {vendors.map((v, i) => {
+                  const pi = vendorIdx[v.vendor_id]
+                  const pal = vendorPalette(pi)
+                  const isSel = v.vendor_id === selectedVendorId
                   const t = totals[i]
                   return (
-                    <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_id)}
+                    <td
+                      key={v.vendor_id}
+                      onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
                       style={{
-                        padding: '8px 14px', textAlign: 'right', fontWeight: 700, cursor: 'pointer', fontFamily: 'monospace',
-                        background: t === minTotal ? 'rgba(16,185,129,0.08)' : t === maxTotal ? 'rgba(239,68,68,0.06)' : isSel ? 'rgba(99,102,241,0.04)' : 'transparent',
-                        borderLeft: isSel ? '2px solid #042348' : '2px solid transparent',
-                        color: t === minTotal ? '#065f46' : 'hsl(var(--foreground))'
-                      }}>
+                        padding: '8px 14px', textAlign: 'right', fontWeight: 700,
+                        cursor: 'pointer', fontFamily: 'monospace',
+                        background: t === minTotal
+                          ? 'hsl(142 71% 93%)'
+                          : t === maxTotal && vendors.length > 1
+                            ? 'hsl(0 72% 95%)'
+                            : isSel ? pal.light : 'transparent',
+                        borderLeft: isSel ? `2px solid ${pal.bg}` : '2px solid transparent',
+                        borderRight: '1px solid hsl(var(--border))',
+                        color: t === minTotal ? 'hsl(142 71% 30%)' : t === maxTotal && vendors.length > 1 ? 'hsl(0 72% 40%)' : 'hsl(var(--foreground))',
+                      }}
+                    >
                       {formatCurrency(t)}
                     </td>
                   )
                 })}
-                <td style={{ padding: '8px 14px' }}></td>
+                <td style={{ padding: '8px 14px' }} />
               </tr>
+
               <tr style={{ borderBottom: '1px solid hsl(var(--border))' }}>
-                <td style={{ padding: '8px 14px', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>+ GST (12-18%)</td>
-                {vendors.map((v: any, i: any) => {
-                  const isSel = v.vendor_name === selectedVendorId
+                <td colSpan={3} style={{ padding: '7px 14px', color: 'hsl(var(--muted-foreground))', fontSize: 12, borderRight: '2px solid hsl(var(--border))' }}>
+                  + GST
+                </td>
+                {vendors.map((v) => {
+                  const pi = vendorIdx[v.vendor_id]
+                  const pal = vendorPalette(pi)
+                  const isSel = v.vendor_id === selectedVendorId
+                  const gst = gstAmount(v, Number(v.total_amount))
                   return (
-                    <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_id)}
-                      style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, fontFamily: 'monospace', cursor: 'pointer', background: isSel ? 'rgba(99,102,241,0.04)' : 'transparent', borderLeft: isSel ? '2px solid #042348' : '2px solid transparent' }}>
-                      {formatCurrency(gst(totals[i]))}
+                    <td
+                      key={v.vendor_id}
+                      onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
+                      style={{
+                        padding: '7px 14px', textAlign: 'right', fontSize: 12,
+                        fontFamily: 'monospace', cursor: 'pointer',
+                        background: isSel ? pal.light : 'transparent',
+                        borderLeft: isSel ? `2px solid ${pal.bg}` : '2px solid transparent',
+                        borderRight: '1px solid hsl(var(--border))',
+                        color: 'hsl(var(--muted-foreground))',
+                      }}
+                    >
+                      {formatCurrency(gst)}
+                      <div style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))' }}>
+                        {v.igst_rate > 0 ? `IGST ${v.igst_rate}%` : `${(v.cgst_rate || 0) + (v.sgst_rate || 0)}%`}
+                      </div>
                     </td>
                   )
                 })}
-                <td></td>
+                <td style={{ padding: '7px 14px' }} />
               </tr>
-              <tr style={{ background: 'rgba(99,102,241,0.06)' }}>
-                <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: 13 }}>Landed total</td>
-                {vendors.map((v: any, i: any) => {
-                  const isSel = v.vendor_name === selectedVendorId
+
+              {/* Landed total — highlighted row */}
+              <tr style={{ borderBottom: '2px solid hsl(var(--border))' }}>
+                <td colSpan={3} style={{ padding: '11px 14px', fontWeight: 700, fontSize: 13.5, borderRight: '2px solid hsl(var(--border))' }}>
+                  Landed total
+                </td>
+                {vendors.map((v, i) => {
+                  const pi = vendorIdx[v.vendor_id]
+                  const pal = vendorPalette(pi)
+                  const isSel = v.vendor_id === selectedVendorId
+                  const lt = landedTotals[i]
+                  const isBestL = lt === minLanded
+                  const isWorstL = lt === maxLanded && vendors.length > 1
                   return (
-                    <td key={v.vendor_name} onClick={() => setSelectedVendorId(v.vendor_id)}
-                      style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, fontSize: 14, fontFamily: 'monospace', cursor: 'pointer', background: isSel ? 'rgba(99,102,241,0.08)' : 'transparent', borderLeft: isSel ? '2px solid #042348' : '2px solid transparent' }}>
-                      {formatCurrency(landed(totals[i]))}
+                    <td
+                      key={v.vendor_id}
+                      onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
+                      style={{
+                        padding: '11px 14px', textAlign: 'right',
+                        fontWeight: 700, fontSize: 14, fontFamily: 'monospace',
+                        cursor: 'pointer',
+                        background: isBestL
+                          ? 'hsl(142 71% 90%)'
+                          : isWorstL
+                            ? 'hsl(0 72% 94%)'
+                            : isSel ? pal.light : 'hsl(var(--muted)/0.2)',
+                        borderLeft: isSel ? `2px solid ${pal.bg}` : '2px solid transparent',
+                        borderRight: '1px solid hsl(var(--border))',
+                        color: isBestL ? 'hsl(142 71% 28%)' : isWorstL ? 'hsl(0 72% 40%)' : 'hsl(var(--foreground))',
+                      }}
+                    >
+                      {formatCurrency(lt)}
+                      {isBestL && (
+                        <div style={{ fontSize: 9, fontWeight: 700, color: 'hsl(142 71% 32%)', marginTop: 1 }}>LOWEST</div>
+                      )}
                     </td>
                   )
                 })}
-                <td></td>
+                <td style={{ padding: '11px 14px' }} />
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Sticky footer summary */}
-        {selV && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
-            borderTop: '1px solid hsl(var(--border))', background: 'hsl(var(--muted)/0.3)'
-          }}>
-            <VendorDot name={selV.vendor_name} color={vendorColors[selV.vendor_name]} size={26} />
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontWeight: 600, fontSize: 13 }}>{selV.vendor_name}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, background: '#e0e7ff', color: '#4338ca', borderRadius: 4, padding: '1px 6px' }}>Selected vendor</span>
+        {/* ── Selected vendor footer ─────────────────────────────────────────── */}
+        {selV && (() => {
+          const pi = vendorIdx[selV.vendor_id]
+          const pal = vendorPalette(pi)
+          const selIdx = vendors.findIndex(v => v.vendor_id === selV.vendor_id)
+          const selLand = landedTotals[selIdx] ?? 0
+          const savings = maxLanded - selLand
+
+          return (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 14px', borderTop: '1px solid hsl(var(--border))',
+              background: pal.light,
+            }}>
+              <VendorDot name={selV.vendor_name} paletteIdx={pi} size={26} />
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{selV.vendor_name}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, background: pal.bg, color: '#fff', borderRadius: 4, padding: '1px 6px' }}>
+                    Selected vendor
+                  </span>
+                  {selV.vendor_status === 'new' && (
+                    <span style={{ fontSize: 10, fontWeight: 600, background: '#fef3c7', color: '#92400e', borderRadius: 4, padding: '1px 6px' }}>
+                      New vendor
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
+                  Landed {formatCurrency(selLand)}
+                  {selV.delivery_lead_time_days != null && ` · ${selV.delivery_lead_time_days}d lead`}
+                  {(selV.payment_terms_display || selV.payment_terms) && ` · ${selV.payment_terms_display || selV.payment_terms}`}
+                  {selV.performance_score != null && ` · score ${selV.performance_score}/100`}
+                </span>
               </div>
-              <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>Landed {formatCurrency(selLanded)}</span>
-            </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 16 }}>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'hsl(var(--muted-foreground))' }}>Saving vs worst</div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#059669', fontFamily: 'monospace' }}>+{formatCurrency(savings)}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'hsl(var(--muted-foreground))' }}>Gap to best</div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: selLanded === landed(minTotal) ? '#059669' : '#d97706', fontFamily: 'monospace' }}>
-                  {selLanded === landed(minTotal) ? 'Best price' : `+${formatCurrency(selLanded - landed(minTotal))}`}
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 20 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'hsl(var(--muted-foreground))' }}>
+                    Saving vs worst
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: savings > 0 ? 'hsl(142 71% 35%)' : 'hsl(var(--muted-foreground))', fontFamily: 'monospace' }}>
+                    {savings > 0 ? `+${formatCurrency(savings)}` : '—'}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'hsl(var(--muted-foreground))' }}>
+                    Gap to best
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 14, fontFamily: 'monospace', color: selLand === minLanded ? 'hsl(142 71% 35%)' : 'hsl(38 92% 45%)' }}>
+                    {selLand === minLanded ? 'Best price' : `+${formatCurrency(selLand - minLanded)}`}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </Card>
 
-      {/* Why this vendor AI card */}
-      {selV && (
-        <Card className="shadow-sm border-indigo-100 bg-gradient-to-b from-indigo-50/60 to-white">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />Why this vendor?
-              </CardTitle>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#042348', background: '#ede9fe', borderRadius: 6, padding: '2px 6px' }}>94%</span>
-            </div>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground space-y-1.5">
-            {selV.vendor_name === vendors?.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_name ? (
-              <>
-                <p><strong className="text-foreground">{selV.vendor_name}</strong> is the AI's recommended vendor with the best price.</p>
-                <p>Lowest landed cost at {formatCurrency(selLanded)} — optimal for this procurement.</p>
-              </>
-            ) : (
-              <>
-                <p>You selected <strong className="text-foreground">{selV.vendor_name}</strong>. AI's pick was <strong className="text-foreground">{vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_name}</strong>.</p>
-                <p>If overriding, document the reason — this is recorded to the audit log.</p>
-              </>
-            )}
-            <div className="flex items-center gap-2 mt-2">
-              {selV.vendor_name !== vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_name && (
-                <Button size="sm" className="gap-1  text-white text-xs h-7"
-                  onClick={() => setSelectedVendorId(vendors.find((v: any) => Number(v.total_amount) === minTotal)?.vendor_id)}>
-                  <Sparkles className="w-3 h-3" />Switch to AI pick
-                </Button>
+      {/* ── AI Recommendation + Risk ──────────────────────────────────────────── */}
+      {(aiRecommended || keyTakeaways.length > 0 || riskIndicators.length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+
+          {/* Why this vendor / AI summary */}
+          <Card className="shadow-sm border-primary/20">
+            <CardHeader className="pb-2 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  AI recommendation
+                </CardTitle>
+                {aiRecommended && (() => {
+                  const rank = aiRanking.find(r => r.vendor_id === aiRecommended.vendor_id)
+                  const score = rank?.overall_score
+                  return score != null ? (
+                    <span className="text-[11px] font-semibold text-primary bg-primary/10 rounded px-1.5 py-0.5">
+                      {score}/100
+                    </span>
+                  ) : null
+                })()}
+              </div>
+            </CardHeader>
+            <CardContent className="pt-3 space-y-3">
+              {/* Summary */}
+              {aiRecommended?.summary && (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {aiRecommended.summary}
+                </p>
               )}
-              <Button size="sm" variant="outline" className="text-xs h-7">Negotiation playbook</Button>
-            </div>
-          </CardContent>
-        </Card>
+
+              {/* Key takeaways */}
+              {keyTakeaways.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Key takeaways
+                  </p>
+                  <ul className="space-y-1">
+                    {keyTakeaways.map((t, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <TrendingDown className="w-3 h-3 mt-0.5 shrink-0 text-primary" />
+                        {t}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Per-vendor factor analysis */}
+              {aiRanking.length > 0 && aiRanking[0]?.key_factors && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Factor analysis
+                  </p>
+                  {aiRanking.map((r) => {
+                    const vIdx = vendors.findIndex(v => v.vendor_id === r.vendor_id)
+                    const pal = vendorPalette(vIdx >= 0 ? vIdx : 0)
+                    return (
+                      <div key={r.vendor_id} className="mb-2">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <VendorDot name={r.vendor_name} paletteIdx={vIdx >= 0 ? vIdx : 0} size={16} />
+                          <span className="text-xs font-semibold">{r.vendor_name}</span>
+                          {r.overall_tag && (
+                            <span style={{
+                              fontSize: 9, fontWeight: 600, borderRadius: 4, padding: '1px 5px',
+                              background: r.overall_tag.toLowerCase().includes('risk') ? '#fee2e2' : '#d1fae5',
+                              color: r.overall_tag.toLowerCase().includes('risk') ? '#991b1b' : '#065f46',
+                            }}>
+                              {r.overall_tag}
+                            </span>
+                          )}
+                        </div>
+                        {Object.entries(r.key_factors || {}).map(([factor, desc]) => (
+                          <div key={factor} className="ml-5 text-[11px] text-muted-foreground leading-snug">
+                            <span className="font-medium capitalize text-foreground">{factor.replace(/_/g, ' ')}: </span>
+                            {String(desc)}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Risk indicators */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2 border-b">
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                Risk indicators
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-3 space-y-4">
+              {riskIndicators.length > 0 ? (
+                <ul className="space-y-2">
+                  {riskIndicators.map((r, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs">
+                      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-500" />
+                      <span className="text-muted-foreground">{r}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-muted-foreground">No risk indicators flagged.</p>
+              )}
+
+              {/* Vendor quick stats */}
+              {vendors.map((v) => {
+                const pi = vendorIdx[v.vendor_id]
+                return (
+                  <div key={v.vendor_id} className="rounded-lg border bg-muted/30 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <VendorDot name={v.vendor_name} paletteIdx={pi} size={20} />
+                      <span className="text-xs font-semibold">{v.vendor_name}</span>
+                      {v.vendor_status === 'new' && (
+                        <span style={{ fontSize: 9, fontWeight: 600, background: '#fef3c7', color: '#92400e', borderRadius: 4, padding: '1px 5px' }}>
+                          New
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', fontSize: 11 }}>
+                      {[
+                        { label: 'Previous POs', value: v.previous_po_count ?? '—' },
+                        { label: 'Perf. score', value: v.performance_score != null ? `${v.performance_score}/100` : '—' },
+                        { label: 'Risk score', value: v.risk_score != null ? v.risk_score : '—' },
+                        { label: 'GST no.', value: v.gst_number || '—' },
+                        { label: 'Location', value: [v.city, v.state].filter(Boolean).join(', ') || '—' },
+                        { label: 'MSME', value: v.is_msme ? (v.is_msme_certified ? 'Certified' : 'Yes') : 'No' },
+                      ].map(({ label, value }) => (
+                        <div key={label}>
+                          <span className="text-muted-foreground">{label}: </span>
+                          <span className="font-medium">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   )
