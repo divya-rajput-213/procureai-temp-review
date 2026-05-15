@@ -435,24 +435,6 @@ const VerifyItemsStep = ({
                             </div>
                         ))}
                     </div>
-
-                    {/* Footer */}
-                    <div className="px-4 py-2 border-t bg-white flex items-center justify-between shrink-0">
-                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-3">
-                            <span className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-emerald-500" />{counts.matched} MATCHED</span>
-                            <span className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-primary" />{counts.new} NEW</span>
-                        </div>
-                        <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" onClick={onBack} disabled={!onBack} className="font-bold text-slate-400 h-8 px-4 text-[11px]">Back</Button>
-                            <Button
-                                size="sm"
-                                onClick={onContinue}
-                                className="bg-[#111] text-white hover:bg-black h-8 px-6 font-bold text-[11px] rounded-lg"
-                            >
-                                Continue
-                            </Button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

@@ -535,53 +535,25 @@ export default function UploadQuotationPage() {
             </div>
 
             {/* Stepper + nav — always visible on ALL steps including step 0 */}
-            <div className="flex items-center justify-between py-2 mb-8 border-b border-border/80">
+            <div className="flex items-center justify-between py-2 mb-8 border-b border-border/80 bg-white px-4 rounded-md">
                 <Stepper currentStep={currentStep} completedSteps={completedSteps} />
-                <div className="flex items-center gap-2 shrink-0">
-                    {currentStep > 0 && currentStep !== 1 && (
-                        <Button variant="ghost" size="sm" onClick={handleStepBack}>Back</Button>
-                    )}
-                    {currentStep === 0 ? (
+                <div className="flex items-center gap-2">
+                    {currentStep === 1 && (
                         <Button
                             size="sm"
-                            onClick={() => selectedFile && addFile(selectedFile)}
+                            variant="outline"
+                            onClick={handleRetryAI}
                             disabled={!selectedFile || uploadMutation.isPending}
-                            className="gap-1.5"
+                            className="gap-1.5 shrink-0"
                         >
-                            {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                            Continue <ChevronRight className="w-3.5 h-3.5" />
+                            {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                            Retry AI
                         </Button>
-                    ) : currentStep === 1 ? (
-                        <>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={handleRetryAI}
-                                disabled={!selectedFile || uploadMutation.isPending}
-                                className="gap-1.5"
-                            >
-                                {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                                Retry AI
-                            </Button>
-                            <Button
-                                size="sm"
-                                onClick={handleNextFromAI}
-                                disabled={!quotation || !vendors}
-                                className="gap-1.5"
-                            >
-                                Next <ChevronRight className="w-3.5 h-3.5" />
-                            </Button>
-                        </>
-                    ) : currentStep < 3 ? (
-                        <Button size="sm" onClick={handleStepContinue}
-                            disabled={currentStep === 2 ? !canProceedFromVendor : !canProceedFromItems}
-                            className="gap-1.5">
-                            Continue <ChevronRight className="w-3.5 h-3.5" />
-                        </Button>
-                    ) : (
-                        <Button size="sm" onClick={handleSubmit} disabled={isLoading}
-                            className="gap-1.5">
-                            Review & save <ChevronRight className="w-3.5 h-3.5" />
+                    )}
+
+                    {currentStep === 2 && (
+                        <Button variant="ghost" size="sm" onClick={handleStepBack} className="gap-1.5 bg-white shadow-sm">
+                            Back
                         </Button>
                     )}
                 </div>
@@ -630,100 +602,79 @@ export default function UploadQuotationPage() {
             {/* ── STEP 1: AI Extraction ── */}
             {currentStep === 1 && (
                 <div className="pt-4">
-                    <AIExtractionStep selectedFile={selectedFile} quotation={quotation} />
+                    <AIExtractionStep selectedFile={selectedFile} quotation={quotation} onNext={handleNextFromAI} />
                 </div>
             )}
 
             {/* ── STEP 2: Verify Vendor ── */}
             {currentStep === 2 && vendors && (
                 <div className="pt-4">
+                    <div className="mb-3">
+                    </div>
                     <div className="grid grid-cols-[1fr_320px] gap-5 items-start">
-                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-4">
 
-                        {/* AI stripe */}
-                        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
-                            <span className="text-primary font-bold">✦</span>
-                            <div className="flex-1">
-                                <span className="font-semibold text-primary">Vendor identified</span>
-                                {vendors.gst_number && <span className="text-primary/80"> — GSTIN <span className="font-mono">{vendors.gst_number}</span> matched to existing vendor with 100% confidence.</span>}
-                            </div>
-                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">100%</span>
-                        </div>
-
-                        {/* Matched vendor card */}
-                        <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                            <div className="px-4 py-3 border-b flex items-center justify-between">
-                                <div>
-                                    <span className="font-semibold text-sm">Matched vendor</span>
-                                    <span className="text-xs text-muted-foreground ml-2">Auto-filled from quote header · review & confirm</span>
+                            {/* AI stripe */}
+                            <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
+                                <span className="text-primary font-bold">✦</span>
+                                <div className="flex-1">
+                                    <span className="font-semibold text-primary">Vendor identified</span>
+                                    {vendors.gst_number && <span className="text-primary/80"> — GSTIN <span className="font-mono">{vendors.gst_number}</span> matched to existing vendor with 100% confidence.</span>}
                                 </div>
-                                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setVendorSearch(''); setShowChangeVendorModal(true) }}>
-                                    <Pencil className="w-3 h-3" /> Override match
-                                </Button>
+                                <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">100%</span>
                             </div>
 
-                            <div className="p-4">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-12 h-12 rounded-full bg-teal-600 flex items-center justify-center text-white font-bold text-sm">
-                                        {getVendorInitials(vendors.company_name)}
-                                    </div>
+                            {/* Matched vendor card */}
+                            <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+                                <div className="px-4 py-3 border-b flex items-center justify-between">
                                     <div>
-                                        <div className="font-semibold text-base">{vendors.company_name || '—'}</div>
-                                        <div className="text-sm text-muted-foreground">
-                                            {vendors.is_new === false ? 'Existing vendor' : 'New vendor'} · {[vendors.city, vendors.state].filter(Boolean).join(', ')}
-                                        </div>
+                                        <span className="font-semibold text-sm">Matched vendor</span>
+                                        <span className="text-xs text-muted-foreground ml-2">Auto-filled from quote header · review & confirm</span>
                                     </div>
-                                    <Badge className="ml-auto bg-emerald-100 text-emerald-700 border-emerald-200">
-                                        <Check className="w-3 h-3 mr-1" /> Matched
-                                    </Badge>
+                                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setVendorSearch(''); setShowChangeVendorModal(true) }}>
+                                        <Pencil className="w-3 h-3" /> Override match
+                                    </Button>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3">
-                                    {[
-                                        ['GSTIN', vendors.gst_number || '—'],
-                                        ['PAN', vendors.pan_number || '—'],
-                                        ['Payment terms', vendors.payment_terms || 'Net 30'],
-                                        ['Contact person', vendors.contact_name || '—'],
-                                        ['Email', vendors.contact_email || '—'],
-                                        ['Phone', vendors.contact_phone || '—'],
-                                        ['Bank', vendors.bank_name ? `${vendors.bank_name}${vendors.bank_ifsc ? ` · ${vendors.bank_ifsc}` : ''}` : '—'],
-                                        ['Bank A/C', vendors.bank_account || '—'],
-                                        ['Delivery terms', vendors.delivery_terms || '—'],
-                                    ].map(([label, value]) => (
-                                        <div key={label} className="flex flex-col gap-0.5">
-                                            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
-                                            <span className="text-sm font-semibold text-foreground truncate" title={value}>{value}</span>
+                                <div className="p-4">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-12 h-12 rounded-full bg-teal-600 flex items-center justify-center text-white font-bold text-sm">
+                                            {getVendorInitials(vendors.company_name)}
                                         </div>
-                                    ))}
+                                        <div>
+                                            <div className="font-semibold text-base">{vendors.company_name || '—'}</div>
+                                            <div className="text-sm text-muted-foreground">
+                                                {vendors.is_new === false ? 'Existing vendor' : 'New vendor'} · {[vendors.city, vendors.state].filter(Boolean).join(', ')}
+                                            </div>
+                                        </div>
+                                        <Badge className="ml-auto bg-emerald-100 text-emerald-700 border-emerald-200">
+                                            <Check className="w-3 h-3 mr-1" /> Matched
+                                        </Badge>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[
+                                            ['GSTIN', vendors.gst_number || '—'],
+                                            ['PAN', vendors.pan_number || '—'],
+                                            ['Payment terms', vendors.payment_terms || 'Net 30'],
+                                            ['Contact person', vendors.contact_name || '—'],
+                                            ['Email', vendors.contact_email || '—'],
+                                            ['Phone', vendors.contact_phone || '—'],
+                                            ['Bank', vendors.bank_name ? `${vendors.bank_name}${vendors.bank_ifsc ? ` · ${vendors.bank_ifsc}` : ''}` : '—'],
+                                            ['Bank A/C', vendors.bank_account || '—'],
+                                            ['Delivery terms', vendors.delivery_terms || '—'],
+                                        ].map(([label, value]) => (
+                                            <div key={label} className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
+                                                <span className="text-sm font-semibold text-foreground truncate" title={value}>{value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Verification checks */}
-                        <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                            <div className="px-4 py-3 border-b font-semibold text-sm">Verification checks</div>
-                            <div className="divide-y">
-                                {[
-                                    ['GSTIN registry lookup', 'ok', 'Active · Regular'],
-                                    ['PAN cross-check', 'ok', 'Matches GSTIN'],
-                                    ['Black-list / NCLT', 'ok', 'No references'],
-                                    ['Bank A/C verification', 'ok', 'Penny-drop ₹1 confirmed'],
-                                    ['Recent SLA breaches', 'warn', '2 minor in last 90d'],
-                                    ['Compliance docs on file', 'ok', '8 of 8 valid'],
-                                ].map(([label, status, note]) => (
-                                    <div key={label} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                                        <span className={status === 'ok' ? 'text-emerald-600' : 'text-amber-500'}>
-                                            {status === 'ok' ? <Check className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-                                        </span>
-                                        <span className="flex-1 font-medium">{label}</span>
-                                        <span className="text-xs text-muted-foreground">{note}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Plant & Department */}
-                        {/* <div className="rounded-xl border bg-white p-4">
+                            {/* Plant & Department */}
+                            {/* <div className="rounded-xl border bg-white p-4">
                             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                                 Plant & Department <span className="font-normal normal-case text-[10px]">(optional)</span>
                             </p>
@@ -744,46 +695,46 @@ export default function UploadQuotationPage() {
                                 </div>
                             </div>
                         </div> */}
-                    </div>
-
-                    {/* Right panel */}
-                    <div className="flex flex-col gap-4">
-                        {/* Why this match? */}
-                        <div className="rounded-xl overflow-hidden border border-primary/20">
-                            <div className="flex items-center gap-2 px-4 py-3 bg-primary text-white">
-                                <span className="font-bold">✦</span>
-                                <span className="font-semibold text-sm">Why this match?</span>
-                                <span className="ml-auto text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">100%</span>
-                            </div>
-                            <div className="p-4 bg-primary/5 space-y-1.5">
-                                {['GSTIN exact match — primary identifier', 'PAN segment matches', 'Sender email domain matches vendor record', 'Letterhead logo SSIM 0.94 vs. stored asset', 'Bank account matches active vendor file'].map((t, i) => (
-                                    <div key={i} className="flex items-start gap-2 text-sm text-slate-700">
-                                        <span className="text-primary mt-0.5">•</span>{t}
-                                    </div>
-                                ))}
-                            </div>
                         </div>
 
-                        {/* Vendor at a glance */}
-                        <div className="bg-white border rounded-xl shadow-sm">
-                            <div className="px-4 py-3 border-b font-semibold text-sm">Vendor at a glance</div>
-                            <div className="divide-y">
-                                {[
-                                    ['Score · 90d', `${vendors.vendor_score || 88}`],
-                                    ['On-time', `${vendors.on_time_rate || 91}%`],
-                                    ['Defect rate', `${vendors.defect_rate || 0.8}%`],
-                                    ['Lead time', `${vendors.lead_time_days || 6} days`],
-                                    ['Transactions', `${vendors.transaction_count || 12}`],
-                                ].map(([label, value]) => (
-                                    <div key={label} className="flex items-center justify-between px-4 py-2 text-sm">
-                                        <span className="text-muted-foreground">{label}</span>
-                                        <span className="font-semibold">{value}</span>
-                                    </div>
-                                ))}
+                        {/* Right panel */}
+                        <div className="flex flex-col gap-4">
+                            {/* Why this match? */}
+                            <div className="rounded-xl overflow-hidden border border-primary/20">
+                                <div className="flex items-center gap-2 px-4 py-3 bg-primary text-white">
+                                    <span className="font-bold">✦</span>
+                                    <span className="font-semibold text-sm">Why this match?</span>
+                                    <span className="ml-auto text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">100%</span>
+                                </div>
+                                <div className="p-4 bg-primary/5 space-y-1.5">
+                                    {['GSTIN exact match — primary identifier', 'PAN segment matches', 'Sender email domain matches vendor record', 'Letterhead logo SSIM 0.94 vs. stored asset', 'Bank account matches active vendor file'].map((t, i) => (
+                                        <div key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                                            <span className="text-primary mt-0.5">•</span>{t}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Vendor at a glance */}
+                            <div className="bg-white border rounded-xl shadow-sm">
+                                <div className="px-4 py-3 border-b font-semibold text-sm">Vendor at a glance</div>
+                                <div className="divide-y">
+                                    {[
+                                        ['Score · 90d', `${vendors.vendor_score || 88}`],
+                                        ['On-time', `${vendors.on_time_rate || 91}%`],
+                                        ['Defect rate', `${vendors.defect_rate || 0.8}%`],
+                                        ['Lead time', `${vendors.lead_time_days || 6} days`],
+                                        ['Transactions', `${vendors.transaction_count || 12}`],
+                                    ].map(([label, value]) => (
+                                        <div key={label} className="flex items-center justify-between px-4 py-2 text-sm">
+                                            <span className="text-muted-foreground">{label}</span>
+                                            <span className="font-semibold">{value}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
                 </div>
             )}
 
@@ -801,6 +752,35 @@ export default function UploadQuotationPage() {
                     />
                 </div>
             )}
+
+            {/* Action Buttons */}
+            <div className="mt-8 flex items-center gap-4 justify-end">
+                {currentStep > 0 && currentStep !== 1 && currentStep !== 2 && (
+                    <Button variant="ghost" size="sm" onClick={handleStepBack}>Back</Button>
+                )}
+                {currentStep === 0 ? (
+                    <Button
+                        size="sm"
+                        onClick={() => selectedFile && addFile(selectedFile)}
+                        disabled={!selectedFile || uploadMutation.isPending}
+                        className="gap-1.5"
+                    >
+                        {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                        Continue <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                ) : currentStep === 1 ? null : currentStep < 3 ? (
+                    <Button size="sm" onClick={handleStepContinue}
+                        disabled={currentStep === 2 ? !canProceedFromVendor : !canProceedFromItems}
+                        className={`gap-1.5 ${currentStep === 2 ? 'mt-6' : ''}`}>
+                        {currentStep === 2 ? 'Next' : 'Continue'} <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                ) : (
+                    <Button size="sm" onClick={handleSubmit} disabled={isLoading}
+                        className="gap-1.5">
+                        Review & save <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                )}
+            </div>
 
             {/* ── Confirm Modal ── */}
             <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
@@ -831,25 +811,6 @@ export default function UploadQuotationPage() {
                                         <div className="text-xs font-semibold text-muted-foreground mb-1.5">Quote Reference</div>
                                         <div className="text-sm font-semibold text-foreground">{vendors?.quotation_no || 'QT/2026/1001'}</div>
                                     </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-auto pt-6 border-t border-border">
-                                <div className="grid grid-cols-1 gap-2">
-                                    <Button
-                                        onClick={confirmAndSubmit}
-                                        disabled={isLoading}
-                                        className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 font-semibold text-sm rounded-xl transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
-                                    >
-                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm & Save'}
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        onClick={() => setShowConfirmModal(false)}
-                                        className="h-10 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl"
-                                    >
-                                        Go Back
-                                    </Button>
                                 </div>
                             </div>
                         </div>
@@ -917,9 +878,28 @@ export default function UploadQuotationPage() {
                                 )}
                             </div>
 
-                            <div className="mt-auto pt-8 flex items-center justify-between text-xs font-medium text-muted-foreground/70">
-                                <span>Secured by ProcureAI Backend</span>
-                                <span>Session ID: {quotation?.id || 'AUTH-001'}</span>
+                            <div className="mt-auto pt-8 flex items-center justify-between">
+                                <div className="text-xs font-medium text-muted-foreground/70">
+                                    <span>Secured by ProcureAI Backend</span>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <span className="text-xs font-medium text-muted-foreground/70">
+                                        Session ID: {quotation?.id || 'AUTH-001'}
+                                    </span>
+
+                                    <Button
+                                        onClick={confirmAndSubmit}
+                                        disabled={isLoading}
+                                        className="bg-primary hover:bg-primary/90 text-primary-foreground h-10 px-6 font-semibold text-sm rounded-xl"
+                                    >
+                                        {isLoading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            'Confirm & Save'
+                                        )}
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </div>
