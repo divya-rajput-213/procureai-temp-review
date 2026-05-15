@@ -98,7 +98,7 @@ function StepIndicator({ step, onBack, onContinue, continueLabel = 'Continue', c
       display: 'flex', alignItems: 'center', gap: 0,
       borderBottom: '1px solid hsl(var(--border))',
       padding: '0 0 0 0', background: 'hsl(var(--background))',
-      position: 'sticky', top: 0, zIndex: 20,
+      // position: 'sticky', top: 0, zIndex: 20,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', flex: 1, padding: '12px 20px', gap: 0 }}>
         {steps.map((s, i) => (
