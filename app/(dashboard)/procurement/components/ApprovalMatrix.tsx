@@ -11,6 +11,7 @@ import {
     Dialog,
     DialogContent,
 } from '@/components/ui/dialog'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type ApprovalMatrixProps = {
     prId: string | string[]
@@ -87,81 +88,67 @@ const ApprovalMatrix = ({
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl p-0 overflow-hidden">
-                {/* Header */}
-                <div className="px-6 py-5 border-b">
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                        Select Approval Matrix
-                    </h2>
+        <>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4 border-b">
+          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Select Approval Matrix
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Choose the approval workflow for this budget request.
+          </p>
+        </CardHeader>
 
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Choose the approval workflow for this budget request.
-                    </p>
-                </div>
+        <CardContent className="pt-5">
+          {matrices === undefined && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
+            </div>
+          )}
 
-                {/* Body */}
-                <div className="px-6 py-5 max-h-[70vh] overflow-y-auto">
-                    {loadingMatrices && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Loading matrices…
-                        </div>
-                    )}
+          {!loadingMatrices && (matrices ?? []).length === 0 && (
+            <p className="text-xs text-amber-600 font-medium">
+              No active PR approval matrices configured. The system will use the default matrix.
+            </p>
+          )}
 
-                    {!loadingMatrices && (matrices ?? []).length === 0 && (
-                        <p className="text-xs text-amber-600 font-medium">
-                            No active PR approval matrices configured. The system will use
-                            the default matrix.
-                        </p>
-                    )}
+          {!loadingMatrices && (matrices ?? []).length > 0 && (
+            <MatrixSelectorTable
+              matrices={matrices}
+              selectedMatrix={selectedMatrix}
+              expandedMatrix={expandedMatrix}
+              onSelect={(id) => {
+                setSelectedMatrix(id)
+                setExpandedMatrix(id)
+              }}
+              onToggleExpand={(id) => {
+                setExpandedMatrix((prev) => (prev === id ? null : id))
+              }}
+            />
+          )}
+        </CardContent>
 
-                    {!loadingMatrices && (matrices ?? []).length > 0 && (
-                        <MatrixSelectorTable
-                            matrices={matrices}
-                            selectedMatrix={selectedMatrix}
-                            expandedMatrix={expandedMatrix}
-                            onSelect={(id) => {
-                                setSelectedMatrix(id)
-                                setExpandedMatrix(id)
-                            }}
-                            onToggleExpand={(id) => {
-                                setExpandedMatrix((prev) =>
-                                    prev === id ? null : id
-                                )
-                            }}
-                        />
-                    )}
-                </div>
+        {/* Footer — same as first design */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
 
-                {/* Footer */}
-                {showFooter && (
-                    <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50">
-                        <Button
-                            variant="outline"
-                            onClick={onClose}
-                            disabled={submitting}
-                        >
-                            Cancel
-                        </Button>
-
-                        <Button
-                            onClick={submit}
-                            disabled={submitting}
-                            className="gap-2 min-w-[160px]"
-                        >
-                            {submitting ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Send className="w-4 h-4" />
-                            )}
-
-                            Submit for Approval
-                        </Button>
-                    </div>
-                )}
-            </DialogContent>
-        </Dialog>
+          <Button
+            onClick={submit}
+            disabled={submitting}
+            className="gap-2 min-w-[160px]"
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Submit for Approval
+          </Button>
+        </div>
+      </Card>
+    </>
     )
 }
 
