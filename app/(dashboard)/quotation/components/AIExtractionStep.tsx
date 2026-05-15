@@ -5,9 +5,11 @@ import {
     Clock3,
     FileText,
     Sparkles,
+    ChevronRight,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
-const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | null; quotation: any }) => {
+const AIExtractionStep = ({ selectedFile, quotation, onNext }: { selectedFile: File | null; quotation: any; onNext?: () => void }) => {
     const [progress, setProgress] = useState(42)
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
@@ -53,9 +55,9 @@ const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | nu
     }, [quotation])
 
     return (
-        <div className="h-[calc(100vh-190px)] flex flex-col overflow-hidden">
+        <div className="flex flex-col gap-4">
             {/* Main Layout */}
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 items-stretch flex-1 min-h-0 overflow-hidden">
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 items-start">
 
                 {/* LEFT SIDE */}
                 <div className="bg-white border rounded-xl overflow-hidden flex flex-col h-full shadow-sm">
@@ -131,7 +133,7 @@ const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | nu
                 </div>
 
                 {/* RIGHT SIDE */}
-                <div className="flex flex-col gap-4 h-full overflow-hidden">
+                <div className="flex flex-col gap-4">
 
                     {/* AI Progress */}
                     <div className="bg-white border rounded-xl overflow-hidden shrink-0 shadow-sm">
@@ -159,8 +161,8 @@ const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | nu
                         </div>
                     </div>
 
-                    {/* Content Scrollable Area */}
-                    <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
+                    {/* Content Area */}
+                    <div className="space-y-4">
                         {/* Pipeline */}
                         <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
                             <div className="px-4 py-2.5 border-b bg-slate-50/50">
@@ -229,6 +231,17 @@ const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | nu
                     </div>
                 </div>
             </div>
+            {/* Next Button */}
+            {onNext && (
+                <Button
+                    size="sm"
+                    onClick={onNext}
+                    disabled={!quotation}
+                    className="gap-1.5 mt-8 self-end"
+                >
+                    Next <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+            )}
         </div>
     )
 }
