@@ -1456,11 +1456,11 @@ export default function PRDetailPage() {
             </Card>
 
             {/* AWARD OUTCOME */}
+            {/* QUOTATIONS */}
             <Card className="overflow-hidden rounded-xl shadow-sm">
               <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
                 <div className="flex h-full items-center">
-                  <CardTitle className="text-sm font-semibold">
-                    Vendor Invited                  </CardTitle>
+                  <CardTitle className="text-sm font-semibold">Quotations</CardTitle>
                 </div>
               </CardHeader>
 
@@ -1469,21 +1469,12 @@ export default function PRDetailPage() {
                   <table className="w-full border-collapse text-sm">
                     <thead className="bg-muted/30 border-b">
                       <tr>
-                        {[
-                          'Vendor',
-                          'Quote Total',
-                          'Diff vs Awarded',
-                          'Lead',
-                          'Terms',
-                          'Outcome',
-                        ].map((head, i) => (
+                        {['Ref No', 'Vendor', 'Items', 'Total', 'Status', 'Selected'].map((head, i) => (
                           <th
                             key={head}
                             className={cn(
                               'py-3 text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold whitespace-nowrap',
-                              i === 1
-                                ? 'px-4 text-right'
-                                : 'px-4 text-left'
+                              i === 3 ? 'px-4 text-right' : 'px-4 text-left'
                             )}
                           >
                             {head}
@@ -1491,72 +1482,45 @@ export default function PRDetailPage() {
                         ))}
                       </tr>
                     </thead>
-
                     <tbody>
-                      {(pr.invited_vendors_detail || []).map(
-                        (vendor: any, idx: number) => {
-                          const awardedTotal =
-                            pr.invited_vendors_detail?.[0]
-                              ?.quote_total || 0
-
-                          const diff =
-                            (vendor.quote_total || 0) -
-                            awardedTotal
-
-                          const isAwarded =
-                            vendor.company_name ===
-                            pr.selected_vendor_name
-
-                          return (
-                            <tr
-                              key={vendor.id}
-                              className="border-b last:border-0 hover:bg-muted/20 transition-colors"
-                            >
-                              <td className="px-4 py-3 font-medium whitespace-nowrap">
-                                {vendor.company_name}
-                              </td>
-
-                              <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
-                                {formatCurrency(
-                                  vendor.quote_total || 0
-                                )}
-                              </td>
-
-                              <td
-                                className={cn(
-                                  'px-4 py-3 font-mono whitespace-nowrap',
-                                  !isAwarded &&
-                                  diff > 0 &&
-                                  'text-red-500'
-                                )}
-                              >
-                                {isAwarded
-                                  ? 'Awarded'
-                                  : `+ ${formatCurrency(diff)}`}
-                              </td>
-
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                {vendor.lead_time || '4d'}
-                              </td>
-
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                {vendor.payment_terms || 'Net 30'}
-                              </td>
-
-                              <td className="px-4 py-3">
-                                {isAwarded ? (
-                                  <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                                    Awarded
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600">
-                                    Not selected
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        }
+                      {(pr.linked_quotations || []).length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-6 text-center text-sm text-muted-foreground italic">
+                            No quotations linked yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        (pr.linked_quotations || []).map((q: any) => (
+                          <tr key={q.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{q.ref_no || q.quotation_no}</td>
+                            <td className="px-4 py-3 font-medium whitespace-nowrap">{q.vendor_name}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{q.items_count} item{q.items_count !== 1 ? 's' : ''}</td>
+                            <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
+                              {formatCurrency(q.total_amount, pr.currency_code)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className={cn(
+                                'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
+                                q.status === 'approved'
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  : q.status === 'rejected'
+                                    ? 'border-red-200 bg-red-50 text-red-700'
+                                    : 'border-slate-200 bg-slate-50 text-slate-600'
+                              )}>
+                                {q.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              {q.is_selected ? (
+                                <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                                  Selected
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>
@@ -1567,7 +1531,7 @@ export default function PRDetailPage() {
 
           {/* RIGHT SIDEBAR */}
           <div className="space-y-4">
-        
+
 
             {/* APPROVAL CHAIN */}
             <Card className="overflow-hidden rounded-xl shadow-sm">
@@ -1613,7 +1577,52 @@ export default function PRDetailPage() {
                 </div>
               </CardContent>
             </Card>
+            {/* INVITED VENDORS */}
+            <Card className="overflow-hidden rounded-xl shadow-sm">
+              <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
+                <div className="flex h-full items-center">
+                  <CardTitle className="text-sm font-semibold">Invited vendors</CardTitle>
+                </div>
+              </CardHeader>
 
+              <CardContent className="p-4">
+                <div className="space-y-2">
+                  {(pr.invited_vendors_detail || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No vendors invited.</p>
+                  ) : (
+                    (pr.invited_vendors_detail || []).map((v: any) => (
+                      <div
+                        key={v.id}
+                        className="flex items-start gap-3 rounded-lg border bg-muted/20 px-3 py-2.5"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-bold text-primary">
+                          {v.company_name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{v.company_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {[v.city, v.state].filter(Boolean).join(', ') || '—'}
+                            {v.contact_email && (
+                              <span className="ml-2 text-[11px]">· {v.contact_email}</span>
+                            )}
+                          </p>
+                        </div>
+                        <span className={cn(
+                          'shrink-0 inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold',
+                          v.status === 'approved'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : v.status === 'draft'
+                              ? 'border-slate-200 bg-slate-50 text-slate-500'
+                              : 'border-amber-200 bg-amber-50 text-amber-700'
+                        )}>
+                          {v.status}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
