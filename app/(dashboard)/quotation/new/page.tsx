@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { AlertCircle, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, Check, FileText, Building2, Package, ClipboardCheck, Sparkles } from 'lucide-react'
+import { AlertCircle, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, Check, FileText, Building2, Package, Sparkles } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -27,29 +27,28 @@ const STEPS = [
     { id: 1, label: 'AI Extraction', icon: Sparkles },
     { id: 2, label: 'Verify vendor', icon: Building2 },
     { id: 3, label: 'Verify items', icon: Package },
-    { id: 4, label: 'Confirm & save', icon: ClipboardCheck },
 ]
 
 function Stepper({ currentStep, completedSteps }: { currentStep: number; completedSteps: Set<number> }) {
     return (
-        <div className="flex items-center">
+        <div className="flex items-center overflow-x-auto">
             {STEPS.map((step, i) => {
                 const done = completedSteps.has(step.id)
                 const active = currentStep === step.id
                 return (
                     <div key={step.id} className="flex items-center">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shrink-0
-                                ${done ? 'bg-emerald-500 text-white' : active ? 'bg-[#2563eb] text-white' : 'bg-transparent border border-muted-foreground/30 text-muted-foreground'}`}>
-                                {done ? <Check className="w-2.5 h-2.5" strokeWidth={3} /> : step.id + 1}
+                                ${done ? 'bg-primary text-primary-foreground' : active ? 'bg-primary text-primary-foreground' : 'bg-transparent border border-border text-muted-foreground'}`}>
+                                {step.id + 1}
                             </span>
-                            <span className={`text-[11px] transition-all ${done ? 'text-foreground' : active ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
+                            <span className={`text-sm transition-all whitespace-nowrap ${done ? 'text-primary font-semibold' : active ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
                                 {step.label}
                             </span>
                         </div>
                         {i < STEPS.length - 1 && (
-                            <div className="flex items-center mx-2">
-                                <div className={`w-12 h-px transition-all ${done ? 'bg-emerald-400' : 'bg-border'}`} />
+                            <div className="flex items-center mx-3">
+                                <div className={`w-14 h-px transition-all ${done ? 'bg-primary/60' : 'bg-border'}`} />
                             </div>
                         )}
                     </div>
@@ -391,7 +390,16 @@ export default function UploadQuotationPage() {
         setErrorMessage(''); setSelectedFile(droppedFile)
     }
 
-    const handleSubmit = () => setShowConfirmModal(true)
+    const handleSubmit = () => {
+        if (currentStep === 3) {
+            setCompletedSteps(prev => {
+                const updated = new Set(prev)
+                updated.add(3)
+                return updated
+            })
+        }
+        setShowConfirmModal(true)
+    }
     const confirmAndSubmit = () => { setShowConfirmModal(false); quotationSaveMutation.mutate() }
 
     const formatSize = (bytes: number) => {
@@ -403,7 +411,6 @@ export default function UploadQuotationPage() {
     const getVendorInitials = (name: string) =>
         name?.split(' ').filter(Boolean).slice(0, 2).map((p: string) => p[0]).join('').toUpperCase() || 'V'
 
-    const hasData = quotation && vendors && lineItems.length > 0
     const isLoading = uploadMutation.isPending || quotationSaveMutation.isPending
 
     useEffect(() => {
@@ -459,13 +466,34 @@ export default function UploadQuotationPage() {
                 updated.add(3)
                 return updated
             })
-
-            setCurrentStep(4)
+            setShowConfirmModal(true)
         }
     }
 
     const handleStepBack = () => {
         if (currentStep > 0) setCurrentStep(currentStep - 1)
+    }
+
+    const handleRetryAI = () => {
+        if (!selectedFile || uploadMutation.isPending) return
+        setErrorMessage('')
+        setIsExtracting(true)
+        uploadMutation.mutate(selectedFile)
+    }
+
+    const handleNextFromAI = () => {
+        if (!quotation || !vendors) {
+            const message = 'AI extraction is not complete yet. Please retry and wait for extraction to finish.'
+            setErrorMessage(message)
+            toast({ title: 'Cannot continue', description: message, variant: 'destructive' })
+            return
+        }
+        setCompletedSteps(prev => {
+            const updated = new Set(prev)
+            updated.add(1)
+            return updated
+        })
+        setCurrentStep(2)
     }
 
     return (
@@ -507,22 +535,53 @@ export default function UploadQuotationPage() {
             </div>
 
             {/* Stepper + nav — always visible on ALL steps including step 0 */}
-            <div className="flex items-center justify-between py-1.5 mb-2.5">
+            <div className="flex items-center justify-between py-2 mb-8 border-b border-border/80">
                 <Stepper currentStep={currentStep} completedSteps={completedSteps} />
                 <div className="flex items-center gap-2 shrink-0">
                     {currentStep > 0 && currentStep !== 1 && (
                         <Button variant="ghost" size="sm" onClick={handleStepBack}>Back</Button>
                     )}
-                    {currentStep === 0 || currentStep === 1 ? null : currentStep < 4 ? (
+                    {currentStep === 0 ? (
+                        <Button
+                            size="sm"
+                            onClick={() => selectedFile && addFile(selectedFile)}
+                            disabled={!selectedFile || uploadMutation.isPending}
+                            className="gap-1.5"
+                        >
+                            {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                            Continue <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                    ) : currentStep === 1 ? (
+                        <>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleRetryAI}
+                                disabled={!selectedFile || uploadMutation.isPending}
+                                className="gap-1.5"
+                            >
+                                {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                Retry AI
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={handleNextFromAI}
+                                disabled={!quotation || !vendors}
+                                className="gap-1.5"
+                            >
+                                Next <ChevronRight className="w-3.5 h-3.5" />
+                            </Button>
+                        </>
+                    ) : currentStep < 3 ? (
                         <Button size="sm" onClick={handleStepContinue}
                             disabled={currentStep === 2 ? !canProceedFromVendor : !canProceedFromItems}
-                            className="gap-1.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white">
+                            className="gap-1.5">
                             Continue <ChevronRight className="w-3.5 h-3.5" />
                         </Button>
                     ) : (
                         <Button size="sm" onClick={handleSubmit} disabled={isLoading}
-                            className="gap-1.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white">
-                            Save quote <ChevronRight className="w-3.5 h-3.5" />
+                            className="gap-1.5">
+                            Review & save <ChevronRight className="w-3.5 h-3.5" />
                         </Button>
                     )}
                 </div>
@@ -538,52 +597,57 @@ export default function UploadQuotationPage() {
 
             {/* ── STEP 0: Upload ── */}
             {currentStep === 0 && (
-                <UploadFile
-                    selectedFile={selectedFile}
-                    setSelectedFile={setSelectedFile}
-                    addFile={addFile}
-                    handleRemoveTagState={handleRemoveTagState}
-                    dragging={dragging}
-                    handleDragOver={handleDragOver}
-                    handleDragLeave={handleDragLeave}
-                    handleDrop={handleDrop}
-                    uploadMutation={uploadMutation}
-                    plantId={plantId}
-                    setPlantId={setPlantId}
-                    departmentId={departmentId}
-                    setDepartmentId={setDepartmentId}
-                    categoryId={categoryId}
-                    setCategoryId={setCategoryId}
-                    prLinkId={prLinkId}
-                    setPrLinkId={setPrLinkId}
-                    financialYear={financialYear}
-                    setFinancialYear={setFinancialYear}
-                    plants={plants}
-                    departments={departments}
-                    categories={categories}
-                    PRs={PRs}
-                    formatSize={formatSize}
-                />
+                <div className="pt-4">
+                    <UploadFile
+                        selectedFile={selectedFile}
+                        setSelectedFile={setSelectedFile}
+                        addFile={addFile}
+                        handleRemoveTagState={handleRemoveTagState}
+                        dragging={dragging}
+                        handleDragOver={handleDragOver}
+                        handleDragLeave={handleDragLeave}
+                        handleDrop={handleDrop}
+                        uploadMutation={uploadMutation}
+                        plantId={plantId}
+                        setPlantId={setPlantId}
+                        departmentId={departmentId}
+                        setDepartmentId={setDepartmentId}
+                        categoryId={categoryId}
+                        setCategoryId={setCategoryId}
+                        prLinkId={prLinkId}
+                        setPrLinkId={setPrLinkId}
+                        financialYear={financialYear}
+                        setFinancialYear={setFinancialYear}
+                        plants={plants}
+                        departments={departments}
+                        categories={categories}
+                        PRs={PRs}
+                        formatSize={formatSize}
+                    />
+                </div>
             )}
 
             {/* ── STEP 1: AI Extraction ── */}
             {currentStep === 1 && (
-                <AIExtractionStep selectedFile={selectedFile} quotation={quotation} />
+                <div className="pt-4">
+                    <AIExtractionStep selectedFile={selectedFile} quotation={quotation} />
+                </div>
             )}
 
             {/* ── STEP 2: Verify Vendor ── */}
             {currentStep === 2 && vendors && (
-                <div className="grid grid-cols-[1fr_320px] gap-5 items-start">
+                <div className="pt-4">
+                    <div className="grid grid-cols-[1fr_320px] gap-5 items-start">
                     <div className="flex flex-col gap-4">
 
                         {/* AI stripe */}
-                        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-indigo-200 bg-indigo-50 text-sm">
-                            <span className="text-indigo-600 font-bold">✦</span>
+                        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
+                            <span className="text-primary font-bold">✦</span>
                             <div className="flex-1">
-                                <span className="font-semibold text-indigo-900">Vendor identified</span>
-                                {vendors.gst_number && <span className="text-indigo-700"> — GSTIN <span className="font-mono">{vendors.gst_number}</span> matched to existing vendor with 100% confidence.</span>}
+                                <span className="font-semibold text-primary">Vendor identified</span>
+                                {vendors.gst_number && <span className="text-primary/80"> — GSTIN <span className="font-mono">{vendors.gst_number}</span> matched to existing vendor with 100% confidence.</span>}
                             </div>
-                            <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">100%</span>
+                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">100%</span>
                         </div>
 
                         {/* Matched vendor card */}
@@ -685,16 +749,16 @@ export default function UploadQuotationPage() {
                     {/* Right panel */}
                     <div className="flex flex-col gap-4">
                         {/* Why this match? */}
-                        <div className="rounded-xl overflow-hidden border border-indigo-200">
-                            <div className="flex items-center gap-2 px-4 py-3 bg-indigo-700 text-white">
+                        <div className="rounded-xl overflow-hidden border border-primary/20">
+                            <div className="flex items-center gap-2 px-4 py-3 bg-primary text-white">
                                 <span className="font-bold">✦</span>
                                 <span className="font-semibold text-sm">Why this match?</span>
                                 <span className="ml-auto text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">100%</span>
                             </div>
-                            <div className="p-4 bg-indigo-50 space-y-1.5">
+                            <div className="p-4 bg-primary/5 space-y-1.5">
                                 {['GSTIN exact match — primary identifier', 'PAN segment matches', 'Sender email domain matches vendor record', 'Letterhead logo SSIM 0.94 vs. stored asset', 'Bank account matches active vendor file'].map((t, i) => (
-                                    <div key={i} className="flex items-start gap-2 text-sm text-indigo-900">
-                                        <span className="text-indigo-500 mt-0.5">•</span>{t}
+                                    <div key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                                        <span className="text-primary mt-0.5">•</span>{t}
                                     </div>
                                 ))}
                             </div>
@@ -720,168 +784,52 @@ export default function UploadQuotationPage() {
                         </div>
                     </div>
                 </div>
+                </div>
             )}
 
             {/* ── STEP 3: Verify Items ── */}
             {currentStep === 3 && (
-                <VerifyItemsStep
-                    file={selectedFile}
-                    quotation={quotation}
-                    lineItems={lineItems}
-                    setLineItems={setLineItems}
-                    masterItems={masterItems}
-                    onContinue={() => setCurrentStep(4)}
-                    onBack={() => setCurrentStep(2)}
-                />
+                <div className="pt-4">
+                    <VerifyItemsStep
+                        file={selectedFile}
+                        quotation={quotation}
+                        lineItems={lineItems}
+                        setLineItems={setLineItems}
+                        masterItems={masterItems}
+                        onContinue={handleSubmit}
+                        onBack={() => setCurrentStep(2)}
+                    />
+                </div>
             )}
-
-            {/* ── STEP 4: Confirm & Save ── */}
-            {
-                currentStep === 4 && hasData && (
-                    <div className="grid grid-cols-[1fr_320px] gap-5 items-start">
-                        <div className="flex flex-col gap-4">
-
-                            {/* All verifications passed */}
-                            <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-emerald-200 bg-emerald-50 text-sm">
-                                <Check className="w-4 h-4 text-emerald-600" />
-                                <span className="font-semibold text-emerald-900">All verifications passed</span>
-                                <Badge className="ml-auto bg-emerald-100 text-emerald-700 border-emerald-200">Ready to save</Badge>
-                            </div>
-
-                            {/* Review card */}
-                            <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                                <div className="px-4 py-3 border-b font-semibold text-sm">Review & save</div>
-                                <div className="grid grid-cols-3 gap-4 p-4">
-                                    {[
-                                        ['Quote #', quotation?.vendor?.quotation_no || quotation?.id || '—'],
-                                        ['Vendor', vendors?.company_name || '—'],
-                                        ['Date / Validity', quotation?.vendor?.quotation_date || '—'],
-                                        ['Items', `${allCount} lines · ${duplicatesCount} matched · ${newCount} new`],
-                                        ['Subtotal', subtotal != null ? `₹${subtotal.toLocaleString('en-IN')}` : '—'],
-                                        ['Total', grandTotal != null ? `₹${grandTotal.toLocaleString('en-IN')}` : '—'],
-                                    ].map(([label, value]) => (
-                                        <div key={label}>
-                                            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">{label}</span>
-                                            <span className="text-sm font-semibold">{value}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Pending side-effects */}
-                            <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                                <div className="px-4 py-3 border-b flex items-center gap-2">
-                                    <span className="font-semibold text-sm">Pending side-effects</span>
-                                    <span className="text-xs text-muted-foreground">Will be applied on save</span>
-                                </div>
-                                <div className="divide-y">
-                                    {newCount > 0 && (
-                                        <div className="flex items-center gap-3 px-4 py-3 text-sm">
-                                            <Plus className="w-4 h-4 text-amber-600" />
-                                            <div className="flex-1">
-                                                <div className="font-medium">Create {newCount} new master SKU{newCount > 1 ? 's' : ''}</div>
-                                                <div className="text-xs text-muted-foreground">{lineItems.filter((i: any) => i.is_new).map((i: any) => i.item_name).slice(0, 3).join(', ')}{newCount > 3 ? ` +${newCount - 3} more` : ''}</div>
-                                            </div>
-                                            <Badge className="bg-amber-100 text-amber-700 border-amber-200">new</Badge>
-                                        </div>
-                                    )}
-                                    {duplicatesCount > 0 && (
-                                        <div className="flex items-center gap-3 px-4 py-3 text-sm">
-                                            <Pencil className="w-4 h-4 text-indigo-600" />
-                                            <div className="flex-1">
-                                                <div className="font-medium">Link {duplicatesCount} existing SKUs to vendor</div>
-                                            </div>
-                                            <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200">update</Badge>
-                                        </div>
-                                    )}
-                                    <div className="flex items-center gap-3 px-4 py-3 text-sm">
-                                        <Pencil className="w-4 h-4 text-indigo-600" />
-                                        <div className="flex-1">
-                                            <div className="font-medium">Update price book</div>
-                                            <div className="text-xs text-muted-foreground">{allCount} vendor prices vs. last 90d</div>
-                                        </div>
-                                        <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200">update</Badge>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Terms & conditions */}
-                            {vendors?.terms_and_conditions?.length > 0 && (
-                                <div className="bg-white border rounded-xl p-4">
-                                    <h4 className="text-sm font-medium mb-2">Terms & Conditions</h4>
-                                    <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-                                        {vendors.terms_and_conditions.map((term: string, i: number) => <li key={i}>{term}</li>)}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Right: AI summary */}
-                        <div className="flex flex-col gap-4">
-                            <div className="rounded-xl overflow-hidden border border-violet-200">
-                                <div className="flex items-center gap-2 px-4 py-3 bg-violet-700 text-white">
-                                    <span className="font-bold">✦</span>
-                                    <span className="font-semibold text-sm">Final AI summary</span>
-                                    <span className="ml-auto text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">82%</span>
-                                </div>
-                                <div className="p-4 bg-violet-50 space-y-3 text-sm text-violet-900">
-                                    <p>Quote ready to save. <b>{allCount}</b> lines verified, <b>{newCount}</b> new master SKUs queued for creation.</p>
-                                    {grandTotal && <p>Quote value: <b className="text-violet-700">₹{grandTotal.toLocaleString('en-IN')}</b></p>}
-                                    <p className="text-violet-700 text-xs">AI will run price benchmarking and notify relevant category owners on save.</p>
-                                </div>
-                            </div>
-
-                            {/* Quote details */}
-                            <div className="bg-white border rounded-xl shadow-sm">
-                                <div className="px-4 py-3 border-b font-semibold text-sm">Quote Details</div>
-                                <div className="divide-y">
-                                    {[
-                                        ['Quote Reference', quotation?.vendor?.quotation_no || '—'],
-                                        ['Quote Date', quotation?.vendor?.quotation_date || '—'],
-                                        ['Currency', 'INR'],
-                                        ['Source', 'PDF — AI Extracted'],
-                                        ['Confidence', '96%'],
-                                    ].map(([label, value]) => (
-                                        <div key={label} className="flex justify-between px-4 py-2 text-sm">
-                                            <span className="text-muted-foreground">{label}</span>
-                                            <span className="font-semibold">{value}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
 
             {/* ── Confirm Modal ── */}
             <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-                <DialogContent className="max-w-5xl p-0 overflow-hidden border border-border shadow-2xl bg-background text-foreground rounded-3xl outline-none">
-                    <div className="flex h-[550px]">
+                <DialogContent className="max-w-5xl p-0 overflow-hidden border border-border shadow-xl bg-background text-foreground rounded-2xl">
+                    <div className="flex h-[560px]">
                         {/* LEFT: Identity & Status */}
-                        <div className="w-[320px] bg-secondary/30 p-6 flex flex-col border-r border-border">
+                        <div className="w-[320px] bg-muted/30 p-6 flex flex-col border-r border-border">
                             <div className="mb-0">
-                                <DialogHeader className="text-left mb-6">
-                                    <DialogTitle className="text-xl font-bold tracking-tight text-primary">Confirm Submission</DialogTitle>
-                                    <DialogDescription className="text-muted-foreground text-[10px] uppercase font-bold tracking-widest leading-relaxed">
+                                <DialogHeader className="text-left mb-5">
+                                    <DialogTitle className="text-2xl font-semibold text-primary">Confirm Submission</DialogTitle>
+                                    <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
                                         Review summary & side-effects<br />before system persistence
                                     </DialogDescription>
                                 </DialogHeader>
 
                                 {/* Vendor ID Card */}
-                                <div className="space-y-4 mb-8">
+                                <div className="space-y-4 mb-7">
                                     <div className="p-3 bg-white border border-border rounded-xl relative overflow-hidden group shadow-sm">
-                                        <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 flex justify-between">
+                                        <div className="text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between">
                                             <span>Vendor Match</span>
                                             <span className="text-emerald-600">100%</span>
                                         </div>
-                                        <div className="text-sm font-bold truncate leading-tight text-foreground">{vendors?.company_name || '—'}</div>
-                                        <div className="text-[10px] text-muted-foreground mt-1 font-mono">{vendors?.gst_number || 'GSTIN —'}</div>
+                                        <div className="text-base font-semibold truncate leading-tight text-foreground">{vendors?.company_name || '—'}</div>
+                                        <div className="text-xs text-muted-foreground mt-1 font-mono">{vendors?.gst_number || 'GSTIN —'}</div>
                                     </div>
 
                                     <div className="p-3 bg-white border border-border rounded-xl shadow-sm">
-                                        <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Quote Reference</div>
-                                        <div className="text-xs font-bold text-foreground">{vendors?.quotation_no || 'QT/2026/1001'}</div>
+                                        <div className="text-xs font-semibold text-muted-foreground mb-1.5">Quote Reference</div>
+                                        <div className="text-sm font-semibold text-foreground">{vendors?.quotation_no || 'QT/2026/1001'}</div>
                                     </div>
                                 </div>
                             </div>
@@ -898,7 +846,7 @@ export default function UploadQuotationPage() {
                                     <Button
                                         variant="ghost"
                                         onClick={() => setShowConfirmModal(false)}
-                                        className="h-10 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl"
+                                        className="h-10 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl"
                                     >
                                         Go Back
                                     </Button>
@@ -907,69 +855,69 @@ export default function UploadQuotationPage() {
                         </div>
 
                         {/* RIGHT: High-Level Summary & Side Effects */}
-                        <div className="flex-1 flex flex-col bg-slate-50/30 p-8">
-                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-6">Review Summary</div>
+                        <div className="flex-1 flex flex-col bg-muted/20 p-8">
+                            <div className="text-sm font-semibold text-muted-foreground mb-6">Review Summary</div>
 
                             <div className="grid grid-cols-3 gap-4 mb-8">
                                 <div className="bg-white border rounded-xl p-4 shadow-sm">
-                                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Items</div>
+                                    <div className="text-xs font-semibold text-muted-foreground mb-2">Items</div>
                                     <div className="text-lg font-bold text-foreground leading-none">{lineItems.length} lines</div>
-                                    <div className="text-[10px] text-muted-foreground mt-1">
+                                    <div className="text-xs text-muted-foreground mt-1">
                                         {lineItems.filter((i: any) => !i.is_new).length} Matched · {lineItems.filter((i: any) => i.is_new).length} New
                                     </div>
                                 </div>
                                 <div className="bg-white border rounded-xl p-4 shadow-sm">
-                                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Subtotal</div>
+                                    <div className="text-xs font-semibold text-muted-foreground mb-2">Subtotal</div>
                                     <div className="text-lg font-bold text-foreground leading-none">₹{subtotal?.toLocaleString('en-IN')}</div>
-                                    <div className="text-[10px] text-muted-foreground mt-1">Net value</div>
+                                    <div className="text-xs text-muted-foreground mt-1">Net value</div>
                                 </div>
-                                <div className="bg-white border rounded-xl p-4 shadow-sm border-indigo-100 ring-2 ring-indigo-50/50">
-                                    <div className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mb-2">Grand Total</div>
-                                    <div className="text-xl font-bold text-indigo-700 leading-none">₹{grandTotal?.toLocaleString('en-IN')}</div>
-                                    <div className="text-[10px] text-indigo-600/60 mt-1 italic">Inclusive of taxes</div>
+                                <div className="bg-white border rounded-xl p-4 shadow-sm border-primary/20 ring-2 ring-primary/5">
+                                    <div className="text-xs font-semibold text-primary mb-2">Grand Total</div>
+                                    <div className="text-xl font-bold text-primary leading-none">₹{grandTotal?.toLocaleString('en-IN')}</div>
+                                    <div className="text-xs text-primary/70 mt-1 italic">Inclusive of taxes</div>
                                 </div>
                             </div>
 
-                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Pending Side-effects <span className="ml-2 font-normal text-slate-400 capitalize whitespace-nowrap">Will be applied on save</span></div>
+                            <div className="text-sm font-semibold text-muted-foreground mb-4">Pending Side-effects <span className="ml-2 font-normal text-xs text-muted-foreground whitespace-nowrap">Will be applied on save</span></div>
 
                             <div className="space-y-3">
-                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-indigo-200 transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/20 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                                         <Building2 className="w-5 h-5" />
                                     </div>
                                     <div className="flex-1">
-                                        <div className="text-xs font-bold text-foreground">Link {lineItems.filter((i: any) => !i.is_new).length} existing SKUs to vendor</div>
-                                        <div className="text-[10px] text-muted-foreground mt-0.5">Association will be recorded in the Vendor Master</div>
+                                        <div className="text-sm font-semibold text-foreground">Link {lineItems.filter((i: any) => !i.is_new).length} existing SKUs to vendor</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">Association will be recorded in the Vendor Master</div>
                                     </div>
-                                    <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-bold">UPDATE</Badge>
+                                    <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] font-semibold">UPDATE</Badge>
                                 </div>
 
-                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-indigo-200 transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/20 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                                         <Package className="w-5 h-5" />
                                     </div>
                                     <div className="flex-1">
-                                        <div className="text-xs font-bold text-foreground">Update price book</div>
-                                        <div className="text-[10px] text-muted-foreground mt-0.5">{lineItems.length} vendor prices vs. last 90d</div>
+                                        <div className="text-sm font-semibold text-foreground">Update price book</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">{lineItems.length} vendor prices vs. last 90d</div>
                                     </div>
-                                    <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-bold">UPDATE</Badge>
+                                    <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] font-semibold">UPDATE</Badge>
                                 </div>
 
                                 {lineItems.some((i: any) => i.is_new) && (
-                                    <div className="bg-white border border-indigo-100 rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-indigo-200 transition-colors">
-                                        <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white shrink-0">
+                                    <div className="bg-white border border-primary/20 rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/40 transition-colors">
+                                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
                                             <Plus className="w-5 h-5" />
                                         </div>
                                         <div className="flex-1">
-                                            <div className="text-xs font-bold text-indigo-700">Queue {lineItems.filter((i: any) => i.is_new).length} new SKUs for creation</div>
-                                            <div className="text-[10px] text-indigo-600/60 mt-0.5">Category owners will be notified for approval</div>
+                                            <div className="text-sm font-semibold text-primary">Queue {lineItems.filter((i: any) => i.is_new).length} new SKUs for creation</div>
+                                            <div className="text-xs text-primary/70 mt-0.5">Category owners will be notified for approval</div>
                                         </div>
-                                        <Badge className="bg-indigo-50 text-indigo-700 border-none text-[8px] font-bold underline italic">NEW</Badge>
+                                        <Badge className="bg-primary/10 text-primary border-none text-[10px] font-semibold">NEW</Badge>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="mt-auto pt-8 flex items-center justify-between text-[9px] font-medium text-slate-400 uppercase tracking-widest opacity-50">
+                            <div className="mt-auto pt-8 flex items-center justify-between text-xs font-medium text-muted-foreground/70">
                                 <span>Secured by ProcureAI Backend</span>
                                 <span>Session ID: {quotation?.id || 'AUTH-001'}</span>
                             </div>
@@ -1026,7 +974,7 @@ export default function UploadQuotationPage() {
                         {!vendorsFetching && vendorSearchResults.map((v: any) => (
                             <button key={v.id} className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-muted/40 transition-colors group"
                                 onClick={() => { setVendors((prev: any) => ({ ...v, gst_percentage: prev?.gst_percentage ?? v.gst_percentage })); setShowChangeVendorModal(false); setVendorSearch('') }}>
-                                <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-xs font-semibold text-indigo-700 flex-shrink-0">
+                                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary flex-shrink-0">
                                     {getVendorInitials(v.company_name)}
                                 </div>
                                 <div className="flex-1 min-w-0">

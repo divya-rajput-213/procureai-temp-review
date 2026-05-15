@@ -1074,143 +1074,170 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
       {/* ════════════ LEFT / MAIN COLUMN ════════════ */}
       <div className="flex-1 min-w-0 space-y-0">
 
-        {/* ── 4 KPI cards ── */}
-        <div className="grid grid-cols-4 gap-0 border rounded-lg overflow-hidden mb-4">
-          {/* Each card shares a border so they look joined — use divide */}
-          <div className="px-4 py-3 border-r">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Star className="w-3.5 h-3.5 text-indigo-500" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Vendor Score</span>
-            </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <span className="text-3xl font-bold">{perfScore > 0 ? perfScore : '—'}</span>
-                {perfScore > 0 && <span className="text-sm text-muted-foreground ml-1">/100</span>}
-                {perfScore > 0 && (
-                  <p className="text-xs text-green-600 flex items-center gap-0.5 mt-0.5">
-                    <TrendingUp className="w-3 h-3" /> +3.0%
+        {/* ── 4 KPI cards — improved spacing and typography ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          {/* Vendor Score Card */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Star className="w-4 h-4 text-indigo-500 shrink-0" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">Vendor Score</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold leading-none">{perfScore > 0 ? perfScore : '—'}</span>
+                    {perfScore > 0 && <span className="text-xs text-muted-foreground">/100</span>}
+                  </div>
+                  {perfScore > 0 && (
+                    <p className="text-xs text-green-600 flex items-center gap-0.5 mt-1.5 font-medium">
+                      <TrendingUp className="w-3 h-3 shrink-0" /> +3.0%
+                    </p>
+                  )}
+                </div>
+                {perfSpark.length > 0 && (
+                  <div className="w-16 h-12 shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={perfSpark.map((v, i) => ({ i, v }))}>
+                        <Line type="monotone" dataKey="v" stroke="#6366f1" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* On-Time Delivery Card */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">On-Time Delivery</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold leading-none">
+                      {stats.on_time_delivery_rate ? `${Math.round(stats.on_time_delivery_rate)}%` : '—'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-600 flex items-center gap-0.5 mt-1.5 font-medium">
+                    <TrendingUp className="w-3 h-3 shrink-0" /> +1.6%
                   </p>
+                </div>
+                {onTimeSpark.length > 0 && (
+                  <div className="w-16 h-12 shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={onTimeSpark.map((v, i) => ({ i, v }))}>
+                        <Line type="monotone" dataKey="v" stroke="#22c55e" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
               </div>
-              <div className="w-[80px] h-[36px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={perfSpark.map((v, i) => ({ i, v }))}>
-                    <Line type="monotone" dataKey="v" stroke="#6366f1" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="px-4 py-3 border-r">
-            <div className="flex items-center gap-1.5 mb-1">
-              <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">On-Time Delivery</span>
-            </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <span className="text-3xl font-bold">
-                  {stats.on_time_delivery_rate ? `${Math.round(stats.on_time_delivery_rate)}%` : '—'}
-                </span>
-                <p className="text-xs text-green-600 flex items-center gap-0.5 mt-0.5">
-                  <TrendingUp className="w-3 h-3" /> +1.6%
-                </p>
-              </div>
-              <div className="w-[80px] h-[36px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={onTimeSpark.map((v, i) => ({ i, v }))}>
-                    <Line type="monotone" dataKey="v" stroke="#22c55e" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          <div className="px-4 py-3 border-r">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Clock className="w-3.5 h-3.5 text-cyan-500" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Avg Lead Time</span>
-            </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <span className="text-3xl font-bold">
-                  {stats.avg_delivery_days > 0 ? stats.avg_delivery_days : vendor.standard_lead_time_days ?? '—'}
-                </span>
-                {(stats.avg_delivery_days > 0 || vendor.standard_lead_time_days) && (
-                  <span className="text-sm text-muted-foreground ml-1">days</span>
+          {/* Avg Lead Time Card */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Clock className="w-4 h-4 text-cyan-500 shrink-0" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">Avg Lead Time</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold leading-none">
+                      {stats.avg_delivery_days > 0 ? stats.avg_delivery_days : vendor.standard_lead_time_days ?? '—'}
+                    </span>
+                    {(stats.avg_delivery_days > 0 || vendor.standard_lead_time_days) && (
+                      <span className="text-xs text-muted-foreground">days</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-red-500 flex items-center gap-0.5 mt-1.5 font-medium">
+                    <TrendingDown className="w-3 h-3 shrink-0" /> -2.4%
+                  </p>
+                </div>
+                {leadSpark.length > 0 && (
+                  <div className="w-16 h-12 shrink-0 flex items-end gap-0.5">
+                    {leadSpark.slice(-6).map((v, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 bg-amber-400 rounded-sm"
+                        style={{ height: `${(v / Math.max(...leadSpark)) * 100}%` }}
+                      />
+                    ))}
+                  </div>
                 )}
-                <p className="text-xs text-red-500 flex items-center gap-0.5 mt-0.5">
-                  <TrendingDown className="w-3 h-3" /> -2.4%
-                </p>
               </div>
-              {/* Bar chart for lead time like reference */}
-              <div className="w-[80px] h-[36px] flex items-end gap-[2px]">
-                {leadSpark.slice(-8).map((v, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 bg-amber-400 rounded-sm"
-                    style={{ height: `${(v / Math.max(...leadSpark)) * 100}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="px-4 py-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Risk Score</span>
-            </div>
-            <div className="flex items-end justify-between">
+          {/* Risk Score Card */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">Risk Score</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold leading-none">{riskScore > 0 ? riskScore : '—'}</span>
+                    {riskScore > 0 && <span className="text-xs text-muted-foreground">/100</span>}
+                  </div>
+                  <p className="text-xs text-green-600 flex items-center gap-0.5 mt-1.5 font-medium">
+                    <TrendingDown className="w-3 h-3 shrink-0" /> -3.0%
+                  </p>
+                </div>
+                {riskSpark.length > 0 && (
+                  <div className="w-16 h-12 shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={riskSpark.map((v, i) => ({ i, v }))}>
+                        <Line type="monotone" dataKey="v" stroke="#f59e0b" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Snapshot Card ── */}
+        <Card className="shadow-sm mb-4">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
               <div>
-                <span className="text-3xl font-bold">{riskScore > 0 ? riskScore : '—'}</span>
-                {riskScore > 0 && <span className="text-sm text-muted-foreground ml-1">/100 · {riskScore < 30 ? 'low' : riskScore < 60 ? 'med' : 'high'}</span>}
-                <p className="text-xs text-green-600 flex items-center gap-0.5 mt-0.5">
-                  <TrendingDown className="w-3 h-3" /> -3.0%
-                </p>
+                <CardTitle className="text-base font-semibold">Snapshot</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Vendor profile · auto-refreshed</p>
               </div>
-              <div className="w-[80px] h-[36px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={riskSpark.map((v, i) => ({ i, v }))}>
-                    <Line type="monotone" dataKey="v" stroke="#f59e0b" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </button>
             </div>
-          </div>
-        </div>
-
-        {/* ── Snapshot — NO card border, just a section ── */}
-        <div className="bg-white border rounded-lg px-5 py-4 mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">Snapshot</span>
-              <span className="text-xs text-muted-foreground">Vendor profile · auto-refreshed</span>
+          </CardHeader>
+          <CardContent>
+            {/* Grid layout for snapshot data */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {[
+                { label: 'CATEGORY', value: vendor.category_name || '—' },
+                { label: 'ESTABLISHED', value: vendor.established || '—' },
+                { label: 'EMPLOYEES', value: vendor.employees || '—' },
+                { label: 'LOCATION', value: [vendor.city, vendor.state].filter(Boolean).join(', ') || '—' },
+                { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
+                { label: 'FSRAI', value: '—' },
+              ].map(item => (
+                <div key={item.label} className="space-y-1">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{item.label}</p>
+                  <p className="text-sm font-medium text-slate-900">{item.value}</p>
+                </div>
+              ))}
             </div>
-            <button className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground">
-              <Pencil className="w-3 h-3" /> Edit
-            </button>
-          </div>
-          {/* 3-col grid matching reference layout */}
-          <div className="grid grid-cols-3 gap-x-8 gap-y-4">
-            {[
-              { label: 'CATEGORY', value: vendor.category_name || '—' },
-              { label: 'ESTABLISHED', value: vendor.established || '—' },
-              { label: 'EMPLOYEES', value: vendor.employees || '—' },
-              { label: 'LOCATION', value: [vendor.city, vendor.state].filter(Boolean).join(', ') || '—' },
-              { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
-              { label: 'GSTIN', value: vendor.gst_number || '—' },
-              { label: 'PAN', value: vendor.pan_number || '—' },
-              { label: 'FSSAI', value: vendor.fssai || '—' },
-              { label: 'PRIMARY CONTACT', value: vendor.contact_name ? `${vendor.contact_name} · ${vendor.contact_email || ''}` : '—' },
-            ].map(({ label, value }) => (
-              <div key={label}>
-                <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest mb-0.5">{label}</p>
-                <p className="text-sm font-medium truncate">{value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* ── TWO CHARTS SIDE BY SIDE (matching reference exactly) ── */}
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -1923,40 +1950,88 @@ export default function VendorDetailPage() {
               saving={editMutation.isPending}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader><CardTitle className="text-sm">Contact & Bank Details</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4 border-b">
+                  <CardTitle className="text-sm font-semibold">Contact & Location</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-3">
                   {[
-                    ['Contact', vendor.contact_name],
-                    ['Email', vendor.contact_email],
-                    ['Phone', vendor.contact_phone],
-                    ['Address', [vendor.city, vendor.state, vendor.pincode].filter(Boolean).join(', ') || '—'],
-                    ['Bank', vendor.bank_name],
-                    ['Account', vendor.bank_account],
-                    ['IFSC', vendor.bank_ifsc],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex justify-between">
-                      <span className="text-muted-foreground">{label}</span>
-                      <span className="font-medium">{value || '—'}</span>
+                    { label: 'Contact Person', value: vendor.contact_name, icon: '👤' },
+                    { label: 'Email', value: vendor.contact_email, icon: '📧' },
+                    { label: 'Phone', value: vendor.contact_phone, icon: '📞' },
+                    { label: 'Address', value: [vendor.address, vendor.city, vendor.state, vendor.pincode].filter(Boolean).join(', ') || '—', icon: '📍' },
+                  ].map(({ label, value, icon }) => (
+                    <div key={label} className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+                      </div>
+                      <p className="text-sm font-medium text-right text-slate-900">{value || '—'}</p>
                     </div>
                   ))}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader><CardTitle className="text-sm">Business Information</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4 border-b">
+                  <CardTitle className="text-sm font-semibold">Banking & Compliance</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-3">
                   {[
-                    ['GST Number', vendor.gst_number],
-                    ['PAN Number', vendor.pan_number],
-                    ['Category', vendor.category_name || '—'],
-                    ['Plant', vendor.plant_name || '—'],
-                    ['Country', vendor.country],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex justify-between">
-                      <span className="text-muted-foreground">{label}</span>
-                      <span className="font-medium">{value || '—'}</span>
+                    { label: 'Bank Name', value: vendor.bank_name },
+                    { label: 'Account Number', value: vendor.bank_account },
+                    { label: 'IFSC Code', value: vendor.bank_ifsc },
+                    { label: 'GST Number', value: vendor.gst_number },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+                      </div>
+                      <p className="text-sm font-medium text-right text-slate-900 font-mono">{value || '—'}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4 border-b">
+                  <CardTitle className="text-sm font-semibold">Business Information</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-3">
+                  {[
+                    { label: 'PAN Number', value: vendor.pan_number },
+                    { label: 'Category', value: vendor.category_name || '—' },
+                    { label: 'Plant', value: vendor.plant_name || '—' },
+                    { label: 'Country', value: vendor.country },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+                      </div>
+                      <p className="text-sm font-medium text-right text-slate-900">{value || '—'}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4 border-b">
+                  <CardTitle className="text-sm font-semibold">Organization Profile</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-3">
+                  {[
+                    { label: 'Established', value: vendor.established },
+                    { label: 'Employees', value: vendor.employees },
+                    { label: 'Status', value: vendor.status && <StatusBadge status={vendor.status} /> },
+                    { label: 'Vendor Code', value: vendor.vendor_code, isMono: true },
+                  ].map(({ label, value, isMono }) => (
+                    <div key={label} className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+                      </div>
+                      <div className="text-sm font-medium text-right text-slate-900">
+                        {typeof value === 'string' ? <span className={isMono ? 'font-mono' : ''}>{value || '—'}</span> : value}
+                      </div>
                     </div>
                   ))}
                 </CardContent>
@@ -1989,14 +2064,18 @@ export default function VendorDetailPage() {
 
       {/* Documents Tab */}
       {activeTabKey === 'documents' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Compliance & Documents</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              {isEditing ? 'You can upload, replace, or remove documents.' : 'View regulatory documents and compliance information. Click "Edit Details" to make changes.'}
-            </p>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">Compliance & Documents</CardTitle>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {isEditing ? 'Upload, replace, or remove regulatory documents.' : 'View regulatory documents and compliance information.'}
+                </p>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="pt-5 space-y-5">
 
             {(() => {
               const docOf = (type: string) => vendor.documents?.find((d: any) => d.doc_type === type) ?? null
@@ -2004,7 +2083,7 @@ export default function VendorDetailPage() {
                 await queryClient.invalidateQueries({ queryKey: ['vendor', id] })
               }
               const blockCls = (hasErr: boolean) =>
-                `grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${hasErr ? 'border-destructive/50' : ''}`
+                `border rounded-lg p-5 items-start space-y-4 ${hasErr ? 'border-destructive/50 bg-destructive/5' : 'border-slate-200 bg-slate-50/30'}`
 
               const VerifiedFile = ({ doc: d, onRemove }: { doc: any; onRemove: () => void }) => (
                 <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
@@ -2038,108 +2117,120 @@ export default function VendorDetailPage() {
 
                 {/* GST */}
                 <div className={blockCls(!!(complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate']))}>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">GST Certificate <span className="text-destructive">*</span></Label>
-                    {isVerified(gstDoc) ? (
-                      <VerifiedFile doc={gstDoc} onRemove={() => removeDoc(gstDoc)} />
-                    ) : (
-                      <>
-                        <DocUploadInline vendorId={id} docType="gst_certificate"
-                          doc={gstDoc} editable={canEdit && isEditing}
-                          onRefresh={refreshVendor} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))
-                          } />
-                        {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
-                      </>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">
-                      GST Number <span className="text-destructive">*</span>
-                      {isVerified(gstDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                    </Label>
-                    <ComplianceFieldInput
-                      value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
-                      placeholder="e.g. 27AAAAA0000A1Z5"
-                      canEdit={canEdit && isEditing}
-                      onChange={v => setDocField('gst_number', v)}
-                      onSave={v => setDocField('gst_number', v)}
-                    />
-                    {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> GST Certificate <span className="text-destructive">*</span>
+                      </Label>
+                      {isVerified(gstDoc) ? (
+                        <VerifiedFile doc={gstDoc} onRemove={() => removeDoc(gstDoc)} />
+                      ) : (
+                        <>
+                          <DocUploadInline vendorId={id} docType="gst_certificate"
+                            doc={gstDoc} editable={canEdit && isEditing}
+                            onRefresh={refreshVendor} setFieldError={(msg) =>
+                              setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))
+                            } />
+                          {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
+                        </>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-700">
+                        GST Number <span className="text-destructive">*</span>
+                        {isVerified(gstDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                      </Label>
+                      <ComplianceFieldInput
+                        value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
+                        placeholder="e.g. 27AAAAA0000A1Z5"
+                        canEdit={canEdit && isEditing}
+                        onChange={v => setDocField('gst_number', v)}
+                        onSave={v => setDocField('gst_number', v)}
+                      />
+                      {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
+                    </div>
                   </div>
                 </div>
 
                 {/* PAN */}
                 <div className={blockCls(!!(complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card']))}>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">PAN Card <span className="text-destructive">*</span></Label>
-                    {isVerified(panDoc) ? (
-                      <VerifiedFile doc={panDoc} onRemove={() => removeDoc(panDoc)} />
-                    ) : (
-                      <>
-                        <DocUploadInline vendorId={id} docType="pan_card"
-                          doc={panDoc} editable={canEdit && isEditing}
-                          onRefresh={refreshVendor} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))
-                          } />
-                        {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
-                      </>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">
-                      PAN Number <span className="text-destructive">*</span>
-                      {isVerified(panDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                    </Label>
-                    <ComplianceFieldInput
-                      value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
-                      placeholder="e.g. AAAAA9999A"
-                      canEdit={canEdit && isEditing}
-                      onChange={v => setDocField('pan_number', v)}
-                      onSave={v => setDocField('pan_number', v)}
-                    />
-                    {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> PAN Card <span className="text-destructive">*</span>
+                      </Label>
+                      {isVerified(panDoc) ? (
+                        <VerifiedFile doc={panDoc} onRemove={() => removeDoc(panDoc)} />
+                      ) : (
+                        <>
+                          <DocUploadInline vendorId={id} docType="pan_card"
+                            doc={panDoc} editable={canEdit && isEditing}
+                            onRefresh={refreshVendor} setFieldError={(msg) =>
+                              setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))
+                            } />
+                          {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
+                        </>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-700">
+                        PAN Number <span className="text-destructive">*</span>
+                        {isVerified(panDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                      </Label>
+                      <ComplianceFieldInput
+                        value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
+                        placeholder="e.g. AAAAA9999A"
+                        canEdit={canEdit && isEditing}
+                        onChange={v => setDocField('pan_number', v)}
+                        onSave={v => setDocField('pan_number', v)}
+                      />
+                      {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
+                    </div>
                   </div>
                 </div>
 
                 {/* Bank Details */}
                 <div className={blockCls(!!(complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details']))}>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
-                    {isVerified(bankDoc) ? (
-                      <VerifiedFile doc={bankDoc} onRemove={() => removeDoc(bankDoc)} />
-                    ) : (
-                      <>
-                        <DocUploadInline vendorId={id} docType="bank_details"
-                          doc={bankDoc} editable={canEdit && isEditing}
-                          onRefresh={refreshVendor} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
-                          } />
-                        {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
-                      </>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    {[
-                      { key: 'bank_account', label: 'Account No', placeholder: 'e.g. 12345678901234' },
-                      { key: 'bank_ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234' },
-                      { key: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
-                    ].map(({ key, label, placeholder }) => (
-                      <div key={key} className="space-y-1">
-                        <Label className="text-xs font-semibold text-slate-700">
-                          {label} <span className="text-destructive">*</span>
-                          {isVerified(bankDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                        </Label>
-                        <ComplianceFieldInput
-                          value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
-                          placeholder={placeholder}
-                          canEdit={canEdit && isEditing}
-                          onChange={v => setDocField(key, v)}
-                          onSave={v => setDocField(key, v)}
-                        />
-                      </div>
-                    ))}
-                    {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive">{complianceErrors['field_bank_account']}</p>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> Bank Details / Cheque <span className="text-destructive">*</span>
+                      </Label>
+                      {isVerified(bankDoc) ? (
+                        <VerifiedFile doc={bankDoc} onRemove={() => removeDoc(bankDoc)} />
+                      ) : (
+                        <>
+                          <DocUploadInline vendorId={id} docType="bank_details"
+                            doc={bankDoc} editable={canEdit && isEditing}
+                            onRefresh={refreshVendor} setFieldError={(msg) =>
+                              setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
+                            } />
+                          {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
+                        </>
+                      )}
+                    </div>
+                    <div className="space-y-2.5">
+                      {[
+                        { key: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
+                        { key: 'bank_account', label: 'Account No', placeholder: 'e.g. 12345678901234' },
+                        { key: 'bank_ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234' },
+                      ].map(({ key, label, placeholder }) => (
+                        <div key={key} className="space-y-1">
+                          <Label className="text-xs font-semibold text-slate-700">
+                            {label} <span className="text-destructive">*</span>
+                            {isVerified(bankDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
+                          </Label>
+                          <ComplianceFieldInput
+                            value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
+                            placeholder={placeholder}
+                            canEdit={canEdit && isEditing}
+                            onChange={v => setDocField(key, v)}
+                            onSave={v => setDocField(key, v)}
+                          />
+                        </div>
+                      ))}
+                      {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive">{complianceErrors['field_bank_account']}</p>}
+                    </div>
                   </div>
                 </div>
 

@@ -40,20 +40,20 @@ const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | nu
     useEffect(() => {
         const interval = setInterval(() => {
             setProgress((prev) => {
-                if (prev >= 100) {
+                const maxBeforeCompletion = quotation ? 100 : 95
+                if (prev >= maxBeforeCompletion) {
                     clearInterval(interval)
-                    return 100
+                    return maxBeforeCompletion
                 }
-
-                return prev + 4
+                return Math.min(prev + 4, maxBeforeCompletion)
             })
         }, 1200)
 
         return () => clearInterval(interval)
-    }, [])
+    }, [quotation])
 
     return (
-        <div className="h-[calc(100vh-140px)] flex flex-col overflow-hidden">
+        <div className="h-[calc(100vh-190px)] flex flex-col overflow-hidden">
             {/* Main Layout */}
             <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 items-stretch flex-1 min-h-0 overflow-hidden">
 
@@ -78,44 +78,46 @@ const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | nu
                         <div className="border rounded-lg overflow-hidden bg-white h-full flex flex-col shadow-inner relative">
                             {previewUrl ? (
                                 <div className="relative w-full h-full bg-white flex items-center justify-center overflow-hidden">
-                                    {selectedFile?.type === 'application/pdf' || previewUrl.toLowerCase().endsWith('.pdf') ? (
-                                        <iframe
-                                            src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                                            className="w-full h-full border-0"
-                                            title="Quotation Preview"
-                                        />
-                                    ) : (
-                                        <img
-                                            src={previewUrl}
-                                            alt="Quotation Preview"
-                                            className="max-w-full max-h-full object-contain"
-                                        />
-                                    )}
+                                    <div className="relative w-[92%] h-[92%] max-w-[1080px] rounded-md border border-border bg-white shadow-sm overflow-hidden">
+                                        {selectedFile?.type === 'application/pdf' || previewUrl.toLowerCase().endsWith('.pdf') ? (
+                                            <iframe
+                                                src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&zoom=85`}
+                                                className="w-full h-full border-0"
+                                                title="Quotation Preview"
+                                            />
+                                        ) : (
+                                            <img
+                                                src={previewUrl}
+                                                alt="Quotation Preview"
+                                                className="w-full h-full object-contain"
+                                            />
+                                        )}
 
-                                    {/* Highlights container */}
-                                    <div className="absolute inset-0 pointer-events-none">
-                                        {highlights.map((h: any, idx: number) => (
-                                            <div
-                                                key={idx}
-                                                className="absolute group pointer-events-auto"
-                                                style={{
-                                                    top: `${h.top}%`,
-                                                    left: `${h.left}%`,
-                                                    width: `${h.width}%`,
-                                                    height: `${h.height}%`,
-                                                }}
-                                            >
-                                                <div className="w-full h-full bg-yellow-400/20 border-2 border-yellow-400/50 rounded-sm hover:bg-yellow-400/40 transition-all duration-300 shadow-[0_0_10px_rgba(250,204,21,0.2)]" />
+                                        {/* Highlights container */}
+                                        <div className="absolute inset-0 pointer-events-none">
+                                            {highlights.map((h: any, idx: number) => (
+                                                <div
+                                                    key={idx}
+                                                    className="absolute group pointer-events-auto"
+                                                    style={{
+                                                        top: `${h.top}%`,
+                                                        left: `${h.left}%`,
+                                                        width: `${h.width}%`,
+                                                        height: `${h.height}%`,
+                                                    }}
+                                                >
+                                                    <div className="w-full h-full bg-primary/15 border-2 border-primary/60 rounded-sm hover:bg-primary/25 transition-all duration-300 shadow-sm" />
 
-                                                {/* Pulsing indicator loop */}
-                                                <div className="absolute inset-0 border-2 border-yellow-400 rounded-sm animate-ping opacity-20 pointer-events-none" />
+                                                    {/* Pulsing indicator loop */}
+                                                    <div className="absolute inset-0 border-2 border-primary rounded-sm animate-ping opacity-20 pointer-events-none" />
 
-                                                <div className="absolute -top-6 left-0 flex items-center gap-1.5 bg-yellow-400 text-yellow-950 text-[10px] font-bold px-2 py-0.5 rounded shadow-sm whitespace-nowrap z-10 transition-transform group-hover:scale-105 origin-left">
-                                                    <Sparkles className="w-3 h-3" />
-                                                    {h.label}
+                                                    <div className="absolute -top-6 left-0 flex items-center gap-1.5 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded shadow-sm whitespace-nowrap z-10 transition-transform group-hover:scale-105 origin-left">
+                                                        <Sparkles className="w-3 h-3" />
+                                                        {h.label}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
@@ -133,26 +135,26 @@ const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | nu
 
                     {/* AI Progress */}
                     <div className="bg-white border rounded-xl overflow-hidden shrink-0 shadow-sm">
-                        <div className="px-4 py-3 border-b bg-violet-50/30">
+                        <div className="px-4 py-3 border-b bg-primary/5">
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4 text-violet-600" />
+                                    <Sparkles className="w-4 h-4 text-primary" />
                                     <h2 className="text-sm font-semibold">
                                         {quotation ? 'AI Analysis Complete' : 'AI processing in progress'}
                                     </h2>
                                 </div>
-                                <span className="text-sm font-bold text-violet-600">
+                                <span className="text-sm font-bold text-primary">
                                     {quotation ? 100 : progress}%
                                 </span>
                             </div>
                             <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden shadow-inner">
                                 <div
-                                    className="h-full bg-violet-600 transition-all duration-500 shadow-[0_0_8px_rgba(124,58,237,0.3)]"
+                                    className="h-full bg-primary transition-all duration-500"
                                     style={{ width: `${quotation ? 100 : progress}%` }}
                                 />
                             </div>
                             <p className="text-[10px] text-muted-foreground mt-2 font-medium">
-                                {quotation ? 'Processing successful' : 'model: haiku-pro · est. 4s remaining'}
+                                {quotation ? 'Processing successful' : 'AI is extracting data and insights from the document. This may take a moment.'}
                             </p>
                         </div>
                     </div>
@@ -176,13 +178,13 @@ const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | nu
                                             {item.status === 'done' ? (
                                                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                                             ) : item.status === 'running' ? (
-                                                <div className="w-4 h-4 rounded-full border-2 border-slate-200 border-t-violet-500 animate-spin" />
+                                                <div className="w-4 h-4 rounded-full border-2 border-slate-200 border-t-primary animate-spin" />
                                             ) : (
                                                 <Circle className="w-4 h-4 text-slate-300" />
                                             )}
                                             <span className="text-sm font-medium text-slate-700">{item.label}</span>
                                         </div>
-                                        <span className={`text-[10px] font-bold uppercase tracking-tight ${item.status === 'done' ? 'text-emerald-600' : item.status === 'running' ? 'text-violet-600 animate-pulse' : 'text-slate-400'}`}>
+                                        <span className={`text-[10px] font-bold uppercase tracking-tight ${item.status === 'done' ? 'text-emerald-600' : item.status === 'running' ? 'text-primary animate-pulse' : 'text-slate-400'}`}>
                                             {item.status === 'done' ? 'Completed' : item.status === 'running' ? 'Running...' : 'Pending'}
                                         </span>
                                     </div>
@@ -200,7 +202,7 @@ const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | nu
                                     {findings.length > 0 ? (
                                         findings.map((item: any, idx: number) => (
                                             <li key={idx} className="flex gap-2.5 text-sm text-slate-600">
-                                                <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-violet-400" />
+                                                <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary/70" />
                                                 <span className="leading-tight">{item}</span>
                                             </li>
                                         ))
@@ -215,12 +217,12 @@ const AIExtractionStep = ({ selectedFile, quotation }: { selectedFile: File | nu
                         </div>
 
                         {/* Summary Note */}
-                        <div className="bg-violet-600 rounded-xl p-4 text-white shadow-md shadow-violet-200">
+                        <div className="bg-primary rounded-xl p-4 text-primary-foreground shadow-md shadow-primary/20">
                             <div className="flex items-center gap-2 mb-2">
                                 <Sparkles className="w-4 h-4" />
                                 <span className="text-sm font-bold">Deep Extraction Mode</span>
                             </div>
-                            <p className="text-xs text-violet-100 leading-relaxed">
+                            <p className="text-xs text-primary-foreground/80 leading-relaxed">
                                 We are performing multi-layer validation of vendor details, matching line items against master SKUs and scanning for price anomalies.
                             </p>
                         </div>

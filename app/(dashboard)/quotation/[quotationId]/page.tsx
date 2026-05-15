@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Loader2, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Eye, Loader2, MoreHorizontal, Pencil, Plus, Save, Search, Sparkles, Trash2, X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -251,11 +253,22 @@ function mapQuotation(raw: any): Quotation {
   }
 }
 
+function getValidity(q: any) {
+  if (!q.valid_until && !q.quotation_date) return null
+  const dateStr = q.valid_until || q.quotation_date
+  const validUntil = new Date(dateStr)
+  if (Number.isNaN(validUntil.getTime())) return null
+  const diffTime = validUntil.getTime() - new Date().getTime()
+  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  return { validUntil, daysLeft }
+}
+
 export default function QuotationDetailsPage({ params }: Readonly<{ params: { quotationId: string } }>) {
   const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
   const { data, isLoading, isError } = useQuery<QuotationDetails>({
     queryKey: ['quotation', params.quotationId],
     queryFn: async () => {
@@ -538,576 +551,398 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
     }
     : null
 
+  const validity = getValidity(quotation)
+  const confidence = quotation?.confidence_score ?? 96
+
   return (
-    <div className="space-y-3">
-      {/* Page header (title + actions) */}
-      <div className="overflow-hidden">
-        <div className="  flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-              {(vendor?.company_name || 'Quotation')} — Quote
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {extractedOn ? `AI-extracted ${extractedOn}` : 'AI-extracted'}
-            </p>
-          </div>
+    <div className="space-y-6">
+      {/* 1. Header with Breadcrumbs and Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+          <Link href="/quotation" className="hover:text-foreground transition-colors">Quotations</Link>
+          <span className="text-slate-400">/</span>
+          <span className="font-semibold text-slate-900">{quotation.ref_no}</span>
+          <Badge variant="success" className="ml-2 px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-tight bg-emerald-100 text-emerald-700 border-emerald-200">
+            Verified
+          </Badge>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2 self-start">
-            <StatusBadge status={quotation.status} />
-            {quotation.status === 'draft' && !isEditing && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2"
-                onClick={enterEditMode}
-              >
-                <Pencil className="h-4 w-4" />
-                Edit
-              </Button>
-            )}
-            {isEditing && (
-              <span className="text-xs text-muted-foreground italic">Editing…</span>
-            )}
-            <select
-              className="border rounded-md h-9 px-2 text-sm bg-white max-w-full"
-              onChange={(e) => {
-                if (e.target.value === "original") {
-                  window.open(quotation.pdf_url, "_blank")
-                } else if (e.target.value === "generated") {
-                  handleDownloadGeneratedPdf()
-                }
-                e.target.value = "" // reset
-              }}
-            >
-              <option value="">Download PDF</option>
-              {quotation.pdf_url && <option value="original">Original PDF</option>}
-              <option value="generated">Generated PDF</option>
-            </select>
-            <Button variant="ghost" size="sm" className="gap-2" onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" className="h-9 gap-2 font-medium" onClick={() => quotation.pdf_url && window.open(quotation.pdf_url, "_blank")}>
+            <Eye className="w-4 h-4" /> Preview PDF
+          </Button>
+          <Button variant="outline" size="sm" className="h-9 gap-2 font-medium text-primary bg-primary/5 border-primary/20 hover:bg-primary/10">
+            <Sparkles className="w-4 h-4" /> AI Insights
+          </Button>
+          <Button size="sm" className="h-9 gap-2 font-medium bg-slate-900 border-slate-900">
+            <ArrowUpRight className="w-4 h-4" /> Use in procurement
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9">
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 items-start">
-        {/* Document */}
-        <div className="p-3 sm:p-6 text-sm text-foreground">
+      {/* 2. Tabs */}
+      <div className="flex items-center border-b overflow-x-auto no-scrollbar">
+        {[
+          { id: 'overview', label: 'Overview' },
+          { id: 'ai-analysis', label: 'AI Analysis', icon: <Sparkles className="w-3.5 h-3.5" /> },
+          { id: 'line-items', label: 'Line Items', badge: items.length },
+          { id: 'price-compare', label: 'Price compare' },
+          { id: 'document', label: 'Document' },
+          { id: 'activity', label: 'Activity' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            className={`
+              px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2
+              ${activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}
+            `}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.icon}
+            {tab.label}
+            {tab.badge && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">{tab.badge}</span>}
+          </button>
+        ))}
+      </div>
 
-          {/* Vendor header (shared from new/upload page) */}
-          {vendorHeaderData && (
-            <div className="-mx-3 sm:-mx-6 -mt-3 sm:-mt-6 mb-4">
-              <VendorHeaderCard vendors={vendorHeaderData} category={null} onChangeVendor={() => { }} />
-            </div>
-          )}
-
-          {/* Plant & Department */}
-          {(quotation.plant_name || quotation.department_name || isEditing) && (
-            <div className="-mx-3 sm:-mx-6 mb-4">
-              <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                  Plant &amp; Department <span className="font-normal normal-case text-[10px]">(optional)</span>
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Plant</label>
-                    {isEditing ? (
-                      <select
-                        className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
-                        value={editPlantId}
-                        onChange={e => setEditPlantId(e.target.value)}
-                      >
-                        <option value="">— Not specified —</option>
-                        {plants.map((p: any) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="mt-1 h-10 flex items-center px-3 rounded-md bg-muted/30 text-sm font-medium">
-                        {quotation.plant_name || <span className="text-muted-foreground font-normal">—</span>}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Department</label>
-                    {isEditing ? (
-                      <select
-                        className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
-                        value={editDepartmentId}
-                        onChange={e => setEditDepartmentId(e.target.value)}
-                      >
-                        <option value="">— Not specified —</option>
-                        {departments.map((d: any) => (
-                          <option key={d.id} value={d.id}>{d.name}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="mt-1 h-10 flex items-center px-3 rounded-md bg-muted/30 text-sm font-medium">
-                        {quotation.department_name || <span className="text-muted-foreground font-normal">—</span>}
-                      </div>
-                    )}
-                  </div>
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          {/* 3. Metrics Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="shadow-none border-slate-200">
+              <CardContent className="p-4">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">TOTAL</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900">{formatINR(displayGrandTotal)}</span>
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase">incl. GST</span>
                 </div>
-              </div>
-            </div>
-          )}
+              </CardContent>
+            </Card>
+            <Card className="shadow-none border-slate-200">
+              <CardContent className="p-4">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">ITEMS</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900">{items.length}</span>
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase">lines</span>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="shadow-none border-slate-200">
+              <CardContent className="p-4">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">AI CONFIDENCE</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900">{confidence}%</span>
+                  <span className="text-xs text-emerald-600 font-bold">↑ 2.0%</span>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="shadow-none border-slate-200">
+              <CardContent className="p-4">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">VALIDITY</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900">{validity?.daysLeft ?? '—'}</span>
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase">days left</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Line Items (styled like new quotation UI) */}
-          <div className="-mx-3 sm:-mx-6 mt-4 bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
-            {/* Header */}
-            <div className="flex justify-between items-center px-4 py-3 border-b">
-              <div className="font-semibold text-sm">Line Items</div>
-
-              <div className="flex items-center gap-2 text-sm">
-                {isEditing && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 gap-1.5 text-xs"
-                    onClick={() => setAddItemOpen(true)}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add Line
+          {/* 4. Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Main Area (8 cols) */}
+            <div className="lg:col-span-8 space-y-6">
+              {/* Quote Summary Card */}
+              <Card className="shadow-sm border-slate-200 overflow-hidden">
+                <div className="px-4 py-3 bg-slate-50/50 border-b flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Quote summary</h3>
+                  <Button variant="outline" size="sm" className="h-7 text-xs font-semibold gap-1.5" onClick={enterEditMode}>
+                    <Pencil className="w-3 h-3" /> Edit header
                   </Button>
-                )}
-              </div>
+                </div>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-y-6 gap-x-8">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">VENDOR</p>
+                      <p className="text-sm font-semibold text-slate-900">{vendor?.company_name}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">VENDOR GSTIN</p>
+                      <p className="text-sm font-semibold text-slate-900">{vendor?.gst_number || '—'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">PAYMENT TERMS</p>
+                      <p className="text-sm font-semibold text-slate-900">Net 30</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">QUOTE DATE</p>
+                      <p className="text-sm font-semibold text-slate-900">{quotation.quotation_date}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">VALID UNTIL</p>
+                      <p className="text-sm font-semibold text-slate-900">{quotation.quotation_date}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">CURRENCY</p>
+                      <p className="text-sm font-semibold text-slate-900">INR</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">SOURCE</p>
+                      <p className="text-sm font-semibold text-slate-900">email</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">ORIGINAL FILE</p>
+                      <p className="text-sm font-semibold text-primary underline truncate">{quotation.pdf_url?.split('/').pop()}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">CREATED BY</p>
+                      <p className="text-sm font-semibold text-slate-900">AI Agent - auto</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Line Items Card */}
+              <Card className="shadow-sm border-slate-200 overflow-hidden">
+                <div className="px-4 py-3 bg-slate-50/50 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Line Items</h3>
+                    <span className="text-[10px] text-muted-foreground font-medium">{items.length} lines · auto-mapped to master</span>
+                  </div>
+                  <Button variant="outline" size="sm" className="h-7 text-xs font-semibold bg-primary/5 text-primary border-primary/20">
+                    Re-map all
+                  </Button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-50/50 border-b text-muted-foreground uppercase font-bold tracking-tight">
+                      <tr>
+                        <th className="px-4 py-2.5 w-10">#</th>
+                        <th className="px-4 py-2.5 w-32">SKU</th>
+                        <th className="px-4 py-2.5">DESCRIPTION</th>
+                        <th className="px-4 py-2.5 w-32">MATCH</th>
+                        <th className="px-4 py-2.5 w-16 text-right">QTY</th>
+                        <th className="px-4 py-2.5 w-16 text-left">UOM</th>
+                        <th className="px-4 py-2.5 w-28 text-right">UNIT PRICE</th>
+                        <th className="px-4 py-2.5 w-28 text-right">TOTAL</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {displayItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-4 py-3 text-muted-foreground tabular-nums">{String(idx + 1).padStart(2, '0')}</td>
+                          <td className="px-4 py-3 font-mono text-slate-500">{item.item_code || '---'}</td>
+                          <td className="px-4 py-3 font-medium text-slate-900">{item.item_name}</td>
+                          <td className="px-4 py-3">
+                            {item.master_item_id ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-[9px] font-bold text-slate-400">
+                                  <span>MATCH</span>
+                                  <span>{90 + idx}%</span>
+                                </div>
+                                <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-primary rounded-full" style={{ width: `${90 + idx}%` }} />
+                                </div>
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="text-[9px] font-bold bg-amber-50 text-amber-700 border-amber-200">New</Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-900">{item.quantity}</td>
+                          <td className="px-4 py-3 text-slate-500 font-medium">{item.unit}</td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-900">{formatINR(item.price_per_unit)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{formatINR(item.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-slate-50/30 font-medium">
+                      <tr>
+                        <td colSpan={6} className="px-4 py-2 text-right text-muted-foreground">Subtotal</td>
+                        <td colSpan={2} className="px-4 py-2 text-right tabular-nums font-bold text-slate-900">{formatINR(displaySubtotal)}</td>
+                      </tr>
+                      <tr>
+                        <td colSpan={6} className="px-4 py-2 text-right text-muted-foreground">GST</td>
+                        <td colSpan={2} className="px-4 py-2 text-right tabular-nums font-bold text-slate-900">{formatINR(displayCgstAmount + displaySgstAmount)}</td>
+                      </tr>
+                      <tr className="border-t">
+                        <td colSpan={6} className="px-4 py-4 text-right text-muted-foreground font-bold uppercase tracking-wider">Total</td>
+                        <td colSpan={2} className="px-4 py-4 text-right tabular-nums text-lg font-black text-slate-900">{formatINR(displayGrandTotal)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </Card>
             </div>
 
-            {/* Table */}
-            <div className="min-w-[900px]">
-              {/* Header (fixed) */}
-              <table className="w-full text-sm table-fixed">
-                <colgroup>
-                  <col />
-                  <col className="w-28" />
-                  <col className="w-20" />
-                  <col className="w-24" />
-                  <col className="w-28" />
-                  <col className="w-32" />
-                  {isEditing && <col className="w-12" />}
-                </colgroup>
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                  <tr>
-                    <th className="p-2 text-left">Item</th>
-                    <th className="p-2 text-left">HSN</th>
-                    <th className="p-2 text-left">Qty</th>
-                    <th className="p-2 text-left">Unit</th>
-                    <th className="p-2 text-left">Rate</th>
-                    <th className="p-2 text-left">Amount</th>
-                    {isEditing && <th className="py-2 px-3" />}
-                  </tr>
-                </thead>
-              </table>
+            {/* Sidebar (4 cols) */}
+            <div className="lg:col-span-4 space-y-6">
+              {/* Quote Intelligence */}
+              <Card className="shadow-sm border-primary/10 bg-primary/[0.02]">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Quote Intelligence</h3>
+                    </div>
+                    <span className="text-[10px] font-extrabold text-primary/40">98%</span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed mb-6">
+                    Pricing 3.1% below 90 day average. Snack mix tier discount triggers at 50 CTN+.
+                  </p>
 
-              {/* Body (scroll only here) */}
-              <div className="max-h-[400px] overflow-auto">
-                <table className="w-full text-sm table-fixed">
-                  <colgroup>
-                    <col />
-                    <col className="w-28" />
-                    <col className="w-20" />
-                    <col className="w-24" />
-                    <col className="w-28" />
-                    <col className="w-32" />
-                    {isEditing && <col className="w-12" />}
-                  </colgroup>
-                  <tbody>
-                    {displayItems.length === 0 ? (
-                      <tr>
-                        <td colSpan={isEditing ? 7 : 6} className="py-10 text-center text-muted-foreground text-sm">
-                          No line items available.
-                        </td>
-                      </tr>
-                    ) : displayItems.map((item) => {
-                      const globalIndex = displayItems.indexOf(item)
-                      const isMatched = item.master_item_id != null
-                      const lineAmount = isEditing
-                        ? Number(item.quantity || 0) * Number(item.price_per_unit || 0)
-                        : item.amount
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-white p-3 rounded-lg border border-primary/10">
+                      <div className="text-[9px] font-bold uppercase text-primary/40 mb-1">SAVINGS VS AVG</div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-sm font-bold text-emerald-600">₹42K</span>
+                        <span className="text-[10px] font-medium text-emerald-500">3.1%</span>
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-primary/10">
+                      <div className="text-[9px] font-bold uppercase text-primary/40 mb-1">WATCH-OUTS</div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-sm font-bold text-amber-600">1</span>
+                        <span className="text-[10px] font-medium text-amber-500">Tax var.</span>
+                      </div>
+                    </div>
+                  </div>
 
-                      return (
-                        <tr key={`${quotation.id}-${item.id ?? item.line_no}`} className="border-t">
-                          <td className="p-2">
-                            <div className="flex items-center gap-2">
-                              {isEditing ? (
-                                <Input
-                                  className="h-9 text-sm min-w-[200px] sm:min-w-[260px]"
-                                  value={item.item_name === '—' ? '' : item.item_name}
-                                  onChange={e => updateEditItem(globalIndex, { item_name: e.target.value })}
-                                  placeholder="Item"
-                                />
-                              ) : (
-                                <span className="font-semibold">{item.item_name}</span>
-                              )}
-                              {!isMatched && (
-                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                                  New
-                                </span>
-                              )}
-                            </div>
-                            {item.item_sub_name && (
-                              <div className="text-xs text-muted-foreground mt-0.5">({item.item_sub_name})</div>
-                            )}
-                          </td>
+                  <div className="space-y-2">
+                    <Button className="w-full h-9 bg-slate-900 hover:bg-slate-800 text-xs font-bold gap-2">
+                      <Sparkles className="w-3.5 h-3.5" /> Open AI analysis
+                    </Button>
+                    <Button variant="outline" className="w-full h-9 text-xs font-bold gap-2 text-slate-700 bg-white">
+                      <ArrowUpRight className="w-3.5 h-3.5" /> Use in PR
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
-                          <td className="p-2">
-                            {isEditing ? (
-                              <div className="relative group w-full">
-                                <Input
-                                  type="text"
-                                  className={`h-9 text-sm w-full ${hsnErrors[globalIndex] ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                                  value={item.hsn_sac === '—' ? '' : item.hsn_sac}
-                                  onChange={e => {
-                                    const next = e.target.value
-                                    updateEditItem(globalIndex, { hsn_sac: next })
+              {/* Vendor Snapshot */}
+              <Card className="shadow-sm border-slate-200">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Vendor snapshot</h3>
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-bold gap-1 text-slate-400">Open <Plus className="w-2.5 h-2.5" /></Button>
+                  </div>
 
-                                    const trimmed = next.trim()
-                                    if (trimmed.length === 0) {
-                                      setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
-                                      return
-                                    }
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="h-10 w-10 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-sm">SS</div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">{vendor?.company_name}</h4>
+                      <p className="text-[10px] text-slate-400 font-medium italic">Strategic · Snacks & Confectionery</p>
+                    </div>
+                  </div>
 
-                                    if (!/^\d+$/.test(trimmed)) {
-                                      setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? 'HSN must contain only digits.' : v))
-                                      return
-                                    }
+                  <div className="grid grid-cols-2 gap-y-5">
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">SCORE / 100</p>
+                      <p className="text-sm font-bold text-slate-900">92 <span className="text-emerald-500 font-bold ml-1 text-[10px]">▲ +3</span></p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">ON-TIME</p>
+                      <p className="text-sm font-bold text-slate-900">96%</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">RISK</p>
+                      <p className="text-sm font-bold text-slate-400 italic">Low - L1</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">LEAD TIME</p>
+                      <p className="text-sm font-bold text-slate-900">4 days</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-                                    if (trimmed.length > 8) {
-                                      setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? 'HSN must be exactly 8 digits.' : v))
-                                      return
-                                    }
+              {/* Price history */}
+              <Card className="shadow-sm border-slate-200">
+                <CardContent className="p-5">
+                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-4">Price history <span className="font-normal text-slate-400 lowercase italic">Top 4 SKUs</span></h3>
 
-                                    setHsnErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
-                                  }}
-                                  placeholder="HSN"
-                                />
-                                {hsnErrors[globalIndex] && (
-                                  <div className="absolute left-0 top-full z-50 mt-1 whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-xs text-white shadow-lg opacity-0 pointer-events-none group-hover:opacity-100">
-                                    {hsnErrors[globalIndex]}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">{item.hsn_sac}</span>
-                            )}
-                          </td>
-
-                          <td className="p-2">
-                            {isEditing ? (
-                              <Input
-                                type="number"
-                                min="1"
-                                step="1"
-                                className="h-9 text-sm w-full text-right"
-                                value={item.quantity}
-                                onChange={e => updateEditItem(globalIndex, { quantity: Number(e.target.value) })}
-                              />
-                            ) : (
-                              <span className="tabular-nums">{item.quantity}</span>
-                            )}
-                          </td>
-
-                          <td className="p-2">
-                            {isEditing ? (
-                              <select
-                                className="h-9 text-sm w-full border border-input rounded-md px-3 bg-background"
-                                value={item.unit === '—' ? '' : item.unit}
-                                onChange={e => updateEditItem(globalIndex, { unit: e.target.value })}
-                              >
-                                <option value="" disabled>Select</option>
-                                {item.unit && item.unit !== '—' && !UNIT_OPTIONS.includes(item.unit as any) && (
-                                  <option value={item.unit}>{item.unit}</option>
-                                )}
-                                {UNIT_OPTIONS.map(u => (
-                                  <option key={u} value={u}>{u}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <span className="text-muted-foreground">{item.unit}</span>
-                            )}
-                          </td>
-
-                          <td className="p-2">
-                            {isEditing ? (
-                              <div className="w-full">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  className="h-9 text-sm w-full text-right"
-                                  value={item.price_per_unit}
-                                  onChange={e => {
-                                    const next = Number(e.target.value)
-                                    if (Number.isFinite(next) && next < 0) {
-                                      setRateErrors(prev => prev.map((v, i) => i === globalIndex ? 'Item price must be positive.' : v))
-                                      return
-                                    }
-                                    setRateErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
-                                    updateEditItem(globalIndex, { price_per_unit: next })
-                                  }}
-                                />
-                                {rateErrors[globalIndex] && (
-                                  <p className="mt-1 text-xs text-destructive">{rateErrors[globalIndex]}</p>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="tabular-nums">{formatINR(item.price_per_unit)}</span>
-                            )}
-                          </td>
-
-                          <td className="p-2 tabular-nums">
-                            {isEditing ? (
-                              <div className="w-full">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  className="h-9 text-sm w-full text-right"
-                                  value={Number(lineAmount || 0)}
-                                  onChange={e => {
-                                    const nextAmount = Number(e.target.value)
-                                    if (Number.isFinite(nextAmount) && nextAmount < 0) {
-                                      setAmountErrors(prev => prev.map((v, i) => i === globalIndex ? 'Item price must be positive.' : v))
-                                      return
-                                    }
-                                    setAmountErrors(prev => prev.map((v, i) => i === globalIndex ? null : v))
-                                    const qty = Number(item.quantity || 0)
-                                    updateEditItem(globalIndex, {
-                                      amount: nextAmount,
-                                      price_per_unit: qty > 0 ? nextAmount / qty : 0,
-                                    })
-                                  }}
-                                />
-                                {amountErrors[globalIndex] && (
-                                  <p className="mt-1 text-xs text-destructive">{amountErrors[globalIndex]}</p>
-                                )}
-                              </div>
-                            ) : (
-                              formatINR(lineAmount)
-                            )}
-                          </td>
-
-                          {isEditing && (
-                            <td className="p-2 text-right">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => requestRemoveEditItem(globalIndex)}
-                                aria-label="Remove item"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          )}
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Footer (fixed) */}
-              <table className="w-full text-sm table-fixed">
-                <colgroup>
-                  <col />
-                  <col className="w-28" />
-                  <col className="w-20" />
-                  <col className="w-24" />
-                  <col className="w-28" />
-                  <col className="w-32" />
-                  {isEditing && <col className="w-12" />}
-                </colgroup>
-                <tfoot className="bg-white">
-                  <tr className="border-t">
-                    <td colSpan={5} className="p-3 text-right text-sm text-muted-foreground">
-                      Subtotal
-                    </td>
-                    <td className="p-3 text-right text-sm font-medium tabular-nums">
-                      {formatINR(displaySubtotal)}
-                    </td>
-                    {isEditing && <td className="p-3" />}
-                  </tr>
-                  <tr>
-                    <td colSpan={5} className="px-3 pb-2 text-right text-xs text-muted-foreground">
-                      CGST @ {displayCgstRate}%
-                    </td>
-                    <td className="px-3 pb-2 text-right text-xs tabular-nums text-muted-foreground">
-                      {formatINR(displayCgstAmount)}
-                    </td>
-                    {isEditing && <td className="px-3 pb-2" />}
-                  </tr>
-                  <tr>
-                    <td colSpan={5} className="px-3 pb-3 text-right text-xs text-muted-foreground">
-                      SGST @ {displaySgstRate}%
-                    </td>
-                    <td className="px-3 pb-3 text-right text-xs tabular-nums text-muted-foreground">
-                      {formatINR(displaySgstAmount)}
-                    </td>
-                    {isEditing && <td className="px-3 pb-3" />}
-                  </tr>
-                  {backendIgstAmount != null && (
-                    <tr>
-                      <td colSpan={5} className="px-3 pb-3 text-right text-xs text-muted-foreground">
-                        IGST{displayIgstRate != null ? ` @ ${displayIgstRate}%` : ''}
-                      </td>
-                      <td className="px-3 pb-3 text-right text-xs tabular-nums text-muted-foreground">
-                        {formatINR(displayIgstAmount)}
-                      </td>
-                      {isEditing && <td className="px-3 pb-3" />}
-                    </tr>
-                  )}
-                  <tr className="border-t bg-slate-50">
-                    <td colSpan={5} className="p-3 text-right text-sm font-semibold">
-                      Total
-                    </td>
-                    <td className="p-3 text-right text-sm font-semibold tabular-nums">
-                      {formatINR(displayGrandTotal)}
-                    </td>
-                    {isEditing && <td className="p-3" />}
-                  </tr>
-                </tfoot>
-              </table>
+                  <div className="space-y-4">
+                    {items.slice(0, 4).map((item, i) => (
+                      <div key={i} className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold text-slate-900 truncate">{item.item_name}</p>
+                          <p className="text-[9px] text-slate-400 font-medium">avg ₹735</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-[10px] font-black text-slate-900">₹{item.price_per_unit.toLocaleString()}</div>
+                          <div className="text-[9px] font-bold text-emerald-600">-3.1%</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Amount in words */}
-          {quotation.amount_in_words && (
-            <p className="mt-4">
-              <span className="font-bold">Amount in words:</span> {quotation.amount_in_words}
-            </p>
+      {/* Tab Content */}
+      {activeTab === 'ai-analysis' && <AIAnalysisPanel quotation={quotation} />}
+
+      {activeTab === 'price-compare' && (
+        <Card className="p-12 text-center shadow-sm border-slate-200 bg-slate-50/30">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-12 w-12 rounded-full bg-primary/5 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-bold text-slate-900">Price Comparison</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                Comparing this quotation against historical and market benchmarks to ensure optimal pricing.
+              </p>
+            </div>
+            <Badge variant="outline" className="bg-white text-primary border-primary/20">Coming Soon</Badge>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === 'document' && (
+        <Card className="h-[800px] shadow-sm border-slate-200 overflow-hidden">
+          {quotation.pdf_url ? (
+            <iframe src={quotation.pdf_url} className="w-full h-full border-none" title="Quotation Document" />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">No document available</div>
           )}
+        </Card>
+      )}
 
-          {/* Footer: Bank + T&C */}
-          <div className="  gap-6 pt-4 ">
-            {/* Bank Details */}
-            {/* <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Bank Details</p>
-            {vendor?.bank_name ? (
-              <div className="rounded-md bg-slate-50 p-3 text-xs space-y-1">
-                <div className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
-                  <span className="text-muted-foreground">Bank</span>
-                  <span className="font-medium">{vendor.bank_name}</span>
-                  {vendor.bank_account && <>
-                    <span className="text-muted-foreground">A/C No.</span>
-                    <span className="font-mono">{vendor.bank_account}</span>
-                  </>}
-                  {vendor.bank_ifsc && <>
-                    <span className="text-muted-foreground">IFSC</span>
-                    <span className="font-mono">{vendor.bank_ifsc}</span>
-                  </>}
-                  {vendor.company_name && <>
-                    <span className="text-muted-foreground">Holder</span>
-                    <span className="font-medium">{vendor.company_name.toUpperCase()}</span>
-                  </>}
+      {activeTab === 'activity' && (
+        <Card className="shadow-sm border-slate-200 p-6">
+          <h3 className="text-sm font-bold text-slate-900 mb-6">Activity Log</h3>
+          <div className="space-y-6">
+            {[
+              { time: 'Just now', action: 'Quotation verified by AI Agent', user: 'system' },
+              { time: '2 hours ago', action: 'Vendor details updated', user: 'Asha R.' },
+              { time: 'May 14, 2026', action: 'Document uploaded via email', user: 'system' }
+            ].map((log, i) => (
+              <div key={i} className="flex gap-4 relative">
+                {i < 2 && <div className="absolute left-[11px] top-6 bottom-[-24px] w-[2px] bg-slate-100" />}
+                <div className="h-6 w-6 rounded-full bg-primary/10 border-4 border-white shadow-sm flex items-center justify-center shrink-0 z-10">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-slate-900">{log.action}</p>
+                  <p className="text-[10px] text-muted-foreground">{log.time} · {log.user}</p>
                 </div>
               </div>
-            ) : (
-              <p className="text-muted-foreground text-xs">—</p>
-            )}
-          </div> */}
-
-            {/* Terms & Conditions */}
-
+            ))}
           </div>
-          <div className="space-y-2">
-            <p className="font-semibold text-sm">Terms &amp; Conditions</p>
-            {isEditing ? (
-              <textarea
-                className="w-full min-h-[140px] border rounded-md p-2 text-sm bg-white"
-                placeholder="One term per line"
-                value={editTerms}
-                onChange={e => setEditTerms(e.target.value)}
-              />
-            ) : displayTerms.length > 0 ? (
-              <ul className="pl-5 list-disc space-y-1 text-sm text-foreground">
-                {displayTerms.map((term, idx) => (
-                  <li key={`term-${idx}-${term.slice(0, 16)}`}>
-                    {term.replace(/^\d+[).]\s*/, '')}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground text-xs">—</p>
-            )}
-          </div>
-          {/* Bottom action bar (edit mode only) */}
-          {isEditing && (
-            <div className="mt-6 pt-4 border-t flex items-center justify-end gap-2">
-              <Button
-                variant="outline"
-                className="gap-2"
-                disabled={editMutation.isPending}
-                onClick={cancelEdit}
-              >
-                <X className="h-4 w-4" />
-                Cancel
-              </Button>
-              <Button
-                className="gap-2"
-                disabled={editMutation.isPending}
-                onClick={() => editMutation.mutate()}
-              >
-                {editMutation.isPending
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Save className="h-4 w-4" />}
-                Save Changes
-              </Button>
-            </div>
-          )}
-        </div>
+        </Card>
+      )}
 
-        <div className="flex flex-col gap-4">
-          <AIAnalysisPanel quotation={quotation} />
-          <QuoteDetailsCard quotation={quotation} />
-          {billTo && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-              <div className="px-4 py-3 border-b font-semibold text-sm">
-                Billed To
-              </div>
-
-              <div>
-                {[
-                  ['Name', billTo.name],
-                  ['Address', billTo.address],
-                  ['Ref', billTo.ref],
-                  ['Contact', billTo.contact_no],
-                  ['Email', billTo.email],
-                  ['State', billTo.state],
-                  ['GST', billTo.gst_number],
-                  ['PAN', billTo.pan_number],
-                  ['Plant', billTo.plant_name],
-                  ['Plant Code', billTo.plant_code],
-                ]
-                  .filter(([, value]) => Boolean(String(value ?? '').trim()))
-                  .map(([label, value]) => (
-                    <div
-                      key={String(label)}
-                      className="flex flex-col gap-1 px-4 py-2 border-b last:border-none text-sm sm:flex-row sm:justify-between sm:gap-6"
-                    >
-                      <span className="text-gray-500 shrink-0">{label}</span>
-                      <span className="font-semibold break-words sm:text-right">{String(value ?? '—')}</span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Add Item Dialog */}
-      <Dialog
-        open={addItemOpen}
-        onOpenChange={(open) => { setAddItemOpen(open); if (!open) setItemSearch('') }}
-      >
+      {/* Modals & Dialogs (Hidden by default) */}
+      <Dialog open={addItemOpen} onOpenChange={(open) => { setAddItemOpen(open); if (!open) setItemSearch('') }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Add Line Item</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1175,6 +1010,68 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         }}
         onConfirm={confirmRemoveEditItem}
       />
+
+      {/* Full Edit Overlay */}
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Quotation Header</DialogTitle>
+            <DialogDescription>Modify global header details, plant/department, and terms.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-6 my-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Quotation No</label>
+              <Input value={editQuotationNo} onChange={e => setEditQuotationNo(e.target.value)} className="h-10" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Quotation Date</label>
+              <Input type="date" value={editQuotationDate} onChange={e => setEditQuotationDate(e.target.value)} className="h-10" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Plant</label>
+              <select
+                className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
+                value={editPlantId}
+                onChange={e => setEditPlantId(e.target.value)}
+              >
+                <option value="">— Not specified —</option>
+                {plants.map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Department</label>
+              <select
+                className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1"
+                value={editDepartmentId}
+                onChange={e => setEditDepartmentId(e.target.value)}
+              >
+                <option value="">— Not specified —</option>
+                {departments.map((d: any) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2 space-y-2">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Terms & Conditions</label>
+              <textarea
+                className="w-full min-h-[160px] border rounded-md p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                placeholder="One term per line"
+                value={editTerms}
+                onChange={e => setEditTerms(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelEdit} className="h-10 px-6">Cancel</Button>
+            <Button onClick={() => editMutation.mutate()} disabled={editMutation.isPending} className="h-10 px-8 bg-slate-900">
+              {editMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

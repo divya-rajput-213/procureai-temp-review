@@ -4,6 +4,7 @@ import {
     Clock3,
     FileText,
     Mail,
+    Sparkles,
     Upload,
     Webhook,
 } from 'lucide-react'
@@ -367,13 +368,22 @@ const UploadFile = ({
 
                     {/* AI Next */}
                     <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b">
-                            <h2 className="font-semibold text-sm">
-                                What AI does next
-                            </h2>
+                        <div className="px-5 py-4 border-b bg-primary/5">
+                            <div className="flex items-center justify-between gap-2">
+                                <h2 className="font-semibold text-sm flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-primary" />
+                                    AI suggestions for this quote
+                                </h2>
+                                <span className="px-2 py-0.5 text-[11px] rounded-md bg-primary/10 text-primary font-semibold">
+                                    91%
+                                </span>
+                            </div>
                         </div>
 
                         <div className="p-4 space-y-3">
+                            <p className="text-sm text-muted-foreground leading-6">
+                                Based on historical spend patterns, upload this quotation and let AI auto-extract vendor and line-item details for faster verification.
+                            </p>
 
                             {[
                                 'OCR the uploaded quotation',
@@ -401,10 +411,13 @@ const UploadFile = ({
                                     </div>
                                 </div>
                             ))}
+
+                            <div className="pt-1 flex items-center gap-2">
+                            </div>
                         </div>
                     </div>
 
-                    {/* Recent Uploads */}
+                    {/* Recent Uploads
                     <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
                         <div className="px-5 py-4 border-b">
                             <h2 className="font-semibold text-sm">
@@ -464,7 +477,7 @@ const UploadFile = ({
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    </div> */}
                 </div>
             </div>
         </div>

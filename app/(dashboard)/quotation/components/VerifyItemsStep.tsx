@@ -286,7 +286,7 @@ const VerifyItemsStep = ({
                                                 "text-[8px] uppercase tracking-tighter px-1.5 py-0 h-3.5 border-none font-black",
                                                 item.status === 'matched' ? "bg-emerald-100 text-emerald-700" :
                                                     item.status === 'review' ? "bg-amber-100 text-amber-700" :
-                                                        "bg-indigo-100 text-indigo-700"
+                                                        "bg-primary/10 text-primary"
                                             )}>
                                                 {item.status === 'matched' ? 'Matched' : item.status === 'review' ? 'Needs Review' : 'New'}
                                             </Badge>
@@ -309,7 +309,7 @@ const VerifyItemsStep = ({
                                     <div className="flex-1 flex items-center justify-end pr-1">
                                         <div className="flex items-center gap-2 w-full justify-end">
                                             {item.is_new ? (
-                                                <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded text-indigo-600 text-[10px] font-bold uppercase tracking-tight">
+                                                <div className="flex items-center gap-1.5 bg-primary/5 border border-primary/20 px-2 py-1 rounded text-primary text-[10px] font-bold uppercase tracking-tight">
                                                     <Plus className="w-3 h-3" />
                                                     Queue New
                                                 </div>
@@ -365,7 +365,7 @@ const VerifyItemsStep = ({
                                                                 </CommandGroup>
 
                                                                 {mappingSearch.length >= 2 && (
-                                                                    <CommandGroup heading={<span className="text-[9px] font-black uppercase text-indigo-600 tracking-widest px-1">Global Catalog</span>}>
+                                                                    <CommandGroup heading={<span className="text-[9px] font-black uppercase text-primary tracking-widest px-1">Global Catalog</span>}>
                                                                         {masterItems
                                                                             .filter((m: any) => {
                                                                                 const isSuggestion = item.suggestions?.some((s: any) => String(s.master_item_id) === String(m.hash_id || m.id))
@@ -421,8 +421,8 @@ const VerifyItemsStep = ({
                                                     className={cn(
                                                         "h-7 w-7 transition-all rounded-md",
                                                         item.is_new
-                                                            ? "text-indigo-600 bg-indigo-50 border border-indigo-100"
-                                                            : "text-slate-300 hover:text-indigo-600"
+                                                            ? "text-primary bg-primary/10 border border-primary/20"
+                                                            : "text-slate-300 hover:text-primary"
                                                     )}
                                                     onClick={() => handleSetAsNew(item.originalIndex, !item.is_new)}
                                                 >
@@ -440,7 +440,7 @@ const VerifyItemsStep = ({
                     <div className="px-4 py-2 border-t bg-white flex items-center justify-between shrink-0">
                         <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-3">
                             <span className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-emerald-500" />{counts.matched} MATCHED</span>
-                            <span className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-indigo-500" />{counts.new} NEW</span>
+                            <span className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-primary" />{counts.new} NEW</span>
                         </div>
                         <div className="flex gap-2">
                             <Button variant="ghost" size="sm" onClick={onBack} disabled={!onBack} className="font-bold text-slate-400 h-8 px-4 text-[11px]">Back</Button>
