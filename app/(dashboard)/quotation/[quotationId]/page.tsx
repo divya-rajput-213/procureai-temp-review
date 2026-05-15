@@ -113,6 +113,7 @@ type Quotation = {
   plant_name: string
   department_id: number | null
   department_name: string
+  confidence_score?: number | null
 }
 
 type QuotationDetails = {
@@ -250,6 +251,7 @@ function mapQuotation(raw: any): Quotation {
     plant_name: raw.plant_name ?? '',
     department_id: raw.department ?? null,
     department_name: raw.department_name ?? '',
+    confidence_score: nullableNumber(raw.confidence_score ?? raw.ai_confidence ?? raw.confidence),
   }
 }
 
