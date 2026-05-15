@@ -341,7 +341,7 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess, selectedVendor }
       return
     }
     try {
-      const body = selectedMatrix ? { matrix_id: selectedMatrix, selected_quotation_id: selectedVendor } : { selected_quotation: selectedVendor }
+      const body = selectedMatrix ? { matrix_id: selectedMatrix, selected_quotation: selectedVendor } : { selected_quotation: selectedVendor }
       await apiClient.post(`/procurement/${prId}/submit/`, body)
       toast({ title: 'PR submitted for approval.' })
       onSuccess()
