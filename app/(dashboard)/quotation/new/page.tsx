@@ -539,19 +539,24 @@ export default function UploadQuotationPage() {
                 <Stepper currentStep={currentStep} completedSteps={completedSteps} />
                 <div className="flex items-center gap-2">
                     {currentStep === 1 && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleRetryAI}
-                            disabled={!selectedFile || uploadMutation.isPending}
-                            className="gap-1.5 shrink-0"
-                        >
-                            {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                            Retry AI
-                        </Button>
-                    )}
+                            <>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleRetryAI}
+                                    disabled={!selectedFile || uploadMutation.isPending}
+                                    className="gap-1.5 shrink-0"
+                                >
+                                    {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                    Retry AI
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={handleStepBack} className="gap-1.5 bg-white shadow-sm">
+                                    Back
+                                </Button>
+                            </>
+                        )}
 
-                    {currentStep === 2 && (
+                    {currentStep > 0 && currentStep !== 1 && (
                         <Button variant="ghost" size="sm" onClick={handleStepBack} className="gap-1.5 bg-white shadow-sm">
                             Back
                         </Button>
