@@ -678,6 +678,7 @@ export default function NewPRPage() {
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null)
   const [showApprovalModal, setShowApprovalModal] = useState(false)
   const [savedPrId, setSavedPrId] = useState<string | null>(null)
+  const [prId, setPrId] = useState<string | null>(null)
 
   const { register, watch, setValue, trigger, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -750,7 +751,8 @@ export default function NewPRPage() {
       }
       saveDraftMutation.mutate(undefined, {
         onSuccess: (pr) => {
-          setSavedPrId(pr.hash_id ?? pr.id)
+          setSavedPrId( pr.hash_id ?? pr.id)
+          setPrId(pr.id)
           queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
           toast({ title: 'PR saved as draft.' })
           setStep(2)
@@ -829,6 +831,7 @@ export default function NewPRPage() {
             selectedQuotationIds={selectedQuotationIds}
             selectedVendorId={selectedVendorId}
             setSelectedVendorId={setSelectedVendorId}
+            prId={prId}
           />
         )}
 

@@ -21,7 +21,6 @@ import {
 import apiClient from '@/lib/api/client'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
-import ComparisonTab from '../components/CompareStep'
 import CompareStep from '../components/CompareStep'
 
 // ─── Approval Timeline ─────────────────────────────────────────────────────────
@@ -1606,6 +1605,7 @@ export default function PRDetailPage() {
           selectedVendorId={selectedVendor}
           setSelectedVendorId={setSelectedVendor}
           isDisabled={pr.status !== 'draft'}
+          prId={pr.id}
         />
       </>}
     </div>
