@@ -118,7 +118,7 @@ function StepIndicator({
               <span style={{
                 width: 22, height: 22, borderRadius: '50%',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 11, fontWeight: 700, flexShrink: 0,
+                fontSize: 16, fontWeight: 700, flexShrink: 0,
                 background: i < step - 1 ? '#10b981'
                   : i === step - 1 ? 'hsl(var(--primary))'
                     : 'hsl(var(--muted))',
@@ -127,7 +127,7 @@ function StepIndicator({
                 {i < step - 1 ? <Check style={{ width: 10, height: 10 }} /> : (i + 1)}
               </span>
               <span style={{
-                fontSize: 13,
+                fontSize: 16,
                 fontWeight: i === step - 1 ? 600 : 400,
                 color: i === step - 1 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
               }}>{s}</span>
