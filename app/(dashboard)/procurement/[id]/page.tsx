@@ -729,7 +729,6 @@ export default function PRDetailPage() {
     0,
   )
   const quotationIds = pr?.linked_quotations.map((quotation: any) => quotation?.id) ?? []
-  console.log('pr', pr)
   {/* KPI ROW */ }
   const selectedQuotation = pr?.linked_quotations?.find((q: any) => q.id === pr?.selected_quotation
   ) ?? null
