@@ -571,7 +571,19 @@ export default function NewVendorPage() {
   }
 
   const handleStep1Next = async () => {
-    // Save compliance fields without requiring docs — docs are only mandatory at approval
+    setValidationTriggered(true)
+  
+    const isValid = validateCompliancePairs()
+  
+    if (!isValid) {
+      toast({
+        title: 'Validation failed',
+        description: 'Complete required compliance details before proceeding.',
+        variant: 'destructive',
+      })
+      return
+    }
+  
     step1Mutation.mutate(getValues())
   }
 
