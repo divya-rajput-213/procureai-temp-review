@@ -202,14 +202,26 @@ function exportPDF(vendors: any[]) {
   setTimeout(() => URL.revokeObjectURL(url), 60000)
 }
 
-function StarRating({ score }: Readonly<{ score: number }>) {
-  const filled = Math.round(score / 20)   // 0-100 → 0-5
+function StarRating({ score }: Readonly<{ score: number | null }>) {
+  const normalized = Math.max(0, Math.min(score ?? 0, 10))
+  const filled = Math.round(normalized / 2)
+
   return (
-    <div className="flex items-center gap-0.5" title={`${score.toFixed(0)} / 100`}>
+    <div className="flex items-center gap-0.5">
       {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} className={`text-base leading-none ${i < filled ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
+        <span
+          key={i}
+          className={`text-base ${
+            i < filled ? 'text-yellow-400' : 'text-gray-300'
+          }`}
+        >
+          ★
+        </span>
       ))}
-      <span className="text-xs text-muted-foreground ml-1 tabular-nums">{score.toFixed(0)}</span>
+
+      <span className="ml-1 text-xs text-muted-foreground">
+        {score ?? 'N/A'}
+      </span>
     </div>
   )
 }
