@@ -54,12 +54,10 @@ function SortableTh({
 function exportCSV(vendors: any[]) {
   const headers = [
     'Company', 'Vendor Code', 'GST No.', 'PAN No.', 'Category', 'Plant',
-    'Status', 'Risk Score', 'MSME', 'MSME No.', 'SEZ', 'International',
+    'Status', 'Risk Score', 'MSME', 'SEZ', 'International',
     'Contact Name', 'Contact Email', 'Contact Phone',
     'Address', 'City', 'State', 'PIN', 'Country',
-    'Bank Name', 'Bank Account', 'Bank IFSC',
-    'Lead Time Std (days)', 'Lead Time Rush (days)', 'MOQ',
-    'Pricing Model', 'Payment Terms', 'Currency', 'Incoterms',
+    'Bank Name', 'Bank Account', 'Bank IFSC',  'Currency', 'Incoterms',
     'Created By', 'Created',
   ]
   const rows = vendors.map(v => [
@@ -72,7 +70,6 @@ function exportCSV(vendors: any[]) {
     v.status ?? '',
     v.risk_score?.toFixed(1) ?? '',
     v.is_msme ? 'Yes' : 'No',
-    v.msme_number ?? '',
     v.is_sez ? 'Yes' : 'No',
     v.is_international ? 'Yes' : 'No',
     v.contact_name ?? '',
@@ -86,11 +83,6 @@ function exportCSV(vendors: any[]) {
     v.bank_name ?? '',
     v.bank_account ?? '',
     v.bank_ifsc ?? '',
-    v.standard_lead_time_days ?? '',
-    v.rush_lead_time_days ?? '',
-    v.min_order_quantity ?? '',
-    v.pricing_model ?? '',
-    v.payment_terms ?? '',
     v.currency ?? '',
     v.incoterms ?? '',
     v.created_by_name ?? '',
