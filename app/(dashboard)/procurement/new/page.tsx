@@ -382,6 +382,7 @@ function QuotesStep({
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [vendorFilter, setVendorFilter] = useState('')
   const [budgetFilter, setBudgetFilter] = useState<'all' | 'within' | 'exceeds'>('all')
+  const [quoteDate, setQuoteDate] = useState('')
 
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -392,11 +393,25 @@ function QuotesStep({
   const hasValidity = quotations.some((q: any) => q?.valid_until)
   const hasUploadedBy = quotations.some((q: any) => q?.uploaded_by)
 
+  const selectedDateRange = (() => {
+    if (!hasDate || !quoteDate) return null
+    const from = new Date(`${quoteDate}T00:00:00`).getTime()
+    const to = new Date(`${quoteDate}T23:59:59`).getTime()
+    if (Number.isNaN(from) || Number.isNaN(to)) return null
+    return { from, to }
+  })()
+
   // ── Filter ───────────────────────────────────────────────────────────
   const filtered = (quotations as any[]).filter((q: any) => {
     if (vendorFilter && q.vendor_name !== vendorFilter) return false
     if (budgetFilter === 'within' && budgetRemaining !== null && Number(q.total_amount) > budgetRemaining) return false
     if (budgetFilter === 'exceeds' && (budgetRemaining === null || Number(q.total_amount) <= budgetRemaining)) return false
+    if (selectedDateRange) {
+      const qt = q?.quotation_date ? new Date(q.quotation_date).getTime() : NaN
+      if (Number.isNaN(qt)) return false
+      if (qt < selectedDateRange.from) return false
+      if (qt > selectedDateRange.to) return false
+    }
     return true
   })
 
@@ -440,7 +455,10 @@ function QuotesStep({
     )
   }
 
-  const activeFilterCount = (vendorFilter ? 1 : 0) + (budgetFilter !== 'all' ? 1 : 0)
+  const activeFilterCount =
+    (vendorFilter ? 1 : 0) +
+    (budgetFilter !== 'all' ? 1 : 0) +
+    (quoteDate ? 1 : 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -581,31 +599,36 @@ function QuotesStep({
             {/* ── Filter bar ── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
               {budgetRemaining !== null && (
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {(['all', 'within', 'exceeds'] as const).map(f => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setBudgetFilter(f)}
-                      style={{
-                        padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 500, // increased from 11 → 12
-                        border: '1px solid',
-                        borderColor: budgetFilter === f ? 'hsl(var(--primary))' : 'hsl(var(--border))',
-                        background: budgetFilter === f ? 'hsl(var(--primary))' : 'transparent',
-                        color: budgetFilter === f ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
-                        cursor: 'pointer', transition: 'all .12s',
-                      }}
-                    >
-                      {f === 'all' ? 'All' : f === 'within' ? '✓ Within budget' : '✗ Exceeds'}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Budget</span>
+                  <select
+                    value={budgetFilter}
+                    onChange={(e) => setBudgetFilter(e.target.value as any)}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                  >
+                    <option value="all">All</option>
+                    <option value="within">Within budget</option>
+                    <option value="exceeds">Exceeds</option>
+                  </select>
+                </div>
+              )}
+
+              {hasDate && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Date</span>
+                  <Input
+                    type="date"
+                    value={quoteDate}
+                    onChange={(e) => setQuoteDate(e.target.value)}
+                    className="h-8 w-[160px] text-xs"
+                  />
                 </div>
               )}
 
               {activeFilterCount > 0 && (
                 <button
                   type="button"
-                  onClick={() => { setVendorFilter(''); setBudgetFilter('all') }}
+                  onClick={() => { setVendorFilter(''); setBudgetFilter('all'); setQuoteDate('') }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4,
                     fontSize: 12, // increased from 11 → 12
