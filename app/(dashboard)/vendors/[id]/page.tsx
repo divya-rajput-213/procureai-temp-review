@@ -1930,14 +1930,32 @@ export default function VendorDetailPage() {
 
   const saveDocChanges = async () => {
     if (!validateCompliancePairs()) return
+  
     setSavingDocs(true)
+  
     try {
       await apiClient.patch(`/vendors/${id}/`, docFields)
+  
       queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-      toast({ title: 'Documents saved.' })
+  
+      toast({
+        title: 'Documents saved.'
+      })
+  
       setIsEditing(false)
     } catch (err: any) {
-      toast({ title: 'Save failed', description: err?.response?.data?.error ?? 'Please try again.', variant: 'destructive' })
+      const errors = err?.response?.data
+  
+      const message =
+        typeof errors === 'object'
+          ? Object.values(errors).flat().join('\n')
+          : errors?.error || 'Please try again.'
+  
+      toast({
+        title: 'Save failed',
+        description: message,
+        variant: 'destructive',
+      })
     } finally {
       setSavingDocs(false)
     }
