@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -426,8 +426,17 @@ function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true, s
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [localRemoved, setLocalRemoved] = useState(false)
+
+  // Reset localRemoved whenever the doc prop changes (e.g. after refresh)
+  useEffect(() => {
+    setLocalRemoved(false)
+  }, [doc?.id, doc?.hash_id])
+
+  const effectiveDoc = localRemoved ? null : doc
 
   const upload = async (file: File) => {
+    if (uploading) return // guard re-entry
     if (file.size > 5 * 1024 * 1024) {
       toast({ title: 'Max file size is 5 MB', variant: 'destructive' }); return
     }
@@ -456,93 +465,193 @@ function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true, s
       const notes = errData?.ai_validation_notes || errData?.error || 'Upload failed'
       setFieldError?.(notes)
       toast({ title: 'Document validation failed', description: notes, variant: 'destructive' })
-    } finally { setUploading(false) }
+    } finally {
+      setUploading(false)
+    }
   }
 
   const remove = async () => {
-    if (!doc) return
+    if (!effectiveDoc || deleting || localRemoved) return // triple guard
     setDeleting(true)
+    setLocalRemoved(true) // optimistic: hide immediately, prevents double-click
     try {
-      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id ?? doc.id}/`)
+      await apiClient.delete(`/vendors/${vendorId}/documents/${effectiveDoc.hash_id ?? effectiveDoc.id}/`)
       onRefresh()
       toast({ title: 'Document removed.' })
       setFieldError?.('')
     } catch {
+      setLocalRemoved(false) // revert on failure
       toast({ title: 'Delete failed', variant: 'destructive' })
-    } finally { setDeleting(false) }
+    } finally {
+      setDeleting(false)
+    }
   }
 
-  const extracted = doc?.ai_extracted_data || {}
-  const status = doc?.ai_validation_status
+  const extracted = effectiveDoc?.ai_extracted_data || {}
+  const status = effectiveDoc?.ai_validation_status
   const isValid = status === 'passed' || status === 'valid'
   const isFailed = status === 'failed' || status === 'invalid'
   const hasExtracted = isValid && Object.values(extracted).some(v => v && String(v).trim())
 
-  // Validated — show extracted data
-  if (doc && hasExtracted) {
+  // ── State 1: Verified with extracted data ──────────────────────────────────
+  if (effectiveDoc && hasExtracted) {
     return (
       <div className="border rounded-lg overflow-hidden">
         <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border-b border-green-200">
           <CheckCircle className="w-3.5 h-3.5 text-green-600 shrink-0" />
           <span className="text-xs font-medium text-green-700 flex-1">AI Verified</span>
-          {doc.file_url && <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-xs text-green-600 hover:underline">View</a>}
+          {effectiveDoc.file_url && (
+            <a href={effectiveDoc.file_url} target="_blank" rel="noreferrer"
+              className="shrink-0 text-xs text-green-600 hover:underline">View</a>
+          )}
           {editable && (
-            <button type="button" onClick={remove} disabled={deleting} className="shrink-0 text-xs text-red-400 hover:text-red-600">
+            <button
+              type="button"
+              onClick={remove}
+              disabled={deleting || localRemoved}
+              className="shrink-0 text-xs text-red-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
               {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Remove'}
             </button>
           )}
         </div>
         <div className="px-3 py-2 bg-green-50/30 space-y-1">
-          {extracted.gst_number && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">GSTIN:</span> <span className="font-mono font-medium">{extracted.gst_number}</span></div>}
-          {extracted.pan_number && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">PAN:</span> <span className="font-mono font-medium">{extracted.pan_number}</span></div>}
-          {extracted.bank_account_number && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">A/C:</span> <span className="font-mono font-medium">{extracted.bank_account_number}</span></div>}
-          {extracted.ifsc_code && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">IFSC:</span> <span className="font-mono font-medium">{extracted.ifsc_code}</span></div>}
-          {extracted.bank_name && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">Bank:</span> <span className="font-medium">{extracted.bank_name}</span></div>}
-          {extracted.legal_name && <div className="text-xs"><span className="text-muted-foreground w-14 inline-block">Name:</span> <span className="font-medium">{extracted.legal_name}</span></div>}
+          {extracted.gst_number && (
+            <div className="text-xs">
+              <span className="text-muted-foreground w-14 inline-block">GSTIN:</span>
+              <span className="font-mono font-medium">{extracted.gst_number}</span>
+            </div>
+          )}
+          {extracted.pan_number && (
+            <div className="text-xs">
+              <span className="text-muted-foreground w-14 inline-block">PAN:</span>
+              <span className="font-mono font-medium">{extracted.pan_number}</span>
+            </div>
+          )}
+          {extracted.bank_account_number && (
+            <div className="text-xs">
+              <span className="text-muted-foreground w-14 inline-block">A/C:</span>
+              <span className="font-mono font-medium">{extracted.bank_account_number}</span>
+            </div>
+          )}
+          {extracted.ifsc_code && (
+            <div className="text-xs">
+              <span className="text-muted-foreground w-14 inline-block">IFSC:</span>
+              <span className="font-mono font-medium">{extracted.ifsc_code}</span>
+            </div>
+          )}
+          {extracted.bank_name && (
+            <div className="text-xs">
+              <span className="text-muted-foreground w-14 inline-block">Bank:</span>
+              <span className="font-medium">{extracted.bank_name}</span>
+            </div>
+          )}
+          {extracted.legal_name && (
+            <div className="text-xs">
+              <span className="text-muted-foreground w-14 inline-block">Name:</span>
+              <span className="font-medium">{extracted.legal_name}</span>
+            </div>
+          )}
         </div>
       </div>
     )
   }
 
-  // Doc exists but failed
-  if (doc && !hasExtracted) {
+  // ── State 2: Doc exists but failed / pending ───────────────────────────────
+  if (effectiveDoc) {
     return (
       <div className="border rounded-lg overflow-hidden">
         <div className={`flex items-center gap-2 px-3 py-2 ${isFailed ? 'bg-red-50' : 'bg-slate-50'}`}>
           <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          <span className="text-xs truncate flex-1">{doc.original_filename}</span>
-          {isFailed && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Failed</span>}
+          <span className="text-xs truncate flex-1">{effectiveDoc.original_filename}</span>
+          {isFailed && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 shrink-0">
+              Failed
+            </span>
+          )}
           {editable && (
-            <button type="button" onClick={remove} disabled={deleting} className="shrink-0 text-red-400 hover:text-red-600">
-              {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+            <button
+              type="button"
+              onClick={remove}
+              disabled={deleting || localRemoved}
+              className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {deleting
+                ? <Loader2 className="w-3 h-3 animate-spin" />
+                : <X className="w-3.5 h-3.5" />
+              }
             </button>
           )}
         </div>
-        {doc.ai_validation_notes && isFailed && <p className="text-[10px] text-red-600 px-3 py-1.5 bg-red-50">{doc.ai_validation_notes}</p>}
+        {effectiveDoc.ai_validation_notes && isFailed && (
+          <p className="text-[10px] text-red-600 px-3 py-1.5 bg-red-50">
+            {effectiveDoc.ai_validation_notes}
+          </p>
+        )}
+        {/* Allow re-upload after failure */}
+        {editable && isFailed && (
+          <div className="px-3 py-2 bg-red-50/50 border-t border-red-100">
+            <label className={`cursor-pointer inline-flex items-center gap-1.5 text-xs text-red-600 hover:text-red-800 font-medium ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+              <Upload className="w-3 h-3" />
+              {uploading ? 'Uploading...' : 'Replace with correct file'}
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png"
+                disabled={uploading}
+                onChange={e => {
+                  const f = e.target.files?.[0]
+                  if (f) upload(f)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+          </div>
+        )}
       </div>
     )
   }
 
-  // No doc — show upload
-  if (!editable) return <div className="border rounded-md px-3 py-2 min-h-[38px]"><span className="text-xs text-muted-foreground italic">No document</span></div>
+  // ── State 3: No doc — show upload dropzone ────────────────────────────────
+  if (!editable) {
+    return (
+      <div className="border rounded-md px-3 py-2 min-h-[38px]">
+        <span className="text-xs text-muted-foreground italic">No document</span>
+      </div>
+    )
+  }
 
   return (
     <div className="border-2 border-dashed rounded-lg px-3 py-3 text-center hover:bg-slate-50 transition-colors">
-      <label className="cursor-pointer block">
+      <label
+        className={`cursor-pointer block ${uploading ? 'pointer-events-none' : ''}`}
+        onClick={e => { if (uploading) e.preventDefault() }}
+      >
         {uploading ? (
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-2 py-1">
             <Loader2 className="w-4 h-4 animate-spin text-primary" />
             <span className="text-xs text-muted-foreground">Uploading & validating...</span>
           </div>
         ) : (
           <div>
             <Upload className="w-5 h-5 mx-auto text-muted-foreground mb-1" />
-            <p className="text-xs text-muted-foreground">Drop or <span className="text-primary font-medium">browse</span> (PDF, JPG, PNG)</p>
+            <p className="text-xs text-muted-foreground">
+              Drop or <span className="text-primary font-medium">browse</span> (PDF, JPG, PNG)
+            </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">Max 5 MB</p>
           </div>
         )}
-        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" disabled={uploading}
-          onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
+        <input
+          type="file"
+          className="hidden"
+          accept=".pdf,.jpg,.jpeg,.png"
+          disabled={uploading}
+          onChange={e => {
+            const f = e.target.files?.[0]
+            if (f) upload(f)
+            e.target.value = ''
+          }}
+        />
       </label>
     </div>
   )
@@ -1040,11 +1149,11 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
   const spendTrend: { month: string; spend: number }[] = dash.spend_trend ?? []
   const transactions: any[] = dash.recent_transactions ?? []
   const perfScore = dash.performance_score != null ? Math.round(Number(dash.performance_score))
-  : vendor.performance_score != null ? Math.round(Number(vendor.performance_score))
-  : null
-const riskScore = dash.risk_score != null ? Math.round(Number(dash.risk_score))
-  : vendor.risk_score != null ? Math.round(Number(vendor.risk_score))
-  : null
+    : vendor.performance_score != null ? Math.round(Number(vendor.performance_score))
+      : null
+  const riskScore = dash.risk_score != null ? Math.round(Number(dash.risk_score))
+    : vendor.risk_score != null ? Math.round(Number(vendor.risk_score))
+      : null
   const onTimeRate = stats.on_time_delivery_rate == null ? null : Math.round(Number(stats.on_time_delivery_rate))
   const avgLeadDays = stats.avg_delivery_days ?? vendor.standard_lead_time_days ?? null
 
@@ -1115,36 +1224,36 @@ const riskScore = dash.risk_score != null ? Math.round(Number(dash.risk_score))
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-  {[
-    { label: 'CATEGORY', value: vendor.category_name || '—' },
-    { label: 'PLANT', value: vendor.plant_name || '—' },
-    { label: 'LOCATION', value: [vendor.city, vendor.state].filter(Boolean).join(', ') || '—' },
-    { label: 'COUNTRY', value: vendor.country || '—' },
-    { label: 'CURRENCY', value: vendor.currency || '—' },
-    { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
-    { label: 'PRICING MODEL', value: vendor.pricing_model || '—' },
-    { label: 'INCOTERMS', value: vendor.incoterms || '—' },
-    { label: 'VENDOR CODE', value: vendor.vendor_code || '—' },
-    vendor.standard_lead_time_days != null
-      ? { label: 'STD LEAD TIME', value: `${vendor.standard_lead_time_days} days` }
-      : null,
-    vendor.rush_lead_time_days != null
-      ? { label: 'RUSH LEAD TIME', value: `${vendor.rush_lead_time_days} days` }
-      : null,
-    vendor.min_order_quantity != null
-      ? { label: 'MIN ORDER QTY', value: String(vendor.min_order_quantity) }
-      : null,
-    vendor.is_msme ? { label: 'MSME', value: vendor.msme_number || 'Yes' } : null,
-    vendor.is_sez ? { label: 'SEZ', value: 'Yes' } : null,
-    vendor.is_international ? { label: 'INTERNATIONAL', value: 'Yes' } : null,
-  ].filter(Boolean).map(item => (
-    <div key={item!.label} className="space-y-1">
-      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{item!.label}</p>
-      <p className="text-sm font-medium text-slate-900">{item!.value}</p>
-    </div>
-  ))}
-</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {[
+                  { label: 'CATEGORY', value: vendor.category_name || '—' },
+                  { label: 'PLANT', value: vendor.plant_name || '—' },
+                  { label: 'LOCATION', value: [vendor.city, vendor.state].filter(Boolean).join(', ') || '—' },
+                  { label: 'COUNTRY', value: vendor.country || '—' },
+                  { label: 'CURRENCY', value: vendor.currency || '—' },
+                  { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
+                  { label: 'PRICING MODEL', value: vendor.pricing_model || '—' },
+                  { label: 'INCOTERMS', value: vendor.incoterms || '—' },
+                  { label: 'VENDOR CODE', value: vendor.vendor_code || '—' },
+                  vendor.standard_lead_time_days != null
+                    ? { label: 'STD LEAD TIME', value: `${vendor.standard_lead_time_days} days` }
+                    : null,
+                  vendor.rush_lead_time_days != null
+                    ? { label: 'RUSH LEAD TIME', value: `${vendor.rush_lead_time_days} days` }
+                    : null,
+                  vendor.min_order_quantity != null
+                    ? { label: 'MIN ORDER QTY', value: String(vendor.min_order_quantity) }
+                    : null,
+                  vendor.is_msme ? { label: 'MSME', value: vendor.msme_number || 'Yes' } : null,
+                  vendor.is_sez ? { label: 'SEZ', value: 'Yes' } : null,
+                  vendor.is_international ? { label: 'INTERNATIONAL', value: 'Yes' } : null,
+                ].filter(Boolean).map(item => (
+                  <div key={item!.label} className="space-y-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{item!.label}</p>
+                    <p className="text-sm font-medium text-slate-900">{item!.value}</p>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
@@ -1920,19 +2029,39 @@ export default function VendorDetailPage() {
               const blockCls = (hasErr: boolean) =>
                 `border rounded-lg p-5 items-start space-y-4 ${hasErr ? 'border-destructive/50 bg-destructive/5' : 'border-slate-200 bg-slate-50/30'}`
 
-              const VerifiedFile = ({ doc: d, onRemove }: { doc: any; onRemove: () => void }) => (
-                <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
-                  <FileText className="w-4 h-4 text-green-600 shrink-0" />
-                  <span className="text-xs truncate flex-1 min-w-0 text-green-800">{d?.original_filename}</span>
-                  <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Verified</span>
-                  {d?.file_url && <a href={d.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-[10px] text-green-600 hover:underline">View</a>}
-                  {canEdit && isEditing && (
-                    <button type="button" onClick={onRemove} className="shrink-0 text-red-400 hover:text-red-600">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              )
+              const VerifiedFile = ({ doc: d, onRemove }: { doc: any; onRemove: () => void }) => {
+                const [clicked, setClicked] = useState(false)
+                return (
+                  <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
+                    <FileText className="w-4 h-4 text-green-600 shrink-0" />
+                    <span className="text-xs truncate flex-1 min-w-0 text-green-800">{d?.original_filename}</span>
+                    <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                      Verified
+                    </span>
+                    {d?.file_url && (
+                      <a href={d.file_url} target="_blank" rel="noreferrer"
+                        className="shrink-0 text-[10px] text-green-600 hover:underline">View</a>
+                    )}
+                    {canEdit && isEditing && (
+                      <button
+                        type="button"
+                        disabled={clicked}
+                        onClick={() => {
+                          if (clicked) return
+                          setClicked(true)
+                          onRemove()
+                        }}
+                        className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {clicked
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <X className="w-3.5 h-3.5" />
+                        }
+                      </button>
+                    )}
+                  </div>
+                )
+              }
 
               const removeDoc = async (d: any) => {
                 if (!d) return
