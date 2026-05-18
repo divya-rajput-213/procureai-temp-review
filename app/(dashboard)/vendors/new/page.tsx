@@ -675,11 +675,11 @@ export default function NewVendorPage() {
               {extractedFields && !showSrfMatch && (
                 <span className="text-xs text-green-700 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Fields applied</span>
               )}
-              <Button type="button" variant="outline" size="sm" className="gap-1.5" disabled={srfExtracting}
+              {/* <Button type="button" variant="outline" size="sm" className="gap-1.5" disabled={srfExtracting}
                 onClick={() => srfInputRef.current?.click()}>
                 {srfExtracting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" /> : <Sparkles className="w-3.5 h-3.5 text-purple-500" />}
                 {srfExtracting ? 'Extracting…' : 'Upload SRF for AI Fill'}
-              </Button>
+              </Button> */}
               <input ref={srfInputRef} type="file" className="hidden" accept=".xlsx" disabled={srfExtracting}
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleSrfFile(f); e.target.value = '' }} />
             </>
