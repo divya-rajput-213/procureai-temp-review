@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -12,7 +15,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download, ChevronLeft } from 'lucide-react'
-import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_CONFIG } from '@/lib/utils'
+import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_CONFIG, ALPHANUM_WITH_SPACES, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import {
@@ -658,6 +661,30 @@ function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true, s
 }
 
 // ─── Edit form — company details only (compliance is in Documents tab) ───────
+const PHONE_PREFIX = '+91 '
+const PHONE_ALLOWED_CHARS = /^[0-9+ ]*$/
+
+const editDetailsSchema = z.object({
+  category: z.number({ required_error: 'Category is required' }),
+  plant: z.number({ required_error: 'Plant is required' }),
+  company_name: z.string().min(2, 'Company name is required').regex(ALPHANUM_WITH_SPACES, 'Company Name must be alphanumeric'),
+  address: z.string().min(5, 'Address is required').max(250, 'Address must be at most 250 characters'),
+  city: z.string().min(1, 'City is required').max(50, 'City must be at most 50 characters').regex(ALPHANUM_WITH_SPACES, 'City must be alphanumeric'),
+  state: z.string().min(1, 'State is required').max(50, 'State must be at most 50 characters').regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
+  country: z.string().min(1, 'Country is required'),
+  pincode: z.string()
+    .min(1, 'PIN Code is required')
+    .regex(DIGITS_ONLY, 'PIN Code must contain only numbers')
+    .length(6, 'PIN Code must be 6 digits'),
+  contact_name: z.string().min(2, 'Contact person is required'),
+  contact_email: z.string().email('Valid email required'),
+  contact_phone: z.string()
+    .refine(v => PHONE_ALLOWED_CHARS.test(v), 'Contact phone must contain only numbers')
+    .refine(v => /^\+91\d{10}$/.test(v.replace(/\s/g, '')), 'Contact phone must be +91 followed by 10 digits'),
+})
+
+type EditDetailsFormData = z.infer<typeof editDetailsSchema>
+
 function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving }: {
   vendor: any
   categories: any[]
@@ -666,115 +693,237 @@ function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving 
   onCancel: () => void
   saving: boolean
 }) {
-  // ── Field state ───────────────────────────────────────────────────────────
-  const [form, setForm] = useState({
-    company_name: vendor.company_name ?? '',
-    address: vendor.address ?? '',
-    city: vendor.city ?? '',
-    state: vendor.state ?? '',
-    pincode: vendor.pincode ?? '',
-    contact_name: vendor.contact_name ?? '',
-    contact_email: vendor.contact_email ?? '',
-    contact_phone: vendor.contact_phone ?? '',
-    category: vendor.category ?? '',
-    plant: vendor.plant ?? '',
+  const normalizePhone = (v: any) => {
+    const raw = String(v ?? '')
+    const digits = raw.replace(/\D/g, '').replace(/^91/, '').slice(0, 10)
+    return `${PHONE_PREFIX}${digits}`
+  }
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    setError,
+    clearErrors,
+    formState: { errors },
+  } = useForm<EditDetailsFormData>({
+    resolver: zodResolver(editDetailsSchema),
+    mode: 'onChange',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      company_name: vendor.company_name ?? '',
+      category: Number(vendor.category ?? 0) || undefined as any,
+      plant: Number(vendor.plant ?? 0) || undefined as any,
+      address: vendor.address ?? '',
+      city: vendor.city ?? '',
+      state: vendor.state ?? '',
+      country: 'India',
+      pincode: String(vendor.pincode ?? ''),
+      contact_name: vendor.contact_name ?? '',
+      contact_email: vendor.contact_email ?? '',
+      contact_phone: normalizePhone(vendor.contact_phone),
+    },
   })
 
-  const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
+  const watchedCategory = watch('category')
+  const watchedPlant = watch('plant')
+  const watchedAddress = watch('address')
+  const watchedCity = watch('city')
+  const watchedState = watch('state')
+  const watchedCountry = watch('country')
+  const watchedPincode = watch('pincode')
+  const watchedCompanyName = watch('company_name')
+  const watchedContactName = watch('contact_name')
+  const watchedContactEmail = watch('contact_email')
+  const watchedContactPhone = watch('contact_phone')
 
-  const tf = (key: string, label: string, placeholder?: string) => (
-    <div className="space-y-1.5" key={key}>
-      <Label className="text-xs font-semibold text-slate-700">{label}</Label>
-      <Input
-        value={form[key as keyof typeof form] as string}
-        onChange={e => set(key, e.target.value)}
-        placeholder={placeholder ? `e.g. ${placeholder}` : undefined}
-        className="h-10 text-sm"
-      />
-    </div>
-  )
+	  return (
+	    <>
+	      {/* ── Card 1: Company Details (same as Add form Step 0) ── */}
+	      <Card>
+	        <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
+	        <CardContent className="space-y-5">
 
-  return (
-    <>
-      {/* ── Card 1: Company Details (same as Add form Step 0) ── */}
-      <Card>
-        <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
-        <CardContent className="space-y-5">
+	          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 mt-1">General Information</p>
 
-          {/* General Information — category + plant (same label as Add form) */}
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 mt-1">General Information</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Vendor Category <span className="text-destructive">*</span></Label>
-                <select
-                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                  value={form.category}
-                  onChange={e => set('category', e.target.value ? Number(e.target.value) : '')}
-                >
-                  <option value="">Select category</option>
-                  {categories.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Plant <span className="text-destructive">*</span></Label>
-                <select
-                  className="w-full h-10 border rounded-md px-3 text-sm bg-background"
-                  value={form.plant}
-                  onChange={e => set('plant', e.target.value ? Number(e.target.value) : '')}
-                >
-                  <option value="">Select plant</option>
-                  {plants.map((p: any) => (
-                    <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
+	          {/* Row 1: Company name + category + plant (matches New Vendor form) */}
+	          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+	            <div className="space-y-1.5">
+	              <Label className="text-xs font-semibold text-slate-700">Company Name <span className="text-destructive">*</span></Label>
+	              <Input
+	                value={watchedCompanyName ?? ''}
+	                placeholder="e.g. Acme Pvt Ltd"
+	                onChange={(e) => setValue('company_name', e.target.value, { shouldValidate: true })}
+	                className={`h-10 text-sm ${errors.company_name ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+	              />
+	              {errors.company_name && <p className="text-xs text-destructive mt-1">{errors.company_name.message}</p>}
+	            </div>
 
-          {/* Company fields — no section label, same as Add form */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tf('company_name', 'Company Name *', 'Acme Pvt Ltd')}
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs font-semibold text-slate-700">Address <span className="text-destructive">*</span></Label>
-              <AddressAutocomplete
-                value={form.address}
-                onChange={v => set('address', v)}
-                onSelect={result => {
-                  set('address', result.address)
-                  if (result.city) set('city', result.city)
-                  if (result.state) set('state', result.state)
-                  if (result.pincode) set('pincode', result.pincode)
-                }}
-                placeholder="Start typing an address…"
-                className="h-10 text-sm"
-              />
-            </div>
-            {tf('city', 'City *', 'Mumbai')}
-            {tf('state', 'State *', 'Maharashtra')}
-            {tf('pincode', 'PIN Code *', '400001')}
-          </div>
+	            <div className="space-y-1.5">
+	              <Label className="text-xs font-semibold text-slate-700">Vendor Category <span className="text-destructive">*</span></Label>
+	              <select
+	                className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.category ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+	                value={watchedCategory ?? ''}
+	                onChange={e => setValue('category', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
+	              >
+	                <option value="">Select category</option>
+	                {categories.map((c: any) => (
+	                  <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>
+	                ))}
+	              </select>
+	              {errors.category && <p className="text-xs text-destructive mt-1">{errors.category.message}</p>}
+	            </div>
 
-          {/* Contact fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tf('contact_name', 'Contact Person *', 'John Doe')}
-            {tf('contact_email', 'Contact Email *', 'john@acme.com')}
-            {tf('contact_phone', 'Contact Phone *', '+91 98765 43210')}
-          </div>
+	            <div className="space-y-1.5">
+	              <Label className="text-xs font-semibold text-slate-700">Plant <span className="text-destructive">*</span></Label>
+	              <select
+	                className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.plant ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+	                value={watchedPlant ?? ''}
+	                onChange={e => setValue('plant', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
+	              >
+	                <option value="">Select plant</option>
+	                {plants.map((p: any) => (
+	                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+	                ))}
+	              </select>
+	              {errors.plant && <p className="text-xs text-destructive mt-1">{errors.plant.message}</p>}
+	            </div>
+	          </div>
 
-          <div className="flex justify-end gap-3 pt-2 border-t">
-            <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
-              <X className="w-3.5 h-3.5" /> Cancel
-            </Button>
-            <Button size="sm" onClick={() => onSave(form)} disabled={saving} className="gap-1">
-              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Save Changes
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+	          {/* Row 2: Address (span 2) + City */}
+	          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+	            <div className="space-y-1.5 lg:col-span-2">
+	              <Label className="text-xs font-semibold text-slate-700">Address <span className="text-destructive">*</span></Label>
+	              <AddressAutocomplete
+	                value={watchedAddress ?? ''}
+	                onChange={v => setValue('address', v, { shouldValidate: true })}
+	                onSelect={result => {
+	                  setValue('address', result.address, { shouldValidate: true })
+	                  if (result.city) setValue('city', result.city, { shouldValidate: true })
+	                  if (result.state) setValue('state', result.state, { shouldValidate: true })
+	                  setValue('country', 'India', { shouldValidate: true })
+	                  if (result.pincode) setValue('pincode', result.pincode, { shouldValidate: true })
+	                }}
+	                placeholder="Start typing an address…"
+	                className={`h-10 text-sm ${errors.address ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+	              />
+	              {errors.address && <p className="text-xs text-destructive mt-1">{errors.address.message}</p>}
+	            </div>
+
+	            <div className="space-y-1.5">
+	              <Label className="text-xs font-semibold text-slate-700">City <span className="text-destructive">*</span></Label>
+	              <Input
+	                value={watchedCity ?? ''}
+	                placeholder="e.g. Mumbai"
+	                onChange={(e) => setValue('city', e.target.value, { shouldValidate: true })}
+	                className={`h-10 text-sm ${errors.city ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+	              />
+	              {errors.city && <p className="text-xs text-destructive mt-1">{errors.city.message}</p>}
+	            </div>
+	          </div>
+
+	          {/* Row 3: State + Country + PIN Code */}
+	          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+	            <div className="space-y-1.5">
+	              <Label className="text-xs font-semibold text-slate-700">State <span className="text-destructive">*</span></Label>
+	              <Input
+	                value={watchedState ?? ''}
+	                placeholder="e.g. Maharashtra"
+	                onChange={(e) => setValue('state', e.target.value, { shouldValidate: true })}
+	                className={`h-10 text-sm ${errors.state ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+	              />
+	              {errors.state && <p className="text-xs text-destructive mt-1">{errors.state.message}</p>}
+	            </div>
+	            <div className="space-y-1.5">
+	              <Label className="text-xs font-semibold text-slate-700">Country <span className="text-destructive">*</span></Label>
+	              <Input value={watchedCountry ?? 'India'} disabled className="h-10 text-sm" />
+	            </div>
+	            <div className="space-y-1.5">
+	              <Label className="text-xs font-semibold text-slate-700">PIN Code <span className="text-destructive">*</span></Label>
+	              <Input
+	                value={watchedPincode ?? ''}
+	                placeholder="e.g. 400001"
+	                maxLength={6}
+	                inputMode="numeric"
+	                pattern="[0-9]*"
+	                onChange={(e) => {
+	                  const raw = String(e.target.value ?? '')
+	                  if (!PINCODE_DIGITS_ONLY.test(raw)) {
+	                    setError('pincode', { type: 'manual', message: 'PIN Code must contain only numbers' })
+	                    return
+	                  }
+	                  if (raw.length > 6) return
+	                  if (errors.pincode?.type === 'manual') clearErrors('pincode')
+	                  setValue('pincode', raw, { shouldValidate: true })
+	                }}
+	                className={`h-10 text-sm ${errors.pincode ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+	              />
+	              {errors.pincode && <p className="text-xs text-destructive mt-1">{errors.pincode.message}</p>}
+	            </div>
+	          </div>
+
+	          {/* Row 4: Contact fields */}
+	          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+	            <div className="space-y-1.5">
+	              <Label className="text-xs font-semibold text-slate-700">Contact Person <span className="text-destructive">*</span></Label>
+	              <Input
+	                value={watchedContactName ?? ''}
+	                placeholder="e.g. John Doe"
+	                onChange={(e) => setValue('contact_name', e.target.value, { shouldValidate: true })}
+	                className={`h-10 text-sm ${errors.contact_name ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+	              />
+	              {errors.contact_name && <p className="text-xs text-destructive mt-1">{errors.contact_name.message}</p>}
+	            </div>
+	            <div className="space-y-1.5">
+	              <Label className="text-xs font-semibold text-slate-700">Contact Email <span className="text-destructive">*</span></Label>
+	              <Input
+	                value={watchedContactEmail ?? ''}
+	                placeholder="e.g. john@acme.com"
+	                onChange={(e) => setValue('contact_email', e.target.value, { shouldValidate: true })}
+	                className={`h-10 text-sm ${errors.contact_email ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+	              />
+	              {errors.contact_email && <p className="text-xs text-destructive mt-1">{errors.contact_email.message}</p>}
+	            </div>
+	            <div className="space-y-1.5">
+	              <Label className="text-xs font-semibold text-slate-700">Contact Phone <span className="text-destructive">*</span></Label>
+	              <Input
+	                value={watchedContactPhone ?? PHONE_PREFIX}
+	                placeholder="e.g. +91 9876543210"
+	                maxLength={13}
+	                inputMode="tel"
+	                onChange={(e) => {
+	                  const raw = String(e.target.value ?? '')
+	                  if (!PHONE_ALLOWED_CHARS.test(raw)) {
+	                    setError('contact_phone', { type: 'manual', message: 'Contact phone must contain only numbers' })
+	                    return
+	                  }
+
+	                  let digits = raw
+	                  if (digits.startsWith(PHONE_PREFIX)) digits = digits.slice(PHONE_PREFIX.length)
+	                  else digits = digits.replace(/^\+?91\s*/g, '')
+	                  digits = digits.replace(/\D/g, '').slice(0, 10)
+	                  const next = `${PHONE_PREFIX}${digits}`
+	                  if (errors.contact_phone?.type === 'manual') clearErrors('contact_phone')
+	                  setValue('contact_phone', next, { shouldValidate: true })
+	                }}
+	                className={`h-10 text-sm ${errors.contact_phone ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
+	              />
+	              {errors.contact_phone && <p className="text-xs text-destructive mt-1">{errors.contact_phone.message}</p>}
+	            </div>
+	          </div>
+
+	          <div className="flex justify-end gap-3 pt-2">
+	            <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
+	              <X className="w-3.5 h-3.5" /> Cancel
+	            </Button>
+	            <Button size="sm" onClick={handleSubmit((data) => onSave(data))} disabled={saving} className="gap-1">
+	              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+	              Save Changes
+	            </Button>
+	          </div>
+	        </CardContent>
+	      </Card>
 
     </>
   )
@@ -1137,7 +1286,7 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
     return (
       <div className="grid grid-cols-4 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="border rounded-lg bg-white px-4 py-3 h-24 animate-pulse bg-slate-100" />
+          <div key={i} className="border rounded-lg bg-slate-100 px-4 py-3 h-24 animate-pulse bg-slate-100" />
         ))}
       </div>
     )
@@ -1768,28 +1917,13 @@ export default function VendorDetailPage() {
   const [complianceErrors, setComplianceErrors] = useState<Record<string, string>>({})
 
   const validateCompliancePairs = (): boolean => {
-    const docOf = (type: string) => vendor?.documents?.find((d: any) => d.doc_type === type) ?? null
     const errs: Record<string, string> = {}
-    const pairs: Array<{ fieldKey: string; fieldLabel: string; docType: string; docLabel: string }> = [
-      { fieldKey: 'gst_number', fieldLabel: 'GST Number', docType: 'gst_certificate', docLabel: 'GST Certificate' },
-      { fieldKey: 'pan_number', fieldLabel: 'PAN Number', docType: 'pan_card', docLabel: 'PAN Card' },
-    ]
-    for (const { fieldKey, fieldLabel, docType, docLabel } of pairs) {
-      const hasValue = !!docFields[fieldKey]
-      const hasDoc = !!docOf(docType)
-      if (hasValue && !hasDoc) errs[`doc_${docType}`] = `${docLabel} is required when ${fieldLabel} is provided`
-      if (hasDoc && !hasValue) errs[`field_${fieldKey}`] = `${fieldLabel} is required when ${docLabel} is uploaded`
-    }
-    const hasBankField = !!(docFields.bank_account || docFields.bank_ifsc || docFields.bank_name)
-    const hasBankDoc = !!docOf('bank_details')
-    if (hasBankField && !hasBankDoc) errs['doc_bank_details'] = 'Bank document is required when bank details are provided'
-    if (hasBankDoc && !hasBankField) errs['field_bank_account'] = 'Bank details are required when bank document is uploaded'
-    if (vendor?.is_msme) {
-      const hasMsmeNum = !!docFields.msme_number
-      const hasMsmeDoc = !!docOf('msme_certificate')
-      if (hasMsmeNum && !hasMsmeDoc) errs['doc_msme_certificate'] = 'MSME Certificate is required when MSME Number is provided'
-      if (hasMsmeDoc && !hasMsmeNum) errs['field_msme_number'] = 'MSME Number is required when MSME Certificate is uploaded'
-    }
+    // Documents are optional. Only these fields are mandatory.
+    if (!docFields.gst_number) errs['field_gst_number'] = 'GST Number is required'
+    if (!docFields.pan_number) errs['field_pan_number'] = 'PAN Number is required'
+
+    const bankMissing = !docFields.bank_account || !docFields.bank_ifsc || !docFields.bank_name
+    if (bankMissing) errs['field_bank_account'] = 'Bank Name, Account No and IFSC Code are required'
     setComplianceErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -2079,24 +2213,21 @@ export default function VendorDetailPage() {
               return <>
 
                 {/* GST */}
-                <div className={blockCls(!!(complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate']))}>
+	                <div className={blockCls(!!complianceErrors['field_gst_number'])}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                        <FileText className="w-3 h-3" /> GST Certificate <span className="text-destructive">*</span>
-                      </Label>
+	                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+	                        <FileText className="w-3 h-3" /> GST Certificate
+	                      </Label>
                       {isVerified(gstDoc) ? (
                         <VerifiedFile doc={gstDoc} onRemove={() => removeDoc(gstDoc)} />
                       ) : (
                         <>
-                          <DocUploadInline vendorId={id} docType="gst_certificate"
-                            doc={gstDoc} editable={canEdit && isEditing}
-                            onRefresh={refreshVendor} setFieldError={(msg) =>
-                              setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))
-                            } />
-                          {complianceErrors['doc_gst_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_gst_certificate']}</p>}
-                        </>
-                      )}
+	                          <DocUploadInline vendorId={id} docType="gst_certificate"
+	                            doc={gstDoc} editable={canEdit && isEditing}
+	                            onRefresh={refreshVendor} />
+	                        </>
+	                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-semibold text-slate-700">
@@ -2116,24 +2247,21 @@ export default function VendorDetailPage() {
                 </div>
 
                 {/* PAN */}
-                <div className={blockCls(!!(complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card']))}>
+	                <div className={blockCls(!!complianceErrors['field_pan_number'])}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                        <FileText className="w-3 h-3" /> PAN Card <span className="text-destructive">*</span>
-                      </Label>
+	                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+	                        <FileText className="w-3 h-3" /> PAN Card
+	                      </Label>
                       {isVerified(panDoc) ? (
                         <VerifiedFile doc={panDoc} onRemove={() => removeDoc(panDoc)} />
                       ) : (
                         <>
-                          <DocUploadInline vendorId={id} docType="pan_card"
-                            doc={panDoc} editable={canEdit && isEditing}
-                            onRefresh={refreshVendor} setFieldError={(msg) =>
-                              setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))
-                            } />
-                          {complianceErrors['doc_pan_card'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_pan_card']}</p>}
-                        </>
-                      )}
+	                          <DocUploadInline vendorId={id} docType="pan_card"
+	                            doc={panDoc} editable={canEdit && isEditing}
+	                            onRefresh={refreshVendor} />
+	                        </>
+	                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-semibold text-slate-700">
@@ -2153,24 +2281,21 @@ export default function VendorDetailPage() {
                 </div>
 
                 {/* Bank Details */}
-                <div className={blockCls(!!(complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details']))}>
+	                <div className={blockCls(!!complianceErrors['field_bank_account'])}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                        <FileText className="w-3 h-3" /> Bank Details / Cheque <span className="text-destructive">*</span>
-                      </Label>
+	                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+	                        <FileText className="w-3 h-3" /> Bank Details / Cheque
+	                      </Label>
                       {isVerified(bankDoc) ? (
                         <VerifiedFile doc={bankDoc} onRemove={() => removeDoc(bankDoc)} />
                       ) : (
                         <>
-                          <DocUploadInline vendorId={id} docType="bank_details"
-                            doc={bankDoc} editable={canEdit && isEditing}
-                            onRefresh={refreshVendor} setFieldError={(msg) =>
-                              setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
-                            } />
-                          {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
-                        </>
-                      )}
+	                          <DocUploadInline vendorId={id} docType="bank_details"
+	                            doc={bankDoc} editable={canEdit && isEditing}
+	                            onRefresh={refreshVendor} />
+	                        </>
+	                      )}
                     </div>
                     <div className="space-y-2.5">
                       {[
