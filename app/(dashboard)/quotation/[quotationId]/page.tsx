@@ -254,7 +254,7 @@ function mapQuotation(raw: any): Quotation {
     department_id: raw.department ?? null,
     department_name: raw.department_name ?? '',
     category_id: raw.category ?? null,
-    category_name: raw.category_name ?? '',
+    category_name: raw.category ?? '',
     confidence_score: nullableNumber(raw.confidence_score ?? raw.ai_confidence ?? raw.confidence),
   }
 }
@@ -301,7 +301,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const [editCategoryId, setEditCategoryId] = useState<string>('')
   const [deleteItemOpen, setDeleteItemOpen] = useState(false)
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null)
-
+console.log('editCategoryId', editCategoryId)
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
     queryFn: async () => {
@@ -689,10 +689,10 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">VENDOR GSTIN</p>
                       <p className="text-sm font-semibold text-slate-900">{vendor?.gst_number || '—'}</p>
                     </div>
-                    <div className="space-y-1">
+                    {/* <div className="space-y-1">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">PAYMENT TERMS</p>
                       <p className="text-sm font-semibold text-slate-900">Net 30</p>
-                    </div>
+                    </div> */}
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">QUOTE DATE</p>
                       <p className="text-sm font-semibold text-slate-900">{quotation.quotation_date}</p>
