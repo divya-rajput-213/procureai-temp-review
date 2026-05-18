@@ -1699,23 +1699,14 @@ export default function VendorDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm min-w-0">
-          <Button
+          {/* <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push('/vendors')}
             className="h-auto p-0 text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/vendors')}
-            className="h-auto p-0 text-muted-foreground hover:text-foreground"
-          >
-            Vendors
-          </Button>
-          <span className="text-muted-foreground">/</span>
+          </Button> */}
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
               <span className="text-xs font-bold text-indigo-700">{(vendor.company_name ?? '?')[0].toUpperCase()}</span>
