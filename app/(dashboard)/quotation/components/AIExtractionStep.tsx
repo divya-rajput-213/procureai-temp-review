@@ -231,17 +231,6 @@ const AIExtractionStep = ({ selectedFile, quotation, onNext }: { selectedFile: F
                     </div>
                 </div>
             </div>
-            {/* Next Button */}
-            {onNext && (
-                <Button
-                    size="sm"
-                    onClick={onNext}
-                    disabled={!quotation}
-                    className="gap-1.5 mt-8 self-end"
-                >
-                    Next <ChevronRight className="w-3.5 h-3.5" />
-                </Button>
-            )}
         </div>
     )
 }
