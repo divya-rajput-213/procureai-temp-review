@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { AlertCircle, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, Check, FileText, Building2, Package, Sparkles } from 'lucide-react'
+import { AlertCircle, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, Check, Building2, Package, Sparkles } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
@@ -23,37 +23,75 @@ interface Category { id: number; hash_id: string; name: string; is_active: boole
 
 // ─── Stepper ─────────────────────────────────────────────────────────────────
 const STEPS = [
-    { id: 0, label: 'Upload', icon: FileText },
-    { id: 1, label: 'AI Extraction', icon: Sparkles },
-    { id: 2, label: 'Verify vendor', icon: Building2 },
-    { id: 3, label: 'Verify items', icon: Package },
+    { id: 0, label: 'Upload' },
+    { id: 1, label: 'AI Extraction' },
+    { id: 2, label: 'Verify vendor' },
+    { id: 3, label: 'Verify items' },
 ]
 
 function Stepper({ currentStep, completedSteps }: { currentStep: number; completedSteps: Set<number> }) {
     return (
-        <div className="flex items-center overflow-x-auto">
-            {STEPS.map((step, i) => {
-                const done = completedSteps.has(step.id)
-                const active = currentStep === step.id
-                return (
-                    <div key={step.id} className="flex items-center">
-                        <div className="flex items-center gap-2">
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shrink-0
-                                ${done ? 'bg-primary text-primary-foreground' : active ? 'bg-primary text-primary-foreground' : 'bg-transparent border border-border text-muted-foreground'}`}>
-                                {step.id + 1}
-                            </span>
-                            <span className={`text-sm transition-all whitespace-nowrap ${done ? 'text-primary font-semibold' : active ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
-                                {step.label}
-                            </span>
-                        </div>
-                        {i < STEPS.length - 1 && (
-                            <div className="flex items-center mx-3">
-                                <div className={`w-14 h-px transition-all ${done ? 'bg-primary/60' : 'bg-border'}`} />
-                            </div>
-                        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            {STEPS.map((step, i) => (
+                <div key={step.id} style={{ display: 'flex', alignItems: 'center' }}>
+                    {i > 0 && (
+                        <div
+                            style={{
+                                width: 48,
+                                height: 1,
+                                margin: '0 4px',
+                                background:
+                                    i < currentStep
+                                        ? 'hsl(var(--primary))'
+                                        : 'hsl(var(--border))',
+                            }}
+                        />
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span
+                            style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: '50%',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 16,
+                                fontWeight: 700,
+                                flexShrink: 0,
+                                background:
+                                    i < currentStep
+                                        ? '#10b981'
+                                        : i === currentStep
+                                        ? 'hsl(var(--primary))'
+                                        : 'hsl(var(--muted))',
+                                color:
+                                    i <= currentStep
+                                        ? 'hsl(var(--primary-foreground))'
+                                        : 'hsl(var(--muted-foreground))',
+                            }}
+                        >
+                            {i < currentStep ? (
+                                <Check style={{ width: 10, height: 10 }} />
+                            ) : (
+                                i + 1
+                            )}
+                        </span>
+                        <span
+                            style={{
+                                fontSize: 16,
+                                fontWeight: i === currentStep ? 600 : 400,
+                                color:
+                                    i === currentStep
+                                        ? 'hsl(var(--foreground))'
+                                        : 'hsl(var(--muted-foreground))',
+                            }}
+                        >
+                            {step.label}
+                        </span>
                     </div>
-                )
-            })}
+                </div>
+            ))}
         </div>
     )
 }
@@ -535,30 +573,25 @@ export default function UploadQuotationPage() {
             </div>
 
             {/* Stepper + nav — always visible on ALL steps including step 0 */}
-            <div className="flex items-center justify-between py-2 mb-8 border-b border-border/80 bg-white px-4 rounded-md">
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderBottom: '1px solid hsl(var(--border))',
+                padding: '12px 20px',
+            }}>
                 <Stepper currentStep={currentStep} completedSteps={completedSteps} />
                 <div className="flex items-center gap-2">
                     {currentStep === 1 && (
-                            <>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleRetryAI}
-                                    disabled={!selectedFile || uploadMutation.isPending}
-                                    className="gap-1.5 shrink-0"
-                                >
-                                    {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                                    Retry AI
-                                </Button>
-                                <Button variant="ghost" size="sm" onClick={handleStepBack} className="gap-1.5 bg-white shadow-sm">
-                                    Back
-                                </Button>
-                            </>
-                        )}
-
-                    {currentStep > 0 && currentStep !== 1 && (
-                        <Button variant="ghost" size="sm" onClick={handleStepBack} className="gap-1.5 bg-white shadow-sm">
-                            Back
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleRetryAI}
+                            disabled={!selectedFile || uploadMutation.isPending}
+                            className="gap-1.5 shrink-0"
+                        >
+                            {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                            Retry AI
                         </Button>
                     )}
                 </div>
@@ -759,33 +792,96 @@ export default function UploadQuotationPage() {
             )}
 
             {/* Action Buttons */}
-            <div className="mt-8 flex items-center gap-4 justify-end">
-                {currentStep > 0 && currentStep !== 1 && currentStep !== 2 && (
-                    <Button variant="ghost" size="sm" onClick={handleStepBack}>Back</Button>
-                )}
-                {currentStep === 0 ? (
+            {currentStep <= 2 && (
+                <div
+                    style={{
+                        borderTop: '1px solid hsl(var(--border))',
+                        padding: '12px 24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        marginTop: '10px',
+                    }}
+                >
+                    {currentStep > 0 ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleStepBack}
+                            className="gap-1"
+                        >
+                            Back
+                        </Button>
+                    ) : (
+                        <div />
+                    )}
+
+                    {currentStep === 0 ? (
+                        <Button
+                            size="sm"
+                            onClick={() => selectedFile && addFile(selectedFile)}
+                            disabled={!selectedFile || uploadMutation.isPending}
+                            className="gap-1.5"
+                        >
+                            {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                            Continue <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                    ) : currentStep === 1 ? (
+                        <Button
+                            size="sm"
+                            onClick={handleNextFromAI}
+                            disabled={!quotation}
+                            className="gap-1.5"
+                        >
+                            Next <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                    ) : (
+                        <Button
+                            size="sm"
+                            onClick={handleStepContinue}
+                            disabled={currentStep === 2 ? !canProceedFromVendor : !canProceedFromItems}
+                            className="gap-1.5"
+                        >
+                            {currentStep === 2 ? 'Next' : 'Continue'} <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                    )}
+                </div>
+            )}
+
+            {currentStep === 3 && (
+                <div
+                    style={{
+                        borderTop: '1px solid hsl(var(--border))',
+                        padding: '12px 24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        marginTop: '10px',
+                    }}
+                >
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleStepBack}
+                        className="gap-1"
+                    >
+                        Back
+                    </Button>
+
                     <Button
                         size="sm"
-                        onClick={() => selectedFile && addFile(selectedFile)}
-                        disabled={!selectedFile || uploadMutation.isPending}
+                        onClick={handleSubmit}
+                        disabled={isLoading}
                         className="gap-1.5"
+                        style={{ marginLeft: 'auto' }}
                     >
-                        {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                        Continue <ChevronRight className="w-3.5 h-3.5" />
-                    </Button>
-                ) : currentStep === 1 ? null : currentStep < 3 ? (
-                    <Button size="sm" onClick={handleStepContinue}
-                        disabled={currentStep === 2 ? !canProceedFromVendor : !canProceedFromItems}
-                        className={`gap-1.5 ${currentStep === 2 ? 'mt-6' : ''}`}>
-                        {currentStep === 2 ? 'Next' : 'Continue'} <ChevronRight className="w-3.5 h-3.5" />
-                    </Button>
-                ) : (
-                    <Button size="sm" onClick={handleSubmit} disabled={isLoading}
-                        className="gap-1.5">
+                        {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                         Review & save <ChevronRight className="w-3.5 h-3.5" />
                     </Button>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* ── Confirm Modal ── */}
             <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
