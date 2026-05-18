@@ -937,15 +937,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                     <td className="px-4 py-3 font-medium text-slate-900">{item.item_name}</td>
                     <td className="px-4 py-3">
                       {item.master_item_id ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-[9px] font-bold text-slate-400">
-                            <span>MATCH</span>
-                            <span>{90 + idx}%</span>
-                          </div>
-                          <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full" style={{ width: `${90 + idx}%` }} />
-                          </div>
-                        </div>
+                        <Badge variant="outline" className="text-[9px] font-bold bg-amber-50 text-amber-700 border-amber-200">Matched</Badge>
                       ) : (
                         <Badge variant="outline" className="text-[9px] font-bold bg-amber-50 text-amber-700 border-amber-200">New</Badge>
                       )}
