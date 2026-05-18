@@ -420,7 +420,7 @@ export default function QuotationPage() {
                                                                 {q.vendor_gstin ? <span> • GSTIN: {q.vendor_gstin}</span> : null}
                                                             </span>
                                                         ) : (
-                                                            q.vendor_gstin ? <span>GSTIN: {q.vendor_gstin}</span> : <span>Verified Vendor</span>
+                                                            q.vendor_gstin ? <span>GSTIN: {q.vendor_gstin}</span> : ""
                                                         )}
                                                     </div>
                                                 </td>

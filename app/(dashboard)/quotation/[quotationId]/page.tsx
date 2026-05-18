@@ -305,7 +305,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const [editCategoryId, setEditCategoryId] = useState<string>('')
   const [deleteItemOpen, setDeleteItemOpen] = useState(false)
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null)
-  console.log('editCategoryId', editCategoryId)
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
     queryFn: async () => {
