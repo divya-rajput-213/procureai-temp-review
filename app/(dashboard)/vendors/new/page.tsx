@@ -289,7 +289,7 @@ function DocUploadWidget({ vendorId, docType, doc, onRefresh, setFieldError }: {
 const schema = z.object({
   company_name: z.string()
     .min(2, 'Company name is required')
-    .regex(ALPHANUM_WITH_SPACES, "Only Alphanumeric, spaces and the following special characters are allowed: &, ', -, .")
+    .regex(ALPHANUM_WITH_SPACES, "Company name can contain only letters, numbers, spaces, &, @, $, ., and -.")
     .max(150, 'Company name must be at most 150 characters'),
   contact_name: z.string().min(2, 'Contact person is required'),
   contact_email: z.string().email('Valid email required'),
@@ -422,6 +422,7 @@ export default function NewVendorPage() {
       reValidateMode: 'onChange',
       defaultValues: {
         contact_phone: PHONE_PREFIX,
+        country: 'India',
       },
     })
 
@@ -848,7 +849,7 @@ export default function NewVendorPage() {
                     setValue('address', result.address, { shouldValidate: true })
                     if (result.city) setValue('city', result.city, { shouldValidate: true })
                     if (result.state) setValue('state', result.state, { shouldValidate: true })
-                    if (result.country) setValue('country', result.country, { shouldValidate: true })
+                    setValue('country', 'India', { shouldValidate: true })
                     if (result.pincode) setValue('pincode', result.pincode, { shouldValidate: true })
                   }}
                   placeholder="Start typing an address…"
@@ -872,6 +873,7 @@ export default function NewVendorPage() {
                     placeholder={placeholder}
                     autoComplete={autoComplete}
                     maxLength={maxLength}
+                    disabled={name === 'country'}
                     inputMode={name === 'pincode' ? 'numeric' : undefined}
                     pattern={name === 'pincode' ? '[0-9]*' : undefined}
                     {...register(name as keyof VendorForm, name === 'pincode' ? {
