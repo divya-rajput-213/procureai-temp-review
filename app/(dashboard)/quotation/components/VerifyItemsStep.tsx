@@ -40,6 +40,8 @@ const VerifyItemsStep = ({
     const [filter, setFilter] = useState<'all' | 'matched' | 'review' | 'new'>('all')
     const [searchQuery, setSearchQuery] = useState('')
     const [mappingSearch, setMappingSearch] = useState('')
+    const [isAddingItem, setIsAddingItem] = useState(false)
+    const [addItemSearch, setAddItemSearch] = useState('')
 
     const items = useMemo(() => {
         return lineItems.map((item, originalIndex) => {
@@ -138,6 +140,69 @@ const VerifyItemsStep = ({
         setLineItems(prev => prev.filter((_, i) => i !== index))
     }
 
+    const addItemFromCatalog = (catalogItem: any) => {
+        const masterItemId = String(catalogItem.hash_id || catalogItem.id || '')
+        const newItem = {
+            item_name: catalogItem.description || 'New item',
+            item_code: catalogItem.code || '',
+            item_price: Number(catalogItem.unit_rate ?? catalogItem.item_price ?? 0),
+            quantity: 1,
+            unit_of_measure: catalogItem.unit_of_measure || 'Nos',
+            hsn_code: catalogItem.hsn_code || '',
+            category_name: catalogItem.category_name || 'General',
+            selectedMasterId: masterItemId,
+            is_new: false,
+            is_duplicate: false,
+            createNew: false,
+            suggestions: [
+                {
+                    master_item_id: masterItemId,
+                    code: catalogItem.code || '',
+                    description: catalogItem.description || '',
+                    hsn_code: catalogItem.hsn_code || '',
+                    category: catalogItem.category_name || 'General'
+                }
+            ]
+        }
+
+        setLineItems(prev => [...prev, newItem])
+        setIsAddingItem(false)
+        setAddItemSearch('')
+    }
+
+    const addCustomItem = (itemName: string) => {
+        const cleanName = itemName.trim()
+        if (!cleanName) return
+
+        setLineItems(prev => [
+            ...prev,
+            {
+                item_name: cleanName,
+                item_code: '',
+                item_price: 0,
+                quantity: 1,
+                unit_of_measure: 'Nos',
+                hsn_code: '',
+                category_name: 'General',
+                selectedMasterId: '',
+                is_new: true,
+                is_duplicate: false,
+                createNew: true,
+                suggestions: []
+            }
+        ])
+        setIsAddingItem(false)
+        setAddItemSearch('')
+    }
+
+    const addItemMatches = useMemo(() => {
+        const term = addItemSearch.trim().toLowerCase()
+        if (term.length < 2) return []
+        return masterItems
+            .filter((m: any) => `${m.code || ''} ${m.description || ''}`.toLowerCase().includes(term))
+            .slice(0, 30)
+    }, [masterItems, addItemSearch])
+
     return (
         <div className="h-[calc(100vh-110px)] bg-[#f3f4f6] overflow-hidden flex flex-col">
             {/* TOOLBAR */}
@@ -196,6 +261,18 @@ const VerifyItemsStep = ({
                                     AI
                                 </Badge>
                             </div>
+                            <Button
+                                size="sm"
+                                variant={isAddingItem ? "secondary" : "outline"}
+                                className="h-7 text-[10px] font-bold px-2.5 shrink-0"
+                                onClick={() => {
+                                    setIsAddingItem(prev => !prev)
+                                    if (isAddingItem) setAddItemSearch('')
+                                }}
+                            >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Add more item
+                            </Button>
                         </div>
 
                         {/* Filters */}
@@ -230,27 +307,92 @@ const VerifyItemsStep = ({
 
                     {/* Search */}
                     <div className="px-4 py-1.5 border-b bg-slate-50/30">
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                            <input
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                type="text"
-                                placeholder="Search items..."
-                                className="w-full pl-8 pr-4 py-1 bg-transparent text-[11px] focus:outline-none placeholder:text-slate-400 font-medium"
-                            />
+                        <div className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                <input
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    type="text"
+                                    placeholder="Search items..."
+                                    className="w-full pl-8 pr-4 py-1 bg-transparent text-[11px] focus:outline-none placeholder:text-slate-400 font-medium"
+                                />
+                            </div>
                         </div>
                     </div>
 
                     {/* ITEMS LIST */}
                     <div className="flex-1 overflow-auto divide-y bg-slate-50/20">
+                        {isAddingItem && (
+                            <div className="bg-violet-50/40 border-b border-violet-100">
+                                <div className="p-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[9px] font-bold text-violet-600 tracking-wider">NEW</span>
+                                        <Badge className="text-[8px] uppercase tracking-tighter px-1.5 py-0 h-3.5 border-none font-black bg-primary/10 text-primary">
+                                            Add Line Item
+                                        </Badge>
+                                    </div>
+                                    <div className="rounded-lg border border-violet-200 bg-white shadow-sm overflow-hidden">
+                                        <Command shouldFilter={false} className="border-none">
+                                            <div className="flex items-center px-2.5 border-b bg-slate-50/50">
+                                                <Search className="w-3.5 h-3.5 text-slate-400 mr-2 shrink-0" />
+                                                <CommandInput
+                                                    placeholder="Search catalog item name or code..."
+                                                    className="h-9 text-[13px] border-none bg-transparent focus:ring-0"
+                                                    value={addItemSearch}
+                                                    onValueChange={setAddItemSearch}
+                                                />
+                                            </div>
+                                            <CommandList className="max-h-[260px] overflow-y-auto">
+                                                {addItemSearch.trim().length < 2 ? (
+                                                    <div className="py-5 text-center text-[11px] text-slate-500">
+                                                        Type at least 2 characters to search catalog items.
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        {addItemMatches.length === 0 && (
+                                                            <CommandEmpty className="py-5 text-center text-[11px] text-slate-500">No catalog matches found.</CommandEmpty>
+                                                        )}
+                                                        <CommandGroup heading={<span className="text-[9px] font-black uppercase text-violet-600 tracking-widest px-1">Catalog Results</span>}>
+                                                            {addItemMatches.map((m: any) => (
+                                                                <CommandItem
+                                                                    key={m.hash_id || m.id}
+                                                                    onSelect={() => addItemFromCatalog(m)}
+                                                                    className="flex flex-col items-start px-3 py-2 gap-0.5 hover:bg-violet-50 cursor-pointer border-b last:border-none"
+                                                                >
+                                                                    <div className="flex items-center justify-between w-full">
+                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{m.code || '—'}</span>
+                                                                        <Plus className="w-2.5 h-2.5 text-slate-300" />
+                                                                    </div>
+                                                                    <span className="text-[12px] font-semibold text-slate-700 leading-tight">{m.description}</span>
+                                                                    <span className="text-[9px] text-slate-400 font-medium">{m.category_name} · HSN {m.hsn_code || '—'}</span>
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                        <CommandGroup heading={<span className="text-[9px] font-black uppercase text-primary tracking-widest px-1">Custom</span>}>
+                                                            <CommandItem
+                                                                onSelect={() => addCustomItem(addItemSearch)}
+                                                                className="flex items-center px-3 py-2 gap-2 hover:bg-slate-50 cursor-pointer"
+                                                            >
+                                                                <Plus className="w-3 h-3 text-primary" />
+                                                                <span className="text-[12px] font-semibold text-slate-700">Create custom item "{addItemSearch.trim()}"</span>
+                                                            </CommandItem>
+                                                        </CommandGroup>
+                                                    </>
+                                                )}
+                                            </CommandList>
+                                        </Command>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         {filteredItems.map((item, idx) => (
                             <div key={idx} className="group relative bg-white hover:bg-slate-50/50 transition-all duration-150">
                                 <div className="p-3 flex gap-3">
                                     {/* Left: Original Info */}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-[9px] font-bold text-slate-400 tracking-wider">L{idx + 1}</span>
+                                            <span className="text-[9px] font-bold text-slate-400 tracking-wider">L{item.originalIndex + 1}</span>
                                             <Badge className={cn(
                                                 "text-[8px] uppercase tracking-tighter px-1.5 py-0 h-3.5 border-none font-black",
                                                 item.status === 'matched' ? "bg-emerald-100 text-emerald-700" :
@@ -266,11 +408,11 @@ const VerifyItemsStep = ({
                                         </h3>
 
                                         <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-400">
-                                            <span>{item.quantity} {item.unit_of_measure}</span>
+                                            <span>{Number(item.quantity || 0)} {item.unit_of_measure || 'Nos'}</span>
                                             <div className="w-0.5 h-0.5 rounded-full bg-slate-300" />
-                                            <span>₹{item.item_price.toLocaleString('en-IN')}/u</span>
+                                            <span>₹{Number(item.item_price || 0).toLocaleString('en-IN')}/u</span>
                                             <div className="w-0.5 h-0.5 rounded-full bg-slate-300" />
-                                            <span className="text-slate-600 font-bold">₹{(item.quantity * item.item_price).toLocaleString('en-IN')}</span>
+                                            <span className="text-slate-600 font-bold">₹{(Number(item.quantity || 0) * Number(item.item_price || 0)).toLocaleString('en-IN')}</span>
                                         </div>
                                     </div>
 
