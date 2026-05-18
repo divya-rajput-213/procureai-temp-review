@@ -138,18 +138,6 @@ const VerifyItemsStep = ({
         setLineItems(prev => prev.filter((_, i) => i !== index))
     }
 
-    const handleApproveAll = () => {
-        setLineItems(prev => prev.map(item => {
-            if (!item.is_new && !item.selectedMasterId && item.suggestions?.length > 0) {
-                return {
-                    ...item,
-                    selectedMasterId: String(item.suggestions[0].master_item_id)
-                }
-            }
-            return item
-        }))
-    }
-
     return (
         <div className="h-[calc(100vh-110px)] bg-[#f3f4f6] overflow-hidden flex flex-col">
             {/* TOOLBAR */}
@@ -163,22 +151,11 @@ const VerifyItemsStep = ({
                         <X className="w-2.5 h-2.5 text-slate-400 cursor-pointer hover:text-slate-600" />
                     </div>
                 </div>
-
-                <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-slate-600 font-semibold text-[11px] px-2">
-                        <Search className="w-3 h-3" />
-                        Find
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-7 gap-1.5 font-bold text-slate-700 bg-white text-[11px] px-2">
-                        <Download className="w-3 h-3" />
-                        Save
-                    </Button>
-                </div>
             </div>
 
             <div className="flex-1 flex overflow-hidden">
                 {/* PDF PREVIEW (LEFT) */}
-                <div className="flex-[0.55] border-r flex flex-col bg-[#eef1f4] relative shadow-inner">
+                <div className="flex-[0.35] border-r flex flex-col bg-[#eef1f4] relative shadow-inner">
                     <div className="absolute top-3 left-3 z-10 flex gap-1.5">
                         <div className="bg-white/90 backdrop-blur-sm border shadow-sm rounded px-1.5 py-0.5 flex items-center gap-2 text-[9px] font-bold">
                             <span>Page 1/1</span>
@@ -208,7 +185,7 @@ const VerifyItemsStep = ({
                 </div>
 
                 {/* VERIFICATION PANEL (RIGHT) */}
-                <div className="flex-[0.45] bg-white flex flex-col overflow-hidden relative">
+                <div className="flex-[0.65] bg-white flex flex-col overflow-hidden relative">
                     {/* Header */}
                     <div className="px-4 py-2.5 border-b">
                         <div className="flex items-center justify-between mb-2">
@@ -219,14 +196,6 @@ const VerifyItemsStep = ({
                                     AI
                                 </Badge>
                             </div>
-                            <Button
-                                onClick={handleApproveAll}
-                                variant="outline"
-                                className="h-7 gap-1.5 text-emerald-700 bg-emerald-50 border-emerald-100 hover:bg-emerald-100 font-bold text-[10px] transition-all"
-                            >
-                                <Check className="w-3 h-3" />
-                                Approve all
-                            </Button>
                         </div>
 
                         {/* Filters */}
@@ -292,11 +261,11 @@ const VerifyItemsStep = ({
                                             </Badge>
                                         </div>
 
-                                        <h3 className="text-[13px] font-bold text-slate-800 leading-tight mb-1 group-hover:text-violet-700 transition-colors truncate">
+                                        <h3 className="text-[15px] font-bold text-slate-800 leading-tight mb-1 group-hover:text-violet-700 transition-colors truncate">
                                             {item.item_name}
                                         </h3>
 
-                                        <div className="flex items-center gap-3 text-[10px] font-semibold text-slate-400">
+                                        <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-400">
                                             <span>{item.quantity} {item.unit_of_measure}</span>
                                             <div className="w-0.5 h-0.5 rounded-full bg-slate-300" />
                                             <span>₹{item.item_price.toLocaleString('en-IN')}/u</span>
