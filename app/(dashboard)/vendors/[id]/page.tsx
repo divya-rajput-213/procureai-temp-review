@@ -1039,8 +1039,12 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
   const stats = dash.stats ?? {}
   const spendTrend: { month: string; spend: number }[] = dash.spend_trend ?? []
   const transactions: any[] = dash.recent_transactions ?? []
-  const perfScore = dash.performance_score == null ? null : Math.round(Number(dash.performance_score))
-  const riskScore = dash.risk_score == null ? null : Math.round(Number(dash.risk_score))
+  const perfScore = dash.performance_score != null ? Math.round(Number(dash.performance_score))
+  : vendor.performance_score != null ? Math.round(Number(vendor.performance_score))
+  : null
+const riskScore = dash.risk_score != null ? Math.round(Number(dash.risk_score))
+  : vendor.risk_score != null ? Math.round(Number(vendor.risk_score))
+  : null
   const onTimeRate = stats.on_time_delivery_rate == null ? null : Math.round(Number(stats.on_time_delivery_rate))
   const avgLeadDays = stats.avg_delivery_days ?? vendor.standard_lead_time_days ?? null
 
@@ -1111,21 +1115,36 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {[
-                  { label: 'CATEGORY', value: vendor.category_name || '—' },
-                  { label: 'ESTABLISHED', value: vendor.established || '—' },
-                  { label: 'EMPLOYEES', value: vendor.employees || '—' },
-                  { label: 'LOCATION', value: [vendor.city, vendor.state].filter(Boolean).join(', ') || '—' },
-                  { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
-                  { label: 'FSRAI', value: '—' },
-                ].map(item => (
-                  <div key={item.label} className="space-y-1">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{item.label}</p>
-                    <p className="text-sm font-medium text-slate-900">{item.value}</p>
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+  {[
+    { label: 'CATEGORY', value: vendor.category_name || '—' },
+    { label: 'PLANT', value: vendor.plant_name || '—' },
+    { label: 'LOCATION', value: [vendor.city, vendor.state].filter(Boolean).join(', ') || '—' },
+    { label: 'COUNTRY', value: vendor.country || '—' },
+    { label: 'CURRENCY', value: vendor.currency || '—' },
+    { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
+    { label: 'PRICING MODEL', value: vendor.pricing_model || '—' },
+    { label: 'INCOTERMS', value: vendor.incoterms || '—' },
+    { label: 'VENDOR CODE', value: vendor.vendor_code || '—' },
+    vendor.standard_lead_time_days != null
+      ? { label: 'STD LEAD TIME', value: `${vendor.standard_lead_time_days} days` }
+      : null,
+    vendor.rush_lead_time_days != null
+      ? { label: 'RUSH LEAD TIME', value: `${vendor.rush_lead_time_days} days` }
+      : null,
+    vendor.min_order_quantity != null
+      ? { label: 'MIN ORDER QTY', value: String(vendor.min_order_quantity) }
+      : null,
+    vendor.is_msme ? { label: 'MSME', value: vendor.msme_number || 'Yes' } : null,
+    vendor.is_sez ? { label: 'SEZ', value: 'Yes' } : null,
+    vendor.is_international ? { label: 'INTERNATIONAL', value: 'Yes' } : null,
+  ].filter(Boolean).map(item => (
+    <div key={item!.label} className="space-y-1">
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{item!.label}</p>
+      <p className="text-sm font-medium text-slate-900">{item!.value}</p>
+    </div>
+  ))}
+</div>
             </CardContent>
           </Card>
 
