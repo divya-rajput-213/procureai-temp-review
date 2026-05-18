@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast, useToast } from '@/components/ui/use-toast'
 import {
   ArrowLeft, Loader2, Search, X,
-  AlertTriangle, Check, ChevronRight, Sparkles, Plus, Building2,
+  AlertTriangle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown, Sparkles, Plus, Building2,
   Download,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
@@ -358,8 +358,22 @@ type SortKey = 'ref_no' | 'vendor_name' | 'items_count' | 'quotation_date' | 'va
 type SortDir = 'asc' | 'desc'
 
 function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: SortKey; sortDir: SortDir }) {
-  if (sortKey !== column) return <span style={{ opacity: 0.3, fontSize: 9, marginLeft: 3 }}>⇅</span>
-  return <span style={{ fontSize: 9, marginLeft: 3 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>
+  const commonStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', lineHeight: 1 }
+  if (sortKey !== column) {
+    return (
+      <span style={commonStyle} aria-hidden="true">
+        <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+      </span>
+    )
+  }
+  return (
+    <span style={commonStyle} aria-hidden="true">
+      {sortDir === 'asc'
+        ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+        : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+      }
+    </span>
+  )
 }
 
 function QuotesStep({
@@ -450,7 +464,10 @@ function QuotesStep({
         style={{ ...thStyle, ...style, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
         onClick={() => handleSort(col)}
       >
-        {label}<SortIcon column={col} sortKey={sortKey} sortDir={sortDir} />
+        <span className="inline-flex items-center gap-1">
+          <span>{label}</span>
+          <SortIcon column={col} sortKey={sortKey} sortDir={sortDir} />
+        </span>
       </th>
     )
   }
