@@ -116,6 +116,8 @@ type Quotation = {
   category_id: number | null
   category_name: string
   confidence_score?: number | null
+  pr_no?: string
+  buyer_details?: any
 }
 
 type QuotationDetails = {
@@ -254,7 +256,9 @@ function mapQuotation(raw: any): Quotation {
     department_id: raw.department ?? null,
     department_name: raw.department_name ?? '',
     category_id: raw.category ?? null,
-    category_name: raw.category ?? '',
+    pr_no: raw.pr_no ?? '',                    // was missing entirely
+    category_name: raw.category_name ?? '',    // was raw.category — WRONG
+    buyer_details: raw.buyer_details ?? null,  // pass through raw buyer_details
     confidence_score: nullableNumber(raw.confidence_score ?? raw.ai_confidence ?? raw.confidence),
   }
 }
@@ -301,7 +305,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const [editCategoryId, setEditCategoryId] = useState<string>('')
   const [deleteItemOpen, setDeleteItemOpen] = useState(false)
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null)
-console.log('editCategoryId', editCategoryId)
+  console.log('editCategoryId', editCategoryId)
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
     queryFn: async () => {
@@ -579,24 +583,22 @@ console.log('editCategoryId', editCategoryId)
           <Link href="/quotation" className="hover:text-foreground transition-colors">Quotations</Link>
           <span className="text-slate-400">/</span>
           <span className="font-semibold text-slate-900">{quotation.ref_no}</span>
-          <Badge variant="success" className="ml-2 px-2 py-0 h-5 text-[10px] font-bold uppercase tracking-tight bg-emerald-100 text-emerald-700 border-emerald-200">
-            Verified
-          </Badge>
+
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" className="h-9 gap-2 font-medium" onClick={() => quotation.pdf_url && window.open(quotation.pdf_url, "_blank")}>
             <Eye className="w-4 h-4" /> Preview PDF
           </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-2 font-medium text-primary bg-primary/5 border-primary/20 hover:bg-primary/10">
+          {/* <Button variant="outline" size="sm" className="h-9 gap-2 font-medium text-primary bg-primary/5 border-primary/20 hover:bg-primary/10">
             <Sparkles className="w-4 h-4" /> AI Insights
           </Button>
           <Button size="sm" className="h-9 gap-2 font-medium bg-slate-900 border-slate-900">
             <ArrowUpRight className="w-4 h-4" /> Use in procurement
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9">
+          </Button> */}
+          {/* <Button variant="ghost" size="icon" className="h-9 w-9">
             <MoreHorizontal className="w-4 h-4" />
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -607,7 +609,7 @@ console.log('editCategoryId', editCategoryId)
             { id: 'overview', label: 'Overview' },
             { id: 'line-items', label: 'Line Items', badge: items.length },
             { id: 'document', label: 'Document' },
-            { id: 'activity', label: 'Activity' }
+            // { id: 'activity', label: 'Activity' }
           ] as { id: string; label: string; badge?: number; icon?: React.ReactNode }[]
         ).map(tab => (
           <button
@@ -628,16 +630,23 @@ console.log('editCategoryId', editCategoryId)
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* 3. Metrics Row */}
+          {/* Metrics Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+            {/* TOTAL — sum of items[].total_price from backend */}
             <Card className="shadow-none border-slate-200">
               <CardContent className="p-4">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">TOTAL</p>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-slate-900">{formatINR(displayGrandTotal)}</span>
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase">incl. GST</span>
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase">
+                    {(quotation?.cgst_rate || quotation?.sgst_rate || quotation?.igst_rate) ? 'incl. GST' : 'excl. GST'}
+                  </span>
                 </div>
               </CardContent>
             </Card>
+
+            {/* ITEMS — real count from backend */}
             <Card className="shadow-none border-slate-200">
               <CardContent className="p-4">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">ITEMS</p>
@@ -647,30 +656,51 @@ console.log('editCategoryId', editCategoryId)
                 </div>
               </CardContent>
             </Card>
+
+            {/* QUOTE DATE — quotation_date from backend (valid_until doesn't exist) */}
             <Card className="shadow-none border-slate-200">
               <CardContent className="p-4">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">AI CONFIDENCE</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">QUOTE DATE</p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-slate-900">{confidence}%</span>
-                  <span className="text-xs text-emerald-600 font-bold">↑ 2.0%</span>
+                  <span className="text-2xl font-bold text-slate-900">
+                    {quotation?.quotation_date
+                      ? new Date(quotation.quotation_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                      : '—'}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase">
+                    {quotation?.quotation_date
+                      ? new Date(quotation.quotation_date).getFullYear()
+                      : ''}
+                  </span>
                 </div>
               </CardContent>
             </Card>
+
+            {/* STATUS — real status from backend */}
             <Card className="shadow-none border-slate-200">
               <CardContent className="p-4">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">VALIDITY</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">STATUS</p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-slate-900">{validity?.daysLeft ?? '—'}</span>
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase">days left</span>
+                  <span className={`text-lg font-bold capitalize ${quotation?.status === 'approved' ? 'text-emerald-600' :
+                      quotation?.status === 'rejected' ? 'text-red-600' :
+                        quotation?.status === 'draft' ? 'text-amber-600' :
+                          'text-slate-900'
+                    }`}>
+                    {quotation?.status ?? '—'}
+                  </span>
                 </div>
+                {quotation?.uploaded_by && (
+                  <p className="text-[10px] text-muted-foreground mt-1 truncate">by {quotation.uploaded_by}</p>
+                )}
               </CardContent>
             </Card>
+
           </div>
 
           {/* 4. Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Main Area (8 cols) */}
-            <div className="lg:col-span-8 space-y-6">
+            <div className="lg:col-span-12 space-y-6">
               {/* Quote Summary Card */}
               <Card className="shadow-sm border-slate-200 overflow-hidden">
                 <div className="px-4 py-3 bg-slate-50/50 border-b flex items-center justify-between">
@@ -679,45 +709,186 @@ console.log('editCategoryId', editCategoryId)
                     <Pencil className="w-3 h-3" /> Edit header
                   </Button>
                 </div>
-                <CardContent className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-y-6 gap-x-8">
+                <CardContent className="p-6 space-y-6">
+
+                  {/* Quote Summary */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">VENDOR</p>
-                      <p className="text-sm font-semibold text-slate-900">{vendor?.company_name}</p>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        QUOTATION NO
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {quotation?.quotation_no || '—'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        PR NO
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {quotation?.pr_no || '—'}
+                      </p>
+                    </div>
+
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        VENDOR
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {vendor?.company_name || '—'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        VENDOR GSTIN
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {vendor?.gst_number || '—'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        CONTACT PERSON
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {vendor?.contact_name || '—'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        CONTACT EMAIL
+                      </p>
+                      <p className="text-sm font-semibold break-all">
+                        {vendor?.contact_email || '—'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        CONTACT PHONE
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {vendor?.contact_phone || '—'}
+                      </p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">VENDOR GSTIN</p>
-                      <p className="text-sm font-semibold text-slate-900">{vendor?.gst_number || '—'}</p>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        PLANT
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {quotation?.plant_name || '—'}
+                      </p>
                     </div>
-                    {/* <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">PAYMENT TERMS</p>
-                      <p className="text-sm font-semibold text-slate-900">Net 30</p>
-                    </div> */}
+
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">QUOTE DATE</p>
-                      <p className="text-sm font-semibold text-slate-900">{quotation.quotation_date}</p>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        DEPARTMENT
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {quotation?.department_name || '—'}
+                      </p>
                     </div>
+
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">VALID UNTIL</p>
-                      <p className="text-sm font-semibold text-slate-900">{quotation.quotation_date}</p>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        CATEGORY
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {quotation?.category_name || '—'}
+                      </p>
                     </div>
+
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">CATEGORY</p>
-                      <p className="text-sm font-semibold text-slate-900">{quotation.category_name || '—'}</p>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        VENDOR ADDRESS
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {[
+                          vendor?.address,
+                          vendor?.city,
+                          vendor?.state,
+                          vendor?.country,
+                          vendor?.pincode
+                        ].filter(Boolean).join(', ') || '—'}
+                      </p>
                     </div>
+
+
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">SOURCE</p>
-                      <p className="text-sm font-semibold text-slate-900">email</p>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        CREATED AT
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {quotation?.created_at
+                          ? new Date(quotation.created_at).toLocaleDateString()
+                          : '—'}
+                      </p>
                     </div>
+
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">ORIGINAL FILE</p>
-                      <p className="text-sm font-semibold text-primary underline truncate">{quotation.pdf_url?.split('/').pop()}</p>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        BUYER COMPANY
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {quotation?.buyer_details?.company_name || '—'}
+                      </p>
                     </div>
+
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">CREATED BY</p>
-                      <p className="text-sm font-semibold text-slate-900">AI Agent - auto</p>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        BUYER  NAME
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {quotation?.buyer_details?.contact_name || '—'}
+                      </p>
                     </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        BUYER EMAIL
+                      </p>
+                      <p className="text-sm font-semibold break-all">
+                        {quotation?.buyer_details?.contact_email || '—'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        BUYER PLANT
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {quotation?.buyer_details?.plant_name || '—'}
+                      </p>
+                    </div>
+
                   </div>
+
+                  {/* Terms & Conditions */}
+                  {displayTerms.length > 0 && (
+                    <div className="border-t pt-5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
+                        TERMS & CONDITIONS
+                      </p>
+
+                      <ul className="list-disc pl-5 space-y-2">
+                        {displayTerms.map((term, idx) => (
+                          <li
+                            key={idx}
+                            className="text-sm text-slate-700 leading-relaxed"
+                          >
+                            {term}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                 </CardContent>
               </Card>
 
@@ -725,9 +896,9 @@ console.log('editCategoryId', editCategoryId)
             </div>
 
             {/* Sidebar (4 cols) */}
-            <div className="lg:col-span-4 space-y-6">
+            {/* <div className="lg:col-span-4 space-y-6">
               <AIAnalysisPanel quotation={quotation} />
-            </div>
+            </div> */}
           </div>
         </div>
       )}
@@ -741,9 +912,9 @@ console.log('editCategoryId', editCategoryId)
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Line Items</h3>
               <span className="text-[10px] text-muted-foreground font-medium">{displayItems.length} lines · auto-mapped to master</span>
             </div>
-            <Button variant="outline" size="sm" className="h-7 text-xs font-semibold bg-primary/5 text-primary border-primary/20">
+            {/* <Button variant="outline" size="sm" className="h-7 text-xs font-semibold bg-primary/5 text-primary border-primary/20">
               Re-map all
-            </Button>
+            </Button> */}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left">
@@ -816,7 +987,7 @@ console.log('editCategoryId', editCategoryId)
         </Card>
       )}
 
-      {activeTab === 'activity' && (
+      {/* {activeTab === 'activity' && (
         <Card className="shadow-sm border-slate-200 p-6">
           <h3 className="text-sm font-bold text-slate-900 mb-6">Activity Log</h3>
           <div className="space-y-6">
@@ -838,7 +1009,7 @@ console.log('editCategoryId', editCategoryId)
             ))}
           </div>
         </Card>
-      )}
+      )} */}
 
       {/* Modals & Dialogs (Hidden by default) */}
       <Dialog open={addItemOpen} onOpenChange={(open) => { setAddItemOpen(open); if (!open) setItemSearch('') }}>
@@ -922,14 +1093,14 @@ console.log('editCategoryId', editCategoryId)
             <DialogDescription>Modify global header details, plant/department, and terms.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-6 my-4">
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Quotation No</label>
               <Input value={editQuotationNo} onChange={e => setEditQuotationNo(e.target.value)} className="h-10" />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Quotation Date</label>
               <Input type="date" value={editQuotationDate} onChange={e => setEditQuotationDate(e.target.value)} className="h-10" />
-            </div>
+            </div> */}
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Plant</label>
               <select
