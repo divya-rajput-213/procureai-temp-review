@@ -136,12 +136,12 @@ function ComplianceDocRow({ label, fieldLabel, doc, extractedKey, extraExtracted
 
   return (
     <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${hasError ? 'border-destructive/50' : ''}`}>
-      {/* Left: upload or verified text */}
-      <div className="space-y-1.5">
-        <Label className="text-xs font-semibold text-slate-700">{label} <span className="text-destructive">*</span></Label>
-        {verified ? (
-          <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
-            <FileText className="w-4 h-4 text-green-600 shrink-0" />
+	      {/* Left: upload or verified text */}
+	      <div className="space-y-1.5">
+	        <Label className="text-xs font-semibold text-slate-700">{label}</Label>
+	        {verified ? (
+	          <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
+	            <FileText className="w-4 h-4 text-green-600 shrink-0" />
             <span className="text-xs truncate flex-1 min-w-0 text-green-800">{doc?.original_filename}</span>
             <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Verified</span>
             {doc?.file_url && <a href={doc.file_url} target="_blank" rel="noreferrer" className="shrink-0 text-[10px] text-green-600 hover:underline">View</a>}
@@ -527,32 +527,20 @@ export default function NewVendorPage() {
     if (!data.gst_number?.trim()) {
       errs['field_gst_number'] = 'GST Number is required'
     }
-    if (!docOf('gst_certificate')) {
-      errs['doc_gst_certificate'] = 'GST Certificate is mandatory'
-    }
 
     // PAN
     if (!data.pan_number?.trim()) {
       errs['field_pan_number'] = 'PAN Number is required'
-    }
-    if (!docOf('pan_card')) {
-      errs['doc_pan_card'] = 'PAN Card is mandatory'
     }
 
     // BANK
     if (!data.bank_account?.trim() || !data.bank_ifsc?.trim() || !data.bank_name?.trim()) {
       errs['field_bank_account'] = 'Complete bank details are required'
     }
-    if (!docOf('bank_details')) {
-      errs['doc_bank_details'] = 'Bank document is mandatory'
-    }
 
     // MSME
     if (data.is_msme) {
-      const hasMsmeNum = !!data.msme_number
-      const hasMsmeDoc = !!docOf('msme_certificate')
-      if (hasMsmeNum && !hasMsmeDoc) errs['doc_msme_certificate'] = 'MSME Certificate is required when MSME Number is provided'
-      if (hasMsmeDoc && !hasMsmeNum) errs['field_msme_number'] = 'MSME Number is required when MSME Certificate is uploaded'
+      if (!data.msme_number?.trim()) errs['field_msme_number'] = 'MSME Number is required'
     }
     setComplianceErrors(errs)
     return Object.keys(errs).length === 0
@@ -586,7 +574,7 @@ export default function NewVendorPage() {
     if (!isValid) {
       toast({
         title: 'Validation failed',
-        description: 'Complete required compliance details before proceeding.',
+        description: 'Complete required fields before proceeding.',
         variant: 'destructive',
       })
       return
@@ -966,12 +954,12 @@ export default function NewVendorPage() {
               vendorId={vendorId!}
               docType="gst_certificate"
               onRefresh={refreshDocs}
-              fieldProps={register('gst_number')}
-              fieldPlaceholder="e.g. 27AAAAA0000A1Z5"
-              fieldError={complianceErrors['field_gst_number']}
-              docError={complianceErrors['doc_gst_certificate']}
-              onDocError={(msg) => setComplianceErrors(prev => ({ ...prev, doc_gst_certificate: msg }))}
-              hasError={!!(complianceErrors['field_gst_number'] || complianceErrors['doc_gst_certificate'])}
+	              fieldProps={register('gst_number')}
+	              fieldPlaceholder="e.g. 27AAAAA0000A1Z5"
+	              fieldError={complianceErrors['field_gst_number']}
+	              docError={undefined}
+	              onDocError={() => { }}
+	              hasError={!!complianceErrors['field_gst_number']}
             />
 
             {/* PAN */}
@@ -983,34 +971,34 @@ export default function NewVendorPage() {
               vendorId={vendorId!}
               docType="pan_card"
               onRefresh={refreshDocs}
-              fieldProps={register('pan_number')}
-              fieldPlaceholder="e.g. AAAAA9999A"
-              fieldError={complianceErrors['field_pan_number']}
-              docError={complianceErrors['doc_pan_card']}
-              onDocError={(msg) => setComplianceErrors(prev => ({ ...prev, doc_pan_card: msg }))}
-              hasError={!!(complianceErrors['field_pan_number'] || complianceErrors['doc_pan_card'])}
+	              fieldProps={register('pan_number')}
+	              fieldPlaceholder="e.g. AAAAA9999A"
+	              fieldError={complianceErrors['field_pan_number']}
+	              docError={undefined}
+	              onDocError={() => { }}
+	              hasError={!!complianceErrors['field_pan_number']}
             />
 
             {/* Bank Details */}
             {(() => {
               const bankDoc = docOf('bank_details')
               const bankVerified = bankDoc?.ai_validation_status === 'passed' || bankDoc?.ai_validation_status === 'valid'
-              const bankHasError = !!(complianceErrors['field_bank_account'] || complianceErrors['doc_bank_details'])
+	              const bankHasError = !!complianceErrors['field_bank_account']
 
               const bankRemove = async () => {
                 if (!bankDoc) return
                 try {
                   await apiClient.delete(`/vendors/${vendorId}/documents/${bankDoc.hash_id ?? bankDoc.id}/`)
-                  refreshDocs()
-                  setComplianceErrors(prev => ({ ...prev, doc_bank_details: '' }))
-                } catch { /* silent */ }
-              }
+	                  refreshDocs()
+	                  setComplianceErrors(prev => ({ ...prev, doc_bank_details: '' }))
+	                } catch { /* silent */ }
+	              }
 
               return (
                 <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-4 items-start ${bankHasError ? 'border-destructive/50' : ''}`}>
                   {/* Left: upload or file */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque <span className="text-destructive">*</span></Label>
+	                    <Label className="text-xs font-semibold text-slate-700">Bank Details / Cancelled Cheque</Label>
                     {bankVerified ? (
                       <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
                         <FileText className="w-4 h-4 text-green-600 shrink-0" />
@@ -1023,11 +1011,13 @@ export default function NewVendorPage() {
                       </div>
                     ) : (
                       <>
-                        <DocUploadWidget vendorId={vendorId!} docType="bank_details"
-                          doc={bankDoc} onRefresh={refreshDocs} setFieldError={(msg) =>
-                            setComplianceErrors(prev => ({ ...prev, doc_bank_details: msg }))
-                          } />
-                        {complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
+	                        <DocUploadWidget
+	                          vendorId={vendorId!}
+	                          docType="bank_details"
+	                          doc={bankDoc}
+	                          onRefresh={refreshDocs}
+	                        />
+	                        {false && complianceErrors['doc_bank_details'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_bank_details']}</p>}
                       </>
                     )}
                   </div>
