@@ -1232,7 +1232,6 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
                   { label: 'COUNTRY', value: vendor.country || '—' },
                   { label: 'CURRENCY', value: vendor.currency || '—' },
                   { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
-                  { label: 'PRICING MODEL', value: vendor.pricing_model || '—' },
                   { label: 'INCOTERMS', value: vendor.incoterms || '—' },
                   { label: 'VENDOR CODE', value: vendor.vendor_code || '—' },
                   vendor.standard_lead_time_days != null
