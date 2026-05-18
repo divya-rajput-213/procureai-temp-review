@@ -1099,7 +1099,7 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Main Content Area */}
-        <div className="lg:col-span-8 space-y-4">
+        <div className="lg:col-span-12 space-y-4">
           {/* ── Snapshot Card ── */}
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
@@ -1108,9 +1108,6 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
                   <CardTitle className="text-base font-semibold">Snapshot</CardTitle>
                   <p className="text-xs text-muted-foreground mt-1">Vendor profile · auto-refreshed</p>
                 </div>
-                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
-                  <Pencil className="w-3.5 h-3.5" /> Edit
-                </button>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
@@ -1277,9 +1274,9 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
         </div>
 
         {/* Sidebar Area */}
-        <div className="lg:col-span-4 space-y-4">
+        {/* <div className="lg:col-span-4 space-y-4">
           <VendorAnalysisPanel vendor={vendor} />
-        </div>
+        </div> */}
       </div>
     </div>
   )
