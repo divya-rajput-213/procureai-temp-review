@@ -16,6 +16,7 @@ import { ArrowLeft, ArrowRight, Loader2, Sparkles, CheckCircle, Send, Save, X, P
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
+import { ALPHANUM_WITH_SPACES, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
 import { DOC_CONFIG } from '@/lib/utils'
 
 const SRF_FIELD_LABELS: Record<string, string> = {
@@ -58,7 +59,7 @@ const OTHER_DOC_TYPE_OPTIONS = [
 const contactFields: FieldConfig[] = [
   { name: 'contact_name', label: 'Contact Person', placeholder: 'e.g. John Doe', maxLength: 50 },
   { name: 'contact_email', label: 'Contact Email', placeholder: 'e.g. john@acme.com' },
-  { name: 'contact_phone', label: 'Contact Phone', placeholder: 'e.g. 9876543210', pattern: '[0-9]*', maxLength: 20 },
+  { name: 'contact_phone', label: 'Contact Phone', placeholder: 'e.g. +91 9876543210', pattern: '[0-9]*', maxLength: 14 },
 ]
 
 const steps = ['Company Details', 'Compliance & Docs', 'Review & Submit']
@@ -282,20 +283,22 @@ function DocUploadWidget({ vendorId, docType, doc, onRefresh, setFieldError }: {
 }
 
 // ── Schema ────────────────────────────────────────────────────────────────────
-const ALPHANUM_WITH_SPACES = /^[a-z0-9 ]+$/i
-const ALPHANUM_ONLY = /^[a-z0-9]+$/i
-const DIGITS_ONLY = /^[0-9]+$/
 
 // Compliance fields (GST, PAN, bank) are optional at creation.
 // They are enforced by the backend only at submit-for-approval time.
 const schema = z.object({
-  company_name: z.string().min(2, 'Company name is required').regex(ALPHANUM_WITH_SPACES, 'Company Name must be alphanumeric'),
+  company_name: z.string()
+    .min(2, 'Company name is required')
+    .regex(ALPHANUM_WITH_SPACES, "Only Alphanumeric, spaces and the following special characters are allowed: &, ', -, .")
+    .max(150, 'Company name must be at most 150 characters'),
   contact_name: z.string().min(2, 'Contact person is required'),
   contact_email: z.string().email('Valid email required'),
   contact_phone: z.string()
-    .min(10, 'Contact phone must be at least 10 digits')
-    .regex(DIGITS_ONLY, 'Contact phone must contain only numbers'),
-  address: z.string().min(5, 'Address is required'),
+    .refine(v => PHONE_ALLOWED_CHARS.test(v), 'Contact phone must contain only numbers')
+    .refine(v => /^\+91\d{10}$/.test(v.replace(/\s/g, '')), 'Contact phone must be +91 followed by 10 digits'),
+  address: z.string()
+    .min(5, 'Address is required')
+    .max(250, 'Address must be at most 250 characters'),
   city: z.string()
     .min(1, 'City is required')
     .max(50, 'City must be at most 50 characters')
@@ -308,9 +311,10 @@ const schema = z.object({
     .min(1, 'Country is required')
     .max(50, 'Country must be at most 50 characters')
     .regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
-  pincode: z.string()
-    .min(1, 'PIN Code is required')
-    .regex(ALPHANUM_ONLY, 'PIN Code must be alphanumeric'),
+	  pincode: z.string()
+	    .min(1, 'PIN Code is required')
+	    .regex(DIGITS_ONLY, 'PIN Code must contain only numbers')
+	    .length(6, 'PIN Code must be 6 digits'),
   category: z.number({ required_error: 'Category is required' }),
   plant: z.number({ required_error: 'Plant is required' }),
   // Optional at creation, required before approval
@@ -411,11 +415,14 @@ export default function NewVendorPage() {
     enabled: step === 2,
   })
 
-  const { register, handleSubmit, setValue, watch, trigger, getValues, formState: { errors } } =
+  const { register, handleSubmit, setValue, watch, trigger, getValues, setError, clearErrors, formState: { errors } } =
     useForm<VendorForm>({
       resolver: zodResolver(schema),
       mode: 'onChange',
       reValidateMode: 'onChange',
+      defaultValues: {
+        contact_phone: PHONE_PREFIX,
+      },
     })
 
   const watchedCategory = watch('category')
@@ -854,14 +861,31 @@ export default function NewVendorPage() {
                 { name: 'city', label: 'City', placeholder: 'e.g. Mumbai', maxLength: 50 },
                 { name: 'state', label: 'State', placeholder: 'e.g. Maharashtra', maxLength: 50 },
                 { name: 'country', label: 'Country', placeholder: 'e.g. India', maxlength: 50 },
-                { name: 'pincode', label: 'PIN Code', placeholder: 'e.g. 400001', autoComplete: 'postal-code', maxLength: 50 },
+                { name: 'pincode', label: 'PIN Code', placeholder: 'e.g. 400001', autoComplete: 'postal-code', maxLength: 6 },
               ].map(({ name, label, placeholder, autoComplete, maxLength }) => (
                 <div key={name} className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-700">
                     {label} <span className="text-destructive">*</span>
                     {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                   </Label>
-                  <Input placeholder={placeholder} autoComplete={autoComplete} maxLength={maxLength} {...register(name as keyof VendorForm)}
+                  <Input
+                    placeholder={placeholder}
+                    autoComplete={autoComplete}
+                    maxLength={maxLength}
+                    inputMode={name === 'pincode' ? 'numeric' : undefined}
+                    pattern={name === 'pincode' ? '[0-9]*' : undefined}
+                    {...register(name as keyof VendorForm, name === 'pincode' ? {
+                      onChange: (e) => {
+                        const raw = String(e.target.value ?? '')
+                        if (!PINCODE_DIGITS_ONLY.test(raw)) {
+                          setError('pincode', { type: 'manual', message: 'PIN Code must contain only numbers' })
+                          return
+                        }
+                        if (raw.length > 6) return
+                        if (errors.pincode?.type === 'manual') clearErrors('pincode')
+                        setValue('pincode', raw, { shouldValidate: true })
+                      },
+                    } : undefined)}
                     className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
                   {errors[name as keyof VendorForm] && (
                     <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
@@ -877,7 +901,30 @@ export default function NewVendorPage() {
                     {label} <span className="text-destructive">*</span>
                     {extractedFields?.[name] && confidenceBadge(extractedFields[name].confidence)}
                   </Label>
-                  <Input placeholder={placeholder} pattern={pattern} maxLength={maxLength} {...register(name as keyof VendorForm)}
+                  <Input
+                    placeholder={placeholder}
+                    pattern={pattern}
+                    maxLength={maxLength}
+                    inputMode={name === 'contact_phone' ? 'tel' : undefined}
+                    {...register(name as keyof VendorForm, name === 'contact_phone' ? {
+                      onChange: (e) => {
+                        const raw = String(e.target.value ?? '')
+                        if (!PHONE_ALLOWED_CHARS.test(raw)) {
+                          setError('contact_phone', { type: 'manual', message: 'Contact phone must contain only numbers' })
+                          return
+                        }
+
+                        // Keep `+91 ` prefix and allow only 10 digits after it.
+                        let digits = raw
+                        if (digits.startsWith(PHONE_PREFIX)) digits = digits.slice(PHONE_PREFIX.length)
+                        else digits = digits.replace(/^\+?91\s*/g, '')
+
+                        digits = digits.replace(/\D/g, '').slice(0, 10)
+                        const next = `${PHONE_PREFIX}${digits}`
+                        if (errors.contact_phone?.type === 'manual') clearErrors('contact_phone')
+                        setValue('contact_phone', next, { shouldValidate: true })
+                      },
+                    } : undefined)}
                     className={`${errors[name as keyof VendorForm] ? 'border-destructive ring-1 ring-destructive/30' : ''} ${extractedFields?.[name] ? 'border-purple-200 bg-purple-50' : ''}`} />
                   {errors[name as keyof VendorForm] && (
                     <p className="text-xs text-destructive mt-1">{(errors[name as keyof VendorForm] as any)?.message}</p>
