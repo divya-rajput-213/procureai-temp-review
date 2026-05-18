@@ -1732,7 +1732,7 @@ export default function VendorDetailPage() {
             </div>
             <span className="font-semibold truncate">{vendor.company_name}</span>
             <StatusBadge status={vendor.status} />
-            {vendor.vendor_code && <span className="text-xs text-muted-foreground font-mono">· {vendor.vendor_code}</span>}
+            {/* {vendor.vendor_code && <span className="text-xs text-muted-foreground font-mono">· {vendor.vendor_code}</span>} */}
             {vendor.gstin && <span className="text-xs text-muted-foreground font-mono">· {vendor.gstin}</span>}
           </div>
         </div>
