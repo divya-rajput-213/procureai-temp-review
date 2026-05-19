@@ -5,11 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDebounce } from 'use-debounce'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import {
-  Plus, Search, Download, Trash2, Loader2,
-  ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight,
-  Upload, X, MapPin, Building, Filter,
-} from 'lucide-react'
+import {Plus, Search, Download, Trash2, Loader2, ChevronLeft, ChevronRight, Upload, X, MapPin, Building, Filter} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,39 +13,12 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDate, PAGE_SIZE } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
+import { SortableTh } from '@/components/shared/SortableTh'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SortDir = 'asc' | 'desc'
 type SortField = 'company_name' | 'status' | 'created_at' | 'category_name' | 'performance_score'
-
-// ─── Sort helpers ─────────────────────────────────────────────────────────────
-
-function SortIcon({ field, current, dir }: Readonly<{ field: SortField; current: SortField; dir: SortDir }>) {
-  if (field !== current) return <ChevronsUpDown className="w-3 h-3 text-muted-foreground/50 inline-block ml-1" />
-  return dir === 'asc'
-    ? <ChevronUp className="w-3 h-3 text-primary inline-block ml-1" />
-    : <ChevronDown className="w-3 h-3 text-primary inline-block ml-1" />
-}
-
-function SortableTh({
-  field, label, current, dir, onSort, className = '',
-}: Readonly<{
-  field: SortField; label: string; current: SortField; dir: SortDir
-  onSort: (f: SortField) => void; className?: string
-}>) {
-  return (
-    <th className={`px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide ${className}`}>
-      <button
-        type="button"
-        onClick={() => onSort(field)}
-        className="flex items-center gap-0.5 hover:text-foreground transition-colors uppercase"
-      >
-        {label} <SortIcon field={field} current={current} dir={dir} />
-      </button>
-    </th>
-  )
-}
 
 // ─── Quotation mini-badges ────────────────────────────────────────────────────
 
@@ -89,7 +58,7 @@ function exportCSV(vendors: any[]) {
     'Status', 'Risk Score', 'MSME', 'SEZ', 'International',
     'Contact Name', 'Contact Email', 'Contact Phone',
     'Address', 'City', 'State', 'PIN', 'Country',
-    'Bank Name', 'Bank Account', 'Bank IFSC', 'Currency', 'Incoterms',
+    'Bank Name', 'Bank Account', 'Bank IFSC', 'Currency',
     'Created By', 'Created',
   ]
   const rows = vendors.map(v => [
@@ -100,7 +69,7 @@ function exportCSV(vendors: any[]) {
     v.contact_name ?? '', v.contact_email ?? '', v.contact_phone ?? '',
     v.address ?? '', v.city ?? '', v.state ?? '', v.pincode ?? '', v.country ?? '',
     v.bank_name ?? '', v.bank_account ?? '', v.bank_ifsc ?? '',
-    v.currency ?? '', v.incoterms ?? '', v.created_by_name ?? '',
+    v.currency ?? '', v.created_by_name ?? '',
     v.created_at ? formatDate(v.created_at) : '',
   ])
   const csv = [headers, ...rows]
@@ -327,6 +296,7 @@ export default function VendorsPage() {
 
   const sortProps = { current: sortField, dir: sortDir, onSort: handleSort }
   useEffect(() => { setPage(1) }, [search])
+  
   return (
     <div className="space-y-4">
 
