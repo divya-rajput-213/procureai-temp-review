@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download, ChevronLeft } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download, ChevronLeft, MapPin, LayoutDashboard, ShieldCheck, FolderOpen, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing } from 'lucide-react'
 import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_CONFIG, ALPHANUM_WITH_SPACES, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
@@ -24,6 +24,8 @@ import {
 } from 'recharts'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import VendorAnalysisPanel from '../components/VendorAnalysisPanel'
+import EditVendorPage from '../components/Editvendorpage'
+import { Progress } from '@/components/ui/progress'
 
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -55,19 +57,6 @@ const OTHER_DOC_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
 
 // Doc types that belong to the "other" bucket (not in COMPLIANCE_ROWS)
 const OTHER_DOC_TYPES = new Set(OTHER_DOC_TYPE_OPTIONS.map(o => o.value))
-
-function AIValidationBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    passed: { label: 'AI Passed', cls: 'bg-green-100 text-green-700' },
-    warning: { label: 'AI Warning', cls: 'bg-amber-100 text-amber-700' },
-    failed: { label: 'AI Failed', cls: 'bg-red-100 text-red-700' },
-    pending: { label: 'AI Pending', cls: 'bg-slate-100 text-slate-500' },
-    skipped: { label: 'AI Pending', cls: 'bg-slate-100 text-slate-500' },
-  }
-  const { label, cls } = map[status] || map.pending
-  return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
-}
-
 function actionStepClass(action: string) {
   if (action === 'approved') return 'bg-green-50 border-green-200 text-green-700'
   if (action === 'rejected') return 'bg-red-50 border-red-200 text-red-700'
@@ -250,9 +239,9 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
   return (
     <>
       <Card className="shadow-sm">
-        <CardHeader className="pb-4 border-b">
-          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">Choose the approval workflow for this budget request.</p>
+        <CardHeader className="pb-4 ">
+          {/* <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">Choose the approval workflow for this budget request.</p> */}
         </CardHeader>
         <CardContent className="pt-5">
           {matrices === undefined && (
@@ -391,890 +380,6 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
   )
 }
 
-// ─── Compliance field input — editable (draft) or read-only ─────────────────
-function ComplianceFieldInput({ value, placeholder, canEdit, onSave, onChange }: {
-  value: string
-  placeholder?: string
-  canEdit: boolean
-  onSave: (v: string) => void
-  onChange?: (v: string) => void
-}) {
-  const [draft, setDraft] = useState(value)
-
-  if (!canEdit) {
-    return <p className="text-sm font-medium h-10 flex items-center font-mono">{value || '—'}</p>
-  }
-
-  return (
-    <Input
-      value={draft}
-      placeholder={placeholder}
-      onChange={e => { setDraft(e.target.value); onChange?.(e.target.value) }}
-      onBlur={() => { if (draft !== value) onSave(draft) }}
-      onKeyDown={e => { if (e.key === 'Enter') { if (draft !== value) onSave(draft) } }}
-      className="h-10 text-sm font-mono"
-    />
-  )
-}
-
-// ─── Inline doc upload widget ─────────────────────────────────────────────────
-function DocUploadInline({ vendorId, docType, doc, onRefresh, editable = true, setFieldError }: {
-  vendorId: string | string[]
-  docType: string
-  doc: any | null
-  onRefresh: () => void
-  editable?: boolean
-  setFieldError?: (msg: string) => void
-}) {
-  const { toast } = useToast()
-  const [uploading, setUploading] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [localRemoved, setLocalRemoved] = useState(false)
-
-  // Reset localRemoved whenever the doc prop changes (e.g. after refresh)
-  useEffect(() => {
-    setLocalRemoved(false)
-  }, [doc?.id, doc?.hash_id])
-
-  const effectiveDoc = localRemoved ? null : doc
-
-  const upload = async (file: File) => {
-    if (uploading) return // guard re-entry
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Max file size is 5 MB', variant: 'destructive' }); return
-    }
-    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
-    if (!validTypes.includes(file.type)) {
-      toast({ title: 'Only PDF, JPG, PNG files are allowed', variant: 'destructive' }); return
-    }
-    setUploading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('doc_type', docType)
-      fd.append('title', DOC_CONFIG[docType]?.title || docType)
-      const res = await apiClient.post(`/vendors/${vendorId}/documents/`, fd)
-      const data = res.data
-      if (data?.ai_validation_status === 'invalid' || data?.ai_validation_status === 'failed') {
-        setFieldError?.(data?.ai_validation_notes || `${docType} validation failed`)
-        toast({ title: 'Document validation failed', description: data?.ai_validation_notes || '', variant: 'destructive' })
-      } else {
-        setFieldError?.('')
-        toast({ title: 'Document verified by AI' })
-      }
-      onRefresh()
-    } catch (err: any) {
-      const errData = err?.response?.data
-      const notes = errData?.ai_validation_notes || errData?.error || 'Upload failed'
-      setFieldError?.(notes)
-      toast({ title: 'Document validation failed', description: notes, variant: 'destructive' })
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const remove = async () => {
-    if (!effectiveDoc || deleting || localRemoved) return // triple guard
-    setDeleting(true)
-    setLocalRemoved(true) // optimistic: hide immediately, prevents double-click
-    try {
-      await apiClient.delete(`/vendors/${vendorId}/documents/${effectiveDoc.hash_id ?? effectiveDoc.id}/`)
-      onRefresh()
-      toast({ title: 'Document removed.' })
-      setFieldError?.('')
-    } catch {
-      setLocalRemoved(false) // revert on failure
-      toast({ title: 'Delete failed', variant: 'destructive' })
-    } finally {
-      setDeleting(false)
-    }
-  }
-
-  const extracted = effectiveDoc?.ai_extracted_data || {}
-  const status = effectiveDoc?.ai_validation_status
-  const isValid = status === 'passed' || status === 'valid'
-  const isFailed = status === 'failed' || status === 'invalid'
-  const hasExtracted = isValid && Object.values(extracted).some(v => v && String(v).trim())
-
-  // ── State 1: Verified with extracted data ──────────────────────────────────
-  if (effectiveDoc && hasExtracted) {
-    return (
-      <div className="border rounded-lg overflow-hidden">
-        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border-b border-green-200">
-          <CheckCircle className="w-3.5 h-3.5 text-green-600 shrink-0" />
-          <span className="text-xs font-medium text-green-700 flex-1">AI Verified</span>
-          {effectiveDoc.file_url && (
-            <a href={effectiveDoc.file_url} target="_blank" rel="noreferrer"
-              className="shrink-0 text-xs text-green-600 hover:underline">View</a>
-          )}
-          {editable && (
-            <button
-              type="button"
-              onClick={remove}
-              disabled={deleting || localRemoved}
-              className="shrink-0 text-xs text-red-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Remove'}
-            </button>
-          )}
-        </div>
-        <div className="px-3 py-2 bg-green-50/30 space-y-1">
-          {extracted.gst_number && (
-            <div className="text-xs">
-              <span className="text-muted-foreground w-14 inline-block">GSTIN:</span>
-              <span className="font-mono font-medium">{extracted.gst_number}</span>
-            </div>
-          )}
-          {extracted.pan_number && (
-            <div className="text-xs">
-              <span className="text-muted-foreground w-14 inline-block">PAN:</span>
-              <span className="font-mono font-medium">{extracted.pan_number}</span>
-            </div>
-          )}
-          {extracted.bank_account_number && (
-            <div className="text-xs">
-              <span className="text-muted-foreground w-14 inline-block">A/C:</span>
-              <span className="font-mono font-medium">{extracted.bank_account_number}</span>
-            </div>
-          )}
-          {extracted.ifsc_code && (
-            <div className="text-xs">
-              <span className="text-muted-foreground w-14 inline-block">IFSC:</span>
-              <span className="font-mono font-medium">{extracted.ifsc_code}</span>
-            </div>
-          )}
-          {extracted.bank_name && (
-            <div className="text-xs">
-              <span className="text-muted-foreground w-14 inline-block">Bank:</span>
-              <span className="font-medium">{extracted.bank_name}</span>
-            </div>
-          )}
-          {extracted.legal_name && (
-            <div className="text-xs">
-              <span className="text-muted-foreground w-14 inline-block">Name:</span>
-              <span className="font-medium">{extracted.legal_name}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // ── State 2: Doc exists but failed / pending ───────────────────────────────
-  if (effectiveDoc) {
-    return (
-      <div className="border rounded-lg overflow-hidden">
-        <div className={`flex items-center gap-2 px-3 py-2 ${isFailed ? 'bg-red-50' : 'bg-slate-50'}`}>
-          <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          <span className="text-xs truncate flex-1">{effectiveDoc.original_filename}</span>
-          {isFailed && (
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 shrink-0">
-              Failed
-            </span>
-          )}
-          {editable && (
-            <button
-              type="button"
-              onClick={remove}
-              disabled={deleting || localRemoved}
-              className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {deleting
-                ? <Loader2 className="w-3 h-3 animate-spin" />
-                : <X className="w-3.5 h-3.5" />
-              }
-            </button>
-          )}
-        </div>
-        {effectiveDoc.ai_validation_notes && isFailed && (
-          <p className="text-[10px] text-red-600 px-3 py-1.5 bg-red-50">
-            {effectiveDoc.ai_validation_notes}
-          </p>
-        )}
-        {/* Allow re-upload after failure */}
-        {editable && isFailed && (
-          <div className="px-3 py-2 bg-red-50/50 border-t border-red-100">
-            <label className={`cursor-pointer inline-flex items-center gap-1.5 text-xs text-red-600 hover:text-red-800 font-medium ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-              <Upload className="w-3 h-3" />
-              {uploading ? 'Uploading...' : 'Replace with correct file'}
-              <input
-                type="file"
-                className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png"
-                disabled={uploading}
-                onChange={e => {
-                  const f = e.target.files?.[0]
-                  if (f) upload(f)
-                  e.target.value = ''
-                }}
-              />
-            </label>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // ── State 3: No doc — show upload dropzone ────────────────────────────────
-  if (!editable) {
-    return (
-      <div className="border rounded-md px-3 py-2 min-h-[38px]">
-        <span className="text-xs text-muted-foreground italic">No document</span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="border-2 border-dashed rounded-lg px-3 py-3 text-center hover:bg-slate-50 transition-colors">
-      <label
-        className={`cursor-pointer block ${uploading ? 'pointer-events-none' : ''}`}
-        onClick={e => { if (uploading) e.preventDefault() }}
-      >
-        {uploading ? (
-          <div className="flex items-center justify-center gap-2 py-1">
-            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-            <span className="text-xs text-muted-foreground">Uploading & validating...</span>
-          </div>
-        ) : (
-          <div>
-            <Upload className="w-5 h-5 mx-auto text-muted-foreground mb-1" />
-            <p className="text-xs text-muted-foreground">
-              Drop or <span className="text-primary font-medium">browse</span> (PDF, JPG, PNG)
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Max 5 MB</p>
-          </div>
-        )}
-        <input
-          type="file"
-          className="hidden"
-          accept=".pdf,.jpg,.jpeg,.png"
-          disabled={uploading}
-          onChange={e => {
-            const f = e.target.files?.[0]
-            if (f) upload(f)
-            e.target.value = ''
-          }}
-        />
-      </label>
-    </div>
-  )
-}
-
-// ─── Edit form — company details only (compliance is in Documents tab) ───────
-const PHONE_PREFIX = '+91 '
-const PHONE_ALLOWED_CHARS = /^[0-9+ ]*$/
-
-const editDetailsSchema = z.object({
-  category: z.number({ required_error: 'Category is required' }),
-  plant: z.number({ required_error: 'Plant is required' }),
-  company_name: z.string().min(2, 'Company name is required').regex(ALPHANUM_WITH_SPACES, 'Company Name must be alphanumeric'),
-  address: z.string().min(5, 'Address is required').max(250, 'Address must be at most 250 characters'),
-  city: z.string().min(1, 'City is required').max(50, 'City must be at most 50 characters').regex(ALPHANUM_WITH_SPACES, 'City must be alphanumeric'),
-  state: z.string().min(1, 'State is required').max(50, 'State must be at most 50 characters').regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
-  country: z.string().min(1, 'Country is required'),
-  pincode: z.string()
-    .min(1, 'PIN Code is required')
-    .regex(DIGITS_ONLY, 'PIN Code must contain only numbers')
-    .length(6, 'PIN Code must be 6 digits'),
-  contact_name: z.string().min(2, 'Contact person is required'),
-  contact_email: z.string().email('Valid email required'),
-  contact_phone: z.string()
-    .refine(v => PHONE_ALLOWED_CHARS.test(v), 'Contact phone must contain only numbers')
-    .refine(v => /^\+91\d{10}$/.test(v.replace(/\s/g, '')), 'Contact phone must be +91 followed by 10 digits'),
-})
-
-type EditDetailsFormData = z.infer<typeof editDetailsSchema>
-
-function EditDetailsForm({ vendor, categories, plants, onSave, onCancel, saving }: {
-  vendor: any
-  categories: any[]
-  plants: any[]
-  onSave: (data: Record<string, any>) => void
-  onCancel: () => void
-  saving: boolean
-}) {
-  const normalizePhone = (v: any) => {
-    const raw = String(v ?? '')
-    const digits = raw.replace(/\D/g, '').replace(/^91/, '').slice(0, 10)
-    return `${PHONE_PREFIX}${digits}`
-  }
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    setError,
-    clearErrors,
-    formState: { errors },
-  } = useForm<EditDetailsFormData>({
-    resolver: zodResolver(editDetailsSchema),
-    mode: 'onChange',
-    reValidateMode: 'onChange',
-    defaultValues: {
-      company_name: vendor.company_name ?? '',
-      category: Number(vendor.category ?? 0) || undefined as any,
-      plant: Number(vendor.plant ?? 0) || undefined as any,
-      address: vendor.address ?? '',
-      city: vendor.city ?? '',
-      state: vendor.state ?? '',
-      country: 'India',
-      pincode: String(vendor.pincode ?? ''),
-      contact_name: vendor.contact_name ?? '',
-      contact_email: vendor.contact_email ?? '',
-      contact_phone: normalizePhone(vendor.contact_phone),
-    },
-  })
-
-  const watchedCategory = watch('category')
-  const watchedPlant = watch('plant')
-  const watchedAddress = watch('address')
-  const watchedCity = watch('city')
-  const watchedState = watch('state')
-  const watchedCountry = watch('country')
-  const watchedPincode = watch('pincode')
-  const watchedCompanyName = watch('company_name')
-  const watchedContactName = watch('contact_name')
-  const watchedContactEmail = watch('contact_email')
-  const watchedContactPhone = watch('contact_phone')
-
-	  return (
-	    <>
-	      {/* ── Card 1: Company Details (same as Add form Step 0) ── */}
-	      <Card>
-	        <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
-	        <CardContent className="space-y-5">
-
-	          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 mt-1">General Information</p>
-
-	          {/* Row 1: Company name + category + plant (matches New Vendor form) */}
-	          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-	            <div className="space-y-1.5">
-	              <Label className="text-xs font-semibold text-slate-700">Company Name <span className="text-destructive">*</span></Label>
-	              <Input
-	                value={watchedCompanyName ?? ''}
-	                placeholder="e.g. Acme Pvt Ltd"
-	                onChange={(e) => setValue('company_name', e.target.value, { shouldValidate: true })}
-	                className={`h-10 text-sm ${errors.company_name ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-	              />
-	              {errors.company_name && <p className="text-xs text-destructive mt-1">{errors.company_name.message}</p>}
-	            </div>
-
-	            <div className="space-y-1.5">
-	              <Label className="text-xs font-semibold text-slate-700">Vendor Category <span className="text-destructive">*</span></Label>
-	              <select
-	                className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.category ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-	                value={watchedCategory ?? ''}
-	                onChange={e => setValue('category', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
-	              >
-	                <option value="">Select category</option>
-	                {categories.map((c: any) => (
-	                  <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>
-	                ))}
-	              </select>
-	              {errors.category && <p className="text-xs text-destructive mt-1">{errors.category.message}</p>}
-	            </div>
-
-	            <div className="space-y-1.5">
-	              <Label className="text-xs font-semibold text-slate-700">Plant <span className="text-destructive">*</span></Label>
-	              <select
-	                className={`w-full h-10 border rounded-md px-3 text-sm bg-background ${errors.plant ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-	                value={watchedPlant ?? ''}
-	                onChange={e => setValue('plant', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
-	              >
-	                <option value="">Select plant</option>
-	                {plants.map((p: any) => (
-	                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-	                ))}
-	              </select>
-	              {errors.plant && <p className="text-xs text-destructive mt-1">{errors.plant.message}</p>}
-	            </div>
-	          </div>
-
-	          {/* Row 2: Address (span 2) + City */}
-	          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-	            <div className="space-y-1.5 lg:col-span-2">
-	              <Label className="text-xs font-semibold text-slate-700">Address <span className="text-destructive">*</span></Label>
-	              <AddressAutocomplete
-	                value={watchedAddress ?? ''}
-	                onChange={v => setValue('address', v, { shouldValidate: true })}
-	                onSelect={result => {
-	                  setValue('address', result.address, { shouldValidate: true })
-	                  if (result.city) setValue('city', result.city, { shouldValidate: true })
-	                  if (result.state) setValue('state', result.state, { shouldValidate: true })
-	                  setValue('country', 'India', { shouldValidate: true })
-	                  if (result.pincode) setValue('pincode', result.pincode, { shouldValidate: true })
-	                }}
-	                placeholder="Start typing an address…"
-	                className={`h-10 text-sm ${errors.address ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-	              />
-	              {errors.address && <p className="text-xs text-destructive mt-1">{errors.address.message}</p>}
-	            </div>
-
-	            <div className="space-y-1.5">
-	              <Label className="text-xs font-semibold text-slate-700">City <span className="text-destructive">*</span></Label>
-	              <Input
-	                value={watchedCity ?? ''}
-	                placeholder="e.g. Mumbai"
-	                onChange={(e) => setValue('city', e.target.value, { shouldValidate: true })}
-	                className={`h-10 text-sm ${errors.city ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-	              />
-	              {errors.city && <p className="text-xs text-destructive mt-1">{errors.city.message}</p>}
-	            </div>
-	          </div>
-
-	          {/* Row 3: State + Country + PIN Code */}
-	          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-	            <div className="space-y-1.5">
-	              <Label className="text-xs font-semibold text-slate-700">State <span className="text-destructive">*</span></Label>
-	              <Input
-	                value={watchedState ?? ''}
-	                placeholder="e.g. Maharashtra"
-	                onChange={(e) => setValue('state', e.target.value, { shouldValidate: true })}
-	                className={`h-10 text-sm ${errors.state ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-	              />
-	              {errors.state && <p className="text-xs text-destructive mt-1">{errors.state.message}</p>}
-	            </div>
-	            <div className="space-y-1.5">
-	              <Label className="text-xs font-semibold text-slate-700">Country <span className="text-destructive">*</span></Label>
-	              <Input value={watchedCountry ?? 'India'} disabled className="h-10 text-sm" />
-	            </div>
-	            <div className="space-y-1.5">
-	              <Label className="text-xs font-semibold text-slate-700">PIN Code <span className="text-destructive">*</span></Label>
-	              <Input
-	                value={watchedPincode ?? ''}
-	                placeholder="e.g. 400001"
-	                maxLength={6}
-	                inputMode="numeric"
-	                pattern="[0-9]*"
-	                onChange={(e) => {
-	                  const raw = String(e.target.value ?? '')
-	                  if (!PINCODE_DIGITS_ONLY.test(raw)) {
-	                    setError('pincode', { type: 'manual', message: 'PIN Code must contain only numbers' })
-	                    return
-	                  }
-	                  if (raw.length > 6) return
-	                  if (errors.pincode?.type === 'manual') clearErrors('pincode')
-	                  setValue('pincode', raw, { shouldValidate: true })
-	                }}
-	                className={`h-10 text-sm ${errors.pincode ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-	              />
-	              {errors.pincode && <p className="text-xs text-destructive mt-1">{errors.pincode.message}</p>}
-	            </div>
-	          </div>
-
-	          {/* Row 4: Contact fields */}
-	          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-	            <div className="space-y-1.5">
-	              <Label className="text-xs font-semibold text-slate-700">Contact Person <span className="text-destructive">*</span></Label>
-	              <Input
-	                value={watchedContactName ?? ''}
-	                placeholder="e.g. John Doe"
-	                onChange={(e) => setValue('contact_name', e.target.value, { shouldValidate: true })}
-	                className={`h-10 text-sm ${errors.contact_name ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-	              />
-	              {errors.contact_name && <p className="text-xs text-destructive mt-1">{errors.contact_name.message}</p>}
-	            </div>
-	            <div className="space-y-1.5">
-	              <Label className="text-xs font-semibold text-slate-700">Contact Email <span className="text-destructive">*</span></Label>
-	              <Input
-	                value={watchedContactEmail ?? ''}
-	                placeholder="e.g. john@acme.com"
-	                onChange={(e) => setValue('contact_email', e.target.value, { shouldValidate: true })}
-	                className={`h-10 text-sm ${errors.contact_email ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-	              />
-	              {errors.contact_email && <p className="text-xs text-destructive mt-1">{errors.contact_email.message}</p>}
-	            </div>
-	            <div className="space-y-1.5">
-	              <Label className="text-xs font-semibold text-slate-700">Contact Phone <span className="text-destructive">*</span></Label>
-	              <Input
-	                value={watchedContactPhone ?? PHONE_PREFIX}
-	                placeholder="e.g. +91 9876543210"
-	                maxLength={13}
-	                inputMode="tel"
-	                onChange={(e) => {
-	                  const raw = String(e.target.value ?? '')
-	                  if (!PHONE_ALLOWED_CHARS.test(raw)) {
-	                    setError('contact_phone', { type: 'manual', message: 'Contact phone must contain only numbers' })
-	                    return
-	                  }
-
-	                  let digits = raw
-	                  if (digits.startsWith(PHONE_PREFIX)) digits = digits.slice(PHONE_PREFIX.length)
-	                  else digits = digits.replace(/^\+?91\s*/g, '')
-	                  digits = digits.replace(/\D/g, '').slice(0, 10)
-	                  const next = `${PHONE_PREFIX}${digits}`
-	                  if (errors.contact_phone?.type === 'manual') clearErrors('contact_phone')
-	                  setValue('contact_phone', next, { shouldValidate: true })
-	                }}
-	                className={`h-10 text-sm ${errors.contact_phone ? 'border-destructive ring-1 ring-destructive/30' : ''}`}
-	              />
-	              {errors.contact_phone && <p className="text-xs text-destructive mt-1">{errors.contact_phone.message}</p>}
-	            </div>
-	          </div>
-
-	          <div className="flex justify-end gap-3 pt-2">
-	            <Button variant="outline" size="sm" onClick={onCancel} className="gap-1">
-	              <X className="w-3.5 h-3.5" /> Cancel
-	            </Button>
-	            <Button size="sm" onClick={handleSubmit((data) => onSave(data))} disabled={saving} className="gap-1">
-	              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-	              Save Changes
-	            </Button>
-	          </div>
-	        </CardContent>
-	      </Card>
-
-    </>
-  )
-}
-
-// ─── Other Documents edit panel (shown in Details tab when editing) ──────────
-function OtherDocsEditPanel({ vendorId, existingDocs, onRefresh, editable = true }: {
-  vendorId: string | string[]
-  existingDocs: any[]
-  onRefresh: () => void
-  editable?: boolean
-}) {
-  const { toast } = useToast()
-
-  // ── Inline title editing for existing docs ────────────────────────────────
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editTitle, setEditTitle] = useState('')
-  const [savingTitle, setSavingTitle] = useState(false)
-
-  const startEdit = (doc: any) => {
-    setEditingId(doc.hash_id)
-    setEditTitle(doc.title || doc.original_filename)
-  }
-
-  const saveTitle = async (docId: string) => {
-    setSavingTitle(true)
-    try {
-      await apiClient.patch(`/vendors/${vendorId}/documents/${docId}/`, { title: editTitle })
-      onRefresh()
-      setEditingId(null)
-      toast({ title: 'Title updated.' })
-    } catch {
-      toast({ title: 'Update failed', variant: 'destructive' })
-    } finally {
-      setSavingTitle(false)
-    }
-  }
-
-  // ── Add new rows ──────────────────────────────────────────────────────────
-  const [rows, setRows] = useState<{ id: number; doc_type: string; title: string; file: File | null; uploading: boolean }[]>([])
-
-  const addRow = () =>
-    setRows(prev => [...prev, { id: Date.now(), doc_type: 'other', title: '', file: null, uploading: false }])
-
-  const updateRow = (id: number, patch: Partial<{ doc_type: string; title: string; file: File | null }>) =>
-    setRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
-
-  const removeRow = (id: number) =>
-    setRows(prev => prev.filter(r => r.id !== id))
-
-  const uploadRow = async (row: typeof rows[0]) => {
-    if (!row.file) return
-    setRows(prev => prev.map(r => r.id === row.id ? { ...r, uploading: true } : r))
-    try {
-      const fd = new FormData()
-      fd.append('file', row.file)
-      fd.append('doc_type', row.doc_type)
-      fd.append('title', row.title.trim() || row.file.name)
-      await apiClient.post(`/vendors/${vendorId}/documents/`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      onRefresh()
-      removeRow(row.id)
-      toast({ title: 'Document uploaded. AI validation running...' })
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' })
-      setRows(prev => prev.map(r => r.id === row.id ? { ...r, uploading: false } : r))
-    }
-  }
-
-  // ── Delete existing ───────────────────────────────────────────────────────
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const deleteDoc = async (docId: string) => {
-    setDeletingId(docId)
-    try {
-      await apiClient.delete(`/vendors/${vendorId}/documents/${docId}/`)
-      onRefresh()
-      toast({ title: 'Document removed.' })
-    } catch {
-      toast({ title: 'Delete failed', variant: 'destructive' })
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-sm font-medium">Other Documents</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Quality certs, trade licences, NDAs, insurance, etc.
-          </p>
-        </div>
-        {editable && (
-          <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={addRow}>
-            <Plus className="w-3.5 h-3.5" /> Add Document
-          </Button>
-        )}
-      </div>
-      <div className="space-y-2">
-        {/* Existing docs with inline title edit */}
-        {existingDocs.map(doc => (
-          <div key={doc.id} className="flex items-start gap-3 border rounded-lg px-3 py-2.5">
-            <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0 space-y-1">
-              {/* Title row — editable */}
-              {editable && editingId === doc.hash_id ? (
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={e => setEditTitle(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') saveTitle(doc.hash_id)
-                      else if (e.key === 'Escape') setEditingId(null)
-                    }}
-                    className="flex-1 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    autoFocus
-                  />
-                  <button
-                    onClick={() => saveTitle(doc.hash_id)}
-                    disabled={savingTitle}
-                    className="text-green-600 hover:text-green-800 disabled:opacity-50 shrink-0"
-                    title="Save"
-                  >
-                    {savingTitle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                  </button>
-                  <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground shrink-0" title="Cancel">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <span className="text-sm font-medium group inline-flex items-center gap-1">
-                  {doc.title || doc.original_filename}
-                  {editable && (
-                    <button
-                      onClick={() => startEdit(doc)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                      title="Edit title"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                  )}
-                </span>
-              )}
-              {/* Meta row — type chip + date */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
-                  {DOC_TYPE_LABELS[doc.doc_type] ?? doc.doc_type}
-                </span>
-                <span className="text-xs text-muted-foreground">{formatDate(doc.uploaded_at)}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {doc.file_url && (
-                <a href={doc.file_url} target="_blank" rel="noreferrer">
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </Button>
-                </a>
-              )}
-              {editable && (
-                <Button
-                  variant="ghost" size="sm"
-                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                  onClick={() => deleteDoc(doc.hash_id)}
-                  disabled={deletingId === doc.hash_id}
-                >
-                  {deletingId === doc.hash_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                </Button>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {existingDocs.length === 0 && rows.length === 0 && (
-          <p className="text-xs text-muted-foreground italic text-center py-1">No other documents. Click "Add Document" to attach one.</p>
-        )}
-
-        {/* Add new rows */}
-        {rows.map(row => (
-          <div key={row.id} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end border rounded-lg p-3 bg-slate-50/60">
-            <div className="space-y-1">
-              <Label className="text-xs">Document Type</Label>
-              <select
-                value={row.doc_type}
-                onChange={e => updateRow(row.id, { doc_type: e.target.value })}
-                className="w-full h-9 border rounded-md px-2 text-sm bg-background"
-              >
-                {OTHER_DOC_TYPE_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Title</Label>
-              <Input
-                value={row.title}
-                onChange={e => updateRow(row.id, { title: e.target.value })}
-                placeholder="e.g. ISO 9001 — 2024"
-                className="h-9 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">File</Label>
-              <div className="flex items-center gap-1 border rounded-md px-2 py-1.5 bg-background min-h-[36px]">
-                <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-                  {row.file?.name ?? 'No file chosen'}
-                </span>
-                <label className="cursor-pointer shrink-0">
-                  <span className="inline-flex items-center gap-1 text-xs border rounded px-2 py-1 hover:bg-slate-50">
-                    <Upload className="w-3 h-3" /> Choose
-                  </span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={e => {
-                      const f = e.target.files?.[0]
-                      if (f) updateRow(row.id, { file: f })
-                      e.target.value = ''
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-            <div className="flex gap-1">
-              <Button
-                type="button" size="sm"
-                className="h-9 gap-1 text-xs px-2.5"
-                disabled={!row.file || row.uploading}
-                onClick={() => uploadRow(row)}
-              >
-                {row.uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                {row.uploading ? '' : 'Upload'}
-              </Button>
-              <button
-                type="button"
-                onClick={() => removeRow(row.id)}
-                disabled={row.uploading}
-                className="h-9 w-9 flex items-center justify-center text-red-400 hover:text-red-600 border rounded-md hover:bg-red-50 transition-colors"
-                title="Remove row"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ─── Vendor Dashboard ─────────────────────────────────────────────────────────
-
-const PR_STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  pending_approval: 'Pending Approval',
-  approved: 'Approved',
-  vendor_selected: 'Vendor Selected',
-  synced_to_sap: 'Synced to SAP',
-  po_created: 'PO Created',
-  rejected: 'Rejected',
-  cancelled: 'Cancelled',
-}
-
-function prStatusColor(s: string) {
-  if (['vendor_selected', 'synced_to_sap', 'po_created'].includes(s)) return 'bg-green-100 text-green-700'
-  if (s === 'approved') return 'bg-blue-100 text-blue-700'
-  if (s === 'pending_approval') return 'bg-amber-100 text-amber-700'
-  if (['rejected', 'cancelled'].includes(s)) return 'bg-red-100 text-red-700'
-  return 'bg-slate-100 text-slate-600'
-}
-
-function bidStatusColor(s: string) {
-  if (s === 'shortlisted') return 'bg-blue-100 text-blue-700'
-  if (s === 'pending_approval') return 'bg-purple-100 text-purple-700'
-  if (s === 'pending') return 'bg-amber-100 text-amber-700'
-  return 'bg-slate-100 text-slate-600'
-}
-
-const BID_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  shortlisted: 'Shortlisted',
-  pending_approval: 'In Approval',
-}
-
-// ─── KPI Card — flat, borderless, large number, sparkline right ───────────────
-function KPICard({
-  label, value, sub, subPositive, icon: Icon, iconColor, sparkData, sparkColor, unit,
-}: {
-  label: string
-  value: string
-  unit?: string
-  sub?: string
-  subPositive?: boolean
-  icon: React.ElementType
-  iconColor: string
-  sparkData?: number[]
-  sparkColor?: string
-}) {
-  const chartData = (sparkData ?? []).map((v, i) => ({ i, v }))
-
-  return (
-    // No Card wrapper — just a plain bordered box like the reference
-    <div className="border rounded-lg bg-white px-4 py-3 flex items-start justify-between gap-2">
-      {/* Left */}
-      <div className="flex-1 min-w-0">
-        {/* label row with icon */}
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest truncate">
-            {label}
-          </p>
-        </div>
-        {/* value */}
-        <div className="flex items-baseline gap-1">
-          <p className="text-3xl font-bold leading-none tracking-tight">{value}</p>
-          {unit && <span className="text-sm text-muted-foreground font-normal">{unit}</span>}
-        </div>
-        {/* delta */}
-        {sub && (
-          <p className={`text-xs mt-1.5 flex items-center gap-0.5 font-medium ${subPositive ? 'text-green-600' : 'text-red-500'}`}>
-            {subPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-            {sub}
-          </p>
-        )}
-      </div>
-
-      {/* Right: sparkline */}
-      {chartData.length > 0 && (
-        <div className="w-[80px] h-[36px] shrink-0 self-center">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <Line
-                type="monotone"
-                dataKey="v"
-                stroke={sparkColor ?? '#6366f1'}
-                strokeWidth={1.5}
-                dot={false}
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── VendorDashboard — matches reference exactly ──────────────────────────────
 function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; vendor: any }) {
   const { data: dash, isLoading } = useQuery({
@@ -1286,7 +391,7 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
     return (
       <div className="grid grid-cols-4 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="border rounded-lg bg-slate-100 px-4 py-3 h-24 animate-pulse bg-slate-100" />
+          <div key={i} className="border rounded-lg bg-slate-100 px-4 py-3 h-24 animate-pulse" />
         ))}
       </div>
     )
@@ -1294,266 +399,446 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
 
   if (!dash) return null
 
-  const stats = dash.stats ?? {}
-  const spendTrend: { month: string; spend: number }[] = dash.spend_trend ?? []
-  const transactions: any[] = dash.recent_transactions ?? []
-  const perfScore = dash.performance_score != null ? Math.round(Number(dash.performance_score))
+  const stats = dash?.stats ?? {}
+  const transactions: any[] = dash?.recent_transactions ?? []
+  const perfScore = dash?.performance_score != null ? Math.round(Number(dash.performance_score))
     : vendor.performance_score != null ? Math.round(Number(vendor.performance_score))
       : null
   const riskScore = dash.risk_score != null ? Math.round(Number(dash.risk_score))
     : vendor.risk_score != null ? Math.round(Number(vendor.risk_score))
       : null
-  const onTimeRate = stats.on_time_delivery_rate == null ? null : Math.round(Number(stats.on_time_delivery_rate))
-  const avgLeadDays = stats.avg_delivery_days ?? vendor.standard_lead_time_days ?? null
 
-  const overviewCards = [
-    {
-      title: 'Vendor Score',
-      value: perfScore == null ? '—' : perfScore,
-      subtitle: perfScore == null ? 'No score yet' : 'Overall vendor performance',
-      icon: Star,
-      color: 'bg-indigo-600',
-    },
-    {
-      title: 'On-Time Delivery',
-      value: onTimeRate == null ? '—' : `${onTimeRate}%`,
-      subtitle: onTimeRate == null ? 'No deliveries yet' : 'Delivery performance',
-      icon: CheckCircle,
-      color: 'bg-green-600',
-    },
-    {
-      title: 'Avg Lead Time',
-      value: avgLeadDays == null ? '—' : `${avgLeadDays} days`,
-      subtitle: avgLeadDays == null ? 'No lead-time data' : 'Average delivery timeline',
-      icon: Clock,
-      color: 'bg-cyan-600',
-    },
-    {
-      title: 'Risk Score',
-      value: riskScore == null ? '—' : `${riskScore}/100`,
-      subtitle: riskScore == null ? 'Risk not scored' : 'Lower is better',
-      icon: AlertTriangle,
-      color: 'bg-amber-500',
-    },
-  ] as const
 
   return (
-    <div className="space-y-4">
-      {/* ── 4 KPI cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        {overviewCards.map((item) => (
-          <Card key={item.title} className="shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{item.title}</p>
-                  <p className="text-2xl font-bold mt-1">{item.value}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{item.subtitle}</p>
-                </div>
-                <div className={`p-2.5 rounded-xl ${item.color}`}>
-                  <item.icon className="w-5 h-5 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+<div className="grid grid-cols-1 xl:grid-cols-[70%_30%] gap-4">      {/* LEFT */}
+      <div className="space-y-4">
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Main Content Area */}
-        <div className="lg:col-span-12 space-y-4">
-          {/* ── Snapshot Card ── */}
-          <Card className="shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-semibold">Snapshot</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">Vendor profile </p>
+        {/* Vendor Score */}
+        <Card className="rounded-xl border shadow-none">
+          <CardHeader className="py-3 px-4 flex-row items-center justify-between border-b">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+          <span><ChartNoAxesColumnIncreasing className="h-3.5 w-3.5"  /></span>  
+              Vendor Score Breakdown
+            </CardTitle>
+
+            <Badge className="text-[10px] px-2 py-0.5">
+              {perfScore ? `${perfScore}/100` : "Not scored"}
+            </Badge>
+          </CardHeader>
+
+          <CardContent className="p-4 space-y-3">
+
+            {[
+              {
+                label: "Quality & Delivery",
+                value: dash.score_breakdown?.quality_delivery ?? 0,
+              },
+              {
+                label: "Pricing & Value",
+                value: dash.score_breakdown?.pricing_value ?? 0,
+              },
+              {
+                label: "Compliance",
+                value: dash.score_breakdown?.compliance ?? 0,
+              },
+              {
+                label: "Communication",
+                value: dash.score_breakdown?.communication ?? 0,
+              },
+              {
+                label: "Financial Stability",
+                value: dash.score_breakdown?.financial_stability ?? 0,
+              },
+            ].map(item => (
+
+              <div key={item.label} className="flex items-center gap-3">
+
+                <span className="w-32 text-[12px] text-muted-foreground">
+                  {item.label}
+                </span>
+
+                <div className="flex-1 h-1.5 bg-slate-100 rounded-full">
+                  <div
+                    className="h-full bg-red-500 rounded-full"
+                    style={{ width: `${item.value}%` }}
+                  />
                 </div>
+
+                <span className="text-[12px] font-semibold w-5 text-right text-red-600">
+                  {item.value}
+                </span>
+
               </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {[
-                  { label: 'CATEGORY', value: vendor.category_name || '—' },
-                  { label: 'PLANT', value: vendor.plant_name || '—' },
-                  { label: 'LOCATION', value: [vendor.city, vendor.state].filter(Boolean).join(', ') || '—' },
-                  { label: 'COUNTRY', value: vendor.country || '—' },
-                  { label: 'CURRENCY', value: vendor.currency || '—' },
-                  { label: 'PAYMENT TERMS', value: vendor.payment_terms || '—' },
-                  { label: 'INCOTERMS', value: vendor.incoterms || '—' },
-                  { label: 'VENDOR CODE', value: vendor.vendor_code || '—' },
-                  vendor.standard_lead_time_days != null
-                    ? { label: 'STD LEAD TIME', value: `${vendor.standard_lead_time_days} days` }
-                    : null,
-                  vendor.rush_lead_time_days != null
-                    ? { label: 'RUSH LEAD TIME', value: `${vendor.rush_lead_time_days} days` }
-                    : null,
-                  vendor.min_order_quantity != null
-                    ? { label: 'MIN ORDER QTY', value: String(vendor.min_order_quantity) }
-                    : null,
-                  vendor.is_msme ? { label: 'MSME', value: vendor.msme_number || 'Yes' } : null,
-                  vendor.is_sez ? { label: 'SEZ', value: 'Yes' } : null,
-                  vendor.is_international ? { label: 'INTERNATIONAL', value: 'Yes' } : null,
-                ].filter(Boolean).map(item => (
-                  <div key={item!.label} className="space-y-1">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{item!.label}</p>
-                    <p className="text-sm font-medium text-slate-900">{item!.value}</p>
+
+            ))}
+          </CardContent>
+        </Card>
+
+
+        {/* Compliance */}
+        <Card className="rounded-xl border shadow-none overflow-hidden">
+
+          <CardHeader className="py-2 px-3 border-b">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Compliance Overview
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="p-0">
+
+            {[
+              {
+                label: 'GST Certificate',
+                value: vendor.gst_number,
+                icon: FileBadge,
+                bg: 'bg-blue-100',
+                color: 'text-blue-700',
+                empty: 'Missing',
+                mono: true
+              },
+
+              {
+                label: 'PAN Card',
+                value: vendor.pan_number,
+                icon: CreditCard,
+                bg: 'bg-green-100',
+                color: 'text-green-700',
+                empty: 'Missing',
+                mono: true
+              },
+
+              {
+                label: 'Bank Verification',
+                value: vendor.bank_account
+                  ? `XXXX ${vendor.bank_account.slice(-4)}`
+                  : null,
+                icon: Landmark,
+                bg: 'bg-purple-100',
+                color: 'text-purple-700',
+                empty: 'Not provided',
+                mono: true
+              },
+
+              {
+                label: 'MSME Registration',
+                value: vendor.msme_number,
+                icon: BadgeCheck,
+                bg: 'bg-green-100',
+                color: 'text-green-700',
+                empty: 'Not registered'
+              },
+
+              {
+                label: 'SEZ Unit',
+                value: vendor.sez_number,
+                icon: Building2,
+                bg: 'bg-purple-100',
+                color: 'text-purple-700',
+                empty: 'Not registered'
+              },
+
+              {
+                label: 'ISO Certificate',
+                value: vendor.iso_type,
+                icon: Award,
+                bg: 'bg-amber-100',
+                color: 'text-amber-700',
+                empty: 'Not certified'
+              }
+
+            ].map(item => {
+              const hasValue = !!item.value
+              const Icon = item.icon
+
+              return (
+
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between px-3 py-2 border-b last:border-0"
+                >
+
+                  {/* Left */}
+                  <div className="flex items-center gap-2">
+
+                    <div
+                      className={`h-6 w-6 rounded-md flex items-center justify-center ${item.bg}`}
+                    >
+                      <Icon
+                        className={`h-3 w-3 ${item.color}`}
+                      />
+                    </div>
+
+                    <span className="text-[11px] font-medium">
+                      {item.label}
+                    </span>
+
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* ── Two chart cards ── */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {/* Spend Trend */}
-            <div className="bg-white border rounded-lg px-4 py-3">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-semibold">Spend trend</span>
-                <span className="text-xs text-muted-foreground">12 months · ₹ lakhs</span>
-              </div>
-              {spendTrend.length === 0 || spendTrend.every(d => d.spend === 0) ? (
-                <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
-                  No spend data yet.
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={160}>
-                  <AreaChart data={spendTrend} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false}
-                      tickFormatter={v => v >= 1000 ? `${v / 1000}K` : String(v)} />
-                    <Tooltip
-                      formatter={(v: number) => [formatCurrency(v), 'Spend']}
-                      contentStyle={{ fontSize: 11, borderRadius: 6 }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="spend"
-                      stroke="#6366f1"
-                      strokeWidth={2}
-                      fill="url(#spendGrad)"
-                      dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }}
-                      activeDot={{ r: 4 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
 
-            {/* Price index vs market */}
-            <div className="bg-white border rounded-lg px-4 py-3">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-semibold">Price index vs market</span>
-                <span className="text-xs text-muted-foreground">100 = market median</span>
-              </div>
-              {spendTrend.length === 0 ? (
-                <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
-                  No data yet.
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={160}>
-                  <AreaChart
-                    data={spendTrend.map((d, i) => ({
-                      month: d.month,
-                      index: 100 - i * 0.5,
-                    }))}
-                    margin={{ top: 8, right: 4, left: -20, bottom: 0 }}
+                  {/* Right */}
+                  <div
+                    className={`
+          flex items-center gap-1 text-[10px] font-medium
+          ${hasValue
+                        ? 'text-green-700'
+                        : 'text-red-600'
+                      }
+        `}
                   >
-                    <defs>
-                      <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
-                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 6 }} />
-                    <Area
-                      type="monotone"
-                      dataKey="index"
-                      stroke="#f59e0b"
-                      strokeWidth={2}
-                      fill="url(#priceGrad)"
-                      dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
 
-          {/* ── Recent orders & deliveries ── */}
-          <div className="bg-white border rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b flex items-center gap-2">
-              <span className="text-sm font-semibold">Recent orders &amp; deliveries</span>
-              <span className="text-xs text-muted-foreground">last 30 days</span>
-            </div>
-            {transactions.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-8">No transactions yet.</p>
-            ) : (
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b bg-white">
-                    <th className="text-left font-medium text-muted-foreground px-4 py-2">PO</th>
-                    <th className="text-left font-medium text-muted-foreground px-4 py-2">DATE</th>
-                    <th className="text-left font-medium text-muted-foreground px-4 py-2">ITEMS</th>
-                    <th className="text-left font-medium text-muted-foreground px-4 py-2">STATUS</th>
-                    <th className="text-right font-medium text-muted-foreground px-4 py-2">VALUE</th>
-                    <th className="text-right font-medium text-muted-foreground px-4 py-2">RECEIVED</th>
-                    <th className="text-right font-medium text-muted-foreground px-4 py-2">QC</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((tx: any, i: number) => (
-                    <tr key={i} className="border-b last:border-0 hover:bg-slate-50/40">
-                      <td className="px-4 py-2.5 font-mono font-medium text-blue-600">{tx.pr_number}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{formatDate(tx.date)}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{tx.items ?? '—'} SKUs</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${tx.status === 'received' ? 'bg-green-100 text-green-700' :
-                          tx.status === 'partial_received' ? 'bg-amber-100 text-amber-700' :
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${tx.status === 'received' ? 'bg-green-500' :
-                            tx.status === 'partial_received' ? 'bg-amber-500' : 'bg-slate-400'
-                            }`} />
-                          {tx.status === 'received' ? 'Received' :
-                            tx.status === 'partial_received' ? 'Partial received' :
-                              tx.status?.replace(/_/g, ' ')}
+                    {hasValue ? (
+                      <>
+                        <CheckCircle2 className="h-3 w-3 shrink-0" />
+
+                        <span className={item.mono ? 'font-mono' : ''}>
+                          {item.value}
                         </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(tx.amount)}</td>
-                      <td className="px-4 py-2.5 text-right text-muted-foreground">{tx.received_pct != null ? `${tx.received_pct}%` : '—'}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        {tx.qc_status ? (
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${tx.qc_status === 'passed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                            }`}>
-                            {tx.qc_status}
-                          </span>
-                        ) : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-3 w-3 shrink-0" />
 
-        {/* Sidebar Area */}
-        {/* <div className="lg:col-span-4 space-y-4">
-          <VendorAnalysisPanel vendor={vendor} />
-        </div> */}
+                        <span>
+                          {item.empty}
+                        </span>
+                      </>
+                    )}
+
+                  </div>
+
+                </div>
+
+              )
+            })}
+
+          </CardContent>
+
+        </Card>
+
+
+        {/* Purchase Orders */}
+        <Card>
+          <CardHeader className="py-3 px-4 border-b">
+           
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+            <span><ShoppingCart className="h-3.5 w-3.5"/></span>
+              Recent Purchase Orders
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="p-0">
+
+            <table className="w-full text-[12px]">
+
+              <thead className="bg-slate-50">
+
+                <tr>
+
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">
+                    PO Number
+                  </th>
+
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">
+                    Description
+                  </th>
+
+                  <th className="px-4 py-2 text-[11px] uppercase">
+                    Amount
+                  </th>
+
+                  <th className="px-4 py-2 text-[11px] uppercase">
+                    Status
+                  </th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {transactions.length ? (
+                  transactions.map(tx => (
+
+                    <tr key={tx.id} className="border-t">
+
+                      <td className="px-4 py-3">
+                        {tx.po_number}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {tx.description}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {formatCurrency(tx.amount)}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {tx.status}
+                      </td>
+
+                    </tr>
+
+                  ))
+                ) : (
+
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="py-8 text-center text-[12px] text-muted-foreground"
+                    >
+                      No purchase orders yet
+                    </td>
+                  </tr>
+
+                )}
+
+              </tbody>
+
+            </table>
+
+          </CardContent>
+        </Card>
+
       </div>
+
+
+
+      {/* RIGHT SIDEBAR */}
+      <div className="space-y-4">
+
+        {/* Risk */}
+        <Card className="rounded-xl border overflow-hidden">
+          <CardHeader className="py-2.5 px-4 flex-row justify-between items-center border-b">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <span><Shield className="h-3.5 w-3.5" /></span>
+              Risk Assessment
+            </CardTitle>
+
+            <Badge
+              className={
+                dash.risk_level === "High"
+                  ? "bg-red-100 text-red-700 text-[11px] px-2 py-0.5"
+                  : dash.risk_level === "Medium"
+                    ? "bg-orange-100 text-orange-700 text-[11px] px-2 py-0.5"
+                    : "bg-green-100 text-green-700 text-[11px] px-2 py-0.5"
+              }
+            >
+              {dash.risk_level}
+            </Badge>
+          </CardHeader>
+
+          <CardContent className="p-4">
+            {/* Risk Score */}
+            <div className="text-center mb-3">
+              <div className="text-[30px] font-bold tracking-tight text-red-600">
+                {riskScore || 80}
+              </div>
+
+              <div className="text-[11px] text-muted-foreground">
+                Risk Score
+              </div>
+            </div>
+
+            {/* Breakdown */}
+            <div className="space-y-2">
+              {[
+                {
+                  label: "Financial",
+                  value: dash.score_breakdown?.financial_stability ?? 0,
+                  color: "bg-orange-400",
+                  text: "text-orange-700",
+                },
+                {
+                  label: "Operational",
+                  value: dash.score_breakdown?.quality_delivery ?? 0,
+                  color: "bg-orange-400",
+                  text: "text-orange-700",
+                },
+                {
+                  label: "Compliance",
+                  value: dash.score_breakdown?.compliance ?? 0,
+                  color: "bg-green-500",
+                  text: "text-green-700",
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center py-1 border-b last:border-0"
+                >
+                  <span className="w-[90px] text-[12px] text-muted-foreground">
+                    {item.label}
+                  </span>
+
+                  <div className="flex-1 h-1 bg-slate-100 rounded-full mx-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${item.color}`}
+                      style={{ width: `${item.value}%` }}
+                    />
+                  </div>
+
+                  <span className={`text-[12px] font-bold ${item.text}`}>
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+
+
+        {/* Contact */}
+        <Card>
+
+          <CardHeader className="py-3 px-4 border-b">
+
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <span><User className="h-3.5 w-3.5" /></span>
+              Contact Details
+            </CardTitle>
+
+          </CardHeader>
+
+
+          <CardContent className="p-4">
+
+            <div className="flex gap-3">
+
+    
+              <div className="flex-1">
+
+                <div className="text-[13px] font-medium">
+                  {vendor.contact_name}
+                </div>
+
+                <div className="text-[11px] text-muted-foreground">
+                  Owner
+                </div>
+
+              </div>
+
+
+              <div>
+
+                <div className="text-[12px]">
+                  {vendor.contact_email}                </div>
+
+                <div className="text-[11px] text-muted-foreground">
+                  {vendor.contact_phone}                </div>
+
+              </div>
+
+
+            </div>
+
+          </CardContent>
+
+        </Card>
+
+      </div>
+
     </div>
   )
 }
@@ -1843,8 +1128,9 @@ async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
 
 export default function VendorDetailPage() {
   const { id } = useParams()
-  const router = useRouter()
   const { toast } = useToast()
+  const router = useRouter()
+
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
@@ -1855,23 +1141,11 @@ export default function VendorDetailPage() {
     queryFn: async () => (await apiClient.get(`/vendors/${id}/`)).data,
   })
 
-  const { data: categories } = useQuery({
-    queryKey: ['vendor-categories'],
-    queryFn: async () => {
-      const r = await apiClient.get('/vendors/categories/')
-      return r.data.results ?? r.data
-    },
-    enabled: isEditing,
+  const { data: dash } = useQuery({
+    queryKey: ['vendor-dashboard', id],
+    queryFn: async () => (await apiClient.get(`/vendors/${id}/dashboard/`)).data,
   })
 
-  const { data: plants } = useQuery({
-    queryKey: ['plants'],
-    queryFn: async () => {
-      const r = await apiClient.get('/users/plants/')
-      return r.data.results ?? r.data
-    },
-    enabled: isEditing,
-  })
 
   const editMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
@@ -1930,27 +1204,27 @@ export default function VendorDetailPage() {
 
   const saveDocChanges = async () => {
     if (!validateCompliancePairs()) return
-  
+
     setSavingDocs(true)
-  
+
     try {
       await apiClient.patch(`/vendors/${id}/`, docFields)
-  
+
       queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-  
+
       toast({
         title: 'Documents saved.'
       })
-  
+
       setIsEditing(false)
     } catch (err: any) {
       const errors = err?.response?.data
-  
+
       const message =
         typeof errors === 'object'
           ? Object.values(errors).flat().join('\n')
           : errors?.error || 'Please try again.'
-  
+
       toast({
         title: 'Save failed',
         description: message,
@@ -1967,75 +1241,183 @@ export default function VendorDetailPage() {
 
   const canEdit = ['draft', 'pending_approval'].includes(vendor.status)
   const tabs = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'details', label: 'Details' },
-    { key: 'documents', label: 'Documents' },
-    { key: 'approval', label: 'Approval' },
+    {
+      key: 'overview',
+      label: 'Overview',
+    },
+    {
+      key: 'approval',
+      label: 'Approval',
+    },
   ]
-
   return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm min-w-0">
-          {/* <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/vendors')}
-            className="h-auto p-0 text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </Button> */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
-              <span className="text-xs font-bold text-indigo-700">{(vendor.company_name ?? '?')[0].toUpperCase()}</span>
+    <>
+      {isEditing ? <EditVendorPage /> : <div className="space-y-3">
+        {/* Header */}
+        <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
+
+          {/* Top */}
+          <div className="flex justify-between items-start gap-4">
+
+            {/* Left */}
+            <div className="flex items-center gap-[14px]">
+
+              {/* Avatar */}
+              <div className="w-[52px] h-[52px] rounded-[12px] bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                <span className="text-[17px] font-bold">
+                  {(vendor.company_name ?? '?')[0].toUpperCase()}
+                </span>
+              </div>
+
+              <div>
+                <h1 className="text-[19px] font-semibold tracking-[-0.4px]">
+                  {vendor.company_name}
+                </h1>
+
+                <div className="flex flex-wrap items-center gap-2 mt-1 text-[13px] text-[#5a5a57]">
+
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-[13px] h-[13px]" />
+                    <span>
+                      {vendor.city}, {vendor.state}
+                    </span>
+                  </div>
+
+                  <span className="text-[#9a9a96]">•</span>
+
+                  <Badge
+                    className="text-[11px] font-semibold rounded-full bg-green-100 text-green-700"
+                  >
+                    {vendor?.category_name ?? 'Uncategorized'}
+                  </Badge>
+
+                  <span className="text-[#9a9a96]">•</span>
+
+                  {/* status color from component */}
+                  <StatusBadge status={vendor.status} />
+
+                  <span className="text-[#9a9a96]">•</span>
+
+                  <Badge
+                    className={`text-[11px] font-semibold rounded-full
+            ${dash?.risk_level === 'High'
+                        ? 'bg-red-100 text-red-700'
+                        : dash?.risk_level === 'Medium'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : dash?.risk_level === 'Low'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-700'
+                      }`}
+                  >
+                    {dash?.risk_level ?? 'Unknown'}
+                  </Badge>
+
+                </div>
+              </div>
             </div>
-            <span className="font-semibold truncate">{vendor.company_name}</span>
-            <StatusBadge status={vendor.status} />
-            {/* {vendor.vendor_code && <span className="text-xs text-muted-foreground font-mono">· {vendor.vendor_code}</span>} */}
-            {vendor.gstin && <span className="text-xs text-muted-foreground font-mono">· {vendor.gstin}</span>}
+
+
+            {/* Actions */}
+            <div className="flex gap-2">
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-[13px]"
+                onClick={() => setIsEditing(true)}
+              >
+                <Pencil className="w-[14px] h-[14px] mr-1" />
+                Edit
+              </Button>
+
+            </div>
           </div>
+
+
+          {/* Divider */}
+          <div className="border-t border-[rgba(0,0,0,0.08)] my-[18px]" />
+
+
+          {/* Bottom stats */}
+          <div className="grid grid-cols-6">
+
+            {[
+              ['Vendor ID', vendor.vendor_code],
+              ['Plant', vendor.plant_name ?? '—'],
+              ['GSTIN', vendor.gst_number],
+              ['PAN', vendor.pan_number],
+              ['Registered', formatDate(vendor.created_at)],
+              ['Vendor Score', dash?.performance_score],
+            ].map(([label, value], index) => (
+              <div
+                key={label}
+                className={`${index !== 0 ? 'border-l border-[rgba(0,0,0,0.08)] pl-[18px]' : ''}`}
+              >
+                <p className="text-[11px] uppercase font-semibold tracking-[0.4px] text-[#9a9a96] mb-1">
+                  {label}
+                </p>
+
+                <p
+                  className={`
+          text-[13px] font-medium
+          ${label === 'GSTIN' || label === 'PAN'
+                      ? 'font-mono text-[#5a5a57]'
+                      : 'text-[#1a1a18]'
+                    }
+        `}
+                >
+                  {value}
+                </p>
+              </div>
+            ))}
+
+          </div>
+
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => { void exportVendorPDF(vendor, id) }} className="gap-1.5">
-            <Download className="w-3.5 h-3.5" /> Download PDF
-          </Button>
-          {canEdit && !isEditing && (
-            <Button variant="outline" size="sm" onClick={() => {
-              if (activeTabKey !== 'details' && activeTabKey !== 'documents') setActiveTabKey('details')
-              if (activeTabKey === 'documents') initDocFields()
-              setIsEditing(true)
-            }} className="gap-1.5">
-              <Pencil className="w-3.5 h-3.5" /> Edit Details
-            </Button>
-          )}
-          <Button variant="ghost" size="sm" onClick={() => router.push('/vendors')} className="gap-1">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </Button>
+        {/* Tabs */}
+        <div className="flex border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => {
+                setActiveTabKey(tab.key as 'overview' | 'approval')
+                setIsEditing(false)
+              }}
+              className={`
+        flex items-center justify-center gap-1.5
+        px-4 py-[11px]
+        text-[13px] font-medium
+        transition-colors
+        border-b-[2.5px] flex-1
+        ${activeTabKey === tab.key
+                  ? 'text-[#1a1a18] border-black bg-white'
+                  : 'text-[#9a9a96] border-transparent hover:bg-[#f8f8f6] hover:text-[#1a1a18]'
+                }
+      `}
+            >
+              {tab.key === 'overview' && (
+                <LayoutDashboard className="w-[14px] h-[14px]" />
+              )}
+
+              {tab.key === 'approval' && (
+                <ShieldCheck className="w-[14px] h-[14px]" />
+              )}
+
+              {tab.key === 'activity' && (
+                <History className="w-[14px] h-[14px]" />
+              )}
+
+              <span>{tab.label}</span>
+            </button>
+          ))}
         </div>
-      </div>
+        {/* Overview Tab */}
+        {activeTabKey === 'overview' && <VendorDashboard vendorId={id} vendor={vendor} />}
 
-      {/* Tabs */}
-      <div className="border-b flex gap-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => { setActiveTabKey(tab.key as 'overview' | 'details' | 'documents' | 'approval'); setIsEditing(false) }}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px
-              ${activeTabKey === tab.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Overview Tab */}
-      {activeTabKey === 'overview' && <VendorDashboard vendorId={id} vendor={vendor} />}
-
-      {/* Details Tab */}
-      {activeTabKey === 'details' && (
-        <div className="space-y-4">
-          {isEditing ? (
+        {/* Details Tab */}
+        {activeTabKey === 'details' && (
+          <div className="space-y-4">
+            {/* {isEditing ? (
             <EditDetailsForm
               vendor={vendor}
               categories={categories ?? []}
@@ -2044,7 +1426,7 @@ export default function VendorDetailPage() {
               onCancel={() => setIsEditing(false)}
               saving={editMutation.isPending}
             />
-          ) : (
+          ) : ( */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="shadow-sm">
                 <CardHeader className="pb-4 border-b">
@@ -2132,320 +1514,34 @@ export default function VendorDetailPage() {
                 </CardContent>
               </Card>
             </div>
-          )}
-        </div>
-      )}
+            {/* )} */}
+          </div>
+        )}
 
-      {/* Approval Tab */}
-      {activeTabKey === 'approval' && (
-        <div>
-          {vendor.status !== 'draft' && (
-            <ApprovalProgressPanel
-              vendorId={id}
-              onStatusChange={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })}
-            />
-          )}
-          {vendor.status === 'draft' && (
-            <SubmitForApprovalPanel
-              vendorId={id}
-              onSuccess={() => {
-                setShowSubmitModal(false)
-                queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-              }}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Documents Tab */}
-      {activeTabKey === 'documents' && (
-        <Card className="shadow-sm">
-          <CardHeader className="pb-4 border-b">
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-base font-semibold">Compliance & Documents</CardTitle>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {isEditing ? 'Upload, replace, or remove regulatory documents.' : 'View regulatory documents and compliance information.'}
-                </p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-5 space-y-5">
-
-            {(() => {
-              const docOf = (type: string) => vendor.documents?.find((d: any) => d.doc_type === type) ?? null
-              const refreshVendor = async () => {
-                await queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-              }
-              const blockCls = (hasErr: boolean) =>
-                `border rounded-lg p-5 items-start space-y-4 ${hasErr ? 'border-destructive/50 bg-destructive/5' : 'border-slate-200 bg-slate-50/30'}`
-
-              const VerifiedFile = ({ doc: d, onRemove }: { doc: any; onRemove: () => void }) => {
-                const [clicked, setClicked] = useState(false)
-                return (
-                  <div className="flex items-center gap-2 border rounded-lg bg-green-50 px-3 py-2.5 min-h-[40px]">
-                    <FileText className="w-4 h-4 text-green-600 shrink-0" />
-                    <span className="text-xs truncate flex-1 min-w-0 text-green-800">{d?.original_filename}</span>
-                    <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
-                      Verified
-                    </span>
-                    {d?.file_url && (
-                      <a href={d.file_url} target="_blank" rel="noreferrer"
-                        className="shrink-0 text-[10px] text-green-600 hover:underline">View</a>
-                    )}
-                    {canEdit && isEditing && (
-                      <button
-                        type="button"
-                        disabled={clicked}
-                        onClick={() => {
-                          if (clicked) return
-                          setClicked(true)
-                          onRemove()
-                        }}
-                        className="shrink-0 text-red-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {clicked
-                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          : <X className="w-3.5 h-3.5" />
-                        }
-                      </button>
-                    )}
-                  </div>
-                )
-              }
-
-              const removeDoc = async (d: any) => {
-                if (!d) return
-                try {
-                  await apiClient.delete(`/vendors/${id}/documents/${d.hash_id ?? d.id}/`)
-                  refreshVendor()
-                } catch { /* silent */ }
-              }
-
-              const isVerified = (d: any) => d?.ai_validation_status === 'passed' || d?.ai_validation_status === 'valid'
-
-              const gstDoc = docOf('gst_certificate')
-              const panDoc = docOf('pan_card')
-              const bankDoc = docOf('bank_details')
-
-              return <>
-
-                {/* GST */}
-	                <div className={blockCls(!!complianceErrors['field_gst_number'])}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-	                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-	                        <FileText className="w-3 h-3" /> GST Certificate
-	                      </Label>
-                      {isVerified(gstDoc) ? (
-                        <VerifiedFile doc={gstDoc} onRemove={() => removeDoc(gstDoc)} />
-                      ) : (
-                        <>
-	                          <DocUploadInline vendorId={id} docType="gst_certificate"
-	                            doc={gstDoc} editable={canEdit && isEditing}
-	                            onRefresh={refreshVendor} />
-	                        </>
-	                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-slate-700">
-                        GST Number <span className="text-destructive">*</span>
-                        {isVerified(gstDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                      </Label>
-                      <ComplianceFieldInput
-                        value={isEditing ? (docFields.gst_number ?? '') : (vendor.gst_number ?? '')}
-                        placeholder="e.g. 27AAAAA0000A1Z5"
-                        canEdit={canEdit && isEditing}
-                        onChange={v => setDocField('gst_number', v)}
-                        onSave={v => setDocField('gst_number', v)}
-                      />
-                      {complianceErrors['field_gst_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_gst_number']}</p>}
-                    </div>
-                  </div>
-                </div>
-
-                {/* PAN */}
-	                <div className={blockCls(!!complianceErrors['field_pan_number'])}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-	                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-	                        <FileText className="w-3 h-3" /> PAN Card
-	                      </Label>
-                      {isVerified(panDoc) ? (
-                        <VerifiedFile doc={panDoc} onRemove={() => removeDoc(panDoc)} />
-                      ) : (
-                        <>
-	                          <DocUploadInline vendorId={id} docType="pan_card"
-	                            doc={panDoc} editable={canEdit && isEditing}
-	                            onRefresh={refreshVendor} />
-	                        </>
-	                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-slate-700">
-                        PAN Number <span className="text-destructive">*</span>
-                        {isVerified(panDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                      </Label>
-                      <ComplianceFieldInput
-                        value={isEditing ? (docFields.pan_number ?? '') : (vendor.pan_number ?? '')}
-                        placeholder="e.g. AAAAA9999A"
-                        canEdit={canEdit && isEditing}
-                        onChange={v => setDocField('pan_number', v)}
-                        onSave={v => setDocField('pan_number', v)}
-                      />
-                      {complianceErrors['field_pan_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_pan_number']}</p>}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bank Details */}
-	                <div className={blockCls(!!complianceErrors['field_bank_account'])}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-	                      <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-	                        <FileText className="w-3 h-3" /> Bank Details / Cheque
-	                      </Label>
-                      {isVerified(bankDoc) ? (
-                        <VerifiedFile doc={bankDoc} onRemove={() => removeDoc(bankDoc)} />
-                      ) : (
-                        <>
-	                          <DocUploadInline vendorId={id} docType="bank_details"
-	                            doc={bankDoc} editable={canEdit && isEditing}
-	                            onRefresh={refreshVendor} />
-	                        </>
-	                      )}
-                    </div>
-                    <div className="space-y-2.5">
-                      {[
-                        { key: 'bank_name', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
-                        { key: 'bank_account', label: 'Account No', placeholder: 'e.g. 12345678901234' },
-                        { key: 'bank_ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234' },
-                      ].map(({ key, label, placeholder }) => (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-xs font-semibold text-slate-700">
-                            {label} <span className="text-destructive">*</span>
-                            {isVerified(bankDoc) && <span className="text-[10px] text-green-600 ml-1">(AI filled)</span>}
-                          </Label>
-                          <ComplianceFieldInput
-                            value={isEditing ? (docFields[key] ?? '') : (vendor[key] ?? '')}
-                            placeholder={placeholder}
-                            canEdit={canEdit && isEditing}
-                            onChange={v => setDocField(key, v)}
-                            onSave={v => setDocField(key, v)}
-                          />
-                        </div>
-                      ))}
-                      {complianceErrors['field_bank_account'] && <p className="text-xs text-destructive">{complianceErrors['field_bank_account']}</p>}
-                    </div>
-                  </div>
-                </div>
-
-                {/* MSME / SEZ toggles */}
-                <div className="flex items-center gap-4 pt-2">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={!!vendor.is_msme}
-                      disabled={!(canEdit && isEditing)}
-                      onChange={async e => handleFieldUpdate('is_msme', e.target.checked)}
-                      className="rounded"
-                    />
-                    <span>MSME Registered</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={!!vendor.is_sez}
-                      disabled={!(canEdit && isEditing)}
-                      onChange={async e => handleFieldUpdate('is_sez', e.target.checked)}
-                      className="rounded"
-                    />
-                    <span>SEZ Unit</span>
-                  </label>
-                </div>
-
-                {/* MSME (conditional) */}
-                {vendor.is_msme && (
-                  <div className={blockCls(!!(complianceErrors['field_msme_number'] || complianceErrors['doc_msme_certificate']))}>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-700">MSME Number</Label>
-                      <ComplianceFieldInput
-                        value={isEditing ? (docFields.msme_number ?? '') : (vendor.msme_number ?? '')}
-                        placeholder="e.g. UDYAM-MH-00-0000000"
-                        canEdit={canEdit && isEditing}
-                        onChange={v => setDocField('msme_number', v)}
-                        onSave={v => setDocField('msme_number', v)}
-                      />
-                      {complianceErrors['field_msme_number'] && <p className="text-xs text-destructive mt-1">{complianceErrors['field_msme_number']}</p>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-700">MSME Certificate</Label>
-                      <DocUploadInline vendorId={id} docType="msme_certificate"
-                        doc={docOf('msme_certificate')} editable={canEdit && isEditing}
-                        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
-                      {complianceErrors['doc_msme_certificate'] && <p className="text-xs text-destructive mt-1">{complianceErrors['doc_msme_certificate']}</p>}
-                    </div>
-                  </div>
-                )}
-
-                {/* SEZ (conditional) */}
-                {vendor.is_sez && (
-                  <div className={blockCls(false)}>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-700">SEZ Unit</Label>
-                      <p className="text-sm text-muted-foreground">SEZ registered vendor</p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-700">SEZ Certificate</Label>
-                      <DocUploadInline vendorId={id} docType="sez_certificate"
-                        doc={docOf('sez_certificate')} editable={canEdit && isEditing}
-                        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Incorporation */}
-                <div className={blockCls(false)}>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">Incorporation Certificate</Label>
-                    <DocUploadInline vendorId={id} docType="incorporation"
-                      doc={docOf('incorporation')} editable={canEdit && isEditing}
-                      onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground mt-6">Company registration / MOA documents. Optional.</p>
-                  </div>
-                </div>
-
-              </>
-            })()}
-
-            <div className="border-t pt-4 mt-2">
-              <OtherDocsEditPanel
+        {/* Approval Tab */}
+        {activeTabKey === 'approval' && (
+          <div>
+            {vendor.status !== 'draft' && (
+              <ApprovalProgressPanel
                 vendorId={id}
-                existingDocs={(vendor.documents ?? []).filter((d: any) => OTHER_DOC_TYPES.has(d.doc_type))}
-                onRefresh={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })}
-                editable={canEdit && isEditing}
+                onStatusChange={() => queryClient.invalidateQueries({ queryKey: ['vendor', id] })}
               />
-            </div>
-
-            {canEdit && isEditing && (
-              <div className="flex justify-end gap-2 pt-4 border-t mt-2">
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setIsEditing(false)}>
-                  <X className="w-3.5 h-3.5" /> Cancel
-                </Button>
-                <Button size="sm" className="gap-1.5" onClick={saveDocChanges} disabled={savingDocs}>
-                  {savingDocs ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                  Save Changes
-                </Button>
-              </div>
             )}
+            {vendor.status === 'draft' && (
+              <SubmitForApprovalPanel
+                vendorId={id}
+                onSuccess={() => {
+                  setShowSubmitModal(false)
+                  queryClient.invalidateQueries({ queryKey: ['vendor', id] })
+                  router.push(`/vendors`)
+                }}
+              />
+            )}
+          </div>
+        )}
 
-          </CardContent>
-        </Card>
-      )}
+      </div>}
+    </>
 
-
-    </div>
   )
 }
