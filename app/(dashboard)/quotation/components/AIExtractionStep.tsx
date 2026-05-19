@@ -57,7 +57,7 @@ const AIExtractionStep = ({ selectedFile, quotation, onNext ,errorMessage}: { se
     return (
         <div className="flex flex-col gap-4">
             {/* Main Layout */}
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 items-start  min-h-[72vh]">
+            <div className="grid grid-cols-1 xl:grid-cols-[1.35fr_320px] gap-4 items-start">
 
                 {/* LEFT SIDE */}
                 <div className="bg-white border rounded-xl overflow-hidden flex flex-col h-full shadow-sm">
@@ -79,11 +79,11 @@ const AIExtractionStep = ({ selectedFile, quotation, onNext ,errorMessage}: { se
                     <div className="p-4 bg-slate-50/50 flex-1 min-h-0 flex flex-col">
                         <div className="border rounded-lg overflow-hidden bg-white h-full flex flex-col shadow-inner relative">
                             {previewUrl ? (
-                                <div className="relative w-full h-full bg-white flex items-center justify-center overflow-hidden">
-                                    <div className="relative w-[92%] h-[92%] max-w-[1080px] rounded-md border border-border bg-white shadow-sm overflow-hidden">
+                                <div className="relative w-full h-full bg-white flex items-center justify-center overflow-hidden px-2 py-2">
+                                                <div className="relative w-full h-full max-w-[1500px] rounded-md border border-border bg-white shadow-sm overflow-hidden">
                                         {selectedFile?.type === 'application/pdf' || previewUrl.toLowerCase().endsWith('.pdf') ? (
                                             <iframe
-                                                src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&zoom=85`}
+                                                src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&zoom=110`}
                                                 className="w-full h-full border-0"
                                                 title="Quotation Preview"
                                             />
