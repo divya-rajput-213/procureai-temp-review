@@ -500,7 +500,7 @@ export default function VendorsPage() {
 
                       <td className="px-4 py-3">
                         {v.vendor_code && (
-                          <p className="text-xs font-mono font-medium text-foreground">{v.vendor_code}</p>
+                          <p className="text-xs font-mono font-sm text-foreground">{v.vendor_code}</p>
                         )}
                         {v.plant_name && (
                           <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
@@ -511,7 +511,7 @@ export default function VendorsPage() {
 
                       <td className="px-4 py-3">
                         {v.category_name
-                          ? <p className="text-xs font-mono font-medium text-foreground">{v.category_name}</p>
+                          ? <p className="text-xs font-mono font-sm text-foreground">{v.category_name}</p>
                           : <span className="text-xs text-muted-foreground">—</span>
                         }
                       </td>
