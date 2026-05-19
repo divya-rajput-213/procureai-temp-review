@@ -363,9 +363,9 @@ const UploadFile = ({
                                     <Sparkles className="w-4 h-4 text-primary" />
                                     AI suggestions for this quote
                                 </h2>
-                                <span className="px-2 py-0.5 text-[11px] rounded-md bg-primary/10 text-primary font-semibold">
+                                {/* <span className="px-2 py-0.5 text-[11px] rounded-md bg-primary/10 text-primary font-semibold">
                                     91%
-                                </span>
+                                </span> */}
                             </div>
                         </div>
 

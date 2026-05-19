@@ -63,8 +63,8 @@ function Stepper({ currentStep, completedSteps }: { currentStep: number; complet
                                     i < currentStep
                                         ? '#10b981'
                                         : i === currentStep
-                                        ? 'hsl(var(--primary))'
-                                        : 'hsl(var(--muted))',
+                                            ? 'hsl(var(--primary))'
+                                            : 'hsl(var(--muted))',
                                 color:
                                     i <= currentStep
                                         ? 'hsl(var(--primary-foreground))'
@@ -258,6 +258,7 @@ export default function UploadQuotationPage() {
 
     const handleRemoveTagState = () => {
         setPlantId(''); setDepartmentId(''); setCategoryId(''); setPrLinkId(''); setSelectedFile(null)
+        setErrorMessage('')
     }
 
     const exportMutation = useMutation({
@@ -334,7 +335,11 @@ export default function UploadQuotationPage() {
             }, 5000)
         },
         onError: (error: any) => {
-            const message = getApiErrorMessage(error, 'Failed to upload quotation.')
+            const message =
+                error?.response?.data?.detail ||
+                error?.response?.data?.error ||
+                getApiErrorMessage(error, 'Failed to upload quotation.')
+        
             setErrorMessage(message)
         },
     })
@@ -640,7 +645,7 @@ export default function UploadQuotationPage() {
             {/* ── STEP 1: AI Extraction ── */}
             {currentStep === 1 && (
                 <div className="pt-4">
-                    <AIExtractionStep selectedFile={selectedFile} quotation={quotation} onNext={handleNextFromAI} />
+                    <AIExtractionStep selectedFile={selectedFile} quotation={quotation} onNext={handleNextFromAI} errorMessage={errorMessage} />
                 </div>
             )}
 
@@ -649,18 +654,18 @@ export default function UploadQuotationPage() {
                 <div className="pt-4">
                     <div className="mb-3">
                     </div>
-                    <div className="grid grid-cols-[1fr_320px] gap-5 items-start">
+                    <div className="grid gap-5 items-start">
                         <div className="flex flex-col gap-4">
 
                             {/* AI stripe */}
-                            <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
+                            {/* <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
                                 <span className="text-primary font-bold">✦</span>
                                 <div className="flex-1">
                                     <span className="font-semibold text-primary">Vendor identified</span>
                                     {vendors.gst_number && <span className="text-primary/80"> — GSTIN <span className="font-mono">{vendors.gst_number}</span> matched to existing vendor with 100% confidence.</span>}
                                 </div>
                                 <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">100%</span>
-                            </div>
+                            </div> */}
 
                             {/* Matched vendor card */}
                             <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
@@ -694,10 +699,10 @@ export default function UploadQuotationPage() {
                                         {[
                                             ['GSTIN', vendors.gst_number || '—'],
                                             ['PAN', vendors.pan_number || '—'],
-                                            ['Payment terms', vendors.payment_terms || 'Net 30'],
+                                            ['Payment terms', vendors.payment_terms || '—'],
                                             ['Contact person', vendors.contact_name || '—'],
                                             ['Email', vendors.contact_email || '—'],
-                                            ['Phone', vendors.contact_phone || '—'],
+                                            ['Phone', `+${vendors.contact_phone} ` || '—'],
                                             ['Bank', vendors.bank_name ? `${vendors.bank_name}${vendors.bank_ifsc ? ` · ${vendors.bank_ifsc}` : ''}` : '—'],
                                             ['Bank A/C', vendors.bank_account || '—'],
                                             ['Delivery terms', vendors.delivery_terms || '—'],
@@ -738,7 +743,7 @@ export default function UploadQuotationPage() {
                         {/* Right panel */}
                         <div className="flex flex-col gap-4">
                             {/* Why this match? */}
-                            <div className="rounded-xl overflow-hidden border border-primary/20">
+                            {/* <div className="rounded-xl overflow-hidden border border-primary/20">
                                 <div className="flex items-center gap-2 px-4 py-3 bg-primary text-white">
                                     <span className="font-bold">✦</span>
                                     <span className="font-semibold text-sm">Why this match?</span>
@@ -751,10 +756,10 @@ export default function UploadQuotationPage() {
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </div> */}
 
                             {/* Vendor at a glance */}
-                            <div className="bg-white border rounded-xl shadow-sm">
+                            {/* <div className="bg-white border rounded-xl shadow-sm">
                                 <div className="px-4 py-3 border-b font-semibold text-sm">Vendor at a glance</div>
                                 <div className="divide-y">
                                     {[
@@ -770,7 +775,7 @@ export default function UploadQuotationPage() {
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </div> */}
                         </div>
                     </div>
                 </div>
@@ -885,128 +890,36 @@ export default function UploadQuotationPage() {
 
             {/* ── Confirm Modal ── */}
             <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-            <DialogContent className="max-w-5xl p-0 overflow-hidden border border-border shadow-xl bg-background text-foreground rounded-2xl">
-            <div className="flex max-h-[80vh]">
-                        {/* LEFT: Identity & Status */}
-                        <div className="w-[320px] bg-muted/30 p-6 flex flex-col border-r border-border">
-                            <div className="mb-0">
-                                <DialogHeader className="text-left mb-5">
-                                    <DialogTitle className="text-2xl font-semibold text-primary">Confirm Submission</DialogTitle>
-                                    <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-                                        Review summary & side-effects<br />before system persistence
-                                    </DialogDescription>
-                                </DialogHeader>
+                <DialogContent className="max-w-md rounded-xl">
+                    <DialogHeader>
+                        <DialogTitle>Confirm Quotation Submission</DialogTitle>
+                        <DialogDescription className="pt-2 text-sm text-muted-foreground">
+                            Please confirm that you want to submit this quotation.
+                            Once submitted, vendor details, pricing information, and item mappings will be saved and processed.
+                        </DialogDescription>
+                    </DialogHeader>
 
-                                {/* Vendor ID Card */}
-                                <div className="space-y-4 mb-7">
-                                    <div className="p-3 bg-white border border-border rounded-xl relative overflow-hidden group shadow-sm">
-                                        <div className="text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between">
-                                            <span>Vendor Match</span>
-                                            <span className="text-emerald-600">100%</span>
-                                        </div>
-                                        <div className="text-base font-semibold truncate leading-tight text-foreground">{vendors?.company_name || '—'}</div>
-                                        <div className="text-xs text-muted-foreground mt-1 font-mono">{vendors?.gst_number || 'GSTIN —'}</div>
-                                    </div>
+                    <div className="flex justify-end gap-3 mt-6">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowConfirmModal(false)}
+                        >
+                            Cancel
+                        </Button>
 
-                                    <div className="p-3 bg-white border border-border rounded-xl shadow-sm">
-                                        <div className="text-xs font-semibold text-muted-foreground mb-1.5">Quote Reference</div>
-                                        <div className="text-sm font-semibold text-foreground">{vendors?.quotation_no || 'QT/2026/1001'}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* RIGHT: High-Level Summary & Side Effects */}
-                        <div className="flex-1 flex flex-col bg-muted/20 p-8 overflow-y-auto">
-                                                    <div className="text-sm font-semibold text-muted-foreground mb-6">Review Summary</div>
-
-                            <div className="grid grid-cols-3 gap-4 mb-8">
-                                <div className="bg-white border rounded-xl p-4 shadow-sm">
-                                    <div className="text-xs font-semibold text-muted-foreground mb-2">Items</div>
-                                    <div className="text-lg font-bold text-foreground leading-none">{lineItems.length} lines</div>
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                        {lineItems.filter((i: any) => !i.is_new).length} Matched · {lineItems.filter((i: any) => i.is_new).length} New
-                                    </div>
-                                </div>
-                                <div className="bg-white border rounded-xl p-4 shadow-sm">
-                                    <div className="text-xs font-semibold text-muted-foreground mb-2">Subtotal</div>
-                                    <div className="text-lg font-bold text-foreground leading-none">₹{subtotal?.toLocaleString('en-IN')}</div>
-                                    <div className="text-xs text-muted-foreground mt-1">Net value</div>
-                                </div>
-                                <div className="bg-white border rounded-xl p-4 shadow-sm border-primary/20 ring-2 ring-primary/5">
-                                    <div className="text-xs font-semibold text-primary mb-2">Grand Total</div>
-                                    <div className="text-xl font-bold text-primary leading-none">₹{grandTotal?.toLocaleString('en-IN')}</div>
-                                    <div className="text-xs text-primary/70 mt-1 italic">Inclusive of taxes</div>
-                                </div>
-                            </div>
-
-                            <div className="text-sm font-semibold text-muted-foreground mb-4">Pending Side-effects <span className="ml-2 font-normal text-xs text-muted-foreground whitespace-nowrap">Will be applied on save</span></div>
-
-                            <div className="space-y-3">
-                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/20 transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                        <Building2 className="w-5 h-5" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-sm font-semibold text-foreground">Link {lineItems.filter((i: any) => !i.is_new).length} existing SKUs to vendor</div>
-                                        <div className="text-xs text-muted-foreground mt-0.5">Association will be recorded in the Vendor Master</div>
-                                    </div>
-                                    <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] font-semibold">UPDATE</Badge>
-                                </div>
-
-                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/20 transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                        <Package className="w-5 h-5" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-sm font-semibold text-foreground">Update price book</div>
-                                        <div className="text-xs text-muted-foreground mt-0.5">{lineItems.length} vendor prices vs. last 90d</div>
-                                    </div>
-                                    <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] font-semibold">UPDATE</Badge>
-                                </div>
-
-                                {lineItems.some((i: any) => i.is_new) && (
-                                    <div className="bg-white border border-primary/20 rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/40 transition-colors">
-                                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
-                                            <Plus className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="text-sm font-semibold text-primary">Queue {lineItems.filter((i: any) => i.is_new).length} new SKUs for creation</div>
-                                            <div className="text-xs text-primary/70 mt-0.5">Category owners will be notified for approval</div>
-                                        </div>
-                                        <Badge className="bg-primary/10 text-primary border-none text-[10px] font-semibold">NEW</Badge>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="mt-auto pt-8 flex items-center justify-between">
-                                <div className="text-xs font-medium text-muted-foreground/70">
-                                    <span>Secured by ProcureAI Backend</span>
-                                </div>
-
-                                <div className="flex items-center gap-4">
-                                    <span className="text-xs font-medium text-muted-foreground/70">
-                                        Session ID: {quotation?.id || 'AUTH-001'}
-                                    </span>
-
-                                    <Button
-                                        onClick={confirmAndSubmit}
-                                        disabled={isLoading}
-                                        className="bg-primary hover:bg-primary/90 text-primary-foreground h-10 px-6 font-semibold text-sm rounded-xl"
-                                    >
-                                        {isLoading ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            'Confirm & Save'
-                                        )}
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
+                        <Button
+                            onClick={confirmAndSubmit}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                'Submit Quotation'
+                            )}
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>
-
             {/* ── Export Modal ── */}
             <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
                 <DialogContent>
