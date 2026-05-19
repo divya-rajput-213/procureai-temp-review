@@ -410,14 +410,14 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
 
 
   return (
-<div className="grid grid-cols-1 xl:grid-cols-[70%_30%] gap-4">      {/* LEFT */}
+    <div className="grid grid-cols-1 xl:grid-cols-[70%_30%] gap-4">      {/* LEFT */}
       <div className="space-y-4">
 
         {/* Vendor Score */}
         <Card className="rounded-xl border shadow-none">
           <CardHeader className="py-3 px-4 flex-row items-center justify-between border-b">
             <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-          <span><ChartNoAxesColumnIncreasing className="h-3.5 w-3.5"  /></span>  
+              <span><ChartNoAxesColumnIncreasing className="h-3.5 w-3.5" /></span>
               Vendor Score Breakdown
             </CardTitle>
 
@@ -620,9 +620,9 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
         {/* Purchase Orders */}
         <Card>
           <CardHeader className="py-3 px-4 border-b">
-           
+
             <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-            <span><ShoppingCart className="h-3.5 w-3.5"/></span>
+              <span><ShoppingCart className="h-3.5 w-3.5" /></span>
               Recent Purchase Orders
             </CardTitle>
           </CardHeader>
@@ -806,7 +806,7 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
 
             <div className="flex gap-3">
 
-    
+
               <div className="flex-1">
 
                 <div className="text-[13px] font-medium">
@@ -1375,7 +1375,7 @@ export default function VendorDetailPage() {
 
         </div>
         {/* Tabs */}
-        <div className="flex border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
+        <div className="flex w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -1385,10 +1385,11 @@ export default function VendorDetailPage() {
               }}
               className={`
         flex items-center justify-center gap-1.5
-        px-4 py-[11px]
+        px-5 py-[11px]
         text-[13px] font-medium
         transition-colors
-        border-b-[2.5px] flex-1
+        border-b-[2.5px]
+        whitespace-nowrap
         ${activeTabKey === tab.key
                   ? 'text-[#1a1a18] border-black bg-white'
                   : 'text-[#9a9a96] border-transparent hover:bg-[#f8f8f6] hover:text-[#1a1a18]'
