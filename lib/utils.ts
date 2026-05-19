@@ -134,7 +134,7 @@ export const DIGITS_ONLY = /^[0-9]+$/
 export const PINCODE_DIGITS_ONLY = /^[0-9]*$/
 export const PHONE_ALLOWED_CHARS = /^[0-9+ ]*$/
 export const PHONE_PREFIX = '+91 '
-
+export const PAGE_SIZE = 25
 export function parseLooseDate(value: string) {
     const trimmed = String(value ?? '').trim()
     if (!trimmed || trimmed === '—') return null
