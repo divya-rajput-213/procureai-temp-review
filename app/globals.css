@@ -112,12 +112,18 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-dm-sans);
     font-size: 1rem;
     line-height: 1.6;
     font-feature-settings: "cv11", "ss01", "ss03";
     -webkit-font-smoothing: antialiased;
     /* background-color: hsl(var(--background)); */
     color: hsl(var(--foreground));
+  }
+  code,
+  pre,
+  .font-mono {
+    font-family: var(--font-dm-mono);   /* Add this */
   }
 
   h1 {
