@@ -55,7 +55,6 @@ function loadGoogleMapsScript(): Promise<void> {
 function extractAddressComponents(place: google.maps.places.PlaceResult): AddressResult {
   const components = place.address_components ?? []
   const get = (type: string) => components.find(c => c.types.includes(type))?.long_name ?? ''
-  const getShort = (type: string) => components.find(c => c.types.includes(type))?.short_name ?? ''
 
   const streetNumber = get('street_number')
   const route = get('route')

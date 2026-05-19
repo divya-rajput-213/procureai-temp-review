@@ -120,13 +120,6 @@ const AVATAR_COLORS = [
 function colorForName(name: string) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
 }
-
-function formatBytes(b: number) {
-  if (b < 1024) return `${b} B`
-  if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`
-  return `${(b / 1048576).toFixed(1)} MB`
-}
-
 /* ─── DocUploadWidget (matches HTML upload zone + file preview) ───────────── */
 
 function DocUploadWidget({
@@ -255,70 +248,6 @@ function DocUploadWidget({
   )
 }
 
-/* ─── ComplianceDocRow (left=upload, right=field — matches HTML layout) ────── */
-
-function ComplianceDocRow({
-  label, fieldLabel, doc, vendorId, docType, onRefresh,
-  fieldProps, fieldPlaceholder, fieldError, onDocError, hasError, dropLabel, hint,
-}: {
-  label: string; fieldLabel: string; doc: any; vendorId: string; docType: string
-  onRefresh: () => void; fieldProps: any; fieldPlaceholder: string
-  fieldError?: string; onDocError: (msg: string) => void; hasError: boolean
-  dropLabel?: string; hint?: string
-}) {
-  const { toast } = useToast()
-  const [deleting, setDeleting] = useState(false)
-  const verified = doc?.ai_validation_status === 'passed' || doc?.ai_validation_status === 'valid'
-
-  const remove = async () => {
-    if (!doc) return
-    setDeleting(true)
-    try {
-      await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id ?? doc.id}/`)
-      onRefresh(); onDocError('')
-    } catch { toast({ title: 'Delete failed', variant: 'destructive' }) }
-    finally { setDeleting(false) }
-  }
-
-  return (
-    <div className="form-grid" style={{ border: `0.5px solid ${hasError ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', padding: 16, background: 'var(--bg)', gap: 16 }}>
-      {/* Left: upload or verified */}
-      <div>
-        <label className="form-label" style={{ marginBottom: 6 }}>{label}</label>
-        {verified ? (
-          <div className="ufile">
-            <div className="ufile-ic"><i className="ti ti-file-text" /></div>
-            <div style={{ flex: 1 }}>
-              <div className="ufile-name">{doc.original_filename}</div>
-              <div className="ufile-size" style={{ color: 'var(--grn-tx)' }}>AI Verified</div>
-            </div>
-            {doc.file_url && <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--blu-tx)' }}>View</a>}
-            <button type="button" className="ufile-del" onClick={remove} disabled={deleting} title="Remove">
-              {deleting ? '...' : <i className="ti ti-x" />}
-            </button>
-          </div>
-        ) : (
-          <DocUploadWidget vendorId={vendorId} docType={docType} doc={doc} onRefresh={onRefresh} setFieldError={onDocError} dropLabel={dropLabel} hint={hint} />
-        )}
-      </div>
-      {/* Right: text field */}
-      <div className="form-group">
-        <label className="form-label">
-          {fieldLabel} <span className="req">*</span>
-          {verified && <span style={{ fontSize: 10, color: 'var(--grn-tx)', marginLeft: 4 }}>(AI filled)</span>}
-        </label>
-        <input
-          className="form-input"
-          placeholder={fieldPlaceholder}
-          style={fieldError ? { borderColor: 'var(--red-bd)' } : {}}
-          {...fieldProps}
-        />
-        {fieldError && <span style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 2 }}>{fieldError}</span>}
-      </div>
-    </div>
-  )
-}
-
 /* ─── Checklist sidebar ──────────────────────────────────────────────────── */
 
 function FormChecklist({ values, isMsme }: { values: Partial<VendorForm>; isMsme: boolean }) {
@@ -331,12 +260,12 @@ function FormChecklist({ values, isMsme }: { values: Partial<VendorForm>; isMsme
     { label: 'City & state', done: !!(values.city && values.state), req: true },
     { label: 'Contact person', done: !!values.contact_name, req: true },
     { label: 'Contact email', done: !!values.contact_email, req: true },
-    { label: 'Contact phone', done: !!values.contact_phone, req: false },
+    { label: 'Contact phone', done: !!values.contact_phone, req: true },
     { group: 'Step 2 — Documents' },
     { label: 'GST Certificate', done: !!values.gst_number, req: true },
     { label: 'PAN Card', done: !!values.pan_number, req: true },
-    { label: 'Bank Verification', done: !!values.bank_account, req: false },
-    ...(isMsme ? [{ label: 'MSME Certificate', done: !!values.msme_number, req: false }] : []),
+    { label: 'Bank Verification', done: !!values.bank_account, req: true },
+    ...(isMsme ? [{ label: 'MSME Certificate', done: !!values.msme_number, req: true }] : []),
   ]
 
   const reqItems = items.filter((x): x is { label: string; done: boolean; req: boolean } => 'req' in x && x.req === true)
@@ -977,6 +906,11 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         <label className="form-label">Company Name <span className="req">*</span></label>
                         <input
                           className={`form-input${extractedFields?.company_name ? ' ai-fill' : ''}`}
+                          style={
+                            errors.company_name
+                              ? { borderColor: 'var(--red-bd)' }
+                              : {}
+                          }
                           placeholder="e.g. Acme Pvt Ltd"
                           {...register('company_name')}
                         />
