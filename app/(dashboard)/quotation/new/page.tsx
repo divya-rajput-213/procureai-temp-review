@@ -339,7 +339,7 @@ export default function UploadQuotationPage() {
                 error?.response?.data?.detail ||
                 error?.response?.data?.error ||
                 getApiErrorMessage(error, 'Failed to upload quotation.')
-        
+
             setErrorMessage(message)
         },
     })
@@ -699,13 +699,11 @@ export default function UploadQuotationPage() {
                                         {[
                                             ['GSTIN', vendors.gst_number || '—'],
                                             ['PAN', vendors.pan_number || '—'],
-                                            ['Payment terms', vendors.payment_terms || '—'],
                                             ['Contact person', vendors.contact_name || '—'],
                                             ['Email', vendors.contact_email || '—'],
                                             ['Phone', `+${vendors.contact_phone} ` || '—'],
                                             ['Bank', vendors.bank_name ? `${vendors.bank_name}${vendors.bank_ifsc ? ` · ${vendors.bank_ifsc}` : ''}` : '—'],
                                             ['Bank A/C', vendors.bank_account || '—'],
-                                            ['Delivery terms', vendors.delivery_terms || '—'],
                                         ].map(([label, value]) => (
                                             <div key={label} className="flex flex-col gap-0.5">
                                                 <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
@@ -715,7 +713,27 @@ export default function UploadQuotationPage() {
                                     </div>
                                 </div>
                             </div>
+                            {/* Terms & Conditions */}
+                            {vendors?.terms_and_conditions?.length > 0 && (
+    <div className="bg-white border rounded-xl shadow-sm mt-4">
+        <div className="px-4 py-3 border-b">
+            <span className="font-semibold text-sm">Terms & Conditions</span>
+        </div>
 
+        <div className="p-4">
+            <ul className="list-disc pl-5 space-y-2">
+                {vendors.terms_and_conditions.map((term: string, index: number) => (
+                    <li
+                        key={index}
+                        className="text-sm text-muted-foreground leading-relaxed"
+                    >
+                        {term}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    </div>
+)}
                             {/* Plant & Department */}
                             {/* <div className="rounded-xl border bg-white p-4">
                             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
