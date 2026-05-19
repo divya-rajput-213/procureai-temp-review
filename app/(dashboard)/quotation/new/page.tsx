@@ -885,8 +885,8 @@ export default function UploadQuotationPage() {
 
             {/* ── Confirm Modal ── */}
             <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-                <DialogContent className="max-w-5xl p-0 overflow-hidden border border-border shadow-xl bg-background text-foreground rounded-2xl">
-                    <div className="flex h-[560px]">
+            <DialogContent className="max-w-5xl p-0 overflow-hidden border border-border shadow-xl bg-background text-foreground rounded-2xl">
+            <div className="flex max-h-[80vh]">
                         {/* LEFT: Identity & Status */}
                         <div className="w-[320px] bg-muted/30 p-6 flex flex-col border-r border-border">
                             <div className="mb-0">
@@ -917,8 +917,8 @@ export default function UploadQuotationPage() {
                         </div>
 
                         {/* RIGHT: High-Level Summary & Side Effects */}
-                        <div className="flex-1 flex flex-col bg-muted/20 p-8">
-                            <div className="text-sm font-semibold text-muted-foreground mb-6">Review Summary</div>
+                        <div className="flex-1 flex flex-col bg-muted/20 p-8 overflow-y-auto">
+                                                    <div className="text-sm font-semibold text-muted-foreground mb-6">Review Summary</div>
 
                             <div className="grid grid-cols-3 gap-4 mb-8">
                                 <div className="bg-white border rounded-xl p-4 shadow-sm">
