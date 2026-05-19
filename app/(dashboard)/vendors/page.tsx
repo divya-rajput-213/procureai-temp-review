@@ -120,7 +120,7 @@ function StatusSummary({ totalCount, counts }: { totalCount: number; counts: Rec
 // ─── Mobile vendor card ───────────────────────────────────────────────────────
 
 function VendorCard({ v, onDelete, onClick }: { v: any; onDelete: () => void; onClick: () => void }) {
-  const hasQuot = (v.quotations_count ?? 0) > 0
+  const hasQuot = (v.quotation_count ?? 0) > 0
 
   return (
     <div
@@ -174,7 +174,7 @@ function VendorCard({ v, onDelete, onClick }: { v: any; onDelete: () => void; on
       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-1">
           {hasQuot ? (
-            <p className="text-xs font-mono font-medium text-foreground">{v.quotations_count}</p>
+            <p className="text-xs font-mono font-medium text-foreground">{v.quotation_count}</p>
           ) : (
             <span className="text-xs text-muted-foreground">No quotations</span>
           )}
@@ -518,11 +518,11 @@ export default function VendorsPage() {
 
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {(!v.quotations_count) ? (
+                          {(!v.quotation_count) ? (
                             <span className="text-xs text-muted-foreground">—</span>
                           ) : (
 
-                            <p className="text-xs font-mono font-medium text-foreground">{v.quotations_count}</p>
+                            <p className="text-xs font-mono font-medium text-foreground">{v.quotation_count}</p>
                           )}
                         </div>
                       </td>
