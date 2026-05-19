@@ -420,10 +420,7 @@ const VerifyItemsStep = ({
                                     <div className="flex-1 flex items-center justify-end pr-1">
                                         <div className="flex items-center gap-2 w-full justify-end">
                                             {item.is_new ? (
-                                                <div className="flex items-center gap-1.5 bg-primary/5 border border-primary/20 px-2 py-1 rounded text-primary text-[10px] font-bold uppercase tracking-tight">
-                                                    <Plus className="w-3 h-3" />
-                                                    Queue New
-                                                </div>
+                                               ""
                                             ) : (
                                                 <Popover onOpenChange={(open) => { if (!open) setMappingSearch('') }}>
                                                     <PopoverTrigger asChild>

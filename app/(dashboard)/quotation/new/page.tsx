@@ -471,14 +471,24 @@ export default function UploadQuotationPage() {
         })
     }, [lineItems.length])
 
-    const subtotal: number | null = vendors?.subtotal_amount != null ? Number(vendors.subtotal_amount) : null
-    const cgstRate: number | null = vendors?.cgst_rate != null ? Number(vendors.cgst_rate) : null
-    const sgstRate: number | null = vendors?.sgst_rate != null ? Number(vendors.sgst_rate) : null
-    const igstRate: number | null = vendors?.igst_rate != null ? Number(vendors.igst_rate) : null
-    const cgstAmount: number | null = vendors?.cgst_amount != null ? Number(vendors.cgst_amount) : null
-    const sgstAmount: number | null = vendors?.sgst_amount != null ? Number(vendors.sgst_amount) : null
-    const igstAmount: number | null = vendors?.igst_amount != null ? Number(vendors.igst_amount) : null
-    const grandTotal: number | null = vendors?.grand_total != null ? Number(vendors.grand_total) : null
+ // Replace your existing subtotal/grandTotal calculations with these:
+
+const computedSubtotal = lineItems.reduce((sum: number, item: any) => {
+    return sum + (Number(item.item_price || 0) * Number(item.quantity || 1))
+}, 0)
+
+const subtotal: number = vendors?.subtotal_amount != null
+    ? Number(vendors.subtotal_amount)
+    : computedSubtotal
+
+const gstPercentage = Number(vendors?.gst_percentage || 0)
+
+// Compute grand total: prefer extracted value, else derive from subtotal + GST
+const computedGrandTotal = subtotal + (subtotal * gstPercentage) / 100
+
+const grandTotal: number = vendors?.grand_total != null
+    ? Number(vendors.grand_total)
+    : computedGrandTotal
 
     const filteredItems = lineItems.filter((item: any) => {
         if (filters.new === 'true') return item.is_new
@@ -715,25 +725,25 @@ export default function UploadQuotationPage() {
                             </div>
                             {/* Terms & Conditions */}
                             {vendors?.terms_and_conditions?.length > 0 && (
-    <div className="bg-white border rounded-xl shadow-sm mt-4">
-        <div className="px-4 py-3 border-b">
-            <span className="font-semibold text-sm">Terms & Conditions</span>
-        </div>
+                                <div className="bg-white border rounded-xl shadow-sm mt-4">
+                                    <div className="px-4 py-3 border-b">
+                                        <span className="font-semibold text-sm">Terms & Conditions</span>
+                                    </div>
 
-        <div className="p-4">
-            <ul className="list-disc pl-5 space-y-2">
-                {vendors.terms_and_conditions.map((term: string, index: number) => (
-                    <li
-                        key={index}
-                        className="text-sm text-muted-foreground leading-relaxed"
-                    >
-                        {term}
-                    </li>
-                ))}
-            </ul>
-        </div>
-    </div>
-)}
+                                    <div className="p-4">
+                                        <ul className="list-disc pl-5 space-y-2">
+                                            {vendors.terms_and_conditions.map((term: string, index: number) => (
+                                                <li
+                                                    key={index}
+                                                    className="text-sm text-muted-foreground leading-relaxed"
+                                                >
+                                                    {term}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
                             {/* Plant & Department */}
                             {/* <div className="rounded-xl border bg-white p-4">
                             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
@@ -907,34 +917,123 @@ export default function UploadQuotationPage() {
             )}
 
             {/* ── Confirm Modal ── */}
+            {/* ── Confirm Modal ── */}
             <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-                <DialogContent className="max-w-md rounded-xl">
-                    <DialogHeader>
-                        <DialogTitle>Confirm Quotation Submission</DialogTitle>
-                        <DialogDescription className="pt-2 text-sm text-muted-foreground">
-                            Please confirm that you want to submit this quotation.
-                            Once submitted, vendor details, pricing information, and item mappings will be saved and processed.
-                        </DialogDescription>
-                    </DialogHeader>
+                <DialogContent className="max-w-5xl p-0 overflow-hidden border border-border shadow-xl bg-background text-foreground rounded-2xl">
+                    <div className="flex max-h-[80vh]">
+                        {/* LEFT: Identity & Status */}
+                        <div className="w-[320px] bg-muted/30 p-6 flex flex-col border-r border-border">
+                            <div className="mb-0">
+                                <DialogHeader className="text-left mb-5">
+                                    <DialogTitle className="text-2xl font-semibold text-primary">Confirm Submission</DialogTitle>
+                                    <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+                                        Review summary & side-effects<br />before system persistence
+                                    </DialogDescription>
+                                </DialogHeader>
 
-                    <div className="flex justify-end gap-3 mt-6">
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowConfirmModal(false)}
-                        >
-                            Cancel
-                        </Button>
+                                {/* Vendor ID Card */}
+                                <div className="space-y-4 mb-7">
+                                    <div className="p-3 bg-white border border-border rounded-xl relative overflow-hidden group shadow-sm">
+                                        <div className="text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between">
+                                            <span>Vendor Match</span>
+                                        </div>
+                                        <div className="text-base font-semibold truncate leading-tight text-foreground">{vendors?.company_name || '—'}</div>
+                                        <div className="text-xs text-muted-foreground mt-1 font-mono">{vendors?.gst_number || 'GSTIN —'}</div>
+                                    </div>
 
-                        <Button
-                            onClick={confirmAndSubmit}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                'Submit Quotation'
-                            )}
-                        </Button>
+                                    <div className="p-3 bg-white border border-border rounded-xl shadow-sm">
+                                        <div className="text-xs font-semibold text-muted-foreground mb-1.5">Quote Reference</div>
+                                        <div className="text-sm font-semibold text-foreground">{vendors?.quotation_no || 'QT/2026/1001'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT: High-Level Summary & Side Effects */}
+                        <div className="flex-1 flex flex-col bg-muted/20 p-8 overflow-y-auto">
+                            <div className="text-sm font-semibold text-muted-foreground mb-6">Review Summary</div>
+
+                            <div className="grid grid-cols-3 gap-4 mb-8">
+                                <div className="bg-white border rounded-xl p-4 shadow-sm">
+                                    <div className="text-xs font-semibold text-muted-foreground mb-2">Items</div>
+                                    <div className="text-lg font-bold text-foreground leading-none">{lineItems.length} lines</div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                        {lineItems.filter((i: any) => !i.is_new).length} Matched · {lineItems.filter((i: any) => i.is_new).length} New
+                                    </div>
+                                </div>
+                                <div className="bg-white border rounded-xl p-4 shadow-sm">
+                                    <div className="text-xs font-semibold text-muted-foreground mb-2">Subtotal</div>
+                                    <div className="text-lg font-bold text-foreground leading-none">₹{subtotal?.toLocaleString('en-IN')}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">Net value</div>
+                                </div>
+                                <div className="bg-white border rounded-xl p-4 shadow-sm border-primary/20 ring-2 ring-primary/5">
+                                    <div className="text-xs font-semibold text-primary mb-2">Grand Total</div>
+                                    <div className="text-xl font-bold text-primary leading-none">₹{grandTotal?.toLocaleString('en-IN')}</div>
+                                    <div className="text-xs text-primary/70 mt-1 italic">Inclusive of taxes</div>
+                                </div>
+                            </div>
+
+                            <div className="text-sm font-semibold text-muted-foreground mb-4">Pending Side-effects <span className="ml-2 font-normal text-xs text-muted-foreground whitespace-nowrap">Will be applied on save</span></div>
+
+                            <div className="space-y-3">
+                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/20 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                        <Building2 className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-sm font-semibold text-foreground">Link {lineItems.filter((i: any) => !i.is_new).length} existing SKUs to vendor</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">Association will be recorded in the Vendor Master</div>
+                                    </div>
+                                    <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] font-semibold">UPDATE</Badge>
+                                </div>
+
+                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/20 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                        <Package className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-sm font-semibold text-foreground">Update price book</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">{lineItems.length} vendor prices vs. last 90d</div>
+                                    </div>
+                                    <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] font-semibold">UPDATE</Badge>
+                                </div>
+
+                                {lineItems.some((i: any) => i.is_new) && (
+                                    <div className="bg-white border border-primary/20 rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/40 transition-colors">
+                                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
+                                            <Plus className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="text-sm font-semibold text-primary">Queue {lineItems.filter((i: any) => i.is_new).length} new SKUs for creation</div>
+                                            <div className="text-xs text-primary/70 mt-0.5">Category owners will be notified for approval</div>
+                                        </div>
+                                        <Badge className="bg-primary/10 text-primary border-none text-[10px] font-semibold">NEW</Badge>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mt-auto pt-8 flex items-center justify-between">
+                                <div className="text-xs font-medium text-muted-foreground/70">
+                                    <span>Secured by ProcureAI Backend</span>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                 
+
+                                    <Button
+                                        onClick={confirmAndSubmit}
+                                        disabled={isLoading}
+                                        className="bg-primary hover:bg-primary/90 text-primary-foreground h-10 px-6 font-semibold text-sm rounded-xl"
+                                    >
+                                        {isLoading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            'Confirm & Save'
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>
