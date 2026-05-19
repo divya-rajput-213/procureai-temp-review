@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDebounce } from 'use-debounce'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import {Plus, Search, Download, Trash2, Loader2, ChevronLeft, ChevronRight, Upload, X, MapPin, Building, Filter} from 'lucide-react'
+import { Plus, Search, Download, Trash2, Loader2, ChevronLeft, ChevronRight, Upload, X, MapPin, Building, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -19,18 +19,6 @@ import { SortableTh } from '@/components/shared/SortableTh'
 
 type SortDir = 'asc' | 'desc'
 type SortField = 'company_name' | 'status' | 'created_at' | 'category_name' | 'performance_score'
-
-// ─── Quotation mini-badges ────────────────────────────────────────────────────
-
-function QuotBadge({ count, label, color }: { count: number; label: string; color: string }) {
-  if (!count) return null
-  return (
-    <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded border ${color}`}>
-      <span className="opacity-60 text-[10px]">▣</span>
-      {count} {label}
-    </span>
-  )
-}
 
 // ─── Vendor Score ─────────────────────────────────────────────────────────────
 
@@ -132,7 +120,7 @@ function StatusSummary({ totalCount, counts }: { totalCount: number; counts: Rec
 // ─── Mobile vendor card ───────────────────────────────────────────────────────
 
 function VendorCard({ v, onDelete, onClick }: { v: any; onDelete: () => void; onClick: () => void }) {
-  const hasQuot = (v.quotations_count ?? 0) + (v.purchase_requests_count ?? 0) + (v.purchase_orders_count ?? 0) > 0
+  const hasQuot = (v.quotations_count ?? 0) > 0
 
   return (
     <div
@@ -186,11 +174,7 @@ function VendorCard({ v, onDelete, onClick }: { v: any; onDelete: () => void; on
       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-1">
           {hasQuot ? (
-            <>
-              <QuotBadge count={v.quotations_count ?? 0} label="Quot." color="bg-blue-50 text-blue-700 border-blue-200" />
-              <QuotBadge count={v.purchase_requests_count ?? 0} label="PR" color="bg-violet-50 text-violet-700 border-violet-200" />
-              <QuotBadge count={v.purchase_orders_count ?? 0} label="PO" color="bg-emerald-50 text-emerald-700 border-emerald-200" />
-            </>
+            <p className="text-xs font-mono font-medium text-foreground">{v.quotations_count}</p>
           ) : (
             <span className="text-xs text-muted-foreground">No quotations</span>
           )}
@@ -296,7 +280,7 @@ export default function VendorsPage() {
 
   const sortProps = { current: sortField, dir: sortDir, onSort: handleSort }
   useEffect(() => { setPage(1) }, [search])
-  
+
   return (
     <div className="space-y-4">
 
@@ -534,14 +518,11 @@ export default function VendorsPage() {
 
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {(v.quotations_count ?? 0) + (v.purchase_requests_count ?? 0) + (v.purchase_orders_count ?? 0) === 0 ? (
+                          {(!v.quotations_count) ? (
                             <span className="text-xs text-muted-foreground">—</span>
                           ) : (
-                            <>
-                              <QuotBadge count={v.quotations_count ?? 0} label="Quot." color="bg-blue-50 text-blue-700 border-blue-200" />
-                              <QuotBadge count={v.purchase_requests_count ?? 0} label="PR" color="bg-violet-50 text-violet-700 border-violet-200" />
-                              <QuotBadge count={v.purchase_orders_count ?? 0} label="PO" color="bg-emerald-50 text-emerald-700 border-emerald-200" />
-                            </>
+
+                            <p className="text-xs font-mono font-medium text-foreground">{v.quotations_count}</p>
                           )}
                         </div>
                       </td>
