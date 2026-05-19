@@ -63,8 +63,8 @@ function Stepper({ currentStep, completedSteps }: { currentStep: number; complet
                                     i < currentStep
                                         ? '#10b981'
                                         : i === currentStep
-                                        ? 'hsl(var(--primary))'
-                                        : 'hsl(var(--muted))',
+                                            ? 'hsl(var(--primary))'
+                                            : 'hsl(var(--muted))',
                                 color:
                                     i <= currentStep
                                         ? 'hsl(var(--primary-foreground))'
@@ -258,6 +258,7 @@ export default function UploadQuotationPage() {
 
     const handleRemoveTagState = () => {
         setPlantId(''); setDepartmentId(''); setCategoryId(''); setPrLinkId(''); setSelectedFile(null)
+        setErrorMessage('')
     }
 
     const exportMutation = useMutation({
@@ -334,7 +335,11 @@ export default function UploadQuotationPage() {
             }, 5000)
         },
         onError: (error: any) => {
-            const message = getApiErrorMessage(error, 'Failed to upload quotation.')
+            const message =
+                error?.response?.data?.detail ||
+                error?.response?.data?.error ||
+                getApiErrorMessage(error, 'Failed to upload quotation.')
+
             setErrorMessage(message)
         },
     })
@@ -466,14 +471,24 @@ export default function UploadQuotationPage() {
         })
     }, [lineItems.length])
 
-    const subtotal: number | null = vendors?.subtotal_amount != null ? Number(vendors.subtotal_amount) : null
-    const cgstRate: number | null = vendors?.cgst_rate != null ? Number(vendors.cgst_rate) : null
-    const sgstRate: number | null = vendors?.sgst_rate != null ? Number(vendors.sgst_rate) : null
-    const igstRate: number | null = vendors?.igst_rate != null ? Number(vendors.igst_rate) : null
-    const cgstAmount: number | null = vendors?.cgst_amount != null ? Number(vendors.cgst_amount) : null
-    const sgstAmount: number | null = vendors?.sgst_amount != null ? Number(vendors.sgst_amount) : null
-    const igstAmount: number | null = vendors?.igst_amount != null ? Number(vendors.igst_amount) : null
-    const grandTotal: number | null = vendors?.grand_total != null ? Number(vendors.grand_total) : null
+ // Replace your existing subtotal/grandTotal calculations with these:
+
+const computedSubtotal = lineItems.reduce((sum: number, item: any) => {
+    return sum + (Number(item.item_price || 0) * Number(item.quantity || 1))
+}, 0)
+
+const subtotal: number = vendors?.subtotal_amount != null
+    ? Number(vendors.subtotal_amount)
+    : computedSubtotal
+
+const gstPercentage = Number(vendors?.gst_percentage || 0)
+
+// Compute grand total: prefer extracted value, else derive from subtotal + GST
+const computedGrandTotal = subtotal + (subtotal * gstPercentage) / 100
+
+const grandTotal: number = vendors?.grand_total != null
+    ? Number(vendors.grand_total)
+    : computedGrandTotal
 
     const filteredItems = lineItems.filter((item: any) => {
         if (filters.new === 'true') return item.is_new
@@ -640,7 +655,7 @@ export default function UploadQuotationPage() {
             {/* ── STEP 1: AI Extraction ── */}
             {currentStep === 1 && (
                 <div className="pt-4">
-                    <AIExtractionStep selectedFile={selectedFile} quotation={quotation} onNext={handleNextFromAI} />
+                    <AIExtractionStep selectedFile={selectedFile} quotation={quotation} onNext={handleNextFromAI} errorMessage={errorMessage} />
                 </div>
             )}
 
@@ -649,18 +664,18 @@ export default function UploadQuotationPage() {
                 <div className="pt-4">
                     <div className="mb-3">
                     </div>
-                    <div className="grid grid-cols-[1fr_320px] gap-5 items-start">
+                    <div className="grid gap-5 items-start">
                         <div className="flex flex-col gap-4">
 
                             {/* AI stripe */}
-                            <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
+                            {/* <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
                                 <span className="text-primary font-bold">✦</span>
                                 <div className="flex-1">
                                     <span className="font-semibold text-primary">Vendor identified</span>
                                     {vendors.gst_number && <span className="text-primary/80"> — GSTIN <span className="font-mono">{vendors.gst_number}</span> matched to existing vendor with 100% confidence.</span>}
                                 </div>
                                 <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">100%</span>
-                            </div>
+                            </div> */}
 
                             {/* Matched vendor card */}
                             <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
@@ -694,13 +709,11 @@ export default function UploadQuotationPage() {
                                         {[
                                             ['GSTIN', vendors.gst_number || '—'],
                                             ['PAN', vendors.pan_number || '—'],
-                                            ['Payment terms', vendors.payment_terms || 'Net 30'],
                                             ['Contact person', vendors.contact_name || '—'],
                                             ['Email', vendors.contact_email || '—'],
-                                            ['Phone', vendors.contact_phone || '—'],
+                                            ['Phone', `+${vendors.contact_phone} ` || '—'],
                                             ['Bank', vendors.bank_name ? `${vendors.bank_name}${vendors.bank_ifsc ? ` · ${vendors.bank_ifsc}` : ''}` : '—'],
                                             ['Bank A/C', vendors.bank_account || '—'],
-                                            ['Delivery terms', vendors.delivery_terms || '—'],
                                         ].map(([label, value]) => (
                                             <div key={label} className="flex flex-col gap-0.5">
                                                 <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
@@ -710,7 +723,27 @@ export default function UploadQuotationPage() {
                                     </div>
                                 </div>
                             </div>
+                            {/* Terms & Conditions */}
+                            {vendors?.terms_and_conditions?.length > 0 && (
+                                <div className="bg-white border rounded-xl shadow-sm mt-4">
+                                    <div className="px-4 py-3 border-b">
+                                        <span className="font-semibold text-sm">Terms & Conditions</span>
+                                    </div>
 
+                                    <div className="p-4">
+                                        <ul className="list-disc pl-5 space-y-2">
+                                            {vendors.terms_and_conditions.map((term: string, index: number) => (
+                                                <li
+                                                    key={index}
+                                                    className="text-sm text-muted-foreground leading-relaxed"
+                                                >
+                                                    {term}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
                             {/* Plant & Department */}
                             {/* <div className="rounded-xl border bg-white p-4">
                             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
@@ -738,7 +771,7 @@ export default function UploadQuotationPage() {
                         {/* Right panel */}
                         <div className="flex flex-col gap-4">
                             {/* Why this match? */}
-                            <div className="rounded-xl overflow-hidden border border-primary/20">
+                            {/* <div className="rounded-xl overflow-hidden border border-primary/20">
                                 <div className="flex items-center gap-2 px-4 py-3 bg-primary text-white">
                                     <span className="font-bold">✦</span>
                                     <span className="font-semibold text-sm">Why this match?</span>
@@ -751,10 +784,10 @@ export default function UploadQuotationPage() {
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </div> */}
 
                             {/* Vendor at a glance */}
-                            <div className="bg-white border rounded-xl shadow-sm">
+                            {/* <div className="bg-white border rounded-xl shadow-sm">
                                 <div className="px-4 py-3 border-b font-semibold text-sm">Vendor at a glance</div>
                                 <div className="divide-y">
                                     {[
@@ -770,7 +803,7 @@ export default function UploadQuotationPage() {
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </div> */}
                         </div>
                     </div>
                 </div>
@@ -884,9 +917,10 @@ export default function UploadQuotationPage() {
             )}
 
             {/* ── Confirm Modal ── */}
+            {/* ── Confirm Modal ── */}
             <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
                 <DialogContent className="max-w-5xl p-0 overflow-hidden border border-border shadow-xl bg-background text-foreground rounded-2xl">
-                    <div className="flex h-[560px]">
+                    <div className="flex max-h-[80vh]">
                         {/* LEFT: Identity & Status */}
                         <div className="w-[320px] bg-muted/30 p-6 flex flex-col border-r border-border">
                             <div className="mb-0">
@@ -902,7 +936,6 @@ export default function UploadQuotationPage() {
                                     <div className="p-3 bg-white border border-border rounded-xl relative overflow-hidden group shadow-sm">
                                         <div className="text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between">
                                             <span>Vendor Match</span>
-                                            <span className="text-emerald-600">100%</span>
                                         </div>
                                         <div className="text-base font-semibold truncate leading-tight text-foreground">{vendors?.company_name || '—'}</div>
                                         <div className="text-xs text-muted-foreground mt-1 font-mono">{vendors?.gst_number || 'GSTIN —'}</div>
@@ -917,7 +950,7 @@ export default function UploadQuotationPage() {
                         </div>
 
                         {/* RIGHT: High-Level Summary & Side Effects */}
-                        <div className="flex-1 flex flex-col bg-muted/20 p-8">
+                        <div className="flex-1 flex flex-col bg-muted/20 p-8 overflow-y-auto">
                             <div className="text-sm font-semibold text-muted-foreground mb-6">Review Summary</div>
 
                             <div className="grid grid-cols-3 gap-4 mb-8">
@@ -985,9 +1018,7 @@ export default function UploadQuotationPage() {
                                 </div>
 
                                 <div className="flex items-center gap-4">
-                                    <span className="text-xs font-medium text-muted-foreground/70">
-                                        Session ID: {quotation?.id || 'AUTH-001'}
-                                    </span>
+                                 
 
                                     <Button
                                         onClick={confirmAndSubmit}
@@ -1006,7 +1037,6 @@ export default function UploadQuotationPage() {
                     </div>
                 </DialogContent>
             </Dialog>
-
             {/* ── Export Modal ── */}
             <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
                 <DialogContent>

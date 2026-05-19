@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-const AIExtractionStep = ({ selectedFile, quotation, onNext }: { selectedFile: File | null; quotation: any; onNext?: () => void }) => {
+const AIExtractionStep = ({ selectedFile, quotation, onNext ,errorMessage}: { selectedFile: File | null; quotation: any; onNext?: () => void,errorMessage:any }) => {
     const [progress, setProgress] = useState(42)
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
@@ -133,7 +133,7 @@ const AIExtractionStep = ({ selectedFile, quotation, onNext }: { selectedFile: F
                 </div>
 
                 {/* RIGHT SIDE */}
-                <div className="flex flex-col gap-4">
+              {!errorMessage &&  <div className="flex flex-col gap-4">
 
                     {/* AI Progress */}
                     <div className="bg-white border rounded-xl overflow-hidden shrink-0 shadow-sm">
@@ -229,7 +229,7 @@ const AIExtractionStep = ({ selectedFile, quotation, onNext }: { selectedFile: F
                             </p>
                         </div>
                     </div>
-                </div>
+                </div>}
             </div>
         </div>
     )

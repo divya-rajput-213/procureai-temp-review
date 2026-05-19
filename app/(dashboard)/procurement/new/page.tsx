@@ -569,12 +569,12 @@ function QuotesStep({
                   </div>
                 </div>
 
-                {grandTotal > 0 && budgetExceeded && (
+                {/* {grandTotal > 0 && budgetExceeded && (
                   <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive font-medium bg-destructive/10 px-2 py-1.5 rounded-md">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     This PR exceeds remaining budget by {formatCurrency(grandTotal - budgetRemaining)}
                   </div>
-                )}
+                )} */}
               </div>
 
               <div className="space-y-1.5">
@@ -884,10 +884,10 @@ export default function NewPRPage() {
         toast({ title: 'No quotations selected', description: 'Please select at least one quotation to compare.', variant: 'destructive' })
         return
       }
-      if (budgetExceeded) {
-        toast({ title: 'Budget exceeded', description: 'PR total exceeds remaining budget.', variant: 'destructive' })
-        return
-      }
+      // if (budgetExceeded) {
+      //   toast({ title: 'Budget exceeded', description: 'PR total exceeds remaining budget.', variant: 'destructive' })
+      //   return
+      // }
       saveDraftMutation.mutate(undefined, {
         onSuccess: (pr) => {
           setSavedPrId(pr.hash_id ?? pr.id)

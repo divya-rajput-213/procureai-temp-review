@@ -773,7 +773,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                         CONTACT PHONE
                       </p>
                       <p className="text-sm font-semibold">
-                        {vendor?.contact_phone || '—'}
+                        {vendor?.contact_phone && `+${vendor?.contact_phone}` || '—'}
                       </p>
                     </div>
                     <div className="space-y-1">
