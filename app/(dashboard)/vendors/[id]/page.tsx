@@ -1368,7 +1368,7 @@ function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; ve
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-semibold">Snapshot</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">Vendor profile · auto-refreshed</p>
+                  <p className="text-xs text-muted-foreground mt-1">Vendor profile </p>
                 </div>
               </div>
             </CardHeader>
