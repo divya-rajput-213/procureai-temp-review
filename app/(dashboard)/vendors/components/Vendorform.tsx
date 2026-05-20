@@ -1320,8 +1320,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
             {/* ══ STEP 2: Submit for Approval ══ */}
             {step === 2 && !isReadOnly && (
-              <div className="form-section">
-                <div style={{ padding: '16px 20px' }}>
+              <div className="form-section" style={{ border: 'none', background: 'transparent' }}>
+                <div style={{ padding: '16px 0' }}>
                   {/* Vendor summary strip */}
                   {(() => {
                     const name = watch('company_name') || 'Unnamed Vendor'
@@ -1364,7 +1364,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                       onToggleExpand={(id) => setExpandedMatrix(prev => prev === id ? null : id)}
                     />
                   )}
-                  <p style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 10 }}>Approval notifications will be sent to all approvers once submitted.</p>
 
                   {submitError && (
                     <div style={{ marginTop: 12, fontSize: 12, color: 'var(--red-tx)', background: 'var(--red-bg)', border: '0.5px solid rgba(226,75,74,.25)', borderRadius: 'var(--r)', padding: '10px 14px' }}>
