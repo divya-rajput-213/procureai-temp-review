@@ -478,11 +478,11 @@ export default function VendorsPage() {
                       Vendor ID / Plant
                     </th>
                     <SortableTh field="category_name" label="Category" {...sortProps} />
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Quotation
-                    </th>
                     <SortableTh field="performance_score" label="Vendor Score" {...sortProps} />
                     <SortableTh field="status" label="Status" {...sortProps} />
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Contract
+                    </th>
                     <SortableTh field="created_at" label="Created At" {...sortProps} />
                     <th className="px-4 py-3" />
                   </tr>
@@ -525,22 +525,37 @@ export default function VendorsPage() {
                       </td>
 
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {(!v.quotation_count) ? (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          ) : (
-
-                            <p className="text-xs font-mono font-medium text-foreground">{v.quotation_count}</p>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
                         <VendorScore score={v.performance_score} />
                       </td>
 
                       <td className="px-4 py-3">
                         <StatusBadge status={v.status} />
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {!v.quotation_count && !v.pr_count && !v.po_count ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <>
+                              {!!v.quotation_count && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
+                                  {v.quotation_count} Q
+                                </span>
+                              )}
+                              {!!v.pr_count && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                  {v.pr_count} PR
+                                </span>
+                              )}
+                              {!!v.po_count && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  {v.po_count} PO
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </td>
 
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
