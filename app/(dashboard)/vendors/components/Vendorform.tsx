@@ -151,17 +151,14 @@ function DocUploadWidget({
       const data = res.data
       if (data?.ai_validation_status === 'invalid' || data?.ai_validation_status === 'failed') {
         setFieldError?.(data?.ai_validation_notes || `${docType} validation failed`)
-        toast({ title: 'Document validation failed', description: data?.ai_validation_notes || '', variant: 'destructive' })
       } else {
         setFieldError?.('')
-        toast({ title: 'Document verified by AI' })
       }
       onRefresh()
     } catch (err: any) {
       const errData = err?.response?.data
       const notes = errData?.ai_validation_notes || errData?.error || 'Upload failed'
       setFieldError?.(notes)
-      toast({ title: 'Upload failed', description: notes, variant: 'destructive' })
     } finally {
       setUploading(false)
     }
@@ -395,6 +392,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
   /* Compliance cross-validation */
   const [complianceErrors, setComplianceErrors] = useState<Record<string, string>>({})
+  const [docUploadErrors, setDocUploadErrors] = useState<Record<string, string>>({})
+  const setDocError = (docType: string) => (msg: string) =>
+    setDocUploadErrors(prev => ({ ...prev, [docType]: msg }))
   const [validationTriggered, setValidationTriggered] = useState(false)
   const [expandedComplianceDocs, setExpandedComplianceDocs] = useState<Record<string, boolean>>({
     gst_certificate: !!initialValues?.gst_number,
@@ -1058,7 +1058,12 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.gst_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="gst_certificate" doc={docOf('gst_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop GST Certificate here" isReadOnly={isReadOnly} />
+                        <DocUploadWidget vendorId={vendorId} docType="gst_certificate" doc={docOf('gst_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop GST Certificate here" isReadOnly={isReadOnly} setFieldError={setDocError('gst_certificate')} />
+                        {docUploadErrors['gst_certificate'] && (
+                          <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors['gst_certificate']}
+                          </div>
+                        )}
                         <div className="form-grid" style={{ marginTop: 12 }}>
                           <div className="form-group">
                             <label className="form-label">GST Number <span className="req">*</span></label>
@@ -1097,7 +1102,12 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.pan_card && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="pan_card" doc={docOf('pan_card')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop PAN Card here" isReadOnly={isReadOnly} />
+                        <DocUploadWidget vendorId={vendorId} docType="pan_card" doc={docOf('pan_card')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop PAN Card here" isReadOnly={isReadOnly} setFieldError={setDocError('pan_card')} />
+                        {docUploadErrors['pan_card'] && (
+                          <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors['pan_card']}
+                          </div>
+                        )}
                         <div className="form-grid" style={{ marginTop: 12 }}>
                           <div className="form-group">
                             <label className="form-label">PAN Number <span className="req">*</span></label>
@@ -1134,7 +1144,12 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.bank_details && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="bank_details" doc={docOf('bank_details')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Bank Letter / Cancelled Cheque here" isReadOnly={isReadOnly} />
+                        <DocUploadWidget vendorId={vendorId} docType="bank_details" doc={docOf('bank_details')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Bank Letter / Cancelled Cheque here" isReadOnly={isReadOnly} setFieldError={setDocError('bank_details')} />
+                        {docUploadErrors['bank_details'] && (
+                          <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors['bank_details']}
+                          </div>
+                        )}
                         <div className="form-grid" style={{ marginTop: 12 }}>
                           <div className="form-group">
                             <label className="form-label">Account Number <span className="req">*</span></label>
@@ -1202,7 +1217,12 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.msme_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="msme_certificate" doc={docOf('msme_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Udyam Certificate here" isReadOnly={isReadOnly} />
+                        <DocUploadWidget vendorId={vendorId} docType="msme_certificate" doc={docOf('msme_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Udyam Certificate here" isReadOnly={isReadOnly} setFieldError={setDocError('msme_certificate')} />
+                        {docUploadErrors['msme_certificate'] && (
+                          <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors['msme_certificate']}
+                          </div>
+                        )}
                         <div className="form-grid" style={{ marginTop: 12 }}>
                           <div className="form-group">
                             <label className="form-label">Udyam Registration No. <span className="req">*</span></label>
@@ -1242,7 +1262,12 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.sez_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="sez_certificate" doc={docOf('sez_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop SEZ Approval Letter here" isReadOnly={isReadOnly} />
+                        <DocUploadWidget vendorId={vendorId} docType="sez_certificate" doc={docOf('sez_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop SEZ Approval Letter here" isReadOnly={isReadOnly} setFieldError={setDocError('sez_certificate')} />
+                        {docUploadErrors['sez_certificate'] && (
+                          <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors['sez_certificate']}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1301,9 +1326,14 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                                 <input className="form-input" disabled={isReadOnly} value={row.custom} onChange={e => updateIsoRow(idx, 'custom', e.target.value)} placeholder="e.g. Trade Licence, NDA, Warranty…" />
                               </div>
                             )}
-                            <DocUploadWidget vendorId={vendorId} docType={isoDocType(idx)} doc={docOf(isoDocType(idx))} onRefresh={refreshDocs} dropLabel="Drag &amp; drop document here" hint="PDF, JPG or PNG · max 5 MB" isReadOnly={isReadOnly} />
+                            <DocUploadWidget vendorId={vendorId} docType={isoDocType(idx)} doc={docOf(isoDocType(idx))} onRefresh={refreshDocs} dropLabel="Drag &amp; drop document here" hint="PDF, JPG or PNG · max 5 MB" isReadOnly={isReadOnly} setFieldError={setDocError(isoDocType(idx))} />
                             {complianceErrors[`field_iso_${idx}`] && (
                               <div className="field-err" style={{ marginTop: 6 }}>{complianceErrors[`field_iso_${idx}`]}</div>
+                            )}
+                            {docUploadErrors[isoDocType(idx)] && (
+                              <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors[isoDocType(idx)]}
+                              </div>
                             )}
                           </div>
                         ))}
