@@ -506,6 +506,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const step1Mutation = useMutation({
     mutationFn: async (data: VendorForm) => {
       await apiClient.patch(`/vendors/${vendorId}/`, {
+        category: data.category,
+        plant: data.plant,
         gst_number: data.gst_number || null,
         pan_number: data.pan_number || '',
         bank_account: data.bank_account || '', bank_ifsc: data.bank_ifsc || '', bank_name: data.bank_name || '',
