@@ -180,7 +180,6 @@ export default function QuotationPage() {
     queryKey: ['departments'],
     queryFn: async () => { const r = await apiClient.get('/users/departments/'); return r.data?.results ?? r.data ?? [] },
   })
-
   const { data: vendors = [] } = useQuery({
     queryKey: ['vendors-list'],
     queryFn: async () => { const r = await apiClient.get('/vendors/?page_size=200&ordering=company_name'); return r.data?.results ?? r.data ?? [] },
@@ -197,8 +196,8 @@ export default function QuotationPage() {
       const params: Record<string, string> = { page: String(page), page_size: String(PAGE_SIZE), ordering }
       if (search) params.search = search
       if (statusFilter) params.status = statusFilter
-      if (departmentFilter) params.department = departmentFilter
-      if (vendorFilter) params.vendor = vendorFilter
+      if (departmentFilter) params.department_id = departmentFilter
+      if (vendorFilter) params.vendor_id = vendorFilter
       const { data } = await apiClient.get('/quotations/', { params })
       return data
     },
@@ -209,8 +208,8 @@ export default function QuotationPage() {
     const params: Record<string, string> = { page_size: '9999', ordering }
     if (search) params.search = search
     if (statusFilter) params.status = statusFilter
-    if (departmentFilter) params.department = departmentFilter
-    if (vendorFilter) params.vendor = vendorFilter
+    if (departmentFilter) params.department_id = departmentFilter
+    if (vendorFilter) params.vendor_id = vendorFilter
     const { data } = await apiClient.get('/quotations/', { params })
     return ((data?.results ?? data) as any[]).map(mapQuotation)
   }, [search, statusFilter, departmentFilter, vendorFilter, ordering])
@@ -294,7 +293,7 @@ export default function QuotationPage() {
             {(departments as any[]).map((d: any) => {
               const name = d?.name ?? d?.department_name
               if (!name) return null
-              return <option key={d?.id ?? name} value={String(name)}>{String(name)}</option>
+              return <option key={d?.id} value={String(d?.id)}>{String(name)}</option>
             })}
           </select>
           <select className="h-9 border rounded-md px-3 text-sm bg-background w-full" value={vendorFilter} onChange={e => { setVendorFilter(e.target.value); setPage(1) }}>
@@ -330,7 +329,7 @@ export default function QuotationPage() {
           {(departments as any[]).map((d: any) => {
             const name = d?.name ?? d?.department_name
             if (!name) return null
-            return <option key={d?.id ?? name} value={String(name)}>{String(name)}</option>
+            return <option key={d.id} value={String(d.id)}>{String(name)}</option>
           })}
         </select>
         <select className="h-9 border rounded-md px-3 text-sm bg-background shrink-0 min-w-[160px]" value={vendorFilter} onChange={e => { setVendorFilter(e.target.value); setPage(1) }}>
