@@ -10,8 +10,55 @@ import { useToast } from '@/components/ui/use-toast'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import apiClient from '@/lib/api/client'
-import { DOC_CONFIG, ALPHANUM_WITH_SPACES, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
+import { COMPANY_NAME_ALLOWED, ALPHA_SPACE_ONLY, ADDRESS_ALLOWED, COMPANY_NAME_ALLOWED_PARTIAL, ADDRESS_ALLOWED_PARTIAL, ALPHA_SPACE_PARTIAL} from '@/lib/utils'
+import { DOC_CONFIG, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { X, Loader2 } from 'lucide-react'
+
+function ConfirmModal({ open, onOpenChange, onConfirm, title, description, confirmText, isPending }: Readonly<{
+  open: boolean; onOpenChange: (v: boolean) => void; onConfirm: () => void
+  title: string; description: string; confirmText: string; isPending?: boolean
+}>) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-md shadow-xl w-full max-w-[520px] p-0 overflow-hidden">
+        <div className="p-5 space-y-3">
+          <h2 className="text-xl font-semibold tracking-tight pr-10">{title}</h2>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="absolute top-3 right-3 inline-flex h-7 w-7 items-center justify-center rounded-sm text-slate-500 hover:text-slate-700 transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <div className="mt-2 text-sm text-slate-700 leading-relaxed">
+            <div>{description}</div>
+          </div>
+        </div>
+        <div className="border-t px-5 py-3 flex items-center justify-end gap-4">
+          <Button
+            variant="ghost"
+            className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={isPending}
+            onClick={onConfirm}
+            className="gap-2 bg-[#042348] text-white hover:bg-[#032B5C] shadow-md rounded-md px-6 font-semibold"
+          >
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {confirmText}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -61,19 +108,22 @@ const STEP0_FIELDS: (keyof VendorForm)[] = [
 const schema = z.object({
   company_name: z.string()
     .min(2, 'Company name is required')
-    .regex(ALPHANUM_WITH_SPACES, 'Company name can contain only letters, numbers, spaces, &, @, $, ., and -.')
+    .regex(COMPANY_NAME_ALLOWED, 'Company name can contain only letters, numbers, spaces, &, ., ,, -, and _.')
     .max(150, 'Company name must be at most 150 characters'),
-  contact_name: z.string().min(2, 'Contact person is required'),
+  contact_name: z.string()
+    .min(2, 'Contact person is required')
+    .regex(ALPHA_SPACE_ONLY, 'Contact person can contain only letters and spaces.'),
   contact_email: z.string().email('Valid email required'),
   contact_phone: z.string()
     .refine(v => PHONE_ALLOWED_CHARS.test(v), 'Contact phone must contain only numbers')
     .refine(v => /^\+91\d{10}$/.test(v.replace(/\s/g, '')), 'Contact phone must be +91 followed by 10 digits'),
   address: z.string({ required_error: 'Address is required', invalid_type_error: 'Address is required' })
     .min(5, 'Address is required')
+    .regex(ADDRESS_ALLOWED, 'Address can contain only letters, numbers, spaces, and /, #, -, ., ,, _, (, ).')
     .max(250, 'Address must be at most 250 characters'),
-  city: z.string().min(1, 'City is required').max(50).regex(ALPHANUM_WITH_SPACES, 'City must be alphanumeric'),
-  state: z.string().min(1, 'State is required').max(50).regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
-  country: z.string().min(1, 'Country is required').max(50).regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
+  city: z.string().min(1, 'City is required').max(50).regex(ALPHA_SPACE_ONLY, 'City can contain only letters and spaces.'),
+  state: z.string().min(1, 'State is required').max(50).regex(ALPHA_SPACE_ONLY, 'State can contain only letters and spaces.'),
+  country: z.string().default('India').refine(v => v.trim().toLowerCase() === 'india', { message: 'Country must be India.' }),
   pincode: z.string().min(1, 'PIN Code is required').regex(DIGITS_ONLY, 'PIN Code must contain only numbers').length(6, 'PIN Code must be 6 digits'),
   category: z.number({ required_error: 'Category is required' }),
   plant: z.number({ required_error: 'Plant is required' }),
@@ -435,7 +485,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     if (!validationTriggered) return
     if (complianceErrors['field_gst_number']) setExpandedComplianceDocs(prev => ({ ...prev, gst_certificate: true }))
     if (complianceErrors['field_pan_number']) setExpandedComplianceDocs(prev => ({ ...prev, pan_card: true }))
-    if (complianceErrors['field_bank_account']) setExpandedComplianceDocs(prev => ({ ...prev, bank_details: true }))
     if (Object.keys(complianceErrors).some(k => k.startsWith('field_iso_'))) setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: true }))
   }, [validationTriggered, complianceErrors])
 
@@ -506,6 +555,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const step1Mutation = useMutation({
     mutationFn: async (data: VendorForm) => {
       await apiClient.patch(`/vendors/${vendorId}/`, {
+        category: data.category, 
+        plant: data.plant,
         gst_number: data.gst_number || null,
         pan_number: data.pan_number || '',
         bank_account: data.bank_account || '', bank_ifsc: data.bank_ifsc || '', bank_name: data.bank_name || '',
@@ -536,7 +587,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
       if (onSuccess && vendorId) onSuccess(vendorId)
       else router.push(`/vendors/${vendorId}`)
     },
-    onError: (err: any) => setSubmitError(apiErrorMsg(err)),
+    onError: (err: any) => { setShowConfirmModal(false); setSubmitError(apiErrorMsg(err)) },
   })
 
   /* ── Handlers (unchanged) ── */
@@ -700,7 +751,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         .vf-root .cl-prog-bar{height:5px;background:var(--bg-t);border-radius:10px;flex:1;overflow:hidden}
         .vf-root .cl-prog-fill{height:100%;background:var(--grn-bd,#639922);border-radius:10px;transition:width .3s}
         .vf-root .cl-prog-txt{font-size:11px;font-weight:600;color:var(--tx3);white-space:nowrap}
-        .vf-root .form-actions{background:var(--bg);border-top:0.5px solid var(--bd);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px;border-radius:0 0 var(--rl) var(--rl)}
+	        .vf-root .form-actions{background:var(--bg);border-top:0.5px solid var(--bd);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:40;margin-top:16px;border-radius:0 0 var(--rl) var(--rl)}
         .vf-root .tog-card{border:0.5px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
         .vf-root .tog-card-head{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;background:var(--bg-s)}
         .vf-root .tog-card-body{padding:16px;border-top:0.5px solid var(--bd);background:var(--bg)}
@@ -751,9 +802,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         .vf-root .srf-off{background:var(--bg-s);opacity:.4}
         .vf-root .step3-summary{padding:12px 16px;background:var(--bg-s);border-radius:var(--r);margin-bottom:18px;display:flex;align-items:center;gap:12px;border:0.5px solid var(--bd)}
         .vf-root .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;display:flex;align-items:center;justify-content:center}
-        .vf-root .confirm-modal{background:var(--bg);border-radius:var(--rl);padding:28px;width:380px;border:0.5px solid var(--bdm)}
-        .vf-root .confirm-modal h2{font-size:16px;font-weight:600;margin-bottom:6px}
-        .vf-root .confirm-modal p{font-size:13px;color:var(--tx2);margin-bottom:20px;line-height:1.6}
+	        .vf-root .confirm-modal{background:var(--bg);border-radius:var(--rl);padding:24px;width:100%;max-width:384px;box-shadow:0 20px 25px -5px rgba(0,0,0,.15),0 8px 10px -6px rgba(0,0,0,.12);border:1px solid rgba(0,0,0,0.08)}
+	        .vf-root .confirm-modal h2{font-size:16px;font-weight:600;margin-bottom:6px}
+	        .vf-root .confirm-modal p{font-size:14px;color:var(--tx3);margin-bottom:20px;line-height:1.5}
         .vf-root .confirm-actions{display:flex;gap:8px;justify-content:flex-end}
         .vf-root .srf-overlay{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.8)}
       `}</style>
@@ -900,7 +951,17 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                               : {}
                           }
                           placeholder="e.g. Acme Pvt Ltd"
-                          {...register('company_name')}
+                          {...register('company_name', {
+                            onChange: (e) => {
+                              const raw = String(e.target.value ?? '')
+                              if (!COMPANY_NAME_ALLOWED_PARTIAL.test(raw)) {
+                                setError('company_name', { type: 'manual', message: 'Company name can contain only letters, numbers, spaces, &, ., ,, -, and _.' })
+                                return
+                              }
+                              if (errors.company_name?.type === 'manual') clearErrors('company_name')
+                              setValue('company_name', raw, { shouldValidate: true })
+                            },
+                          })}
                         />
                         {errors.company_name && <span className="field-err">{errors.company_name.message}</span>}
                       </div>
@@ -943,8 +1004,16 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         <label className="form-label">Address <span className="req">*</span></label>
                         <AddressAutocomplete
                           value={watch('address') ?? ''}
-                          onChange={v => setValue('address', v, { shouldValidate: true })}
+                          onChange={v => {
+                            if (v && !ADDRESS_ALLOWED_PARTIAL.test(v)) {
+                              setError('address', { type: 'manual', message: 'Address can contain only letters, numbers, spaces, and /, #, -, ., ,, _, (, ).' })
+                            } else if (errors.address?.type === 'manual') {
+                              clearErrors('address')
+                            }
+                            setValue('address', v, { shouldValidate: true })
+                          }}
                           onSelect={result => {
+                            if (errors.address?.type === 'manual') clearErrors('address')
                             setValue('address', result.address, { shouldValidate: true })
                             if (result.city) setValue('city', result.city, { shouldValidate: true })
                             if (result.state) setValue('state', result.state, { shouldValidate: true })
@@ -972,15 +1041,29 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             disabled={disabled}
                             inputMode={name === 'pincode' ? 'numeric' : undefined}
                             style={{ ...(mono ? { fontFamily: 'var(--mono)', fontSize: 12 } : {}), ...(errors[name as keyof VendorForm] ? { borderColor: 'var(--red-bd)' } : {}) }}
-                            {...register(name as keyof VendorForm, name === 'pincode' ? {
-                              onChange: (e) => {
-                                const raw = String(e.target.value ?? '')
-                                if (!PINCODE_DIGITS_ONLY.test(raw)) { setError('pincode', { type: 'manual', message: 'PIN Code must contain only numbers' }); return }
-                                if (raw.length > 6) return
-                                if (errors.pincode?.type === 'manual') clearErrors('pincode')
-                                setValue('pincode', raw, { shouldValidate: true })
-                              },
-                            } : undefined)}
+                            {...register(name as keyof VendorForm,
+                              name === 'pincode' ? {
+                                onChange: (e) => {
+                                  const raw = String(e.target.value ?? '')
+                                  if (!PINCODE_DIGITS_ONLY.test(raw)) { setError('pincode', { type: 'manual', message: 'PIN Code must contain only numbers' }); return }
+                                  if (raw.length > 6) return
+                                  if (errors.pincode?.type === 'manual') clearErrors('pincode')
+                                  setValue('pincode', raw, { shouldValidate: true })
+                                },
+                              }
+                                : (name === 'city' || name === 'state') ? {
+                                  onChange: (e) => {
+                                    const raw = String(e.target.value ?? '')
+                                    if (!ALPHA_SPACE_PARTIAL.test(raw)) {
+                                      setError(name as 'city' | 'state', { type: 'manual', message: `${label} can contain only letters and spaces.` })
+                                      return
+                                    }
+                                    if ((errors[name as 'city' | 'state'] as any)?.type === 'manual') clearErrors(name as 'city' | 'state')
+                                    setValue(name as 'city' | 'state', raw, { shouldValidate: true })
+                                  },
+                                }
+                                  : undefined
+                            )}
                           />
                           {errors[name as keyof VendorForm] && (
                             <span className="field-err">{(errors[name as keyof VendorForm] as any)?.message}</span>
@@ -1005,19 +1088,33 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             maxLength={maxLength}
                             inputMode={name === 'contact_phone' ? 'tel' : undefined}
                             style={errors[name as keyof VendorForm] ? { borderColor: 'var(--red-bd)' } : {}}
-                            {...register(name as keyof VendorForm, name === 'contact_phone' ? {
-                              onChange: (e) => {
-                                const raw = String(e.target.value ?? '')
-                                if (!PHONE_ALLOWED_CHARS.test(raw)) { setError('contact_phone', { type: 'manual', message: 'Contact phone must contain only numbers' }); return }
-                                let digits = raw
-                                if (digits.startsWith(PHONE_PREFIX)) digits = digits.slice(PHONE_PREFIX.length)
-                                else digits = digits.replace(/^\+?91\s*/g, '')
-                                digits = digits.replace(/\D/g, '').slice(0, 10)
-                                const next = `${PHONE_PREFIX}${digits}`
-                                if (errors.contact_phone?.type === 'manual') clearErrors('contact_phone')
-                                setValue('contact_phone', next, { shouldValidate: true })
-                              },
-                            } : undefined)}
+                            {...register(name as keyof VendorForm,
+                              name === 'contact_phone' ? {
+                                onChange: (e) => {
+                                  const raw = String(e.target.value ?? '')
+                                  if (!PHONE_ALLOWED_CHARS.test(raw)) { setError('contact_phone', { type: 'manual', message: 'Contact phone must contain only numbers' }); return }
+                                  let digits = raw
+                                  if (digits.startsWith(PHONE_PREFIX)) digits = digits.slice(PHONE_PREFIX.length)
+                                  else digits = digits.replace(/^\+?91\s*/g, '')
+                                  digits = digits.replace(/\D/g, '').slice(0, 10)
+                                  const next = `${PHONE_PREFIX}${digits}`
+                                  if (errors.contact_phone?.type === 'manual') clearErrors('contact_phone')
+                                  setValue('contact_phone', next, { shouldValidate: true })
+                                },
+                              }
+                                : name === 'contact_name' ? {
+                                  onChange: (e) => {
+                                    const raw = String(e.target.value ?? '')
+                                    if (!ALPHA_SPACE_PARTIAL.test(raw)) {
+                                      setError('contact_name', { type: 'manual', message: 'Contact person can contain only letters and spaces.' })
+                                      return
+                                    }
+                                    if (errors.contact_name?.type === 'manual') clearErrors('contact_name')
+                                    setValue('contact_name', raw, { shouldValidate: true })
+                                  },
+                                }
+                                  : undefined
+                            )}
                           />
                           {errors[name as keyof VendorForm] && (
                             <span className="field-err">{(errors[name as keyof VendorForm] as any)?.message}</span>
@@ -1126,8 +1223,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     )}
                   </div>
 
-                  {/* Bank */}
-                  <div style={{ border: `0.5px solid ${complianceErrors['field_bank_account'] ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
+	                  {/* Bank (optional) */}
+	                  <div style={{ border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
                     <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--pur-bg)', color: 'var(--pur-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
@@ -1435,22 +1532,18 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
           </div>
         </div>
 
-        {/* ── Confirm modal ── */}
-        {showConfirmModal && (
-          <div className="confirm-overlay" onClick={() => setShowConfirmModal(false)}>
-            <div className="confirm-modal" onClick={e => e.stopPropagation()}>
-              <h2>Confirm Action</h2>
-              <p className='font-md'>Are you sure you want to submit this vendor for approval? Approvers will be notified immediately.</p>
-              <div className="confirm-actions">
-                <Button variant="outline" size="sm" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
-                <Button size="sm" className="gap-1.5" onClick={() => { confirmAction(); setShowConfirmModal(false) }}>
-                  <i className="ti ti-send" /> Yes, Submit
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* ── Confirm modal — outside vf-root so Tailwind styles are not overridden ── */}
+      <ConfirmModal
+        open={showConfirmModal}
+        onOpenChange={setShowConfirmModal}
+        onConfirm={confirmAction}
+        title="Confirm Action"
+        description="Are you sure you want to submit this vendor for approval? Approvers will be notified immediately."
+        confirmText="Yes, Submit"
+        isPending={submitMutation.isPending}
+      />
     </>
   )
 }
