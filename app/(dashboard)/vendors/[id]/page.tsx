@@ -199,11 +199,12 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
 
   return (
     <div>
-      {matrices === undefined && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-          <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
-        </div>
-      )}
+   {matrices === undefined && (
+  <div className="flex items-center justify-center gap-2 w-full py-4 text-sm text-muted-foreground">
+    <Loader2 className="w-4 h-4 animate-spin" />
+    <span>Loading matrices…</span>
+  </div>
+)}
       {matrices && matrixCount === 0 && (
         <p className="text-xs text-amber-600 font-medium">No active PR approval matrices configured. The system will use the default matrix.</p>
       )}
