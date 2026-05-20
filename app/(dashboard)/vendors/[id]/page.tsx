@@ -381,21 +381,10 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
 }
 
 // ─── VendorDashboard — matches reference exactly ──────────────────────────────
-function VendorDashboard({ vendorId, vendor }: { vendorId: string | string[]; vendor: any }) {
-  const { data: dash, isLoading } = useQuery({
-    queryKey: ['vendor-dashboard', vendorId],
-    queryFn: async () => (await apiClient.get(`/vendors/${vendorId}/dashboard/`)).data,
-  })
+function VendorDashboard({ vendorId, vendor,dash,isLoading }: { vendorId: string | string[]; vendor: any, dash:any , isLoading:boolean}) {
 
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-4 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="border rounded-lg bg-slate-100 px-4 py-3 h-24 animate-pulse" />
-        ))}
-      </div>
-    )
-  }
+  if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
+
 
   if (!dash) return null
 
@@ -1141,7 +1130,7 @@ export default function VendorDetailPage() {
     queryFn: async () => (await apiClient.get(`/vendors/${id}/`)).data,
   })
 
-  const { data: dash } = useQuery({
+  const { data: dash,  isLoading: dashLoading,} = useQuery({
     queryKey: ['vendor-dashboard', id],
     queryFn: async () => (await apiClient.get(`/vendors/${id}/dashboard/`)).data,
   })
@@ -1252,7 +1241,7 @@ export default function VendorDetailPage() {
   ]
   return (
     <>
-      {isEditing ? <EditVendorPage /> : <div className="space-y-3">
+      {isEditing ? <EditVendorPage setIsEditing={setIsEditing} /> : <div className="space-y-3">
         {/* Header */}
         <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
 
@@ -1318,7 +1307,7 @@ export default function VendorDetailPage() {
 
 
             {/* Actions */}
-            <div className="flex gap-2">
+            {vendor.status ==="draft" &&<div className="flex gap-2">
 
               <Button
                 variant="outline"
@@ -1330,7 +1319,7 @@ export default function VendorDetailPage() {
                 Edit
               </Button>
 
-            </div>
+            </div>}
           </div>
 
 
@@ -1413,7 +1402,7 @@ export default function VendorDetailPage() {
           ))}
         </div>
         {/* Overview Tab */}
-        {activeTabKey === 'overview' && <VendorDashboard vendorId={id} vendor={vendor} />}
+        {activeTabKey === 'overview' && <VendorDashboard vendorId={id} vendor={vendor} dash={dash} isLoading={dashLoading}/>}
 
         {/* Details Tab */}
         {activeTabKey === 'details' && (

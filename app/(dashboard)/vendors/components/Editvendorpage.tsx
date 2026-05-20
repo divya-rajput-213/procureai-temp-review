@@ -4,8 +4,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/api/client'
 import VendorForm from './Vendorform'
-
-export default function EditVendorPage() {
+type EditVendorPageProps = {
+    setIsEditing: React.Dispatch<React.SetStateAction<boolean>>
+  }
+  
+export default function EditVendorPage({
+    setIsEditing,
+  }: EditVendorPageProps) {
   const { id } = useParams()
   const router = useRouter()
 
@@ -61,6 +66,7 @@ export default function EditVendorPage() {
         is_sez: vendor.is_sez ?? false,
       }}
       onSuccess={(vendorId) => router.push(`/vendors/${vendorId}`)}
+      setIsEditing={setIsEditing}
     />
   )
 }

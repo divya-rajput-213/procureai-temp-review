@@ -335,9 +335,10 @@ interface VendorFormProps {
   initialValues?: Partial<VendorForm>
   /** Called after successful save/submit (e.g. to navigate away) */
   onSuccess?: (vendorId: string) => void
+  setIsEditing?: React.Dispatch<React.SetStateAction<boolean>>
 }
 
-export default function VendorForm({ vendorId: existingVendorId, initialValues, onSuccess }: VendorFormProps) {
+export default function VendorForm({ vendorId: existingVendorId, initialValues, onSuccess,setIsEditing }: VendorFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -798,7 +799,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleSrfFile(f); e.target.value = '' }} />
               </>
             )}
-            <button className="btn btn-sm" onClick={() => router.push('/vendors')}>
+            <button className="btn btn-sm" onClick={() => isEdit? setIsEditing?.(false): router.push('/vendors')}>
               <i className="ti ti-arrow-left" /> Back
             </button>
           </div>
