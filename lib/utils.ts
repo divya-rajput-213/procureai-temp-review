@@ -135,6 +135,21 @@ export const PINCODE_DIGITS_ONLY = /^[0-9]*$/
 export const PHONE_ALLOWED_CHARS = /^[0-9+ ]*$/
 export const PHONE_PREFIX = '+91 '
 export const PAGE_SIZE = 25
+export const DOC_TYPE_LABELS: Record<string, string> = {
+  gst_certificate: 'GST Certificate',
+  pan_card: 'PAN Card',
+  bank_details: 'Bank Details',
+  msme_certificate: 'MSME Certificate',
+  sez_certificate: 'SEZ Certificate',
+  incorporation: 'Incorporation Certificate',
+  quality_certificate: 'Quality Certificate',
+  iso_certificate: 'ISO Certificate',
+  trade_license: 'Trade License',
+  insurance: 'Insurance Document',
+  nda: 'NDA / Agreement',
+  warranty: 'Warranty Document',
+  other: 'Other',
+}
 export function parseLooseDate(value: string) {
     const trimmed = String(value ?? '').trim()
     if (!trimmed || trimmed === '—') return null
