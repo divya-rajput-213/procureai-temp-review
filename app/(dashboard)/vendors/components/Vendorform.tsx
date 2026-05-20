@@ -500,13 +500,13 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
   const step1Mutation = useMutation({
     mutationFn: async (data: VendorForm) => {
-      const toBool = (v: any) => v === true || v === 'true'
       await apiClient.patch(`/vendors/${vendorId}/`, {
         gst_number: data.gst_number || null,
         pan_number: data.pan_number || '',
         bank_account: data.bank_account || '', bank_ifsc: data.bank_ifsc || '', bank_name: data.bank_name || '',
-        is_msme: toBool(data.is_msme), msme_number: data.msme_number ?? '',
-        is_sez: toBool(data.is_sez),
+        is_msme: !!docOf('msme_certificate'),
+        msme_number: data.msme_number ?? '',
+        is_sez: !!docOf('sez_certificate'),
       })
     },
     onSuccess: () => setStep(2),
