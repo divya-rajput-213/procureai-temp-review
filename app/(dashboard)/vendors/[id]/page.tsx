@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -356,12 +357,12 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
       <div className="space-y-4">
         {/* Purchase Orders */}
         <Card>
-          <CardHeader className="py-3 px-4 border-b">
-
+          <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
             <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
               <span><ShoppingCart className="h-3.5 w-3.5" /></span>
               Recent Purchase Orders
             </CardTitle>
+            <Link href="/purchase-orders"><Button variant="outline" size="sm" className="text-[12px] h-7">View</Button></Link>
           </CardHeader>
 
           <CardContent className="p-0">
@@ -439,11 +440,12 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
         </Card>
         {/* Recent Quotations */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
-          <CardHeader className="py-3 px-4 border-b">
+          <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
             <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
               <FileText className="h-3.5 w-3.5" />
               Recent Quotations
             </CardTitle>
+            <Link href="/quotations"><Button variant="outline" size="sm" className="text-[12px] h-7">View</Button></Link>
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-[12px]">
