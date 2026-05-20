@@ -14,6 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const fetchSettings = useSettingsStore((s) => s.fetch)
   const settingsLoaded = useSettingsStore((s) => s.isLoaded)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
@@ -51,10 +52,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Sidebar: hidden on mobile, shown via overlay when toggled */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 lg:z-auto
+        fixed inset-y-0 left-0 z-50 transform transition-all duration-200 ease-in-out lg:relative lg:translate-x-0 lg:z-auto
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${sidebarCollapsed ? 'w-16' : 'w-64'}
       `}>
-        <Sidebar onNavigate={() => setSidebarOpen(false)} />
+        <Sidebar
+          onNavigate={() => setSidebarOpen(false)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+        />
       </div>
 
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">

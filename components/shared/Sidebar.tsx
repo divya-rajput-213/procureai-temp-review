@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -17,6 +18,8 @@ import {
   ChevronRight,
   Package,
   Pencil,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth.store'
@@ -62,7 +65,7 @@ const NAV_ITEMS = [
   { href: '/settings', label: 'Settings', icon: Settings, indent: false },
 ]
 
-function SidebarProfile({ user, onLogout }: { user: any; onLogout: () => void }) {
+function SidebarProfile({ user, onLogout }: Readonly<{ user: any; onLogout: () => void }>) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -200,9 +203,45 @@ function SidebarProfile({ user, onLogout }: { user: any; onLogout: () => void })
   )
 }
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
+function CollapsedNavIcon({ href, icon: Icon, label, isActive, onClick }: Readonly<{ href: string; icon: React.ElementType; label: string; isActive: boolean; onClick?: () => void }>) {
+  return (
+    <div className="flex justify-center">
+      <Link
+        href={href}
+        onClick={onClick}
+        title={label}
+        className={cn(
+          "w-10 h-10 flex items-center justify-center rounded-lg border transition-all",
+          isActive ? "bg-primary border-primary/20 text-white shadow-sm" : "border-transparent text-muted-foreground hover:bg-muted hover:border-border"
+        )}
+      >
+        <Icon className="w-[18px] h-[18px]" />
+      </Link>
+    </div>
+  )
+}
+
+function CollapsedGroupIcon({ icon: Icon, label, isActive, onClick }: Readonly<{ icon: React.ElementType; label: string; isActive: boolean; onClick: () => void }>) {
+  return (
+    <div className="flex justify-center">
+      <button
+        type="button"
+        title={label}
+        onClick={onClick}
+        className={cn(
+          "w-10 h-10 flex items-center justify-center rounded-lg border transition-all",
+          isActive ? "bg-primary border-primary/20 text-white shadow-sm" : "border-transparent text-muted-foreground hover:bg-muted hover:border-border"
+        )}
+      >
+        <Icon className="w-[18px] h-[18px]" />
+      </button>
+    </div>
+  )
+}
+
+export function Sidebar({ onNavigate, collapsed = false, onToggleCollapse }: { onNavigate?: () => void; collapsed?: boolean; onToggleCollapse?: () => void } = {}) {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
-    Inventory: false, // opened by default
+    Inventory: false,
   })
 
   const pathname = usePathname()
@@ -215,56 +254,89 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   }
 
   return (
-    <aside className="w-64 bg-[#ffffff] border-r border-border text-foreground flex flex-col h-full shrink-0 shadow-sm">
+    <aside className="bg-[#ffffff] border-r border-border text-foreground flex flex-col h-full shrink-0 shadow-sm overflow-hidden w-full">
       {/* Logo */}
-      <div className="h-14 px-4 flex items-center border-b border-border">
-        <div
-          className="flex items-center gap-2 cursor-pointer min-w-0"
-          onClick={() => router.push('/dashboard')}
-        >
-          {company?.logo ? (
-            <img
-              src={company.logo}
-              alt={company.name}
-              className="w-7 h-7 rounded-md object-contain bg-card border border-border"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border border-border bg-primary/10">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4 text-primary"
-              >
-                <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
-              </svg>
+      <div className="h-14 px-3 flex items-center justify-between border-b border-border shrink-0">
+        {!collapsed && (
+          <button
+            type="button"
+            className="flex items-center gap-2 min-w-0 flex-1 text-left"
+            onClick={() => router.push('/dashboard')}
+          >
+            {company?.logo ? (
+              <img
+                src={company.logo}
+                alt={company.name}
+                className="w-7 h-7 rounded-md object-contain bg-card border border-border shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border border-border bg-primary/10">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 text-primary"
+                >
+                  <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
+                </svg>
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-lg font-bold leading-tight truncate text-foreground">
+                {company?.name || 'ProcureAI'}
+              </p>
+              <p className="text-[10px] font-medium text-muted-foreground leading-tight">
+                Procurement Platform
+              </p>
             </div>
-          )}
-
-          <div className="min-w-0">
-            <p className="text-lg font-bold leading-tight truncate text-foreground">
-              {company?.name || 'ProcureAI'}
-            </p>
-
-            <p className="text-[10px] font-medium text-muted-foreground leading-tight">
-              Procurement Platform
-            </p>
-          </div>
-        </div>
+          </button>
+        )}
+        {collapsed && (
+          <button
+            type="button"
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border border-border bg-primary/10 mx-auto"
+            onClick={() => router.push('/dashboard')}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-primary">
+              <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
+            </svg>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+        </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
+      <nav className="flex-1 overflow-y-auto py-3 px-2">
         <div className="space-y-1.5">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon
 
             if (item.children) {
               const isOpen = openMenus[item.label]
+
+              if (collapsed) {
+                const anyChildActive = item.children.some(c => pathname.startsWith(c.href))
+                return (
+                  <CollapsedGroupIcon
+                    key={item.label}
+                    icon={Icon}
+                    label={item.label}
+                    isActive={anyChildActive}
+                    onClick={() => setOpenMenus(prev => ({ ...prev, [item.label]: !prev[item.label] }))}
+                  />
+                )
+              }
 
               return (
                 <div key={item.label}>
@@ -282,28 +354,15 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
                         : "border-transparent text-secondary-foreground hover:bg-muted hover:border-border"
                     )}
                   >
-                    <Icon
-                      className={cn(
-                        "w-4 h-4",
-                        isOpen ? "text-[white]" : "text-muted-foreground"
-                      )}
-                    />
-
+                    <Icon className={cn("w-4 h-4", isOpen ? "text-[white]" : "text-muted-foreground")} />
                     <span>{item.label}</span>
-
-                    <ChevronRight
-                      className={cn(
-                        "w-4 h-4 ml-auto text-muted-foreground transition-transform",
-                        isOpen && "rotate-90"
-                      )}
-                    />
+                    <ChevronRight className={cn("w-4 h-4 ml-auto text-muted-foreground transition-transform", isOpen && "rotate-90")} />
                   </button>
 
                   {isOpen && (
                     <div className="ml-7 mt-1 space-y-1">
                       {item.children.map((child) => {
                         const isActive = pathname.startsWith(child.href)
-
                         return (
                           <Link
                             key={child.href}
@@ -331,6 +390,19 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
                 ? pathname === '/settings'
                 : pathname.startsWith(item.href)
 
+            if (collapsed) {
+              return (
+                <CollapsedNavIcon
+                  key={item.href}
+                  href={item.href}
+                  icon={Icon}
+                  label={item.label}
+                  isActive={isActive}
+                  onClick={onNavigate}
+                />
+              )
+            }
+
             return (
               <Link
                 key={item.href}
@@ -346,12 +418,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
                 <Icon
                   className={cn(
                     "w-[18px] h-[18px]",
-                    isActive
-                      ? "text-[white]"
-                      : "text-muted-foreground group-hover:text-foreground"
+                    isActive ? "text-[white]" : "text-muted-foreground group-hover:text-foreground"
                   )}
                 />
-
                 <span className="truncate">{item.label}</span>
               </Link>
             )

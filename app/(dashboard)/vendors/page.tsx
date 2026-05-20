@@ -22,11 +22,16 @@ type SortField = 'company_name' | 'status' | 'created_at' | 'category_name' | 'p
 
 // ─── Vendor Score ─────────────────────────────────────────────────────────────
 
-function VendorScore({ score }: { score: number | null }) {
+function VendorScore({ score }: Readonly<{ score: number | null }>) {
   if (score == null) return <span className="text-xs text-muted-foreground">—</span>
 
-  const textColor = score > 90 ? 'text-red-600' : score > 70 ? 'text-amber-600' : 'text-green-600'
-  const bgColor = score > 90 ? 'bg-red-500' : score > 70 ? 'bg-amber-500' : 'bg-green-500'
+  let textColor = 'text-green-600'
+  if (score > 90) textColor = 'text-red-600'
+  else if (score > 70) textColor = 'text-amber-600'
+
+  let bgColor = 'bg-green-500'
+  if (score > 90) bgColor = 'bg-red-500'
+  else if (score > 70) bgColor = 'bg-amber-500'
 
   return (
     <div className="min-w-[80px]">
@@ -84,8 +89,8 @@ function DeleteConfirmModal({ name, onClose, onConfirm, isPending }: Readonly<{
           This action cannot be undone.
         </p>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button variant="destructive" disabled={isPending} onClick={onConfirm} className="gap-2">
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="destructive" size="sm" disabled={isPending} onClick={onConfirm} className="gap-2">
             {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
             Delete
           </Button>
@@ -97,7 +102,7 @@ function DeleteConfirmModal({ name, onClose, onConfirm, isPending }: Readonly<{
 
 // ─── Status summary badges ────────────────────────────────────────────────────
 
-function StatusSummary({ totalCount, counts }: { totalCount: number; counts: Record<string, number> }) {
+function StatusSummary({ totalCount, counts }: Readonly<{ totalCount: number; counts: Record<string, number> }>) {
   const badges = [
     { key: 'total', label: 'Total', count: totalCount, cls: 'bg-gray-900 text-white' },
     { key: 'draft', label: 'Draft', count: counts['draft'] ?? 0, cls: 'bg-gray-100 text-gray-600 border border-gray-200' },
@@ -119,12 +124,15 @@ function StatusSummary({ totalCount, counts }: { totalCount: number; counts: Rec
 
 // ─── Mobile vendor card ───────────────────────────────────────────────────────
 
-function VendorCard({ v, onDelete, onClick }: { v: any; onDelete: () => void; onClick: () => void }) {
+function VendorCard({ v, onDelete, onClick }: Readonly<{ v: any; onDelete: () => void; onClick: () => void }>) {
   const hasQuot = (v.quotation_count ?? 0) > 0
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onClick() }}
       className="p-4 border-b last:border-b-0 hover:bg-slate-50/80 active:bg-slate-100 transition-colors cursor-pointer select-none"
     >
       {/* Row 1: name + status + delete */}
@@ -298,7 +306,7 @@ export default function VendorsPage() {
         <Button
           variant={showFilters ? 'default' : 'outline'}
           size="sm"
-          className="h-9 gap-1.5 shrink-0 relative"
+          className="gap-1.5 shrink-0 relative"
           onClick={() => setShowFilters(f => !f)}
         >
           <Filter className="w-3.5 h-3.5" />
@@ -343,7 +351,7 @@ export default function VendorsPage() {
             {categoryList.map((c: any) => <option key={c.id} value={c.series_code}>{c.name}</option>)}
           </select>
           {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1.5 text-muted-foreground w-full justify-center h-9">
+            <Button variant="outline" size="sm" onClick={clearFilters} className="gap-1.5 text-muted-foreground w-full justify-center">
               <X className="w-3.5 h-3.5" /> Clear all filters
             </Button>
           )}
@@ -390,7 +398,7 @@ export default function VendorsPage() {
           {categoryList.map((c: any) => <option key={c.id} value={c.series_code}>{c.name}</option>)}
         </select>
         {hasFilters && (
-          <Button size="sm" onClick={clearFilters} className="gap-1.5 text-muted-foreground hover:text-foreground h-9 bg-white border border-muted hover:bg-muted/50">
+          <Button variant="outline" size="sm" onClick={clearFilters} className="gap-1.5 text-muted-foreground">
             <X className="w-3.5 h-3.5" /> Clear
           </Button>
         )}

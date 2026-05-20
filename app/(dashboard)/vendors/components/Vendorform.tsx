@@ -300,32 +300,6 @@ function FormChecklist({ values, isMsme }: { values: Partial<VendorForm>; isMsme
   )
 }
 
-/* ─── Preview sidebar ────────────────────────────────────────────────────── */
-
-function VendorPreview({ values, categories, plants }: { values: Partial<VendorForm>; categories: any[]; plants: any[] }) {
-  const name = values.company_name || ''
-  const ini = name ? getInitials(name) : '?'
-  const col = name ? colorForName(name) : { bg: '#EEEDFE', tx: '#3C3489' }
-  const city = values.city || ''
-  const state = values.state || ''
-  const catLabel = categories.find(c => c.id === values.category)?.name || ''
-  const plantLabel = plants.find(p => p.id === values.plant)?.name || ''
-
-  return (
-    <div className="preview-box">
-      <div className="prev-av" style={{ background: col.bg, color: col.tx }}>{ini}</div>
-      <div className="prev-name" style={{ color: name ? 'var(--tx)' : 'var(--tx3)' }}>
-        {name || 'Enter company name'}
-      </div>
-      <div className="prev-sub">{[city, state].filter(Boolean).join(', ') || 'City, State'}</div>
-      <div className="prev-chips">
-        {catLabel && <span className="tag t-cap" style={{ fontSize: 10 }}>{catLabel}</span>}
-        {plantLabel && <span className="chip c-draft" style={{ fontSize: 10, padding: '2px 8px' }}>{plantLabel}</span>}
-      </div>
-    </div>
-  )
-}
-
 /* ─── Main VendorForm component ──────────────────────────────────────────── */
 
 interface VendorFormProps {
@@ -439,6 +413,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const [panManualEntryOpen, setPanManualEntryOpen] = useState(false)
   const [bankManualEntryOpen, setBankManualEntryOpen] = useState(false)
   const [isoStandard, setIsoStandard] = useState('')
+  const [isoCustom, setIsoCustom] = useState('')
 
   const validateCompliancePairs = (): boolean => {
     const data = getValues()
@@ -644,8 +619,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         }
         .vf-root .btn{padding:7px 14px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--tx);transition:background 0.15s;text-decoration:none}
         .vf-root .btn:hover{background:var(--bg-t)}
-        .vf-root .btn-primary{background:#1a1a18;color:#fff;border-color:#1a1a18}
-        .vf-root .btn-primary:hover{background:#2d2d2a}
+        .vf-root .btn-primary{background:hsl(var(--primary));color:hsl(var(--primary-foreground));border-color:hsl(var(--primary))}
+        .vf-root .btn-primary:hover{background:hsl(var(--primary)/0.9)}
         .vf-root .btn-sm{padding:5px 10px;font-size:12px}
         .vf-root .btn-sm i{font-size:12px}
         .vf-root .btn i{font-size:14px}
@@ -744,8 +719,10 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         .vf-root .appr-matrix-row{display:grid;grid-template-columns:1fr 140px 100px;padding:11px 16px;align-items:center;background:var(--bg)}
         .vf-root .appr-radio{width:16px;height:16px;border-radius:50%;border:2px solid var(--blu-bd);background:var(--blu-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:10px}
         .vf-root .appr-radio::after{content:'';width:6px;height:6px;border-radius:50%;background:var(--blu-bd)}
-        .vf-root .other-doc-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;padding:12px;background:var(--bg-s);border:0.5px solid var(--bd);border-radius:var(--r);margin-bottom:8px}
-        @media(max-width:600px){.vf-root .other-doc-row{grid-template-columns:1fr}}
+        .vf-root .other-doc-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-s);border:0.5px solid var(--bd);border-radius:var(--r);margin-bottom:8px}
+        .vf-root .abt{background:none;border:none;padding:4px;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .vf-root .abt.del{color:var(--red-tx);font-size:14px}
+        .vf-root .abt.del:hover{background:var(--red-bg)}
         .vf-root .srf-table{width:100%;border-collapse:collapse;font-size:13px}
         .vf-root .srf-table thead tr{background:var(--bg-s);border-bottom:0.5px solid var(--bd)}
         .vf-root .srf-table th{padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px}
@@ -894,13 +871,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
               <>
                 {/* Company Information */}
                 <div className="form-section">
-                  <div className="form-section-head">
-                    <div className="fsh-icon" style={{ background: 'var(--blu-bg)', color: 'var(--blu-tx)' }}><i className="ti ti-building" /></div>
-                    <div>
-                      <div className="fsh-title">Company Information</div>
-                      <div className="fsh-sub">Basic details about the vendor company</div>
-                    </div>
-                  </div>
                   <div className="form-body">
                     <div className="form-grid" style={{ marginBottom: 16 }}>
                       <div className="form-group full">
@@ -1006,13 +976,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
                 {/* Primary Contact */}
                 <div className="form-section">
-                  <div className="form-section-head">
-                    <div className="fsh-icon" style={{ background: 'var(--pur-bg)', color: 'var(--pur-tx)' }}><i className="ti ti-user" /></div>
-                    <div>
-                      <div className="fsh-title">Primary Contact</div>
-                      <div className="fsh-sub">Main point of contact for this vendor</div>
-                    </div>
-                  </div>
                   <div className="form-body">
                     <div className="form-grid">
                       {contactFields.map(({ name, label, placeholder, pattern, maxLength }) => (
@@ -1053,96 +1016,10 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
             {/* ══ STEP 1: Documents & Finance ══ */}
             {step === 1 && !!vendorId && (
               <div className="form-section">
-                <div className="form-section-head">
-                  <div className="fsh-icon" style={{ background: 'var(--amb-bg)', color: 'var(--amb-tx)' }}><i className="ti ti-shield-check" /></div>
-                  <div>
-                    <div className="fsh-title">Compliance &amp; Documents</div>
-                    <div className="fsh-sub">Upload documents to auto-fill details via AI. Required before approval.</div>
-                  </div>
-                </div>
                 <div className="form-body">
 
-                  {/* Certifications section */}
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 12 }}>Certifications</div>
-
-                  {/* MSME toggle */}
-                  <div className="tog-card">
-                    <div className="tog-card-head">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--grn-bg)', color: 'var(--grn-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
-                          <i className="ti ti-certificate-2" />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>MSME Registered</div>
-                          <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
-                        </div>
-                      </div>
-                      <label className="tog-switch">
-                        <input type="checkbox" {...register('is_msme')} />
-                        <span className="tog-slider" />
-                      </label>
-                    </div>
-                    {watchedIsMsme && (
-                      <div className="tog-card-body">
-                        <div className="form-grid">
-                          <div>
-                            <label className="form-label" style={{ marginBottom: 6 }}>MSME Certificate</label>
-                            <DocUploadWidget
-                              vendorId={vendorId}
-                              docType="msme_certificate"
-                              doc={docOf('msme_certificate')}
-                              onRefresh={refreshDocs}
-                              dropLabel="Drag &amp; drop Udyam Certificate here"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label className="form-label">Udyam Registration No. <span className="req">*</span></label>
-                            <input
-                              className="form-input"
-                              placeholder="e.g. UDYAM-MH-00-0000000"
-                              style={{ fontFamily: 'var(--mono)', fontSize: 12, ...(complianceErrors['field_msme_number'] ? { borderColor: 'var(--red-bd)' } : {}) }}
-                              {...register('msme_number')}
-                            />
-                            {complianceErrors['field_msme_number'] && <span className="field-err">{complianceErrors['field_msme_number']}</span>}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* SEZ toggle */}
-                  <div className="tog-card">
-                    <div className="tog-card-head">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--pur-bg)', color: 'var(--pur-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
-                          <i className="ti ti-building-estate" />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>SEZ Unit</div>
-                          <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Special Economic Zone registered unit</div>
-                        </div>
-                      </div>
-                      <label className="tog-switch">
-                        <input type="checkbox" {...register('is_sez')} />
-                        <span className="tog-slider" />
-                      </label>
-                    </div>
-                    {watchedIsSez && (
-                      <div className="tog-card-body">
-                        <label className="form-label" style={{ marginBottom: 6 }}>SEZ Approval Letter</label>
-                        <DocUploadWidget
-                          vendorId={vendorId}
-                          docType="sez_certificate"
-                          doc={docOf('sez_certificate')}
-                          onRefresh={refreshDocs}
-                          dropLabel="Drag &amp; drop SEZ Approval Letter here"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <hr className="form-divider" style={{ marginTop: 14 }} />
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.5px', margin: '12px 0' }}>Compliance Documents</div>
+                  {/* Compliance Documents section */}
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 12 }}>Compliance Documents</div>
 
                   {/* GST */}
                   <div style={{ border: `0.5px solid ${complianceErrors['field_gst_number'] ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
@@ -1327,16 +1204,24 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
                         <div className="form-group" style={{ marginBottom: 12 }}>
                           <label className="form-label">ISO Standard <span className="req">*</span></label>
-                          <select className="form-select" value={isoStandard} onChange={(e) => setIsoStandard(e.target.value)}>
+                          <select className="form-select" value={isoStandard} onChange={(e) => { setIsoStandard(e.target.value); if (e.target.value !== 'other') setIsoCustom('') }}>
                             <option value="" disabled>Select ISO standard</option>
-                            <option value="iso_9001">ISO 9001</option>
-                            <option value="iso_14001">ISO 14001</option>
-                            <option value="iso_27001">ISO 27001</option>
-                            <option value="iso_45001">ISO 45001</option>
-                            <option value="iatf_16949">IATF 16949</option>
-                            <option value="other">Other</option>
+                            <option value="ISO 9001:2015">ISO 9001:2015 – Quality Management</option>
+                            <option value="ISO 14001:2015">ISO 14001:2015 – Environmental Management</option>
+                            <option value="ISO 45001:2018">ISO 45001:2018 – Occupational Health &amp; Safety</option>
+                            <option value="ISO 27001">ISO 27001 – Information Security</option>
+                            <option value="ISO 22000">ISO 22000 – Food Safety Management</option>
+                            <option value="ISO 50001">ISO 50001 – Energy Management</option>
+                            <option value="ISO 13485">ISO 13485 – Medical Devices</option>
+                            <option value="other">Other (specify)</option>
                           </select>
                         </div>
+                        {isoStandard === 'other' && (
+                          <div className="form-group" style={{ marginBottom: 12 }}>
+                            <label className="form-label">Specify ISO Standard</label>
+                            <input className="form-input" value={isoCustom} onChange={e => setIsoCustom(e.target.value)} placeholder="e.g. ISO 18001:2007" />
+                          </div>
+                        )}
                         <DocUploadWidget vendorId={vendorId} docType="iso_certificate" doc={docOf('iso_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop ISO Certificate here" hint="PDF, JPG or PNG · max 5 MB" />
                         {complianceErrors['field_iso_certificate'] && (
                           <div className="field-err" style={{ marginTop: 6 }}>{complianceErrors['field_iso_certificate']}</div>
@@ -1345,17 +1230,84 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     )}
                   </div>
 
-                  {/* Incorporation */}
-                  <div style={{ border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', padding: 16, background: 'var(--bg)', marginBottom: 10 }}>
-                    <div className="form-grid">
-                      <div>
-                        <label className="form-label" style={{ marginBottom: 6 }}>Incorporation Certificate</label>
-                        <DocUploadWidget vendorId={vendorId} docType="incorporation" doc={docOf('incorporation')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Incorporation Certificate here" />
+                  {/* Certifications section */}
+                  <hr className="form-divider" style={{ marginTop: 14 }} />
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.5px', margin: '12px 0' }}>Certifications</div>
+
+                  {/* MSME toggle */}
+                  <div className="tog-card">
+                    <div className="tog-card-head">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--grn-bg)', color: 'var(--grn-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+                          <i className="ti ti-certificate-2" />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>MSME Registered</div>
+                          <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <p style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 6 }}>Company registration / MOA documents. Optional — not required for approval.</p>
-                      </div>
+                      <label className="tog-switch">
+                        <input type="checkbox" {...register('is_msme')} />
+                        <span className="tog-slider" />
+                      </label>
                     </div>
+                    {watchedIsMsme && (
+                      <div className="tog-card-body">
+                        <div className="form-grid">
+                          <div>
+                            <label className="form-label" style={{ marginBottom: 6 }}>MSME Certificate</label>
+                            <DocUploadWidget
+                              vendorId={vendorId}
+                              docType="msme_certificate"
+                              doc={docOf('msme_certificate')}
+                              onRefresh={refreshDocs}
+                              dropLabel="Drag &amp; drop Udyam Certificate here"
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Udyam Registration No. <span className="req">*</span></label>
+                            <input
+                              className="form-input"
+                              placeholder="e.g. UDYAM-MH-00-0000000"
+                              style={{ fontFamily: 'var(--mono)', fontSize: 12, ...(complianceErrors['field_msme_number'] ? { borderColor: 'var(--red-bd)' } : {}) }}
+                              {...register('msme_number')}
+                            />
+                            {complianceErrors['field_msme_number'] && <span className="field-err">{complianceErrors['field_msme_number']}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SEZ toggle */}
+                  <div className="tog-card">
+                    <div className="tog-card-head">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--pur-bg)', color: 'var(--pur-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+                          <i className="ti ti-building-estate" />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>SEZ Unit</div>
+                          <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Special Economic Zone registered unit</div>
+                        </div>
+                      </div>
+                      <label className="tog-switch">
+                        <input type="checkbox" {...register('is_sez')} />
+                        <span className="tog-slider" />
+                      </label>
+                    </div>
+                    {watchedIsSez && (
+                      <div className="tog-card-body">
+                        <label className="form-label" style={{ marginBottom: 6 }}>SEZ Approval Letter</label>
+                        <DocUploadWidget
+                          vendorId={vendorId}
+                          docType="sez_certificate"
+                          doc={docOf('sez_certificate')}
+                          onRefresh={refreshDocs}
+                          dropLabel="Drag &amp; drop SEZ Approval Letter here"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Other Documents */}
@@ -1368,45 +1320,27 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
                   {otherDocRows.map(row => (
                     <div key={row.id} className="other-doc-row">
-                      <div className="form-group">
-                        <label className="form-label">Document Type</label>
-                        <select className="form-select" value={row.doc_type} onChange={e => updateOtherDocRow(row.id, { doc_type: e.target.value })}>
-                          {OTHER_DOC_TYPE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                        </select>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--gry-bg)', color: 'var(--gry-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+                        <i className="ti ti-file" />
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">Title</label>
-                        <input className="form-input" value={row.title} onChange={e => updateOtherDocRow(row.id, { title: e.target.value })} placeholder="e.g. ISO 9001 — 2024" />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">File</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '0.5px solid var(--bdm)', borderRadius: 'var(--r)', padding: '5px 10px', background: 'var(--bg)', minHeight: 36 }}>
-                          <span style={{ fontSize: 12, color: 'var(--tx3)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {row.file?.name ?? 'No file chosen'}
-                          </span>
-                          <label style={{ cursor: 'pointer', flexShrink: 0 }}>
-                            <span style={{ fontSize: 11, border: '0.5px solid var(--bdm)', borderRadius: 6, padding: '2px 8px', background: 'var(--bg-s)' }}>Browse</span>
-                            <input type="file" style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={e => { const f = e.target.files?.[0]; if (f) updateOtherDocRow(row.id, { file: f }); e.target.value = '' }} />
-                          </label>
-                          {row.file && (
-                            <button type="button" className="ufile-del" onClick={() => updateOtherDocRow(row.id, { file: null })}><i className="ti ti-x" /></button>
-                          )}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                        <button type="button" className="btn btn-sm" style={{ color: 'var(--red-tx)' }} onClick={() => removeOtherDocRow(row.id)}>
-                          <i className="ti ti-trash" />
-                        </button>
-                      </div>
+                      <input
+                        className="form-input"
+                        style={{ flex: 1 }}
+                        value={row.title}
+                        onChange={e => updateOtherDocRow(row.id, { title: e.target.value })}
+                        placeholder="Document name (e.g. ISO 18001, Trade Licence…)"
+                      />
+                      <label className="btn btn-sm" style={{ cursor: 'pointer', flexShrink: 0 }}>
+                        <i className="ti ti-upload" /> Upload
+                        {row.file && <span style={{ marginLeft: 4, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10 }}>{row.file.name}</span>}
+                        <input type="file" style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={e => { const f = e.target.files?.[0]; if (f) updateOtherDocRow(row.id, { file: f }); e.target.value = '' }} />
+                      </label>
+                      <button type="button" className="abt del" title="Remove" onClick={() => removeOtherDocRow(row.id)}>
+                        <i className="ti ti-x" />
+                      </button>
                     </div>
                   ))}
-
-                  {otherDocRows.some(r => !r.file) && (
-                    <p style={{ fontSize: 11, color: 'var(--amb-tx)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
-                      <i className="ti ti-file" style={{ fontSize: 12 }} /> Rows without a file selected will be skipped on save.
-                    </p>
-                  )}
 
                   <button type="button" className="btn btn-sm" style={{ marginTop: 10, width: '100%', justifyContent: 'center', borderStyle: 'dashed', color: 'var(--tx2)' }} onClick={addOtherDocRow}>
                     <i className="ti ti-plus" /> Add Other Document
@@ -1418,13 +1352,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
             {/* ══ STEP 2: Submit for Approval ══ */}
             {step === 2 && (
               <div className="form-section">
-                <div className="form-section-head">
-                  <div className="fsh-icon" style={{ background: 'var(--blu-bg)', color: 'var(--blu-tx)' }}><i className="ti ti-shield-check" /></div>
-                  <div>
-                    <div className="fsh-title">Approval Chain</div>
-                    <div className="fsh-sub">Review who will approve this vendor before confirming</div>
-                  </div>
-                </div>
                 <div style={{ padding: '16px 20px' }}>
                   {/* Vendor summary strip */}
                   {(() => {
@@ -1483,12 +1410,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
           {/* ── Sidebar ── */}
           <div className="form-sidebar">
-            <div className="card">
-              <div className="card-head">
-                <div className="card-title"><i className="ti ti-eye" /> Preview</div>
-              </div>
-              <VendorPreview values={allValues} categories={categories as any[]} plants={plants as any[]} />
-            </div>
             <div className="card">
               <div className="card-head">
                 <div className="card-title"><i className="ti ti-checklist" /> Form Checklist</div>

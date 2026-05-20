@@ -1,31 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, ExternalLink, Trash2, Upload, FileText, Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, X, ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, ShoppingCart, Star, AlertTriangle, Shield, DollarSign, BarChart3, Award, Zap, Lightbulb, Package, Download, ChevronLeft, MapPin, LayoutDashboard, ShieldCheck, FolderOpen, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing } from 'lucide-react'
-import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_CONFIG, ALPHANUM_WITH_SPACES, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
+import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, Shield, MapPin, LayoutDashboard, ShieldCheck, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing } from 'lucide-react'
+import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import {
   AreaChart, Area, LineChart, Line,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
-import VendorAnalysisPanel from '../components/VendorAnalysisPanel'
 import EditVendorPage from '../components/Editvendorpage'
-import { Progress } from '@/components/ui/progress'
 
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -55,8 +46,6 @@ const OTHER_DOC_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'other', label: 'Other' },
 ]
 
-// Doc types that belong to the "other" bucket (not in COMPLIANCE_ROWS)
-const OTHER_DOC_TYPES = new Set(OTHER_DOC_TYPE_OPTIONS.map(o => o.value))
 function actionStepClass(action: string) {
   if (action === 'approved') return 'bg-green-50 border-green-200 text-green-700'
   if (action === 'rejected') return 'bg-red-50 border-red-200 text-red-700'
@@ -268,6 +257,7 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
           )}
           <div className="flex justify-end mt-4">
             <Button
+              size="sm"
               onClick={submit}
               disabled={submitting || (matrixCount > 0 && selectedMatrix === null)}
               className="gap-1.5"
