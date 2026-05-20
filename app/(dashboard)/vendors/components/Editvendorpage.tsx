@@ -6,10 +6,11 @@ import apiClient from '@/lib/api/client'
 import VendorForm from './Vendorform'
 type EditVendorPageProps = {
     setIsEditing: React.Dispatch<React.SetStateAction<boolean>>
+    vendorStatus:string
   }
   
 export default function EditVendorPage({
-    setIsEditing,
+    setIsEditing,vendorStatus
   }: EditVendorPageProps) {
   const { id } = useParams()
   const router = useRouter()
@@ -67,6 +68,7 @@ export default function EditVendorPage({
       }}
       onSuccess={(vendorId) => router.push(`/vendors/${vendorId}`)}
       setIsEditing={setIsEditing}
+      vendorStatus={vendorStatus}
     />
   )
 }

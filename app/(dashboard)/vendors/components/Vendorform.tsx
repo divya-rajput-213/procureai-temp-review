@@ -117,7 +117,7 @@ function colorForName(name: string) {
 /* ─── DocUploadWidget (matches HTML upload zone + file preview) ───────────── */
 
 function DocUploadWidget({
-  vendorId, docType, doc, onRefresh, setFieldError, dropLabel, hint,
+  vendorId, docType, doc, onRefresh, setFieldError, dropLabel, hint, isReadOnly,
 }: Readonly<{
   vendorId: string
   docType: string
@@ -126,6 +126,7 @@ function DocUploadWidget({
   setFieldError?: (msg: string) => void
   dropLabel?: string
   hint?: string
+  isReadOnly?: boolean
 }>) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
@@ -199,9 +200,11 @@ function DocUploadWidget({
           {doc.file_url && (
             <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--blu-tx)', flexShrink: 0 }}>View</a>
           )}
-          <button type="button" className="ufile-del" onClick={remove} disabled={deleting} title="Remove">
-            {deleting ? <i className="ti ti-loader" style={{ animation: 'spin 1s linear infinite' }} /> : <i className="ti ti-x" />}
-          </button>
+          {!isReadOnly && (
+            <button type="button" className="ufile-del" onClick={remove} disabled={deleting} title="Remove">
+              {deleting ? <i className="ti ti-loader" style={{ animation: 'spin 1s linear infinite' }} /> : <i className="ti ti-x" />}
+            </button>
+          )}
         </div>
         {isFailed && doc.ai_validation_notes && (
           <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -211,6 +214,8 @@ function DocUploadWidget({
       </div>
     )
   }
+
+  if (isReadOnly) return null
 
   if (uploading) {
     return (
@@ -305,13 +310,15 @@ interface VendorFormProps {
   /** Called after successful save/submit (e.g. to navigate away) */
   onSuccess?: (vendorId: string) => void
   setIsEditing?: React.Dispatch<React.SetStateAction<boolean>>
+  vendorStatus?: string
 }
 
-export default function VendorForm({ vendorId: existingVendorId, initialValues, onSuccess,setIsEditing }: VendorFormProps) {
+export default function VendorForm({ vendorId: existingVendorId, initialValues, onSuccess, setIsEditing, vendorStatus }: VendorFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const isEdit = !!existingVendorId
+  const isReadOnly = isEdit && vendorStatus !== 'draft'
 
   const [step, setStep] = useState(isEdit ? 1 : 0)
   const [vendorId, setVendorId] = useState<string | null>(existingVendorId ?? null)
@@ -863,7 +870,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
         {/* Step bar */}
         <div className="step-bar">
-          {steps.map((s, i) => (
+          {steps.map((s, i) => isReadOnly && i === 2 ? null : (
             <button key={s} type="button" className={stepClass(i)} onClick={() => i < step && setStep(i)}>
               <div className="step-num">{stepNum(i)}</div>
               <div>
@@ -880,7 +887,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
             {/* ══ STEP 0: Company & Contact ══ */}
             {step === 0 && (
-              <>
+              <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: 0 }}>
                 {/* Company Information */}
                 <div className="form-section">
                   <div className="form-body">
@@ -1022,7 +1029,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                   </div>
                 </div>
-              </>
+              </fieldset>
             )}
 
             {/* ══ STEP 1: Documents & Finance ══ */}
@@ -1053,13 +1060,14 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.gst_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="gst_certificate" doc={docOf('gst_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop GST Certificate here" />
+                        <DocUploadWidget vendorId={vendorId} docType="gst_certificate" doc={docOf('gst_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop GST Certificate here" isReadOnly={isReadOnly} />
                         <div className="form-grid" style={{ marginTop: 12 }}>
                           <div className="form-group">
                             <label className="form-label">GST Number <span className="req">*</span></label>
                             <input
                               className="form-input"
                               placeholder="e.g. 27AAAAA0000A1Z5"
+                              disabled={isReadOnly}
                               style={(complianceErrors['field_gst_number'] || errors.gst_number) ? { borderColor: 'var(--red-bd)' } : {}}
                               {...register('gst_number')}
                             />
@@ -1091,13 +1099,14 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.pan_card && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="pan_card" doc={docOf('pan_card')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop PAN Card here" />
+                        <DocUploadWidget vendorId={vendorId} docType="pan_card" doc={docOf('pan_card')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop PAN Card here" isReadOnly={isReadOnly} />
                         <div className="form-grid" style={{ marginTop: 12 }}>
                           <div className="form-group">
                             <label className="form-label">PAN Number <span className="req">*</span></label>
                             <input
                               className="form-input"
                               placeholder="e.g. AAAAA9999A"
+                              disabled={isReadOnly}
                               style={(complianceErrors['field_pan_number'] || errors.pan_number) ? { borderColor: 'var(--red-bd)' } : {}}
                               {...register('pan_number')}
                             />
@@ -1127,13 +1136,14 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.bank_details && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="bank_details" doc={docOf('bank_details')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Bank Letter / Cancelled Cheque here" />
+                        <DocUploadWidget vendorId={vendorId} docType="bank_details" doc={docOf('bank_details')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Bank Letter / Cancelled Cheque here" isReadOnly={isReadOnly} />
                         <div className="form-grid" style={{ marginTop: 12 }}>
                           <div className="form-group">
                             <label className="form-label">Account Number <span className="req">*</span></label>
                             <input
                               className="form-input"
                               placeholder="e.g. 50100123456789"
+                              disabled={isReadOnly}
                               style={(complianceErrors['field_bank_account'] || errors.bank_account) ? { borderColor: 'var(--red-bd)' } : {}}
                               {...register('bank_account')}
                             />
@@ -1144,6 +1154,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             <input
                               className="form-input"
                               placeholder="e.g. HDFC0001234"
+                              disabled={isReadOnly}
                               style={(complianceErrors['field_bank_account'] || errors.bank_ifsc) ? { borderColor: 'var(--red-bd)' } : {}}
                               {...register('bank_ifsc')}
                             />
@@ -1154,6 +1165,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             <input
                               className="form-input"
                               placeholder="e.g. HDFC Bank Ltd"
+                              disabled={isReadOnly}
                               style={(complianceErrors['field_bank_account'] || errors.bank_name) ? { borderColor: 'var(--red-bd)' } : {}}
                               {...register('bank_name')}
                             />
@@ -1182,7 +1194,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
                         </div>
                       </div>
-                      <button type="button" className="btn btn-sm" title="Toggle" onClick={() => {
+                      <button type="button" className="btn btn-sm" title="Toggle" disabled={isReadOnly} onClick={() => {
                         const next = !expandedComplianceDocs.msme_certificate
                         setExpandedComplianceDocs(prev => ({ ...prev, msme_certificate: next }))
                         setValue('is_msme', next)
@@ -1192,7 +1204,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.msme_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="msme_certificate" doc={docOf('msme_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Udyam Certificate here" />
+                        <DocUploadWidget vendorId={vendorId} docType="msme_certificate" doc={docOf('msme_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Udyam Certificate here" isReadOnly={isReadOnly} />
                         <div className="form-grid" style={{ marginTop: 12 }}>
                           <div className="form-group">
                             <label className="form-label">Udyam Registration No. <span className="req">*</span></label>
@@ -1222,7 +1234,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Special Economic Zone registered unit</div>
                         </div>
                       </div>
-                      <button type="button" className="btn btn-sm" title="Toggle" onClick={() => {
+                      <button type="button" className="btn btn-sm" title="Toggle" disabled={isReadOnly} onClick={() => {
                         const next = !expandedComplianceDocs.sez_certificate
                         setExpandedComplianceDocs(prev => ({ ...prev, sez_certificate: next }))
                         setValue('is_sez', next)
@@ -1232,7 +1244,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.sez_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="sez_certificate" doc={docOf('sez_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop SEZ Approval Letter here" />
+                        <DocUploadWidget vendorId={vendorId} docType="sez_certificate" doc={docOf('sez_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop SEZ Approval Letter here" isReadOnly={isReadOnly} />
                       </div>
                     )}
                   </div>
@@ -1266,7 +1278,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             {idx > 0 && <hr style={{ margin: '14px 0', borderColor: 'var(--bd)', borderTopWidth: '0.5px' }} />}
                             {isoRows.length > 1 && (
                               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                                <button type="button" className="abt del" onClick={() => removeIsoRow(idx)} title="Remove">
+                                <button type="button" className="abt del"  onClick={() => removeIsoRow(idx)} title="Remove">
                                   <i className="ti ti-x" />
                                 </button>
                               </div>
@@ -1288,10 +1300,10 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             {row.standard === 'other' && (
                               <div className="form-group" style={{ marginBottom: 12 }}>
                                 <label className="form-label">Specify Document Type</label>
-                                <input className="form-input" value={row.custom} onChange={e => updateIsoRow(idx, 'custom', e.target.value)} placeholder="e.g. Trade Licence, NDA, Warranty…" />
+                                <input className="form-input" disabled={isReadOnly} value={row.custom} onChange={e => updateIsoRow(idx, 'custom', e.target.value)} placeholder="e.g. Trade Licence, NDA, Warranty…" />
                               </div>
                             )}
-                            <DocUploadWidget vendorId={vendorId} docType={isoDocType(idx)} doc={docOf(isoDocType(idx))} onRefresh={refreshDocs} dropLabel="Drag &amp; drop document here" hint="PDF, JPG or PNG · max 5 MB" />
+                            <DocUploadWidget vendorId={vendorId} docType={isoDocType(idx)} doc={docOf(isoDocType(idx))} onRefresh={refreshDocs} dropLabel="Drag &amp; drop document here" hint="PDF, JPG or PNG · max 5 MB" isReadOnly={isReadOnly} />
                             {complianceErrors[`field_iso_${idx}`] && (
                               <div className="field-err" style={{ marginTop: 6 }}>{complianceErrors[`field_iso_${idx}`]}</div>
                             )}
@@ -1309,7 +1321,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
             )}
 
             {/* ══ STEP 2: Submit for Approval ══ */}
-            {step === 2 && (
+            {step === 2 && !isReadOnly && (
               <div className="form-section">
                 <div style={{ padding: '16px 20px' }}>
                   {/* Vendor summary strip */}

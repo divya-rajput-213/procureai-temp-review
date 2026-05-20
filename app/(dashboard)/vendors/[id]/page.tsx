@@ -953,7 +953,7 @@ export default function VendorDetailPage() {
   ]
   return (
     <>
-      {isEditing ? <EditVendorPage setIsEditing={setIsEditing} /> : <div className="space-y-3">
+      {isEditing ? <EditVendorPage setIsEditing={setIsEditing} vendorStatus={vendor?.status}/> : <div className="space-y-3">
         {/* Header */}
         <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
 
