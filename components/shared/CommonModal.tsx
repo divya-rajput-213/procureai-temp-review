@@ -33,20 +33,20 @@ export function ConfirmDialog({
   cancelText = 'Cancel',
   confirmVariant = 'default',
 }: Readonly<ConfirmDialogProps>) {
-      return (
-	    <Dialog open={open} onOpenChange={onOpenChange}>
-	      <DialogContent className="max-w-[520px] min-h-[260px] p-0 gap-0 overflow-hidden rounded-md">
-	        <DialogHeader className="px-7 pt-7 pb-6 space-y-3">
-	          <DialogTitle className="text-xl font-semibold tracking-tight">{title}</DialogTitle>
-	          <DialogDescription className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-	            {description}
-	          </DialogDescription>
-	        </DialogHeader>
-	        <DialogFooter className="px-7 py-4 border-t flex-row justify-end gap-4">
-	          <Button
-	            variant="ghost"
-	            className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent"
-	            onClick={() => onOpenChange(false)}
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[520px] p-0 gap-0 overflow-hidden rounded-md">
+        <DialogHeader className="px-8 pt-7 pb-6 space-y-2">
+          <DialogTitle className="text-xl font-semibold tracking-tight">{title}</DialogTitle>
+          <DialogDescription className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="px-8 py-5 border-t flex-row justify-end gap-4">
+          <Button
+            variant="ghost"
+            className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent"
+            onClick={() => onOpenChange(false)}
           >
             {cancelText}
           </Button>
@@ -76,19 +76,19 @@ export function DeleteDialog({
   cancelText = 'Cancel',
 }: Readonly<Omit<ConfirmDialogProps, 'confirmVariant'>>) {
   return (
-	    <Dialog open={open} onOpenChange={onOpenChange}>
-	      <DialogContent className="max-w-[520px] min-h-[260px] p-0 gap-0 overflow-hidden rounded-md">
-	        <DialogHeader className="px-7 pt-7 pb-6 space-y-3">
-	          <DialogTitle className="text-xl font-semibold tracking-tight">{title}</DialogTitle>
-	          <DialogDescription className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-	            {description}
-	          </DialogDescription>
-	        </DialogHeader>
-	        <DialogFooter className="px-7 py-4 border-t flex-row justify-end gap-4">
-	          <Button
-	            variant="ghost"
-	            className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent"
-	            onClick={() => onOpenChange(false)}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[520px] p-0 gap-0 overflow-hidden rounded-md">
+        <DialogHeader className="px-8 pt-7 pb-6 space-y-2">
+          <DialogTitle className="text-xl font-semibold tracking-tight">{title}</DialogTitle>
+          <DialogDescription className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="px-8 py-5 border-t flex-row justify-end gap-4">
+          <Button
+            variant="ghost"
+            className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent"
+            onClick={() => onOpenChange(false)}
           >
             {cancelText}
           </Button>
