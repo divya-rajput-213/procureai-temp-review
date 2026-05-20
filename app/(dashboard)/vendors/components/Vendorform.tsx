@@ -587,7 +587,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
       if (onSuccess && vendorId) onSuccess(vendorId)
       else router.push(`/vendors/${vendorId}`)
     },
-    onError: (err: any) => setSubmitError(apiErrorMsg(err)),
+    onError: (err: any) => { setShowConfirmModal(false); setSubmitError(apiErrorMsg(err)) },
   })
 
   /* ── Handlers (unchanged) ── */
