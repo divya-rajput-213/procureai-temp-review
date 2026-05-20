@@ -10,8 +10,9 @@ import { useToast } from '@/components/ui/use-toast'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import apiClient from '@/lib/api/client'
+import { COMPANY_NAME_ALLOWED, ALPHA_SPACE_ONLY, ADDRESS_ALLOWED, COMPANY_NAME_ALLOWED_PARTIAL, ADDRESS_ALLOWED_PARTIAL, ALPHA_SPACE_PARTIAL} from '@/lib/utils'
 import { ConfirmDialog } from '@/components/shared/CommonModal'
-import { DOC_CONFIG, ALPHANUM_WITH_SPACES, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
+import { DOC_CONFIG, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
@@ -62,19 +63,22 @@ const STEP0_FIELDS: (keyof VendorForm)[] = [
 const schema = z.object({
   company_name: z.string()
     .min(2, 'Company name is required')
-    .regex(ALPHANUM_WITH_SPACES, 'Company name can contain only letters, numbers, spaces, &, @, $, ., and -.')
+    .regex(COMPANY_NAME_ALLOWED, 'Company name can contain only letters, numbers, spaces, &, ., ,, -, and _.')
     .max(150, 'Company name must be at most 150 characters'),
-  contact_name: z.string().min(2, 'Contact person is required'),
+  contact_name: z.string()
+    .min(2, 'Contact person is required')
+    .regex(ALPHA_SPACE_ONLY, 'Contact person can contain only letters and spaces.'),
   contact_email: z.string().email('Valid email required'),
   contact_phone: z.string()
     .refine(v => PHONE_ALLOWED_CHARS.test(v), 'Contact phone must contain only numbers')
     .refine(v => /^\+91\d{10}$/.test(v.replace(/\s/g, '')), 'Contact phone must be +91 followed by 10 digits'),
   address: z.string({ required_error: 'Address is required', invalid_type_error: 'Address is required' })
     .min(5, 'Address is required')
+    .regex(ADDRESS_ALLOWED, 'Address can contain only letters, numbers, spaces, and /, #, -, ., ,, _, (, ).')
     .max(250, 'Address must be at most 250 characters'),
-  city: z.string().min(1, 'City is required').max(50).regex(ALPHANUM_WITH_SPACES, 'City must be alphanumeric'),
-  state: z.string().min(1, 'State is required').max(50).regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
-  country: z.string().min(1, 'Country is required').max(50).regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
+  city: z.string().min(1, 'City is required').max(50).regex(ALPHA_SPACE_ONLY, 'City can contain only letters and spaces.'),
+  state: z.string().min(1, 'State is required').max(50).regex(ALPHA_SPACE_ONLY, 'State can contain only letters and spaces.'),
+  country: z.string().default('India').refine(v => v.trim().toLowerCase() === 'india', { message: 'Country must be India.' }),
   pincode: z.string().min(1, 'PIN Code is required').regex(DIGITS_ONLY, 'PIN Code must contain only numbers').length(6, 'PIN Code must be 6 digits'),
   category: z.number({ required_error: 'Category is required' }),
   plant: z.number({ required_error: 'Plant is required' }),
@@ -900,7 +904,17 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                               : {}
                           }
                           placeholder="e.g. Acme Pvt Ltd"
-                          {...register('company_name')}
+                          {...register('company_name', {
+                            onChange: (e) => {
+                              const raw = String(e.target.value ?? '')
+                              if (!COMPANY_NAME_ALLOWED_PARTIAL.test(raw)) {
+                                setError('company_name', { type: 'manual', message: 'Company name can contain only letters, numbers, spaces, &, ., ,, -, and _.' })
+                                return
+                              }
+                              if (errors.company_name?.type === 'manual') clearErrors('company_name')
+                              setValue('company_name', raw, { shouldValidate: true })
+                            },
+                          })}
                         />
                         {errors.company_name && <span className="field-err">{errors.company_name.message}</span>}
                       </div>
@@ -943,8 +957,16 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         <label className="form-label">Address <span className="req">*</span></label>
                         <AddressAutocomplete
                           value={watch('address') ?? ''}
-                          onChange={v => setValue('address', v, { shouldValidate: true })}
+                          onChange={v => {
+                            if (v && !ADDRESS_ALLOWED_PARTIAL.test(v)) {
+                              setError('address', { type: 'manual', message: 'Address can contain only letters, numbers, spaces, and /, #, -, ., ,, _, (, ).' })
+                            } else if (errors.address?.type === 'manual') {
+                              clearErrors('address')
+                            }
+                            setValue('address', v, { shouldValidate: true })
+                          }}
                           onSelect={result => {
+                            if (errors.address?.type === 'manual') clearErrors('address')
                             setValue('address', result.address, { shouldValidate: true })
                             if (result.city) setValue('city', result.city, { shouldValidate: true })
                             if (result.state) setValue('state', result.state, { shouldValidate: true })
@@ -972,15 +994,29 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             disabled={disabled}
                             inputMode={name === 'pincode' ? 'numeric' : undefined}
                             style={{ ...(mono ? { fontFamily: 'var(--mono)', fontSize: 12 } : {}), ...(errors[name as keyof VendorForm] ? { borderColor: 'var(--red-bd)' } : {}) }}
-                            {...register(name as keyof VendorForm, name === 'pincode' ? {
-                              onChange: (e) => {
-                                const raw = String(e.target.value ?? '')
-                                if (!PINCODE_DIGITS_ONLY.test(raw)) { setError('pincode', { type: 'manual', message: 'PIN Code must contain only numbers' }); return }
-                                if (raw.length > 6) return
-                                if (errors.pincode?.type === 'manual') clearErrors('pincode')
-                                setValue('pincode', raw, { shouldValidate: true })
-                              },
-                            } : undefined)}
+                            {...register(name as keyof VendorForm,
+                              name === 'pincode' ? {
+                                onChange: (e) => {
+                                  const raw = String(e.target.value ?? '')
+                                  if (!PINCODE_DIGITS_ONLY.test(raw)) { setError('pincode', { type: 'manual', message: 'PIN Code must contain only numbers' }); return }
+                                  if (raw.length > 6) return
+                                  if (errors.pincode?.type === 'manual') clearErrors('pincode')
+                                  setValue('pincode', raw, { shouldValidate: true })
+                                },
+                              }
+                                : (name === 'city' || name === 'state') ? {
+                                  onChange: (e) => {
+                                    const raw = String(e.target.value ?? '')
+                                    if (!ALPHA_SPACE_PARTIAL.test(raw)) {
+                                      setError(name as 'city' | 'state', { type: 'manual', message: `${label} can contain only letters and spaces.` })
+                                      return
+                                    }
+                                    if ((errors[name as 'city' | 'state'] as any)?.type === 'manual') clearErrors(name as 'city' | 'state')
+                                    setValue(name as 'city' | 'state', raw, { shouldValidate: true })
+                                  },
+                                }
+                                  : undefined
+                            )}
                           />
                           {errors[name as keyof VendorForm] && (
                             <span className="field-err">{(errors[name as keyof VendorForm] as any)?.message}</span>
@@ -1005,19 +1041,33 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             maxLength={maxLength}
                             inputMode={name === 'contact_phone' ? 'tel' : undefined}
                             style={errors[name as keyof VendorForm] ? { borderColor: 'var(--red-bd)' } : {}}
-                            {...register(name as keyof VendorForm, name === 'contact_phone' ? {
-                              onChange: (e) => {
-                                const raw = String(e.target.value ?? '')
-                                if (!PHONE_ALLOWED_CHARS.test(raw)) { setError('contact_phone', { type: 'manual', message: 'Contact phone must contain only numbers' }); return }
-                                let digits = raw
-                                if (digits.startsWith(PHONE_PREFIX)) digits = digits.slice(PHONE_PREFIX.length)
-                                else digits = digits.replace(/^\+?91\s*/g, '')
-                                digits = digits.replace(/\D/g, '').slice(0, 10)
-                                const next = `${PHONE_PREFIX}${digits}`
-                                if (errors.contact_phone?.type === 'manual') clearErrors('contact_phone')
-                                setValue('contact_phone', next, { shouldValidate: true })
-                              },
-                            } : undefined)}
+                            {...register(name as keyof VendorForm,
+                              name === 'contact_phone' ? {
+                                onChange: (e) => {
+                                  const raw = String(e.target.value ?? '')
+                                  if (!PHONE_ALLOWED_CHARS.test(raw)) { setError('contact_phone', { type: 'manual', message: 'Contact phone must contain only numbers' }); return }
+                                  let digits = raw
+                                  if (digits.startsWith(PHONE_PREFIX)) digits = digits.slice(PHONE_PREFIX.length)
+                                  else digits = digits.replace(/^\+?91\s*/g, '')
+                                  digits = digits.replace(/\D/g, '').slice(0, 10)
+                                  const next = `${PHONE_PREFIX}${digits}`
+                                  if (errors.contact_phone?.type === 'manual') clearErrors('contact_phone')
+                                  setValue('contact_phone', next, { shouldValidate: true })
+                                },
+                              }
+                                : name === 'contact_name' ? {
+                                  onChange: (e) => {
+                                    const raw = String(e.target.value ?? '')
+                                    if (!ALPHA_SPACE_PARTIAL.test(raw)) {
+                                      setError('contact_name', { type: 'manual', message: 'Contact person can contain only letters and spaces.' })
+                                      return
+                                    }
+                                    if (errors.contact_name?.type === 'manual') clearErrors('contact_name')
+                                    setValue('contact_name', raw, { shouldValidate: true })
+                                  },
+                                }
+                                  : undefined
+                            )}
                           />
                           {errors[name as keyof VendorForm] && (
                             <span className="field-err">{(errors[name as keyof VendorForm] as any)?.message}</span>
@@ -1288,7 +1338,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600 }}>ISO / Quality Certificate</div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG · {isoRows.length} document{isoRows.length !== 1 ? 's' : ''}</div>
-                          i@1rcb.com                </div>
+                        </div>
                       </div>
                       <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: !prev.iso_certificate }))} title="Toggle">
                         <i className={`ti ti-chevron-${expandedComplianceDocs.iso_certificate ? 'up' : 'down'}`} />
