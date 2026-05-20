@@ -193,7 +193,7 @@ function DocUploadWidget({
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="ufile-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.original_filename}</div>
             <div className="ufile-size" style={isFailed ? { color: 'var(--red-tx)' } : isVerified ? { color: 'var(--grn-tx)' } : {}}>
-              {isFailed ? 'Validation failed' : isVerified ? 'AI Verified ✓' : 'Uploaded'}
+              {isFailed ? 'Validation failed' : isVerified ? 'Verified ✓' : 'Uploaded'}
             </div>
           </div>
           {doc.file_url && (
