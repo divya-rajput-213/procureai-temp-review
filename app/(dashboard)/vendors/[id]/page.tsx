@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, Shield, MapPin, LayoutDashboard, ShieldCheck, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, Shield, MapPin, LayoutDashboard, ShieldCheck, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt } from 'lucide-react'
 import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_TYPE_LABELS } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
@@ -342,8 +342,9 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
   if (!dash) return null
 
   const stats = dash?.stats ?? {}
-  const transactions: any[] = dash?.recent_transactions ?? []
-  const recentQuotations: any[] = dash?.active_bids ?? []
+  const recentPOs: any[] = vendor?.purchase_orders ?? []
+  const recentQuotations: any[] = vendor?.quotations ?? []
+  const recentInvoices: any[] = vendor?.invoices ?? []
   const perfScore = dash?.performance_score != null ? Math.round(Number(dash.performance_score))
     : vendor.performance_score != null ? Math.round(Number(vendor.performance_score))
       : null
@@ -353,8 +354,8 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
 
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[70%_30%] gap-4">      {/* LEFT */}
-      <div className="space-y-4">
+    <div className="grid grid-cols-1 xl:grid-cols-[70%_1fr] gap-4 min-w-0">      {/* LEFT */}
+      <div className="space-y-4 min-w-0 overflow-x-hidden">
         {/* Purchase Orders */}
         <Card>
           <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
@@ -368,72 +369,32 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
           <CardContent className="p-0">
 
             <table className="w-full text-[12px]">
-
               <thead className="bg-slate-50">
-
                 <tr>
-
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">
-                    PO Number
-                  </th>
-
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">
-                    Description
-                  </th>
-
-                  <th className="px-4 py-2 text-[11px] uppercase">
-                    Amount
-                  </th>
-
-                  <th className="px-4 py-2 text-[11px] uppercase">
-                    Status
-                  </th>
-
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">PO Number</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Type</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Plant</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
                 </tr>
-
               </thead>
-
               <tbody>
-
-                {transactions.length ? (
-                  transactions.map(tx => (
-
-                    <tr key={tx.id} className="border-t">
-
-                      <td className="px-4 py-3">
-                        {tx.po_number}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {tx.description}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {formatCurrency(tx.amount)}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {tx.status}
-                      </td>
-
+                {recentPOs.length ? (
+                  recentPOs.slice(0, 5).map((po: any) => (
+                    <tr key={po.id} className="border-t hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-2.5 font-mono text-[11px]">{po.po_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{po.po_type_display || po.po_type || '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{po.plant_name || '—'}</td>
+                      <td className="px-4 py-2.5 text-right">{po.total_amount != null ? formatCurrency(po.total_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 text-center"><StatusBadge status={po.status} /></td>
                     </tr>
-
                   ))
                 ) : (
-
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="py-8 text-center text-[12px] text-muted-foreground"
-                    >
-                      No purchase orders yet
-                    </td>
+                    <td colSpan={5} className="py-8 text-center text-[12px] text-muted-foreground">No purchase orders yet</td>
                   </tr>
-
                 )}
-
               </tbody>
-
             </table>
 
           </CardContent>
@@ -451,8 +412,9 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
             <table className="w-full text-[12px]">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">PR Number</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Title</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Ref No</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Quotation No</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Valid Until</th>
                   <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
                   <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
                 </tr>
@@ -460,30 +422,70 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
               <tbody>
                 {recentQuotations.length ? (
                   recentQuotations.slice(0, 5).map((q: any) => (
-                    <tr key={q.bid_id} className="border-t hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{q.pr_number}</td>
-                      <td className="px-4 py-2.5 max-w-[160px] truncate">{q.title || '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{q.bid_amount != null ? formatCurrency(q.bid_amount) : '—'}</td>
+                    <tr key={q.id ?? q.bid_id} className="border-t hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{q.ref_no || q.pr_number || '—'}</td>
+                      <td className="px-4 py-2.5 max-w-[160px] truncate">{q.quotation_no || q.title || '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{q.valid_until ? formatDate(q.valid_until) : '—'}</td>
+                      <td className="px-4 py-2.5 text-right">{(q.total_amount ?? q.bid_amount) != null ? formatCurrency(q.total_amount ?? q.bid_amount) : '—'}</td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${q.status === 'accepted' ? 'bg-green-100 text-green-700' :
-                          q.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                            q.status === 'shortlisted' ? 'bg-blue-100 text-blue-700' :
-                              'bg-slate-100 text-slate-600'
-                          }`}>
-                          {q.status}
-                        </span>
+                        <StatusBadge status={q.status} />
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="py-8 text-center text-[12px] text-muted-foreground">No quotations yet</td>
+                    <td colSpan={5} className="py-8 text-center text-[12px] text-muted-foreground">No quotations yet</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </CardContent>
         </Card>
+        {/* Recent Invoices */}
+        <Card className="rounded-xl border shadow-none overflow-hidden">
+          <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <Receipt className="h-3.5 w-3.5" />
+              Recent Invoices
+            </CardTitle>
+            <Link href="/invoices"><Button variant="outline" size="sm" className="text-[12px] h-7">View</Button></Link>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-[12px]">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Invoice #</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Type</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">PO Ref</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Due Date</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentInvoices.length ? (
+                  recentInvoices.slice(0, 5).map((inv: any) => (
+                    <tr key={inv.id} className="border-t hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-2.5 font-mono text-[11px]">{inv.invoice_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground capitalize">{inv.invoice_type?.replace(/_/g, ' ') || '—'}</td>
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{inv.po_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-right">{inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <StatusBadge status={inv.status} />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-[12px] text-muted-foreground">No invoices yet</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+
         {/* ── Charts ───────────────────────────────────────────────────────── */}
         {/* Monthly Spend Trend */}
         <Card className="rounded-xl border shadow-none">
@@ -604,7 +606,7 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
       </div>
 
       {/* RIGHT SIDEBAR */}
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
 
         {/* Compliance */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
@@ -955,7 +957,7 @@ export default function VendorDetailPage() {
   ]
   return (
     <>
-      {isEditing ? <EditVendorPage setIsEditing={setIsEditing} vendorStatus={vendor?.status}/> : <div className="space-y-3">
+      {isEditing ? <EditVendorPage setIsEditing={setIsEditing} vendorStatus={vendor?.status}/> : <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
         {/* Header */}
         <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
 
@@ -973,10 +975,10 @@ export default function VendorDetailPage() {
               </div>
 
               <div>
-                <div className=' flex '>  <h1 className="text-[19px] font-semibold tracking-[-0.4px] mr-1">
-                  {vendor.company_name}
-                </h1>
-                  <StatusBadge status={vendor.status} /></div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-[19px] font-semibold tracking-[-0.4px]">{vendor.company_name}</h1>
+                  <StatusBadge status={vendor.status} />
+                </div>
 
                 <div className="flex flex-wrap items-center gap-2 mt-1 text-[13px] text-[#5a5a57]">
 
