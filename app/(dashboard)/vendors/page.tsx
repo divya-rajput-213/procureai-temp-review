@@ -82,15 +82,40 @@ function DeleteConfirmModal({ name, onClose, onConfirm, isPending }: Readonly<{
 }>) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 space-y-4">
-        <h2 className="text-base font-semibold">Delete Vendor</h2>
-        <p className="text-sm text-muted-foreground">
-          Are you sure you want to delete <span className="font-medium text-foreground">{name}</span>?
-          This action cannot be undone.
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="destructive" size="sm" disabled={isPending} onClick={onConfirm} className="gap-2">
+      <div className="bg-white rounded-md shadow-xl w-full max-w-[520px] p-0 overflow-hidden">
+        <div className="px-7 pt-7 pb-6 space-y-3">
+          <h2 className="text-xl font-semibold tracking-tight pr-10">Delete Vendor</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-3 right-3 inline-flex h-7 w-7 items-center justify-center rounded-sm text-slate-500 hover:text-slate-700 transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          <div className="mt-2 text-sm text-slate-700 leading-relaxed">
+            <div>
+              By deleting the vendor <span className="font-semibold text-slate-900">{name}</span>, this action cannot be undone.
+            </div>
+            <div>Are you sure you want to delete it?</div>
+          </div>
+        </div>
+
+        <div className="border-t px-5 py-3 flex items-center justify-end gap-4">
+          <Button
+            variant="ghost"
+            className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={isPending}
+            onClick={onConfirm}
+            className="gap-2 bg-[#042348] text-white hover:bg-[#032B5C] shadow-md rounded-md px-6 font-semibold"
+          >
             {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
             Delete
           </Button>
