@@ -109,7 +109,7 @@ export function AddressAutocomplete({ value, onChange, onSelect, placeholder, cl
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className={className}
+        className={`${className ?? ''} focus-visible:ring-0 focus-visible:ring-offset-0`}
       />
     )
   }
@@ -120,7 +120,7 @@ export function AddressAutocomplete({ value, onChange, onSelect, placeholder, cl
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder ?? 'Start typing an address…'}
-      className={className}
+      className={`${className ?? ''} focus-visible:ring-0 focus-visible:ring-offset-0`}
     />
   )
 }
