@@ -9,43 +9,14 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, Shield, MapPin, LayoutDashboard, ShieldCheck, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck } from 'lucide-react'
-import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
+import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_TYPE_LABELS } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import {
-  AreaChart, Area, LineChart, Line,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts'
 import EditVendorPage from '../components/Editvendorpage'
-
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-  gst_certificate: 'GST Certificate',
-  pan_card: 'PAN Card',
-  bank_details: 'Bank Details',
-  msme_certificate: 'MSME Certificate',
-  sez_certificate: 'SEZ Certificate',
-  incorporation: 'Incorporation Certificate',
-  quality_certificate: 'Quality Certificate',
-  iso_certificate: 'ISO Certificate',
-  trade_license: 'Trade License',
-  insurance: 'Insurance Document',
-  nda: 'NDA / Agreement',
-  warranty: 'Warranty Document',
-  other: 'Other',
-}
-
-// Doc types available in the "Other Documents" upload panel
-const OTHER_DOC_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'quality_certificate', label: 'Quality Certificate' },
-  { value: 'iso_certificate', label: 'ISO Certificate' },
-  { value: 'trade_license', label: 'Trade License' },
-  { value: 'insurance', label: 'Insurance Document' },
-  { value: 'nda', label: 'NDA / Agreement' },
-  { value: 'warranty', label: 'Warranty Document' },
-  { value: 'other', label: 'Other' },
-]
 
 function actionStepClass(action: string) {
   if (action === 'approved') return 'bg-green-50 border-green-200 text-green-700'
@@ -227,51 +198,41 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
   const matrixCount = matrices?.length ?? 0
 
   return (
-    <>
-      <Card className="shadow-sm">
-        <CardHeader className="pb-4 ">
-          {/* <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Approval Matrix</CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">Choose the approval workflow for this budget request.</p> */}
-        </CardHeader>
-        <CardContent className="pt-5">
-          {matrices === undefined && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
-            </div>
-          )}
-          {matrices && matrixCount === 0 && (
-            <p className="text-xs text-amber-600 font-medium">No active PR approval matrices configured. The system will use the default matrix.</p>
-          )}
-          {matrices && matrixCount > 0 && (
-            <MatrixSelectorTable
-              matrices={matrices}
-              selectedMatrix={selectedMatrix}
-              expandedMatrix={expandedMatrix}
-              onSelect={(id) => {
-                setSelectedMatrix(id)
-                setExpandedMatrix(id) // Expands the matrix when selected
-              }}
-              onToggleExpand={(id) => {
-                setExpandedMatrix(prev => (prev === id ? null : id)) // Toggles expand/collapse
-              }}
-            />
-          )}
-          <div className="flex justify-end mt-4">
-            <Button
-              size="sm"
-              onClick={submit}
-              disabled={submitting || (matrixCount > 0 && selectedMatrix === null)}
-              className="gap-1.5"
-            >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
-              Submit for Approval
-            </Button>
-          </div>
-        </CardContent>
-
-      </Card>
-
-    </>
+    <div>
+      {matrices === undefined && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
+        </div>
+      )}
+      {matrices && matrixCount === 0 && (
+        <p className="text-xs text-amber-600 font-medium">No active PR approval matrices configured. The system will use the default matrix.</p>
+      )}
+      {matrices && matrixCount > 0 && (
+        <MatrixSelectorTable
+          matrices={matrices}
+          selectedMatrix={selectedMatrix}
+          expandedMatrix={expandedMatrix}
+          onSelect={(id) => {
+            setSelectedMatrix(id)
+            setExpandedMatrix(id) // Expands the matrix when selected
+          }}
+          onToggleExpand={(id) => {
+            setExpandedMatrix(prev => (prev === id ? null : id)) // Toggles expand/collapse
+          }}
+        />
+      )}
+      <div className="flex justify-end mt-4">
+        <Button
+          size="sm"
+          onClick={submit}
+          disabled={submitting || (matrixCount > 0 && selectedMatrix === null)}
+          className="gap-1.5"
+        >
+          {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
+          Submit for Approval
+        </Button>
+      </div>
+    </div>
   )
 }
 
@@ -376,7 +337,6 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
 
-
   if (!dash) return null
 
   const stats = dash?.stats ?? {}
@@ -393,71 +353,6 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[70%_30%] gap-4">      {/* LEFT */}
       <div className="space-y-4">
-
-        {/* Vendor Score */}
-        <Card className="rounded-xl border shadow-none">
-          <CardHeader className="py-3 px-4 flex-row items-center justify-between border-b">
-            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-              <span><ChartNoAxesColumnIncreasing className="h-3.5 w-3.5" /></span>
-              Vendor Score Breakdown
-            </CardTitle>
-
-            <Badge className="text-[11px] px-2 py-0.5">
-              {perfScore ? `${perfScore}/100` : "Not scored"}
-            </Badge>
-          </CardHeader>
-
-          <CardContent className="p-4 space-y-3">
-
-            {[
-              {
-                label: "Quality & Delivery",
-                value: dash.score_breakdown?.quality_delivery ?? 0,
-              },
-              {
-                label: "Pricing & Value",
-                value: dash.score_breakdown?.pricing_value ?? 0,
-              },
-              {
-                label: "Compliance",
-                value: dash.score_breakdown?.compliance ?? 0,
-              },
-              {
-                label: "Communication",
-                value: dash.score_breakdown?.communication ?? 0,
-              },
-              {
-                label: "Financial Stability",
-                value: dash.score_breakdown?.financial_stability ?? 0,
-              },
-            ].map(item => (
-
-              <div key={item.label} className="flex items-center gap-3">
-
-                <span className="w-32 text-[12px] text-muted-foreground">
-                  {item.label}
-                </span>
-
-                <div className="flex-1 h-1.5 bg-slate-100 rounded-full">
-                  <div
-                    className="h-full bg-red-500 rounded-full"
-                    style={{ width: `${item.value}%` }}
-                  />
-                </div>
-
-                <span className="text-[12px] font-semibold w-5 text-right text-red-600">
-                  {item.value}
-                </span>
-
-              </div>
-
-            ))}
-          </CardContent>
-        </Card>
-
-
-
-
         {/* Purchase Orders */}
         <Card>
           <CardHeader className="py-3 px-4 border-b">
@@ -541,7 +436,6 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
 
           </CardContent>
         </Card>
-
         {/* Recent Quotations */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
           <CardHeader className="py-3 px-4 border-b">
@@ -568,12 +462,11 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
                       <td className="px-4 py-2.5 max-w-[160px] truncate">{q.title || '—'}</td>
                       <td className="px-4 py-2.5 text-right">{q.bid_amount != null ? formatCurrency(q.bid_amount) : '—'}</td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                          q.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${q.status === 'accepted' ? 'bg-green-100 text-green-700' :
                           q.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                          q.status === 'shortlisted' ? 'bg-blue-100 text-blue-700' :
-                          'bg-slate-100 text-slate-600'
-                        }`}>
+                            q.status === 'shortlisted' ? 'bg-blue-100 text-blue-700' :
+                              'bg-slate-100 text-slate-600'
+                          }`}>
                           {q.status}
                         </span>
                       </td>
@@ -588,9 +481,7 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
             </table>
           </CardContent>
         </Card>
-
         {/* ── Charts ───────────────────────────────────────────────────────── */}
-
         {/* Monthly Spend Trend */}
         <Card className="rounded-xl border shadow-none">
           <CardHeader className="py-3 px-4 border-b flex-row items-center justify-between">
@@ -622,10 +513,8 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
             )}
           </CardContent>
         </Card>
-
         {/* Bid Win Rate + Delivery Performance side by side */}
         <div className="grid grid-cols-2 gap-4">
-
           {/* Bid Win Rate Donut — 3 segments: won / rejected / pending */}
           <Card className="rounded-xl border shadow-none">
             <CardHeader className="py-3 px-4 border-b">
@@ -644,9 +533,9 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
                       <PieChart>
                         <Pie
                           data={[
-                            { name: 'Won',     value: stats.accepted_bids ?? 0 },
+                            { name: 'Won', value: stats.accepted_bids ?? 0 },
                             { name: 'Rejected', value: stats.rejected_bids ?? 0 },
-                            { name: 'Pending',  value: stats.pending_bids  ?? 0 },
+                            { name: 'Pending', value: stats.pending_bids ?? 0 },
                           ]}
                           cx={55} cy={55} innerRadius={36} outerRadius={52}
                           startAngle={90} endAngle={-270}
@@ -711,8 +600,6 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
 
       </div>
 
-
-
       {/* RIGHT SIDEBAR */}
       <div className="space-y-4">
 
@@ -765,7 +652,7 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
             </CardTitle>
 
             <Badge
-              className={ 
+              className={
                 dash.risk_level === "High"
                   ? "bg-red-100 text-red-700 text-xs px-2 py-0.5 font-medium"
                   : dash.risk_level === "Medium"
@@ -885,293 +772,70 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
 
         </Card>
 
+        {/* Vendor Score */}
+        <Card className="rounded-xl border shadow-none">
+          <CardHeader className="py-3 px-4 flex-row items-center justify-between border-b">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <span><ChartNoAxesColumnIncreasing className="h-3.5 w-3.5" /></span>
+              Vendor Score Breakdown
+            </CardTitle>
+
+            <Badge className="text-[11px] px-2 py-0.5">
+              {perfScore ? `${perfScore}/100` : "Not scored"}
+            </Badge>
+          </CardHeader>
+
+          <CardContent className="p-4 space-y-3">
+
+            {[
+              {
+                label: "Quality & Delivery",
+                value: dash.score_breakdown?.quality_delivery ?? 0,
+              },
+              {
+                label: "Pricing & Value",
+                value: dash.score_breakdown?.pricing_value ?? 0,
+              },
+              {
+                label: "Compliance",
+                value: dash.score_breakdown?.compliance ?? 0,
+              },
+              {
+                label: "Communication",
+                value: dash.score_breakdown?.communication ?? 0,
+              },
+              {
+                label: "Financial Stability",
+                value: dash.score_breakdown?.financial_stability ?? 0,
+              },
+            ].map(item => (
+
+              <div key={item.label} className="flex items-center gap-3">
+
+                <span className="w-32 text-[12px] text-muted-foreground">
+                  {item.label}
+                </span>
+
+                <div className="flex-1 h-1.5 bg-slate-100 rounded-full">
+                  <div
+                    className="h-full bg-red-500 rounded-full"
+                    style={{ width: `${item.value}%` }}
+                  />
+                </div>
+
+                <span className="text-[12px] font-semibold w-5 text-right text-red-600">
+                  {item.value}
+                </span>
+
+              </div>
+
+            ))}
+          </CardContent>
+        </Card>
       </div>
 
     </div>
   )
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
-// ─── Vendor PDF Export ────────────────────────────────────────────────────────
-
-async function exportVendorPDF(vendor: any, vendorId: string | string[]) {
-  const addr = [vendor.address, vendor.city, vendor.state, vendor.pincode].filter(Boolean).join(', ')
-
-  // Fetch bids from dashboard endpoint
-  let activeBids: any[] = []
-  try {
-    const dash = await apiClient.get(`/vendors/${vendorId}/dashboard/`)
-    activeBids = dash.data.active_bids ?? []
-  } catch { /* silently skip if unavailable */ }
-
-  const statusColors: Record<string, string> = {
-    approved: 'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
-    draft: 'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0',
-    rejected: 'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
-    pending_approval: 'background:#fef3c7;color:#92400e;border:1px solid #fde68a',
-    blocked: 'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
-  }
-  const statusStyle = statusColors[vendor.status] ?? statusColors.draft
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  const badge = (label: string, bg: string, fg: string, border: string) =>
-    `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:9px;font-weight:700;background:${bg};color:${fg};border:1px solid ${border};letter-spacing:0.03em">${label}</span>`
-
-  // Field row for a key-value table (label left, value right)
-  const frow = (label: string, value: string | undefined | null) =>
-    `<tr>
-          <td style="padding:5px 10px;color:#64748b;font-size:9.5px;width:42%;border-bottom:1px solid #f1f5f9;white-space:nowrap">${label}</td>
-          <td style="padding:5px 10px;font-size:9.5px;font-weight:500;border-bottom:1px solid #f1f5f9">${value || '—'}</td>
-        </tr>`
-
-  // Section block — title + table rows, used inside a <td> of the 2-col outer table
-  const section = (title: string, rows: string) =>
-    `<div style="margin-bottom:14px">
-            <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">${title}</div>
-            <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">${rows}</table>
-          </div>`
-
-  // ── Data rows ──────────────────────────────────────────────────────────────
-
-  const identityRows = [
-    frow('GST Number', vendor.gst_number),
-    frow('PAN Number', vendor.pan_number),
-    frow('Category', vendor.category_name),
-    frow('Plant', vendor.plant_name),
-    frow('Country', vendor.country),
-    frow('MSME', vendor.is_msme ? (vendor.msme_number ? `Yes — ${vendor.msme_number}` : 'Yes') : 'No'),
-    frow('SEZ', vendor.is_sez ? 'Yes' : 'No'),
-    frow('International', vendor.is_international ? 'Yes' : 'No'),
-  ].join('')
-
-  const contactRows = [
-    frow('Contact Person', vendor.contact_name),
-    frow('Email', vendor.contact_email),
-    frow('Phone', vendor.contact_phone),
-    frow('Address', addr),
-  ].join('')
-
-  const bankRows = [
-    frow('Bank Name', vendor.bank_name),
-    frow('Account No.', vendor.bank_account),
-    frow('IFSC Code', vendor.bank_ifsc),
-  ].join('')
-
-  const commercialRows = [
-    frow('Pricing Model', vendor.pricing_model),
-    frow('Payment Terms', vendor.payment_terms),
-    frow('Currency', vendor.currency),
-    frow('Incoterms', vendor.incoterms),
-    frow('Std Lead Time', vendor.standard_lead_time_days ? `${vendor.standard_lead_time_days} days` : null),
-    frow('Rush Lead Time', vendor.rush_lead_time_days ? `${vendor.rush_lead_time_days} days` : null),
-    frow('Min Order Qty', vendor.min_order_quantity != null ? String(vendor.min_order_quantity) : null),
-  ].join('')
-
-  // ── Compliance documents status ──────────────────────────────────────────
-  const complianceDocTypes = [
-    { type: 'gst_certificate', label: 'GST Certificate' },
-    { type: 'pan_card', label: 'PAN Card' },
-    { type: 'bank_details', label: 'Bank Details / Cancelled Cheque' },
-    { type: 'incorporation', label: 'Incorporation Certificate' },
-    ...(vendor.is_msme ? [{ type: 'msme_certificate', label: 'MSME Certificate' }] : []),
-    ...(vendor.is_sez ? [{ type: 'sez_certificate', label: 'SEZ Certificate' }] : []),
-  ]
-  const docs: any[] = vendor.documents ?? []
-  const complianceRows = complianceDocTypes.map(({ type, label }) => {
-    const doc = docs.find((d: any) => d.doc_type === type)
-    const statusLabel = doc ? (doc.ai_validation_status === 'passed' ? 'Verified' : doc.ai_validation_status === 'failed' ? 'Failed' : 'Uploaded') : 'Missing'
-    const statusClr = doc ? (doc.ai_validation_status === 'passed' ? 'color:#166534' : doc.ai_validation_status === 'failed' ? 'color:#991b1b' : 'color:#92400e') : 'color:#991b1b'
-    const fileName = doc?.original_filename ?? '—'
-    return `<tr>
-            <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${label}</td>
-            <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fileName}</td>
-            <td style="padding:5px 10px;font-size:9.5px;font-weight:600;border-bottom:1px solid #f1f5f9;${statusClr}">${statusLabel}</td>
-          </tr>`
-  }).join('')
-
-  const otherDocs = docs.filter((d: any) => !complianceDocTypes.some(c => c.type === d.doc_type))
-  const otherDocsRows = otherDocs.length > 0
-    ? otherDocs.map((d: any) => `<tr>
-            <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${DOC_TYPE_LABELS[d.doc_type] ?? d.doc_type}</td>
-            <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9">${d.title || d.original_filename}</td>
-            <td style="padding:5px 10px;font-size:9.5px;border-bottom:1px solid #f1f5f9;color:#64748b">${d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-          </tr>`).join('')
-    : ''
-
-  const perfScore = vendor.performance_score != null ? `${Number(vendor.performance_score).toFixed(1)} / 100` : null
-  const riskScore = vendor.risk_score != null ? `${Number(vendor.risk_score).toFixed(1)} / 100` : null
-  const createdAt = vendor.created_at ? new Date(vendor.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null
-
-  // ── HTML ───────────────────────────────────────────────────────────────────
-
-  const html = `<!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <title>Vendor Profile — ${vendor.company_name}</title>
-              <style>
-                @page {size: A4 portrait; margin: 14mm 15mm 12mm; }
-                * {box - sizing: border-box; }
-                body {font - family: Arial, Helvetica, sans-serif; font-size: 10px; margin: 0; color: #1e293b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                a {color: inherit; text-decoration: none; }
-              </style>
-            </head>
-            <body>
-
-              <!-- ═══ HEADER ═══ -->
-              <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #1e3a5f;padding-bottom:10px;margin-bottom:12px">
-                <tr>
-                  <td style="vertical-align:top">
-                    <div style="font-size:20px;font-weight:700;color:#1e3a5f;line-height:1.1">${vendor.company_name}</div>
-                    <div style="margin-top:5px">
-                      <span style="display:inline-block;padding:2px 10px;border-radius:9999px;font-size:9px;font-weight:700;${statusStyle}">${(vendor.status ?? '').replace(/_/g, ' ').toUpperCase()}</span>
-                      ${vendor.is_msme ? '&nbsp;' + badge('MSME', '#dbeafe', '#1e40af', '#bfdbfe') : ''}
-                      ${vendor.is_sez ? '&nbsp;' + badge('SEZ', '#f3e8ff', '#7e22ce', '#e9d5ff') : ''}
-                      ${vendor.is_international ? '&nbsp;' + badge('International', '#fce7f3', '#9d174d', '#fbcfe8') : ''}
-                    </div>
-                  </td>
-                  <td style="text-align:right;vertical-align:top;white-space:nowrap">
-                    <div style="font-size:9px;color:#64748b;line-height:1.8">
-                      <div><strong style="color:#1e293b">Vendor Code:</strong> ${vendor.vendor_code || '—'}</div>
-                      <div><strong style="color:#1e293b">Generated:</strong> ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- ═══ ROW 1: Business Identity | Contact ═══ -->
-              <table style="width:100%;border-collapse:collapse;margin-bottom:2px">
-                <tr>
-                  <td style="width:50%;padding-right:8px;vertical-align:top">${section('Business Identity', identityRows)}</td>
-                  <td style="width:50%;padding-left:8px;vertical-align:top">${section('Contact Information', contactRows)}</td>
-                </tr>
-              </table>
-
-              <!-- ═══ ROW 2: Bank | Commercial Terms ═══ -->
-              <table style="width:100%;border-collapse:collapse;margin-bottom:2px">
-                <tr>
-                  <td style="width:50%;padding-right:8px;vertical-align:top">${section('Bank Details', bankRows)}</td>
-                  <td style="width:50%;padding-left:8px;vertical-align:top">${section('Commercial Terms', commercialRows)}</td>
-                </tr>
-              </table>
-
-              <!-- ═══ ROW 3: Performance ═══ -->
-              <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
-                <tr>
-                  <td style="vertical-align:top">
-                    <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Performance &amp; Audit</div>
-                    <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0">
-                      <tr>
-                        <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
-                          <div style="font-size:8.5px;color:#64748b">Performance Score</div>
-                          <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-top:2px">${perfScore ?? '—'}</div>
-                        </td>
-                        <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
-                          <div style="font-size:8.5px;color:#64748b">Risk Score</div>
-                          <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-top:2px">${riskScore ?? '—'}</div>
-                        </td>
-                        <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
-                          <div style="font-size:8.5px;color:#64748b">Created By</div>
-                          <div style="font-size:11px;font-weight:600;color:#1e293b;margin-top:2px">${vendor.created_by_name || '—'}</div>
-                        </td>
-                        <td style="padding:6px 10px;width:25%;border-bottom:1px solid #f1f5f9">
-                          <div style="font-size:8.5px;color:#64748b">Created On</div>
-                          <div style="font-size:11px;font-weight:600;color:#1e293b;margin-top:2px">${createdAt ?? '—'}</div>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- ═══ COMPLIANCE DOCUMENTS ═══ -->
-              <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Compliance Documents</div>
-              <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;margin-bottom:14px">
-                <thead>
-                  <tr style="background:#f8fafc">
-                    <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">Document</th>
-                    <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">File</th>
-                    <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0;width:80px">Status</th>
-                  </tr>
-                </thead>
-                <tbody>${complianceRows}</tbody>
-              </table>
-
-              ${otherDocsRows ? `
-  <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Other Documents</div>
-  <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;margin-bottom:14px">
-    <thead>
-      <tr style="background:#f8fafc">
-        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">Type</th>
-        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0">Title / File</th>
-        <th style="padding:5px 10px;text-align:left;font-size:8.5px;color:#64748b;border-bottom:1px solid #e2e8f0;width:80px">Uploaded</th>
-      </tr>
-    </thead>
-    <tbody>${otherDocsRows}</tbody>
-  </table>` : ''}
-
-              ${activeBids.length > 0 ? `
-  <!-- ═══ ACTIVE BIDS ═══ -->
-  <div style="font-size:8.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.1em;padding:5px 10px 4px;background:#f1f5f9;border-left:3px solid #1e3a5f;margin-bottom:0">Active &amp; Recent Bids</div>
-  <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
-    <thead>
-      <tr style="background:#f1f5f9">
-        <th style="padding:5px 8px;text-align:left;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:90px">PR Number</th>
-        <th style="padding:5px 8px;text-align:left;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b">Title / Description</th>
-        <th style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:80px">Status</th>
-        <th style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:100px">Bid Amount</th>
-        <th style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0;font-size:8.5px;color:#64748b;width:80px">Submitted</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${activeBids.map((bid: any, idx: number) => {
-    const bg = idx % 2 === 1 ? 'background:#f8fafc' : ''
-    const statusClr: Record<string, string> = {
-      pending: 'background:#fef3c7;color:#92400e',
-      shortlisted: 'background:#dbeafe;color:#1e40af',
-      accepted: 'background:#dcfce7;color:#166534',
-      rejected: 'background:#fee2e2;color:#991b1b',
-    }
-    const sStyle = statusClr[bid.status] ?? 'background:#f1f5f9;color:#475569'
-    const amtStr = bid.bid_amount != null
-      ? Number(bid.bid_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })
-      : '—'
-    return `<tr style="${bg}">
-          <td style="padding:5px 8px;font-family:Courier New,monospace;font-size:9px;border:1px solid #e2e8f0">${bid.pr_number}</td>
-          <td style="padding:5px 8px;font-size:9.5px;border:1px solid #e2e8f0">${bid.title || '—'}</td>
-          <td style="padding:5px 8px;text-align:center;border:1px solid #e2e8f0">
-            <span style="display:inline-block;padding:1px 6px;border-radius:9999px;font-size:8px;font-weight:700;${sStyle}">${(bid.status ?? '').replace(/_/g, ' ')}</span>
-          </td>
-          <td style="padding:5px 8px;text-align:right;font-weight:600;border:1px solid #e2e8f0;font-size:9.5px">${amtStr}</td>
-          <td style="padding:5px 8px;text-align:center;color:#64748b;border:1px solid #e2e8f0;font-size:9px">${bid.submitted_at || '—'}</td>
-        </tr>`
-  }).join('')}
-    </tbody>
-  </table>` : ''}
-
-              <!-- ═══ FOOTER ═══ -->
-              <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;padding-top:6px;margin-top:4px">
-                <tr>
-                  <td style="font-size:8.5px;color:#94a3b8">Lumax Procurement — Vendor Profile Report</td>
-                  <td style="font-size:8.5px;color:#94a3b8;text-align:right">This is a system-generated document. Please verify before use.</td>
-                </tr>
-              </table>
-
-            </body>
-          </html>`
-
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const iframe = document.createElement('iframe')
-  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none'
-  document.body.appendChild(iframe)
-  iframe.src = url
-  iframe.addEventListener('load', () => {
-    iframe.contentWindow?.focus()
-    iframe.contentWindow?.print()
-    setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url) }, 60_000)
-  })
 }
 
 export default function VendorDetailPage() {
@@ -1181,7 +845,6 @@ export default function VendorDetailPage() {
 
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
-  const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [activeTabKey, setActiveTabKey] = useState<'overview' | 'documents' | 'approval'>('overview')
 
   const { data: vendor, isLoading } = useQuery({
@@ -1230,20 +893,6 @@ export default function VendorDetailPage() {
   const [docFields, setDocFields] = useState<Record<string, string>>({})
   const [savingDocs, setSavingDocs] = useState(false)
 
-  const initDocFields = () => setDocFields({
-    gst_number: vendor?.gst_number ?? '',
-    pan_number: vendor?.pan_number ?? '',
-    bank_account: vendor?.bank_account ?? '',
-    bank_ifsc: vendor?.bank_ifsc ?? '',
-    bank_name: vendor?.bank_name ?? '',
-    msme_number: vendor?.msme_number ?? '',
-  })
-
-  const setDocField = (key: string, val: string) =>
-    setDocFields(prev => ({ ...prev, [key]: val }))
-
-  const [complianceErrors, setComplianceErrors] = useState<Record<string, string>>({})
-
   const validateCompliancePairs = (): boolean => {
     const errs: Record<string, string> = {}
     // Documents are optional. Only these fields are mandatory.
@@ -1252,7 +901,6 @@ export default function VendorDetailPage() {
 
     const bankMissing = !docFields.bank_account || !docFields.bank_ifsc || !docFields.bank_name
     if (bankMissing) errs['field_bank_account'] = 'Bank Name, Account No and IFSC Code are required'
-    setComplianceErrors(errs)
     return Object.keys(errs).length === 0
   }
 
@@ -1293,9 +941,9 @@ export default function VendorDetailPage() {
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
   if (!vendor) return <div className="p-8 text-center text-muted-foreground">Vendor not found.</div>
 
-  const canFullEdit  = vendor.status === 'draft'
+  const canFullEdit = vendor.status === 'draft'
   const canUploadDoc = ['draft', 'pending_approval', 'approved'].includes(vendor.status)
-  const isLocked     = ['rejected', 'blocked'].includes(vendor.status)
+  const isLocked = ['rejected', 'blocked'].includes(vendor.status)
 
   const tabs = [
     { key: 'overview', label: 'Overview' },
@@ -1425,8 +1073,8 @@ export default function VendorDetailPage() {
         border-b-[2.5px]
         whitespace-nowrap
         ${activeTabKey === tab.key
-                  ? 'text-[#1a1a18] border-black bg-white'
-                  : 'text-[#9a9a96] border-transparent hover:bg-[#f8f8f6] hover:text-[#1a1a18]'
+                  ? 'text-[#042348] border-[#042348] bg-white'
+                  : 'text-[#9a9a96] border-transparent hover:bg-[#f8f8f6] hover:text-[#042348]'
                 }
       `}
             >
@@ -1456,7 +1104,7 @@ export default function VendorDetailPage() {
           <div className="space-y-4">
 
             {/* Upload button — reuse edit form (starts at compliance step) */}
-            {canUploadDoc && (
+            {canUploadDoc && canFullEdit &&  (
               <div className="flex justify-end">
                 <Button variant="outline" size="sm" className="text-[13px]" onClick={() => setIsEditing(true)}>
                   <FileText className="w-[14px] h-[14px] mr-1" />
@@ -1483,11 +1131,11 @@ export default function VendorDetailPage() {
                 <table className="w-full text-[12px]">
                   <thead className="bg-slate-50 border-b">
                     <tr>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Document</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Type</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Uploaded</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-center text-muted-foreground">AI Status</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-center text-muted-foreground">Action</th>
+                      <th className="px-4 py-2.5 text-[13px] font-semibold uppercase text-left text-muted-foreground">Document</th>
+                      <th className="px-4 py-2.5 text-[13px] font-semibold uppercase text-left text-muted-foreground">Type</th>
+                      <th className="px-4 py-2.5 text-[13px] font-semibold uppercase text-left text-muted-foreground">Uploaded</th>
+                      <th className="px-4 py-2.5 text-[13px] font-semibold uppercase text-center text-muted-foreground">AI Status</th>
+                      <th className="px-4 py-2.5 text-[13px] font-semibold uppercase text-center text-muted-foreground">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1502,25 +1150,24 @@ export default function VendorDetailPage() {
                               <div className="h-7 w-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
                                 <FileText className="h-3.5 w-3.5 text-blue-600" />
                               </div>
-                              <span className="font-medium text-[12px] max-w-[200px] truncate">{doc.original_filename || doc.title || '—'}</span>
+                              <span className="font-medium text-[13px] max-w-[200px] truncate">{doc.original_filename || doc.title || '—'}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">{docLabel}</td>
-                          <td className="px-4 py-3 text-muted-foreground">
+                          <td className="px-4 py-3 text-muted-foreground text-[13px]">{docLabel}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-[13px]">
                             {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                           </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              isVerified ? 'bg-green-100 text-green-700' :
+                          <td className="px-4 py-3 text-center ">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[13px] font-semibold ${isVerified ? 'bg-green-100 text-green-700' :
                               isFailed ? 'bg-red-100 text-red-700' :
-                              'bg-amber-100 text-amber-700'
-                            }`}>
+                                'bg-amber-100 text-amber-700'
+                              }`}>
                               {isVerified ? 'Verified' : isFailed ? 'Failed' : 'Pending'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-3 text-center text-[13px]">
                             {doc.file_url ? (
-                              <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 hover:underline font-medium">View</a>
+                              <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-[13px] text-blue-600 hover:underline font-medium">View</a>
                             ) : '—'}
                           </td>
                         </tr>
@@ -1546,7 +1193,6 @@ export default function VendorDetailPage() {
               <SubmitForApprovalPanel
                 vendorId={id}
                 onSuccess={() => {
-                  setShowSubmitModal(false)
                   queryClient.invalidateQueries({ queryKey: ['vendor', id] })
                   router.push(`/vendors`)
                 }}
