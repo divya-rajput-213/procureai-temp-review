@@ -1073,8 +1073,8 @@ export default function VendorDetailPage() {
         border-b-[2.5px]
         whitespace-nowrap
         ${activeTabKey === tab.key
-                  ? 'text-[#1a1a18] border-black bg-white'
-                  : 'text-[#9a9a96] border-transparent hover:bg-[#f8f8f6] hover:text-[#1a1a18]'
+                  ? 'text-[#042348] border-[#042348] bg-white'
+                  : 'text-[#9a9a96] border-transparent hover:bg-[#f8f8f6] hover:text-[#042348]'
                 }
       `}
             >
@@ -1104,7 +1104,7 @@ export default function VendorDetailPage() {
           <div className="space-y-4">
 
             {/* Upload button — reuse edit form (starts at compliance step) */}
-            {canUploadDoc && (
+            {canUploadDoc && canFullEdit &&  (
               <div className="flex justify-end">
                 <Button variant="outline" size="sm" className="text-[13px]" onClick={() => setIsEditing(true)}>
                   <FileText className="w-[14px] h-[14px] mr-1" />
