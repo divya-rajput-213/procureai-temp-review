@@ -353,8 +353,8 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
 
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[70%_30%] gap-4">      {/* LEFT */}
-      <div className="space-y-4">
+    <div className="grid grid-cols-1 xl:grid-cols-[62%_1fr] gap-4 min-w-0">      {/* LEFT */}
+      <div className="space-y-4 min-w-0 overflow-x-hidden">
         {/* Purchase Orders */}
         <Card>
           <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
@@ -604,7 +604,7 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
       </div>
 
       {/* RIGHT SIDEBAR */}
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
 
         {/* Compliance */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
@@ -955,7 +955,7 @@ export default function VendorDetailPage() {
   ]
   return (
     <>
-      {isEditing ? <EditVendorPage setIsEditing={setIsEditing} vendorStatus={vendor?.status}/> : <div className="space-y-3">
+      {isEditing ? <EditVendorPage setIsEditing={setIsEditing} vendorStatus={vendor?.status}/> : <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
         {/* Header */}
         <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
 
