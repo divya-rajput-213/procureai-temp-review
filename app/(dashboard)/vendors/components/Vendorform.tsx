@@ -779,17 +779,17 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     <i className="ti ti-circle-check" style={{ fontSize: 13 }} /> Fields applied
                   </span>
                 )}
-                <button className="btn btn-sm" onClick={() => srfInputRef.current?.click()} disabled={srfExtracting}>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => srfInputRef.current?.click()} disabled={srfExtracting}>
                   <i className="ti ti-sparkles" style={{ color: 'var(--pur-tx)' }} />
                   {srfExtracting ? 'Extracting…' : 'Upload SRF for AI Fill'}
-                </button>
+                </Button>
                 <input ref={srfInputRef} type="file" style={{ display: 'none' }} accept=".xlsx"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleSrfFile(f); e.target.value = '' }} />
               </>
             )}
-            <button className="btn btn-sm" onClick={() => isEdit? setIsEditing?.(false): router.push('/vendors')}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => isEdit? setIsEditing?.(false): router.push('/vendors')}>
               <i className="ti ti-arrow-left" /> Back
-            </button>
+            </Button>
           </div>
         </div>
 
