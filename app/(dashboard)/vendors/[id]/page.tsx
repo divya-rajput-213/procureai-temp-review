@@ -353,7 +353,7 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
 
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[62%_1fr] gap-4 min-w-0">      {/* LEFT */}
+    <div className="grid grid-cols-1 xl:grid-cols-[70%_1fr] gap-4 min-w-0">      {/* LEFT */}
       <div className="space-y-4 min-w-0 overflow-x-hidden">
         {/* Purchase Orders */}
         <Card>
