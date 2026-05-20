@@ -11,9 +11,54 @@ import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import apiClient from '@/lib/api/client'
 import { COMPANY_NAME_ALLOWED, ALPHA_SPACE_ONLY, ADDRESS_ALLOWED, COMPANY_NAME_ALLOWED_PARTIAL, ADDRESS_ALLOWED_PARTIAL, ALPHA_SPACE_PARTIAL} from '@/lib/utils'
-import { ConfirmDialog } from '@/components/shared/CommonModal'
 import { DOC_CONFIG, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { X, Loader2 } from 'lucide-react'
+
+function ConfirmModal({ open, onOpenChange, onConfirm, title, description, confirmText, isPending }: Readonly<{
+  open: boolean; onOpenChange: (v: boolean) => void; onConfirm: () => void
+  title: string; description: string; confirmText: string; isPending?: boolean
+}>) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-md shadow-xl w-full max-w-[520px] p-0 overflow-hidden">
+        <div className="p-5 space-y-3">
+          <h2 className="text-xl font-semibold tracking-tight pr-10">{title}</h2>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="absolute top-3 right-3 inline-flex h-7 w-7 items-center justify-center rounded-sm text-slate-500 hover:text-slate-700 transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <div className="mt-2 text-sm text-slate-700 leading-relaxed">
+            <div>{description}</div>
+          </div>
+        </div>
+        <div className="border-t px-5 py-3 flex items-center justify-end gap-4">
+          <Button
+            variant="ghost"
+            className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={isPending}
+            onClick={onConfirm}
+            className="gap-2 bg-[#042348] text-white hover:bg-[#032B5C] shadow-md rounded-md px-6 font-semibold"
+          >
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {confirmText}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -510,6 +555,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const step1Mutation = useMutation({
     mutationFn: async (data: VendorForm) => {
       await apiClient.patch(`/vendors/${vendorId}/`, {
+        category: data.category, 
+        plant: data.plant,
         gst_number: data.gst_number || null,
         pan_number: data.pan_number || '',
         bank_account: data.bank_account || '', bank_ifsc: data.bank_ifsc || '', bank_name: data.bank_name || '',
@@ -1485,18 +1532,18 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
           </div>
         </div>
 
-        {/* ── Confirm modal ── */}
-                <ConfirmDialog
-          open={showConfirmModal}
-          onOpenChange={setShowConfirmModal}
-          onConfirm={confirmAction}
-          title="Confirm Action"
-          description="Are you sure you want to submit this vendor for approval? Approvers will be notified immediately."
-          confirmText="Yes, Submit"
-          confirmVariant="destructive"
-        />
-
       </div>
+
+      {/* ── Confirm modal — outside vf-root so Tailwind styles are not overridden ── */}
+      <ConfirmModal
+        open={showConfirmModal}
+        onOpenChange={setShowConfirmModal}
+        onConfirm={confirmAction}
+        title="Confirm Action"
+        description="Are you sure you want to submit this vendor for approval? Approvers will be notified immediately."
+        confirmText="Yes, Submit"
+        isPending={submitMutation.isPending}
+      />
     </>
   )
 }

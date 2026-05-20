@@ -83,7 +83,7 @@ function DeleteConfirmModal({ name, onClose, onConfirm, isPending }: Readonly<{
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="bg-white rounded-md shadow-xl w-full max-w-[520px] p-0 overflow-hidden">
-        <div className="px-7 pt-7 pb-6 space-y-3">
+        <div className="p-5 space-y-3">
           <h2 className="text-xl font-semibold tracking-tight pr-10">Delete Vendor</h2>
           <button
             type="button"

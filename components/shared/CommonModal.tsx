@@ -36,13 +36,13 @@ export function ConfirmDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[520px] p-0 gap-0 overflow-hidden rounded-md">
-        <DialogHeader className="px-8 pt-7 pb-6 space-y-2">
+        <DialogHeader className="p-5 space-y-2">
           <DialogTitle className="text-xl font-semibold tracking-tight">{title}</DialogTitle>
           <DialogDescription className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
             {description}
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="px-8 py-5 border-t flex-row justify-end gap-4">
+        <DialogFooter className="p-4 border-t flex-row justify-end gap-4">
           <Button
             variant="ghost"
             className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent"
