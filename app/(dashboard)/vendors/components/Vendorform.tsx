@@ -68,7 +68,9 @@ const schema = z.object({
   contact_phone: z.string()
     .refine(v => PHONE_ALLOWED_CHARS.test(v), 'Contact phone must contain only numbers')
     .refine(v => /^\+91\d{10}$/.test(v.replace(/\s/g, '')), 'Contact phone must be +91 followed by 10 digits'),
-  address: z.string().min(5, 'Address is required').max(250, 'Address must be at most 250 characters'),
+  address: z.string({ required_error: 'Address is required', invalid_type_error: 'Address is required' })
+    .min(5, 'Address is required')
+    .max(250, 'Address must be at most 250 characters'),
   city: z.string().min(1, 'City is required').max(50).regex(ALPHANUM_WITH_SPACES, 'City must be alphanumeric'),
   state: z.string().min(1, 'State is required').max(50).regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
   country: z.string().min(1, 'Country is required').max(50).regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
@@ -442,6 +444,30 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     return (Object.values(d).flat() as string[]).join(' ') || 'Please check all fields.'
   }
 
+  const applyServerFieldErrors = (err: any): boolean => {
+    const d = err?.response?.data
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return false
+
+    const fieldSet = new Set(Object.keys(getValues()))
+    let applied = false
+
+    for (const [key, raw] of Object.entries(d as Record<string, any>)) {
+      if (!fieldSet.has(key)) continue
+
+      const msg =
+        Array.isArray(raw) ? String(raw[0] ?? '') :
+          typeof raw === 'string' ? raw :
+            raw?.message ? String(raw.message) :
+              ''
+
+      if (!msg) continue
+      setError(key as keyof VendorForm, { type: 'server', message: msg })
+      applied = true
+    }
+
+    return applied
+  }
+
   /* ── Mutations (unchanged) ── */
 
   const step0Mutation = useMutation({
@@ -466,7 +492,10 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
       queryClient.invalidateQueries({ queryKey: ['vendors'] })
       setStep(1)
     },
-    onError: (err: any) => toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' }),
+    onError: (err: any) => {
+      if (applyServerFieldErrors(err)) return
+      toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' })
+    },
   })
 
   const step1Mutation = useMutation({
@@ -480,7 +509,10 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
       })
     },
     onSuccess: () => setStep(2),
-    onError: (err: any) => toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' }),
+    onError: (err: any) => {
+      if (applyServerFieldErrors(err)) return
+      toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' })
+    },
   })
 
   const submitMutation = useMutation({
@@ -630,11 +662,11 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         .vf-root .form-label{font-size:12px;font-weight:600;color:var(--tx2)}
         .vf-root .form-label .req{color:var(--red-bd);margin-left:2px}
         .vf-root .form-input{padding:8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;transition:border-color 0.15s;width:100%}
-        .vf-root .form-input:focus{border-color:#1a1a18}
+        .vf-root .form-input:focus{border-color:hsl(var(--primary))}
         .vf-root .form-input.ai-fill{border-color:var(--tel-bd)!important;background:var(--tel-bg)!important}
         .vf-root .form-input.border-red{border-color:var(--red-bd)!important}
         .vf-root .form-select{padding:8px 32px 8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);appearance:none;outline:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9a96'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;width:100%;transition:border-color 0.15s}
-        .vf-root .form-select:focus{border-color:#1a1a18}
+        .vf-root .form-select:focus{border-color:hsl(var(--primary))}
         .vf-root .form-divider{border:none;border-top:0.5px solid var(--bd);margin:4px 0 8px}
         .vf-root .field-err{font-size:11px;color:var(--red-tx);margin-top:2px}
         .vf-root .form-sidebar .card{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:14px}
