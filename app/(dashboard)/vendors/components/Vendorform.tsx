@@ -500,12 +500,13 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
   const step1Mutation = useMutation({
     mutationFn: async (data: VendorForm) => {
+      const toBool = (v: any) => v === true || v === 'true'
       await apiClient.patch(`/vendors/${vendorId}/`, {
         gst_number: data.gst_number || null,
         pan_number: data.pan_number || '',
         bank_account: data.bank_account || '', bank_ifsc: data.bank_ifsc || '', bank_name: data.bank_name || '',
-        is_msme: data.is_msme ?? false, msme_number: data.msme_number ?? '',
-        is_sez: data.is_sez ?? false,
+        is_msme: toBool(data.is_msme), msme_number: data.msme_number ?? '',
+        is_sez: toBool(data.is_sez),
       })
     },
     onSuccess: () => setStep(2),
@@ -1059,10 +1060,11 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             <input
                               className="form-input"
                               placeholder="e.g. 27AAAAA0000A1Z5"
-                              style={complianceErrors['field_gst_number'] ? { borderColor: 'var(--red-bd)' } : {}}
+                              style={(complianceErrors['field_gst_number'] || errors.gst_number) ? { borderColor: 'var(--red-bd)' } : {}}
                               {...register('gst_number')}
                             />
                             {complianceErrors['field_gst_number'] && <span className="field-err">{complianceErrors['field_gst_number']}</span>}
+                            {errors.gst_number && <span className="field-err">{errors.gst_number.message}</span>}
                           </div>
                         </div>
                       </div>
@@ -1096,10 +1098,11 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             <input
                               className="form-input"
                               placeholder="e.g. AAAAA9999A"
-                              style={complianceErrors['field_pan_number'] ? { borderColor: 'var(--red-bd)' } : {}}
+                              style={(complianceErrors['field_pan_number'] || errors.pan_number) ? { borderColor: 'var(--red-bd)' } : {}}
                               {...register('pan_number')}
                             />
                             {complianceErrors['field_pan_number'] && <span className="field-err">{complianceErrors['field_pan_number']}</span>}
+                            {errors.pan_number && <span className="field-err">{errors.pan_number.message}</span>}
                           </div>
                         </div>
                       </div>
@@ -1131,28 +1134,31 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             <input
                               className="form-input"
                               placeholder="e.g. 50100123456789"
-                              style={complianceErrors['field_bank_account'] ? { borderColor: 'var(--red-bd)' } : {}}
+                              style={(complianceErrors['field_bank_account'] || errors.bank_account) ? { borderColor: 'var(--red-bd)' } : {}}
                               {...register('bank_account')}
                             />
+                            {errors.bank_account && <span className="field-err">{errors.bank_account.message}</span>}
                           </div>
                           <div className="form-group">
                             <label className="form-label">IFSC <span className="req">*</span></label>
                             <input
                               className="form-input"
                               placeholder="e.g. HDFC0001234"
-                              style={complianceErrors['field_bank_account'] ? { borderColor: 'var(--red-bd)' } : {}}
+                              style={(complianceErrors['field_bank_account'] || errors.bank_ifsc) ? { borderColor: 'var(--red-bd)' } : {}}
                               {...register('bank_ifsc')}
                             />
+                            {errors.bank_ifsc && <span className="field-err">{errors.bank_ifsc.message}</span>}
                           </div>
                           <div className="form-group full">
                             <label className="form-label">Bank Name <span className="req">*</span></label>
                             <input
                               className="form-input"
                               placeholder="e.g. HDFC Bank Ltd"
-                              style={complianceErrors['field_bank_account'] ? { borderColor: 'var(--red-bd)' } : {}}
+                              style={(complianceErrors['field_bank_account'] || errors.bank_name) ? { borderColor: 'var(--red-bd)' } : {}}
                               {...register('bank_name')}
                             />
                             {complianceErrors['field_bank_account'] && <span className="field-err">{complianceErrors['field_bank_account']}</span>}
+                            {errors.bank_name && <span className="field-err">{errors.bank_name.message}</span>}
                           </div>
                         </div>
                       </div>
@@ -1165,7 +1171,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
                   {/* MSME */}
                   <input type="hidden" {...register('is_msme')} />
-                  <div style={{ border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
+                  <div style={{ border: `0.5px solid ${errors.is_msme ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: errors.is_msme ? 4 : 10, background: 'var(--bg)' }}>
                     <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--grn-bg)', color: 'var(--grn-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
@@ -1197,10 +1203,15 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                       </div>
                     )}
                   </div>
+                  {errors.is_msme && (
+                    <div style={{ fontSize: 11, color: 'var(--red-tx)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10, marginTop: -6 }}>
+                      <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{errors.is_msme.message}
+                    </div>
+                  )}
 
                   {/* SEZ */}
                   <input type="hidden" {...register('is_sez')} />
-                  <div style={{ border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
+                  <div style={{ border: `0.5px solid ${errors.is_sez ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: errors.is_sez ? 4 : 10, background: 'var(--bg)' }}>
                     <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--pur-bg)', color: 'var(--pur-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
@@ -1225,6 +1236,11 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                       </div>
                     )}
                   </div>
+                  {errors.is_sez && (
+                    <div style={{ fontSize: 11, color: 'var(--red-tx)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10, marginTop: -4 }}>
+                      <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{errors.is_sez.message}
+                    </div>
+                  )}
 
                   {/* ISO / Quality Certificate — multi-row at end */}
                   <hr className="form-divider" style={{ marginTop: 14 }} />
