@@ -77,8 +77,8 @@ function fmtValue(v: number) {
   return `₹${v}`
 }
 
-function StatusSummary({ totalCount, counts, totalValue, totalItems }: {
-  totalCount: number; counts: Record<string, number>; totalValue: number; totalItems: number
+function StatusSummary({ totalCount, counts, totalValue }: {
+  totalCount: number; counts: Record<string, number>; totalValue: number;
 }) {
   const badges = [
     { key: 'total', label: 'Total', count: totalCount, cls: 'bg-gray-900 text-white' },
@@ -101,11 +101,6 @@ function StatusSummary({ totalCount, counts, totalValue, totalItems }: {
           <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
             VALUE {fmtValue(totalValue)} Total
           </span>
-          {totalItems > 0 && (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-              {totalItems} Items
-            </span>
-          )}
         </>
       )}
     </div>
@@ -341,7 +336,7 @@ export default function QuotationPage() {
       {/* ── Status summary + action buttons ── */}
       {!isLoading && (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <StatusSummary totalCount={totalCount} counts={statusCounts} totalValue={totalValue} totalItems={totalItems} />
+          <StatusSummary totalCount={totalCount} counts={statusCounts} totalValue={totalValue} />
           <div className="flex items-center gap-2 shrink-0 ml-auto">
             <Button variant="outline" size="sm" disabled={totalCount === 0} onClick={exportCSV} className="gap-1.5">
               <Download className="w-3.5 h-3.5" />
