@@ -82,7 +82,7 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
   if (!actions?.length) return null
   return (
     <div className="px-4 py-3 bg-white border-b">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Approval Timeline</p>
+      <p className="text-[13px] font-semibold   tracking-wide mb-2">Approval Timeline</p>
       {requestedAt && (
         <p className="text-[11px] text-muted-foreground mb-2">Requested for approval: <span className="font-medium text-slate-700">{formatDateTime(requestedAt)}</span></p>
       )}
@@ -371,7 +371,7 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
 }
 
 // ─── VendorDashboard — matches reference exactly ──────────────────────────────
-function VendorDashboard({ vendorId, vendor,dash,isLoading }: { vendorId: string | string[]; vendor: any, dash:any , isLoading:boolean}) {
+function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: string | string[]; vendor: any, dash: any, isLoading: boolean }) {
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
 
@@ -400,7 +400,7 @@ function VendorDashboard({ vendorId, vendor,dash,isLoading }: { vendorId: string
               Vendor Score Breakdown
             </CardTitle>
 
-            <Badge className="text-[10px] px-2 py-0.5">
+            <Badge className="text-[11px] px-2 py-0.5">
               {perfScore ? `${perfScore}/100` : "Not scored"}
             </Badge>
           </CardHeader>
@@ -548,7 +548,7 @@ function VendorDashboard({ vendorId, vendor,dash,isLoading }: { vendorId: string
                       />
                     </div>
 
-                    <span className="text-[11px] font-medium">
+                    <span className="text-[12px] font-medium">
                       {item.label}
                     </span>
 
@@ -558,7 +558,7 @@ function VendorDashboard({ vendorId, vendor,dash,isLoading }: { vendorId: string
                   {/* Right */}
                   <div
                     className={`
-          flex items-center gap-1 text-[10px] font-medium
+          flex items-center gap-1 text-[11px] font-medium
           ${hasValue
                         ? 'text-green-700'
                         : 'text-red-600'
@@ -696,12 +696,12 @@ function VendorDashboard({ vendorId, vendor,dash,isLoading }: { vendorId: string
             </CardTitle>
 
             <Badge
-              className={
+              className={ 
                 dash.risk_level === "High"
-                  ? "bg-red-100 text-red-700 text-[11px] px-2 py-0.5"
+                  ? "bg-red-100 text-red-700 text-xs px-2 py-0.5 font-medium"
                   : dash.risk_level === "Medium"
-                    ? "bg-orange-100 text-orange-700 text-[11px] px-2 py-0.5"
-                    : "bg-green-100 text-green-700 text-[11px] px-2 py-0.5"
+                    ? "bg-orange-100 text-orange-700 text-xs px-2 py-0.5 font-medium"
+                    : "bg-green-100 text-green-700 text-xs px-2 py-0.5 font-medium"
               }
             >
               {dash.risk_level}
@@ -1120,7 +1120,7 @@ export default function VendorDetailPage() {
     queryFn: async () => (await apiClient.get(`/vendors/${id}/`)).data,
   })
 
-  const { data: dash,  isLoading: dashLoading,} = useQuery({
+  const { data: dash, isLoading: dashLoading, } = useQuery({
     queryKey: ['vendor-dashboard', id],
     queryFn: async () => (await apiClient.get(`/vendors/${id}/dashboard/`)).data,
   })
@@ -1249,9 +1249,10 @@ export default function VendorDetailPage() {
               </div>
 
               <div>
-                <h1 className="text-[19px] font-semibold tracking-[-0.4px]">
+                <div className=' flex '>  <h1 className="text-[19px] font-semibold tracking-[-0.4px] mr-1">
                   {vendor.company_name}
                 </h1>
+                  <StatusBadge status={vendor.status} /></div>
 
                 <div className="flex flex-wrap items-center gap-2 mt-1 text-[13px] text-[#5a5a57]">
 
@@ -1262,42 +1263,13 @@ export default function VendorDetailPage() {
                     </span>
                   </div>
 
-                  <span className="text-[#9a9a96]">•</span>
-
-                  <Badge
-                    className="text-[11px] font-semibold rounded-full bg-green-100 text-green-700"
-                  >
-                    {vendor?.category_name ?? 'Uncategorized'}
-                  </Badge>
-
-                  <span className="text-[#9a9a96]">•</span>
-
-                  {/* status color from component */}
-                  <StatusBadge status={vendor.status} />
-
-                  <span className="text-[#9a9a96]">•</span>
-
-                  <Badge
-                    className={`text-[11px] font-semibold rounded-full
-            ${dash?.risk_level === 'High'
-                        ? 'bg-red-100 text-red-700'
-                        : dash?.risk_level === 'Medium'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : dash?.risk_level === 'Low'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-700'
-                      }`}
-                  >
-                    {dash?.risk_level ?? 'Unknown'}
-                  </Badge>
-
                 </div>
               </div>
             </div>
 
 
             {/* Actions */}
-            {vendor.status ==="draft" &&<div className="flex gap-2">
+            {vendor.status === "draft" && <div className="flex gap-2">
 
               <Button
                 variant="outline"
@@ -1322,10 +1294,13 @@ export default function VendorDetailPage() {
 
             {[
               ['Vendor ID', vendor.vendor_code],
-              ['Plant', vendor.plant_name ?? '—'],
+              [
+                'Plant/ Category',
+                [vendor?.plant_name, vendor?.category_name].filter(Boolean).join(' / ') || '—',
+              ],
               ['GSTIN', vendor.gst_number],
               ['PAN', vendor.pan_number],
-              ['Registered', formatDate(vendor.created_at)],
+              ['Created At', formatDate(vendor.created_at)],
               ['Vendor Score', dash?.performance_score],
             ].map(([label, value], index) => (
               <div
@@ -1392,21 +1367,11 @@ export default function VendorDetailPage() {
           ))}
         </div>
         {/* Overview Tab */}
-        {activeTabKey === 'overview' && <VendorDashboard vendorId={id} vendor={vendor} dash={dash} isLoading={dashLoading}/>}
+        {activeTabKey === 'overview' && <VendorDashboard vendorId={id} vendor={vendor} dash={dash} isLoading={dashLoading} />}
 
         {/* Details Tab */}
         {activeTabKey === 'details' && (
           <div className="space-y-4">
-            {/* {isEditing ? (
-            <EditDetailsForm
-              vendor={vendor}
-              categories={categories ?? []}
-              plants={plants ?? []}
-              onSave={data => editMutation.mutate(data)}
-              onCancel={() => setIsEditing(false)}
-              saving={editMutation.isPending}
-            />
-          ) : ( */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="shadow-sm">
                 <CardHeader className="pb-4 border-b">
@@ -1494,7 +1459,6 @@ export default function VendorDetailPage() {
                 </CardContent>
               </Card>
             </div>
-            {/* )} */}
           </div>
         )}
 

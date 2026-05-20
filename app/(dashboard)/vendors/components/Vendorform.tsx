@@ -11,6 +11,7 @@ import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import apiClient from '@/lib/api/client'
 import { DOC_CONFIG, ALPHANUM_WITH_SPACES, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -468,7 +469,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
   const step0Mutation = useMutation({
     mutationFn: async (data: VendorForm) => {
-      if (isEdit && vendorId) {
+      if ( vendorId) {
         const { data: v } = await apiClient.patch(`/vendors/${vendorId}/`, {
           company_name: data.company_name, category: data.category, plant: data.plant,
           contact_name: data.contact_name, contact_email: data.contact_email, contact_phone: data.contact_phone,
@@ -617,7 +618,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
           --pur-bg:#EEEDFE;--pur-tx:#3C3489;--pur-bd:#7F77DD;
           --mono:'DM Mono',monospace;
         }
-        .vf-root .btn{padding:7px 14px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--tx);transition:background 0.15s;text-decoration:none}
+        .vf-root .btn{padding:7px 14px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--tx);transition:background 0.15s;text-decoration:none}
         .vf-root .btn:hover{background:var(--bg-t)}
         .vf-root .btn-primary{background:hsl(var(--primary));color:hsl(var(--primary-foreground));border-color:hsl(var(--primary))}
         .vf-root .btn-primary:hover{background:hsl(var(--primary)/0.9)}
@@ -1422,38 +1423,36 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         {/* ── Sticky form actions ── */}
         <div className="form-actions">
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-sm" onClick={() => router.push('/vendors')}>
+            <Button size="sm"  className="btn btn-sm" onClick={() => router.push('/vendors')}>
               <i className="ti ti-x" /> Discard
-            </button>
+            </Button>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Step {step + 1} of 3</span>
             {step > 0 && (
-              <button className="btn btn-sm" onClick={() => setStep(s => s - 1)}>
+              <Button  size="sm"  className="btn btn-sm" onClick={() => setStep(s => s - 1)}>
                 <i className="ti ti-arrow-left" /> Previous
-              </button>
+              </Button>
             )}
             {step < 2 && (
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={step === 0 ? handleStep0Next : handleStep1Next}
+              <Button size="sm" className="gap-1.5 btn btn-sm btn-primary"
+                // className="btn btn-sm btn-primary"
+                onClick={()=>step === 0 ? handleStep0Next() : handleStep1Next()}
                 disabled={step0Mutation.isPending || step1Mutation.isPending}
               >
-                {(step0Mutation.isPending || step1Mutation.isPending) ? 'Saving…' : <>Next <i className="ti ti-arrow-right" /></>}
-              </button>
+                {(step0Mutation.isPending || step1Mutation.isPending) ? 'Saving…' : <>{step===0?"Next & Save Draft":"Next" } <i className="ti ti-arrow-right" /></>}
+              </Button>
             )}
             {step === 2 && (
               <>
-                <button className="btn btn-sm" onClick={handleSaveAsDraft} disabled={submitMutation.isPending}>
-                  <i className="ti ti-device-floppy" /> Save Draft
-                </button>
-                <button
+                <Button
                   className="btn btn-sm btn-primary"
+                  size="sm" 
                   onClick={handleSubmitForApproval}
                   disabled={submitMutation.isPending || (selectedMatrix === null && !!matrices && matrices.length > 0)}
                 >
                   {submitMutation.isPending ? 'Submitting…' : <><i className="ti ti-send" /> Submit for Approval</>}
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -1464,12 +1463,12 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
           <div className="confirm-overlay" onClick={() => setShowConfirmModal(false)}>
             <div className="confirm-modal" onClick={e => e.stopPropagation()}>
               <h2>Confirm Action</h2>
-              <p>Are you sure you want to submit this vendor for approval? Approvers will be notified immediately.</p>
+              <p className='font-md'>Are you sure you want to submit this vendor for approval? Approvers will be notified immediately.</p>
               <div className="confirm-actions">
-                <button className="btn btn-sm" onClick={() => setShowConfirmModal(false)}>Cancel</button>
-                <button className="btn btn-sm btn-primary" onClick={() => { confirmAction(); setShowConfirmModal(false) }}>
+                <Button className="btn btn-sm" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
+                <Button className="btn btn-sm btn-primary" onClick={() => { confirmAction(); setShowConfirmModal(false) }}>
                   <i className="ti ti-send" /> Yes, Submit
-                </button>
+                </Button>
               </div>
             </div>
           </div>
