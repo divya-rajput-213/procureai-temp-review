@@ -68,7 +68,9 @@ const schema = z.object({
   contact_phone: z.string()
     .refine(v => PHONE_ALLOWED_CHARS.test(v), 'Contact phone must contain only numbers')
     .refine(v => /^\+91\d{10}$/.test(v.replace(/\s/g, '')), 'Contact phone must be +91 followed by 10 digits'),
-  address: z.string().min(5, 'Address is required').max(250, 'Address must be at most 250 characters'),
+  address: z.string({ required_error: 'Address is required', invalid_type_error: 'Address is required' })
+    .min(5, 'Address is required')
+    .max(250, 'Address must be at most 250 characters'),
   city: z.string().min(1, 'City is required').max(50).regex(ALPHANUM_WITH_SPACES, 'City must be alphanumeric'),
   state: z.string().min(1, 'State is required').max(50).regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
   country: z.string().min(1, 'Country is required').max(50).regex(ALPHANUM_WITH_SPACES, 'State must be alphanumeric'),
@@ -442,6 +444,30 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     return (Object.values(d).flat() as string[]).join(' ') || 'Please check all fields.'
   }
 
+  const applyServerFieldErrors = (err: any): boolean => {
+    const d = err?.response?.data
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return false
+
+    const fieldSet = new Set(Object.keys(getValues()))
+    let applied = false
+
+    for (const [key, raw] of Object.entries(d as Record<string, any>)) {
+      if (!fieldSet.has(key)) continue
+
+      const msg =
+        Array.isArray(raw) ? String(raw[0] ?? '') :
+          typeof raw === 'string' ? raw :
+            raw?.message ? String(raw.message) :
+              ''
+
+      if (!msg) continue
+      setError(key as keyof VendorForm, { type: 'server', message: msg })
+      applied = true
+    }
+
+    return applied
+  }
+
   /* ── Mutations (unchanged) ── */
 
   const step0Mutation = useMutation({
@@ -466,7 +492,10 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
       queryClient.invalidateQueries({ queryKey: ['vendors'] })
       setStep(1)
     },
-    onError: (err: any) => toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' }),
+    onError: (err: any) => {
+      if (applyServerFieldErrors(err)) return
+      toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' })
+    },
   })
 
   const step1Mutation = useMutation({
@@ -480,7 +509,10 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
       })
     },
     onSuccess: () => setStep(2),
-    onError: (err: any) => toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' }),
+    onError: (err: any) => {
+      if (applyServerFieldErrors(err)) return
+      toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' })
+    },
   })
 
   const submitMutation = useMutation({
@@ -630,11 +662,11 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         .vf-root .form-label{font-size:12px;font-weight:600;color:var(--tx2)}
         .vf-root .form-label .req{color:var(--red-bd);margin-left:2px}
         .vf-root .form-input{padding:8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;transition:border-color 0.15s;width:100%}
-        .vf-root .form-input:focus{border-color:#1a1a18}
+        .vf-root .form-input:focus{border-color:hsl(var(--primary))}
         .vf-root .form-input.ai-fill{border-color:var(--tel-bd)!important;background:var(--tel-bg)!important}
         .vf-root .form-input.border-red{border-color:var(--red-bd)!important}
         .vf-root .form-select{padding:8px 32px 8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);appearance:none;outline:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9a96'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;width:100%;transition:border-color 0.15s}
-        .vf-root .form-select:focus{border-color:#1a1a18}
+        .vf-root .form-select:focus{border-color:hsl(var(--primary))}
         .vf-root .form-divider{border:none;border-top:0.5px solid var(--bd);margin:4px 0 8px}
         .vf-root .field-err{font-size:11px;color:var(--red-tx);margin-top:2px}
         .vf-root .form-sidebar .card{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:14px}
@@ -747,17 +779,17 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     <i className="ti ti-circle-check" style={{ fontSize: 13 }} /> Fields applied
                   </span>
                 )}
-                <button className="btn btn-sm" onClick={() => srfInputRef.current?.click()} disabled={srfExtracting}>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => srfInputRef.current?.click()} disabled={srfExtracting}>
                   <i className="ti ti-sparkles" style={{ color: 'var(--pur-tx)' }} />
                   {srfExtracting ? 'Extracting…' : 'Upload SRF for AI Fill'}
-                </button>
+                </Button>
                 <input ref={srfInputRef} type="file" style={{ display: 'none' }} accept=".xlsx"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleSrfFile(f); e.target.value = '' }} />
               </>
             )}
-            <button className="btn btn-sm" onClick={() => isEdit? setIsEditing?.(false): router.push('/vendors')}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => isEdit? setIsEditing?.(false): router.push('/vendors')}>
               <i className="ti ti-arrow-left" /> Back
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -1331,42 +1363,43 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         </div>
 
         {/* ── Sticky form actions ── */}
-        <div className="form-actions">
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button size="sm"  className="btn btn-sm" onClick={() => router.push('/vendors')}>
-              <i className="ti ti-x" /> Discard
-            </Button>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Step {step + 1} of 3</span>
-            {step > 0 && (
-              <Button  size="sm"  className="btn btn-sm" onClick={() => setStep(s => s - 1)}>
-                <i className="ti ti-arrow-left" /> Previous
-              </Button>
-            )}
-            {step < 2 && (
-              <Button size="sm" className="gap-1.5 btn btn-sm btn-primary"
-                // className="btn btn-sm btn-primary"
-                onClick={()=>step === 0 ? handleStep0Next() : handleStep1Next()}
-                disabled={step0Mutation.isPending || step1Mutation.isPending}
-              >
-                {(step0Mutation.isPending || step1Mutation.isPending) ? 'Saving…' : <>{step===0?"Next & Save Draft":"Next" } <i className="ti ti-arrow-right" /></>}
-              </Button>
-            )}
-            {step === 2 && (
-              <>
-                <Button
-                  className="btn btn-sm btn-primary"
-                  size="sm" 
-                  onClick={handleSubmitForApproval}
-                  disabled={submitMutation.isPending || (selectedMatrix === null && !!matrices && matrices.length > 0)}
-                >
-                  {submitMutation.isPending ? 'Submitting…' : <><i className="ti ti-send" /> Submit for Approval</>}
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+	        <div className="form-actions">
+	          <div style={{ display: 'flex', gap: 8 }}>
+	            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/vendors')}>
+	              <i className="ti ti-x" /> Discard
+	            </Button>
+	          </div>
+	          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+	            <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Step {step + 1} of 3</span>
+	            {step > 0 && (
+	              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setStep(s => s - 1)}>
+	                <i className="ti ti-arrow-left" /> Previous
+	              </Button>
+	            )}
+	            {step < 2 && (
+	              <Button
+	                size="sm"
+	                className="gap-1.5"
+	                onClick={()=>step === 0 ? handleStep0Next() : handleStep1Next()}
+	                disabled={step0Mutation.isPending || step1Mutation.isPending}
+	              >
+	                {(step0Mutation.isPending || step1Mutation.isPending) ? 'Saving…' : <>{step===0?"Next & Save Draft":"Next" } <i className="ti ti-arrow-right" /></>}
+	              </Button>
+	            )}
+	            {step === 2 && (
+	              <>
+	                <Button
+	                  className="gap-1.5"
+	                  size="sm" 
+	                  onClick={handleSubmitForApproval}
+	                  disabled={submitMutation.isPending || (selectedMatrix === null && !!matrices && matrices.length > 0)}
+	                >
+	                  {submitMutation.isPending ? 'Submitting…' : <><i className="ti ti-send" /> Submit for Approval</>}
+	                </Button>
+	              </>
+	            )}
+	          </div>
+	        </div>
 
         {/* ── Confirm modal ── */}
         {showConfirmModal && (
@@ -1374,12 +1407,12 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
             <div className="confirm-modal" onClick={e => e.stopPropagation()}>
               <h2>Confirm Action</h2>
               <p className='font-md'>Are you sure you want to submit this vendor for approval? Approvers will be notified immediately.</p>
-              <div className="confirm-actions">
-                <Button className="btn btn-sm" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
-                <Button className="btn btn-sm btn-primary" onClick={() => { confirmAction(); setShowConfirmModal(false) }}>
-                  <i className="ti ti-send" /> Yes, Submit
-                </Button>
-              </div>
+	              <div className="confirm-actions">
+	                <Button variant="outline" size="sm" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
+	                <Button size="sm" className="gap-1.5" onClick={() => { confirmAction(); setShowConfirmModal(false) }}>
+	                  <i className="ti ti-send" /> Yes, Submit
+	                </Button>
+	              </div>
             </div>
           </div>
         )}
