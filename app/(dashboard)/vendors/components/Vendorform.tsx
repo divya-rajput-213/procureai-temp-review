@@ -44,15 +44,6 @@ const SRF_FIELD_LABELS: Record<string, string> = {
   msme_number: 'MSME Number',
 }
 
-const OTHER_DOC_TYPE_OPTIONS = [
-  { value: 'quality_certificate', label: 'Quality Certificate' },
-  { value: 'iso_certificate', label: 'ISO Certificate' },
-  { value: 'trade_license', label: 'Trade License' },
-  { value: 'insurance', label: 'Insurance Document' },
-  { value: 'nda', label: 'NDA / Agreement' },
-  { value: 'warranty', label: 'Warranty Document' },
-  { value: 'other', label: 'Other' },
-]
 
 const contactFields: FieldConfig[] = [
   { name: 'contact_name', label: 'Contact Person', placeholder: 'e.g. John Doe', maxLength: 50 },
@@ -125,7 +116,7 @@ function colorForName(name: string) {
 
 function DocUploadWidget({
   vendorId, docType, doc, onRefresh, setFieldError, dropLabel, hint,
-}: {
+}: Readonly<{
   vendorId: string
   docType: string
   doc: any | null
@@ -133,11 +124,11 @@ function DocUploadWidget({
   setFieldError?: (msg: string) => void
   dropLabel?: string
   hint?: string
-}) {
+}>) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [parsing, setParsing] = useState(false)
+  const [dragging, setDragging] = useState(false)
 
   const upload = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
@@ -148,7 +139,6 @@ function DocUploadWidget({
       toast({ title: 'Only PDF, JPG, PNG files are allowed', variant: 'destructive' }); return
     }
     setUploading(true)
-    setParsing(true)
     try {
       const fd = new FormData()
       const config = DOC_CONFIG[docType]
@@ -169,10 +159,9 @@ function DocUploadWidget({
       const errData = err?.response?.data
       const notes = errData?.ai_validation_notes || errData?.error || 'Upload failed'
       setFieldError?.(notes)
-      toast({ title: 'Document validation failed', description: notes, variant: 'destructive' })
+      toast({ title: 'Upload failed', description: notes, variant: 'destructive' })
     } finally {
       setUploading(false)
-      setParsing(false)
     }
   }
 
@@ -195,57 +184,60 @@ function DocUploadWidget({
   if (doc) {
     return (
       <div>
-        {/* File chip */}
-        <div className="ufile">
-          <div className="ufile-ic"><i className="ti ti-file-text" /></div>
-          <div style={{ flex: 1 }}>
-            <div className="ufile-name">{doc.original_filename}</div>
-            <div className="ufile-size">{isFailed ? 'Validation failed' : isVerified ? 'AI Verified' : 'Uploaded'}</div>
+        <div className="ufile" style={isFailed ? { borderColor: 'var(--red-bd)' } : isVerified ? { borderColor: 'var(--grn-bd, var(--bd))' } : {}}>
+          <div className="ufile-ic" style={isFailed ? { background: 'var(--red-bg)', color: 'var(--red-tx)' } : isVerified ? { background: 'var(--grn-bg)', color: 'var(--grn-tx)' } : {}}>
+            <i className={`ti ${isFailed ? 'ti-file-alert' : isVerified ? 'ti-file-check' : 'ti-file-text'}`} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="ufile-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.original_filename}</div>
+            <div className="ufile-size" style={isFailed ? { color: 'var(--red-tx)' } : isVerified ? { color: 'var(--grn-tx)' } : {}}>
+              {isFailed ? 'Validation failed' : isVerified ? 'AI Verified ✓' : 'Uploaded'}
+            </div>
           </div>
           {doc.file_url && (
-            <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--blu-tx)' }}>View</a>
+            <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--blu-tx)', flexShrink: 0 }}>View</a>
           )}
           <button type="button" className="ufile-del" onClick={remove} disabled={deleting} title="Remove">
-            {deleting ? <span style={{ fontSize: 11 }}>...</span> : <i className="ti ti-x" />}
+            {deleting ? <i className="ti ti-loader" style={{ animation: 'spin 1s linear infinite' }} /> : <i className="ti ti-x" />}
           </button>
         </div>
         {isFailed && doc.ai_validation_notes && (
-          <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 4 }}>{doc.ai_validation_notes}</div>
+          <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{doc.ai_validation_notes}
+          </div>
         )}
       </div>
     )
   }
 
+  if (uploading) {
+    return (
+      <div className="upz" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, cursor: 'default', borderColor: 'var(--blu-bd, var(--bdm))' }}>
+        <div style={{ width: 32, height: 32, border: '2.5px solid var(--blu-bd, #2563eb)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--blu-tx)' }}>Uploading…</div>
+        <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Validating with AI, please wait</div>
+      </div>
+    )
+  }
+
   return (
-    <div>
-      <label className="upz" style={{ display: 'block' }}>
-        <input
-          type="file"
-          style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
-          accept=".pdf,.jpg,.jpeg,.png"
-          disabled={uploading}
-          onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }}
-        />
-        {uploading ? (
-          <div className="parse-strip" style={{ margin: 0 }}>
-            <span className="parse-dot" />
-            <span>Uploading &amp; validating with AI…</span>
-          </div>
-        ) : (
-          <>
-            <div className="upz-ic"><i className="ti ti-cloud-upload" /></div>
-            <div className="upz-txt">{dropLabel || 'Drag & drop file here'}</div>
-            <div className="upz-sub">{hint || 'PDF, JPG or PNG · max 5 MB · Data will be auto-extracted'}</div>
-          </>
-        )}
-      </label>
-      {parsing && !uploading && (
-        <div className="parse-strip">
-          <span className="parse-dot" />
-          <span>Extracting data from document…</span>
-        </div>
-      )}
-    </div>
+    <label
+      className={`upz${dragging ? ' drag' : ''}`}
+      style={{ display: 'block' }}
+      onDragOver={e => { e.preventDefault(); setDragging(true) }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) upload(f) }}
+    >
+      <input
+        type="file"
+        style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+        accept=".pdf,.jpg,.jpeg,.png"
+        onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }}
+      />
+      <div className="upz-ic"><i className={`ti ${dragging ? 'ti-download' : 'ti-cloud-upload'}`} /></div>
+      <div className="upz-txt">{dragging ? 'Drop to upload' : (dropLabel || 'Drag & drop file here')}</div>
+      <div className="upz-sub">{hint || 'PDF, JPG or PNG · max 5 MB · Data will be auto-extracted'}</div>
+    </label>
   )
 }
 
@@ -319,7 +311,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const queryClient = useQueryClient()
   const isEdit = !!existingVendorId
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(isEdit ? 1 : 0)
   const [vendorId, setVendorId] = useState<string | null>(existingVendorId ?? null)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
@@ -334,13 +326,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const [showSrfMatch, setShowSrfMatch] = useState(false)
   const srfInputRef = useRef<HTMLInputElement>(null)
 
-  /* Other docs */
-  const [otherDocRows, setOtherDocRows] = useState<{ id: number; doc_type: string; title: string; file: File | null }[]>([])
-
-  const addOtherDocRow = () => setOtherDocRows(prev => [...prev, { id: Date.now(), doc_type: 'other', title: '', file: null }])
-  const updateOtherDocRow = (id: number, patch: Partial<{ doc_type: string; title: string; file: File | null }>) =>
-    setOtherDocRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
-  const removeOtherDocRow = (id: number) => setOtherDocRows(prev => prev.filter(r => r.id !== id))
 
   /* Queries */
   const { data: categories = [] } = useQuery({
@@ -398,23 +383,27 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const watchedCategory = watch('category')
   const watchedPlant = watch('plant')
   const watchedIsMsme = watch('is_msme')
-  const watchedIsSez = watch('is_sez')
   const allValues = watch()
 
   /* Compliance cross-validation */
   const [complianceErrors, setComplianceErrors] = useState<Record<string, string>>({})
   const [validationTriggered, setValidationTriggered] = useState(false)
   const [expandedComplianceDocs, setExpandedComplianceDocs] = useState<Record<string, boolean>>({
-    gst_certificate: false,
-    pan_card: false,
-    bank_details: false,
+    gst_certificate: !!initialValues?.gst_number,
+    pan_card: !!initialValues?.pan_number,
+    bank_details: !!(initialValues?.bank_account || initialValues?.bank_ifsc || initialValues?.bank_name),
     iso_certificate: false,
+    msme_certificate: !!initialValues?.is_msme,
+    sez_certificate: !!initialValues?.is_sez,
+    other_documents: false,
   })
-  const [gstManualEntryOpen, setGstManualEntryOpen] = useState(false)
-  const [panManualEntryOpen, setPanManualEntryOpen] = useState(false)
-  const [bankManualEntryOpen, setBankManualEntryOpen] = useState(false)
-  const [isoStandard, setIsoStandard] = useState('')
-  const [isoCustom, setIsoCustom] = useState('')
+  type IsoRow = { standard: string; custom: string }
+  const [isoRows, setIsoRows] = useState<IsoRow[]>([{ standard: '', custom: '' }])
+  const isoDocType = (idx: number) => idx === 0 ? 'iso_certificate' : `iso_certificate_${idx}`
+  const addIsoRow = () => setIsoRows(prev => [...prev, { standard: '', custom: '' }])
+  const removeIsoRow = (idx: number) => setIsoRows(prev => prev.filter((_, i) => i !== idx))
+  const updateIsoRow = (idx: number, field: keyof IsoRow, value: string) =>
+    setIsoRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r))
 
   const validateCompliancePairs = (): boolean => {
     const data = getValues()
@@ -423,7 +412,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     if (!data.pan_number?.trim()) errs['field_pan_number'] = 'PAN Number is required'
     if (!data.bank_account?.trim() || !data.bank_ifsc?.trim() || !data.bank_name?.trim()) errs['field_bank_account'] = 'Complete bank details are required'
     if (data.is_msme && !data.msme_number?.trim()) errs['field_msme_number'] = 'MSME Number is required'
-    if (isoStandard.trim() && !docOf('iso_certificate')) errs['field_iso_certificate'] = 'ISO Certificate upload is required'
+    isoRows.forEach((row, idx) => {
+      if (row.standard.trim() && !docOf(isoDocType(idx))) errs[`field_iso_${idx}`] = 'Document upload is required'
+    })
     setComplianceErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -431,28 +422,14 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   useEffect(() => {
     if (!validationTriggered || Object.keys(complianceErrors).length === 0) return
     validateCompliancePairs()
-  }, [vendorDocs, allValues.gst_number, allValues.pan_number, allValues.bank_account, allValues.bank_ifsc, allValues.bank_name, watchedIsMsme, allValues.msme_number, isoStandard, validationTriggered])
+  }, [vendorDocs, allValues.gst_number, allValues.pan_number, allValues.bank_account, allValues.bank_ifsc, allValues.bank_name, watchedIsMsme, allValues.msme_number, isoRows, validationTriggered])
 
   useEffect(() => {
     if (!validationTriggered) return
-    if (complianceErrors['field_gst_number']) {
-      setExpandedComplianceDocs(prev => ({ ...prev, gst_certificate: true }))
-      setGstManualEntryOpen(true)
-    }
-    if (complianceErrors['field_pan_number']) {
-      setExpandedComplianceDocs(prev => ({ ...prev, pan_card: true }))
-      setPanManualEntryOpen(true)
-    }
-    if (complianceErrors['field_bank_account']) {
-      setExpandedComplianceDocs(prev => ({ ...prev, bank_details: true }))
-      setBankManualEntryOpen(true)
-    }
-    if (complianceErrors['field_iso_certificate']) {
-      setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: true }))
-    }
-    if (complianceErrors['field_msme_number']) {
-      // keep Certifications expanded by user; no-op here
-    }
+    if (complianceErrors['field_gst_number']) setExpandedComplianceDocs(prev => ({ ...prev, gst_certificate: true }))
+    if (complianceErrors['field_pan_number']) setExpandedComplianceDocs(prev => ({ ...prev, pan_card: true }))
+    if (complianceErrors['field_bank_account']) setExpandedComplianceDocs(prev => ({ ...prev, bank_details: true }))
+    if (Object.keys(complianceErrors).some(k => k.startsWith('field_iso_'))) setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: true }))
   }, [validationTriggered, complianceErrors])
 
   useEffect(() => { if (step !== 1) setValidationTriggered(false) }, [step])
@@ -469,7 +446,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
   const step0Mutation = useMutation({
     mutationFn: async (data: VendorForm) => {
-      if ( vendorId) {
+      if (vendorId) {
         const { data: v } = await apiClient.patch(`/vendors/${vendorId}/`, {
           company_name: data.company_name, category: data.category, plant: data.plant,
           contact_name: data.contact_name, contact_email: data.contact_email, contact_phone: data.contact_phone,
@@ -709,6 +686,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         .vf-root .parse-strip{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--blu-bg);border-radius:var(--r);font-size:12px;color:var(--blu-tx);margin-top:8px}
         .vf-root .parse-dot{width:6px;height:6px;border-radius:50%;background:var(--blu-tx);animation:pdot 1s infinite alternate;flex-shrink:0}
         @keyframes pdot{from{opacity:.3}to{opacity:1}}
+        @keyframes spin{to{transform:rotate(360deg)}}
         .vf-root .manual-lnk{font-size:12px;color:var(--blu-tx);cursor:pointer;text-decoration:underline;display:inline-flex;align-items:center;gap:4px;background:none;border:none;padding:0;font-family:'DM Sans',sans-serif}
         .vf-root .manual-lnk:hover{color:var(--blu-bd)}
         .vf-root .appr-matrix-table{border:0.5px solid var(--bd);border-radius:var(--r);overflow:hidden;margin:0 0 8px}
@@ -1036,37 +1014,25 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button type="button" className="btn btn-sm" onClick={() => { setExpandedComplianceDocs(prev => ({ ...prev, gst_certificate: true })); setGstManualEntryOpen(v => !v) }}>
-                          Manual entry
-                        </button>
-                        <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, gst_certificate: !prev.gst_certificate }))} title="Toggle">
-                          <i className={`ti ti-chevron-${expandedComplianceDocs.gst_certificate ? 'up' : 'down'}`} />
-                        </button>
-                      </div>
+                      <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, gst_certificate: !prev.gst_certificate }))} title="Toggle">
+                        <i className={`ti ti-chevron-${expandedComplianceDocs.gst_certificate ? 'up' : 'down'}`} />
+                      </button>
                     </div>
                     {expandedComplianceDocs.gst_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
                         <DocUploadWidget vendorId={vendorId} docType="gst_certificate" doc={docOf('gst_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop GST Certificate here" />
-                        <div style={{ marginTop: 10 }}>
-                          <button type="button" className="manual-lnk" onClick={() => setGstManualEntryOpen(v => !v)}>
-                            <i className="ti ti-pencil" /> Enter details manually
-                          </button>
-                        </div>
-                        {gstManualEntryOpen && (
-                          <div className="form-grid" style={{ marginTop: 12 }}>
-                            <div className="form-group">
-                              <label className="form-label">GST Number <span className="req">*</span></label>
-                              <input
-                                className="form-input"
-                                placeholder="e.g. 27AAAAA0000A1Z5"
-                                style={complianceErrors['field_gst_number'] ? { borderColor: 'var(--red-bd)' } : {}}
-                                {...register('gst_number')}
-                              />
-                              {complianceErrors['field_gst_number'] && <span className="field-err">{complianceErrors['field_gst_number']}</span>}
-                            </div>
+                        <div className="form-grid" style={{ marginTop: 12 }}>
+                          <div className="form-group">
+                            <label className="form-label">GST Number <span className="req">*</span></label>
+                            <input
+                              className="form-input"
+                              placeholder="e.g. 27AAAAA0000A1Z5"
+                              style={complianceErrors['field_gst_number'] ? { borderColor: 'var(--red-bd)' } : {}}
+                              {...register('gst_number')}
+                            />
+                            {complianceErrors['field_gst_number'] && <span className="field-err">{complianceErrors['field_gst_number']}</span>}
                           </div>
-                        )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1085,37 +1051,25 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button type="button" className="btn btn-sm" onClick={() => { setExpandedComplianceDocs(prev => ({ ...prev, pan_card: true })); setPanManualEntryOpen(v => !v) }}>
-                          Manual entry
-                        </button>
-                        <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, pan_card: !prev.pan_card }))} title="Toggle">
-                          <i className={`ti ti-chevron-${expandedComplianceDocs.pan_card ? 'up' : 'down'}`} />
-                        </button>
-                      </div>
+                      <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, pan_card: !prev.pan_card }))} title="Toggle">
+                        <i className={`ti ti-chevron-${expandedComplianceDocs.pan_card ? 'up' : 'down'}`} />
+                      </button>
                     </div>
                     {expandedComplianceDocs.pan_card && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
                         <DocUploadWidget vendorId={vendorId} docType="pan_card" doc={docOf('pan_card')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop PAN Card here" />
-                        <div style={{ marginTop: 10 }}>
-                          <button type="button" className="manual-lnk" onClick={() => setPanManualEntryOpen(v => !v)}>
-                            <i className="ti ti-pencil" /> Enter details manually
-                          </button>
-                        </div>
-                        {panManualEntryOpen && (
-                          <div className="form-grid" style={{ marginTop: 12 }}>
-                            <div className="form-group">
-                              <label className="form-label">PAN Number <span className="req">*</span></label>
-                              <input
-                                className="form-input"
-                                placeholder="e.g. AAAAA9999A"
-                                style={complianceErrors['field_pan_number'] ? { borderColor: 'var(--red-bd)' } : {}}
-                                {...register('pan_number')}
-                              />
-                              {complianceErrors['field_pan_number'] && <span className="field-err">{complianceErrors['field_pan_number']}</span>}
-                            </div>
+                        <div className="form-grid" style={{ marginTop: 12 }}>
+                          <div className="form-group">
+                            <label className="form-label">PAN Number <span className="req">*</span></label>
+                            <input
+                              className="form-input"
+                              placeholder="e.g. AAAAA9999A"
+                              style={complianceErrors['field_pan_number'] ? { borderColor: 'var(--red-bd)' } : {}}
+                              {...register('pan_number')}
+                            />
+                            {complianceErrors['field_pan_number'] && <span className="field-err">{complianceErrors['field_pan_number']}</span>}
                           </div>
-                        )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1132,101 +1086,43 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button type="button" className="btn btn-sm" onClick={() => { setExpandedComplianceDocs(prev => ({ ...prev, bank_details: true })); setBankManualEntryOpen(v => !v) }}>
-                          Manual entry
-                        </button>
-                        <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, bank_details: !prev.bank_details }))} title="Toggle">
-                          <i className={`ti ti-chevron-${expandedComplianceDocs.bank_details ? 'up' : 'down'}`} />
-                        </button>
-                      </div>
+                      <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, bank_details: !prev.bank_details }))} title="Toggle">
+                        <i className={`ti ti-chevron-${expandedComplianceDocs.bank_details ? 'up' : 'down'}`} />
+                      </button>
                     </div>
                     {expandedComplianceDocs.bank_details && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
                         <DocUploadWidget vendorId={vendorId} docType="bank_details" doc={docOf('bank_details')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Bank Letter / Cancelled Cheque here" />
-                        <div style={{ marginTop: 10 }}>
-                          <button type="button" className="manual-lnk" onClick={() => setBankManualEntryOpen(v => !v)}>
-                            <i className="ti ti-pencil" /> Enter details manually
-                          </button>
-                        </div>
-                        {bankManualEntryOpen && (
-                          <div className="form-grid" style={{ marginTop: 12 }}>
-                            <div className="form-group">
-                              <label className="form-label">Account Number <span className="req">*</span></label>
-                              <input
-                                className="form-input"
-                                placeholder="e.g. 50100123456789"
-                                style={complianceErrors['field_bank_account'] ? { borderColor: 'var(--red-bd)' } : {}}
-                                {...register('bank_account')}
-                              />
-                            </div>
-                            <div className="form-group">
-                              <label className="form-label">IFSC <span className="req">*</span></label>
-                              <input
-                                className="form-input"
-                                placeholder="e.g. HDFC0001234"
-                                style={complianceErrors['field_bank_account'] ? { borderColor: 'var(--red-bd)' } : {}}
-                                {...register('bank_ifsc')}
-                              />
-                            </div>
-                            <div className="form-group full">
-                              <label className="form-label">Bank Name <span className="req">*</span></label>
-                              <input
-                                className="form-input"
-                                placeholder="e.g. HDFC Bank Ltd"
-                                style={complianceErrors['field_bank_account'] ? { borderColor: 'var(--red-bd)' } : {}}
-                                {...register('bank_name')}
-                              />
-                              {complianceErrors['field_bank_account'] && <span className="field-err">{complianceErrors['field_bank_account']}</span>}
-                            </div>
+                        <div className="form-grid" style={{ marginTop: 12 }}>
+                          <div className="form-group">
+                            <label className="form-label">Account Number <span className="req">*</span></label>
+                            <input
+                              className="form-input"
+                              placeholder="e.g. 50100123456789"
+                              style={complianceErrors['field_bank_account'] ? { borderColor: 'var(--red-bd)' } : {}}
+                              {...register('bank_account')}
+                            />
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ISO / Quality */}
-                  <div style={{ border: `0.5px solid ${complianceErrors['field_iso_certificate'] ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--amb-bg)', color: 'var(--amb-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
-                          <i className="ti ti-award" />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>ISO / Quality Certificate</div>
-                          <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
-                        </div>
-                      </div>
-                      <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: !prev.iso_certificate }))} title="Toggle">
-                        <i className={`ti ti-chevron-${expandedComplianceDocs.iso_certificate ? 'up' : 'down'}`} />
-                      </button>
-                    </div>
-                    {expandedComplianceDocs.iso_certificate && (
-                      <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <div className="form-group" style={{ marginBottom: 12 }}>
-                          <label className="form-label">ISO Standard <span className="req">*</span></label>
-                          <select className="form-select" value={isoStandard} onChange={(e) => { setIsoStandard(e.target.value); if (e.target.value !== 'other') setIsoCustom('') }}>
-                            <option value="" disabled>Select ISO standard</option>
-                            <option value="ISO 9001:2015">ISO 9001:2015 – Quality Management</option>
-                            <option value="ISO 14001:2015">ISO 14001:2015 – Environmental Management</option>
-                            <option value="ISO 45001:2018">ISO 45001:2018 – Occupational Health &amp; Safety</option>
-                            <option value="ISO 27001">ISO 27001 – Information Security</option>
-                            <option value="ISO 22000">ISO 22000 – Food Safety Management</option>
-                            <option value="ISO 50001">ISO 50001 – Energy Management</option>
-                            <option value="ISO 13485">ISO 13485 – Medical Devices</option>
-                            <option value="other">Other (specify)</option>
-                          </select>
-                        </div>
-                        {isoStandard === 'other' && (
-                          <div className="form-group" style={{ marginBottom: 12 }}>
-                            <label className="form-label">Specify ISO Standard</label>
-                            <input className="form-input" value={isoCustom} onChange={e => setIsoCustom(e.target.value)} placeholder="e.g. ISO 18001:2007" />
+                          <div className="form-group">
+                            <label className="form-label">IFSC <span className="req">*</span></label>
+                            <input
+                              className="form-input"
+                              placeholder="e.g. HDFC0001234"
+                              style={complianceErrors['field_bank_account'] ? { borderColor: 'var(--red-bd)' } : {}}
+                              {...register('bank_ifsc')}
+                            />
                           </div>
-                        )}
-                        <DocUploadWidget vendorId={vendorId} docType="iso_certificate" doc={docOf('iso_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop ISO Certificate here" hint="PDF, JPG or PNG · max 5 MB" />
-                        {complianceErrors['field_iso_certificate'] && (
-                          <div className="field-err" style={{ marginTop: 6 }}>{complianceErrors['field_iso_certificate']}</div>
-                        )}
+                          <div className="form-group full">
+                            <label className="form-label">Bank Name <span className="req">*</span></label>
+                            <input
+                              className="form-input"
+                              placeholder="e.g. HDFC Bank Ltd"
+                              style={complianceErrors['field_bank_account'] ? { borderColor: 'var(--red-bd)' } : {}}
+                              {...register('bank_name')}
+                            />
+                            {complianceErrors['field_bank_account'] && <span className="field-err">{complianceErrors['field_bank_account']}</span>}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1235,44 +1131,34 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                   <hr className="form-divider" style={{ marginTop: 14 }} />
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.5px', margin: '12px 0' }}>Certifications</div>
 
-                  {/* MSME toggle */}
-                  <div className="tog-card">
-                    <div className="tog-card-head">
+                  {/* MSME */}
+                  <input type="hidden" {...register('is_msme')} />
+                  <div style={{ border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--grn-bg)', color: 'var(--grn-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                           <i className="ti ti-certificate-2" />
                         </div>
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>MSME Registered</div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>MSME Registered</div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
                         </div>
                       </div>
-                      <label className="tog-switch">
-                        <input type="checkbox" {...register('is_msme')} />
-                        <span className="tog-slider" />
-                      </label>
+                      <button type="button" className="btn btn-sm" title="Toggle" onClick={() => {
+                        const next = !expandedComplianceDocs.msme_certificate
+                        setExpandedComplianceDocs(prev => ({ ...prev, msme_certificate: next }))
+                        setValue('is_msme', next)
+                      }}>
+                        <i className={`ti ti-chevron-${expandedComplianceDocs.msme_certificate ? 'up' : 'down'}`} />
+                      </button>
                     </div>
-                    {watchedIsMsme && (
-                      <div className="tog-card-body">
-                        <div className="form-grid">
-                          <div>
-                            <label className="form-label" style={{ marginBottom: 6 }}>MSME Certificate</label>
-                            <DocUploadWidget
-                              vendorId={vendorId}
-                              docType="msme_certificate"
-                              doc={docOf('msme_certificate')}
-                              onRefresh={refreshDocs}
-                              dropLabel="Drag &amp; drop Udyam Certificate here"
-                            />
-                          </div>
+                    {expandedComplianceDocs.msme_certificate && (
+                      <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
+                        <DocUploadWidget vendorId={vendorId} docType="msme_certificate" doc={docOf('msme_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Udyam Certificate here" />
+                        <div className="form-grid" style={{ marginTop: 12 }}>
                           <div className="form-group">
                             <label className="form-label">Udyam Registration No. <span className="req">*</span></label>
-                            <input
-                              className="form-input"
-                              placeholder="e.g. UDYAM-MH-00-0000000"
-                              style={{ fontFamily: 'var(--mono)', fontSize: 12, ...(complianceErrors['field_msme_number'] ? { borderColor: 'var(--red-bd)' } : {}) }}
-                              {...register('msme_number')}
-                            />
+                            <input className="form-input" placeholder="e.g. UDYAM-MH-00-0000000" style={{ fontFamily: 'var(--mono)', fontSize: 12, ...(complianceErrors['field_msme_number'] ? { borderColor: 'var(--red-bd)' } : {}) }} {...register('msme_number')} />
                             {complianceErrors['field_msme_number'] && <span className="field-err">{complianceErrors['field_msme_number']}</span>}
                           </div>
                         </div>
@@ -1280,72 +1166,96 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     )}
                   </div>
 
-                  {/* SEZ toggle */}
-                  <div className="tog-card">
-                    <div className="tog-card-head">
+                  {/* SEZ */}
+                  <input type="hidden" {...register('is_sez')} />
+                  <div style={{ border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--pur-bg)', color: 'var(--pur-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                           <i className="ti ti-building-estate" />
                         </div>
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>SEZ Unit</div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>SEZ Unit</div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Special Economic Zone registered unit</div>
                         </div>
                       </div>
-                      <label className="tog-switch">
-                        <input type="checkbox" {...register('is_sez')} />
-                        <span className="tog-slider" />
-                      </label>
+                      <button type="button" className="btn btn-sm" title="Toggle" onClick={() => {
+                        const next = !expandedComplianceDocs.sez_certificate
+                        setExpandedComplianceDocs(prev => ({ ...prev, sez_certificate: next }))
+                        setValue('is_sez', next)
+                      }}>
+                        <i className={`ti ti-chevron-${expandedComplianceDocs.sez_certificate ? 'up' : 'down'}`} />
+                      </button>
                     </div>
-                    {watchedIsSez && (
-                      <div className="tog-card-body">
-                        <label className="form-label" style={{ marginBottom: 6 }}>SEZ Approval Letter</label>
-                        <DocUploadWidget
-                          vendorId={vendorId}
-                          docType="sez_certificate"
-                          doc={docOf('sez_certificate')}
-                          onRefresh={refreshDocs}
-                          dropLabel="Drag &amp; drop SEZ Approval Letter here"
-                        />
+                    {expandedComplianceDocs.sez_certificate && (
+                      <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
+                        <DocUploadWidget vendorId={vendorId} docType="sez_certificate" doc={docOf('sez_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop SEZ Approval Letter here" />
                       </div>
                     )}
                   </div>
 
-                  {/* Other Documents */}
+                  {/* ISO / Quality Certificate — multi-row at end */}
                   <hr className="form-divider" style={{ marginTop: 14 }} />
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.5px', margin: '12px 0' }}>Other Documents</div>
-
-                  {otherDocRows.length === 0 && (
-                    <p style={{ fontSize: 12, color: 'var(--tx3)', fontStyle: 'italic', marginBottom: 8 }}>No additional documents added.</p>
-                  )}
-
-                  {otherDocRows.map(row => (
-                    <div key={row.id} className="other-doc-row">
-                      <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--gry-bg)', color: 'var(--gry-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
-                        <i className="ti ti-file" />
+                  <div style={{ border: `0.5px solid ${Object.keys(complianceErrors).some(k => k.startsWith('field_iso_')) ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--amb-bg)', color: 'var(--amb-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+                          <i className="ti ti-award" />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>ISO / Quality Certificate</div>
+                          <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG · {isoRows.length} document{isoRows.length !== 1 ? 's' : ''}</div>
+                        </div>
                       </div>
-                      <input
-                        className="form-input"
-                        style={{ flex: 1 }}
-                        value={row.title}
-                        onChange={e => updateOtherDocRow(row.id, { title: e.target.value })}
-                        placeholder="Document name (e.g. ISO 18001, Trade Licence…)"
-                      />
-                      <label className="btn btn-sm" style={{ cursor: 'pointer', flexShrink: 0 }}>
-                        <i className="ti ti-upload" /> Upload
-                        {row.file && <span style={{ marginLeft: 4, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10 }}>{row.file.name}</span>}
-                        <input type="file" style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={e => { const f = e.target.files?.[0]; if (f) updateOtherDocRow(row.id, { file: f }); e.target.value = '' }} />
-                      </label>
-                      <button type="button" className="abt del" title="Remove" onClick={() => removeOtherDocRow(row.id)}>
-                        <i className="ti ti-x" />
+                      <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: !prev.iso_certificate }))} title="Toggle">
+                        <i className={`ti ti-chevron-${expandedComplianceDocs.iso_certificate ? 'up' : 'down'}`} />
                       </button>
                     </div>
-                  ))}
-
-                  <button type="button" className="btn btn-sm" style={{ marginTop: 10, width: '100%', justifyContent: 'center', borderStyle: 'dashed', color: 'var(--tx2)' }} onClick={addOtherDocRow}>
-                    <i className="ti ti-plus" /> Add Other Document
-                  </button>
+                    {expandedComplianceDocs.iso_certificate && (
+                      <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
+                        {isoRows.map((row, idx) => (
+                          <div key={idx}>
+                            {idx > 0 && <hr style={{ margin: '14px 0', borderColor: 'var(--bd)', borderTopWidth: '0.5px' }} />}
+                            {isoRows.length > 1 && (
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                                <button type="button" className="abt del" onClick={() => removeIsoRow(idx)} title="Remove">
+                                  <i className="ti ti-x" />
+                                </button>
+                              </div>
+                            )}
+                            <div className="form-group" style={{ marginBottom: 12 }}>
+                              <label className="form-label">Document Type</label>
+                              <select className="form-select" value={row.standard} onChange={(e) => { updateIsoRow(idx, 'standard', e.target.value); if (e.target.value !== 'other') updateIsoRow(idx, 'custom', '') }}>
+                                <option value="" disabled>Select type</option>
+                                <option value="ISO 9001:2015">ISO 9001:2015 – Quality Management</option>
+                                <option value="ISO 14001:2015">ISO 14001:2015 – Environmental Management</option>
+                                <option value="ISO 45001:2018">ISO 45001:2018 – Occupational Health &amp; Safety</option>
+                                <option value="ISO 27001">ISO 27001 – Information Security</option>
+                                <option value="ISO 22000">ISO 22000 – Food Safety Management</option>
+                                <option value="ISO 50001">ISO 50001 – Energy Management</option>
+                                <option value="ISO 13485">ISO 13485 – Medical Devices</option>
+                                <option value="other">Other (specify)</option>
+                              </select>
+                            </div>
+                            {row.standard === 'other' && (
+                              <div className="form-group" style={{ marginBottom: 12 }}>
+                                <label className="form-label">Specify Document Type</label>
+                                <input className="form-input" value={row.custom} onChange={e => updateIsoRow(idx, 'custom', e.target.value)} placeholder="e.g. Trade Licence, NDA, Warranty…" />
+                              </div>
+                            )}
+                            <DocUploadWidget vendorId={vendorId} docType={isoDocType(idx)} doc={docOf(isoDocType(idx))} onRefresh={refreshDocs} dropLabel="Drag &amp; drop document here" hint="PDF, JPG or PNG · max 5 MB" />
+                            {complianceErrors[`field_iso_${idx}`] && (
+                              <div className="field-err" style={{ marginTop: 6 }}>{complianceErrors[`field_iso_${idx}`]}</div>
+                            )}
+                          </div>
+                        ))}
+                        <button type="button" className="btn btn-sm" style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 6 }} onClick={addIsoRow}>
+                          <i className="ti ti-plus" />
+                          Add More
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
