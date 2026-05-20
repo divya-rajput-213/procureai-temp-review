@@ -1363,42 +1363,43 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         </div>
 
         {/* ── Sticky form actions ── */}
-        <div className="form-actions">
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button size="sm"  className="btn btn-sm" onClick={() => router.push('/vendors')}>
-              <i className="ti ti-x" /> Discard
-            </Button>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Step {step + 1} of 3</span>
-            {step > 0 && (
-              <Button  size="sm"  className="btn btn-sm" onClick={() => setStep(s => s - 1)}>
-                <i className="ti ti-arrow-left" /> Previous
-              </Button>
-            )}
-            {step < 2 && (
-              <Button size="sm" className="gap-1.5 btn btn-sm btn-primary"
-                // className="btn btn-sm btn-primary"
-                onClick={()=>step === 0 ? handleStep0Next() : handleStep1Next()}
-                disabled={step0Mutation.isPending || step1Mutation.isPending}
-              >
-                {(step0Mutation.isPending || step1Mutation.isPending) ? 'Saving…' : <>{step===0?"Next & Save Draft":"Next" } <i className="ti ti-arrow-right" /></>}
-              </Button>
-            )}
-            {step === 2 && (
-              <>
-                <Button
-                  className="btn btn-sm btn-primary"
-                  size="sm" 
-                  onClick={handleSubmitForApproval}
-                  disabled={submitMutation.isPending || (selectedMatrix === null && !!matrices && matrices.length > 0)}
-                >
-                  {submitMutation.isPending ? 'Submitting…' : <><i className="ti ti-send" /> Submit for Approval</>}
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+	        <div className="form-actions">
+	          <div style={{ display: 'flex', gap: 8 }}>
+	            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/vendors')}>
+	              <i className="ti ti-x" /> Discard
+	            </Button>
+	          </div>
+	          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+	            <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Step {step + 1} of 3</span>
+	            {step > 0 && (
+	              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setStep(s => s - 1)}>
+	                <i className="ti ti-arrow-left" /> Previous
+	              </Button>
+	            )}
+	            {step < 2 && (
+	              <Button
+	                size="sm"
+	                className="gap-1.5"
+	                onClick={()=>step === 0 ? handleStep0Next() : handleStep1Next()}
+	                disabled={step0Mutation.isPending || step1Mutation.isPending}
+	              >
+	                {(step0Mutation.isPending || step1Mutation.isPending) ? 'Saving…' : <>{step===0?"Next & Save Draft":"Next" } <i className="ti ti-arrow-right" /></>}
+	              </Button>
+	            )}
+	            {step === 2 && (
+	              <>
+	                <Button
+	                  className="gap-1.5"
+	                  size="sm" 
+	                  onClick={handleSubmitForApproval}
+	                  disabled={submitMutation.isPending || (selectedMatrix === null && !!matrices && matrices.length > 0)}
+	                >
+	                  {submitMutation.isPending ? 'Submitting…' : <><i className="ti ti-send" /> Submit for Approval</>}
+	                </Button>
+	              </>
+	            )}
+	          </div>
+	        </div>
 
         {/* ── Confirm modal ── */}
         {showConfirmModal && (
@@ -1406,12 +1407,12 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
             <div className="confirm-modal" onClick={e => e.stopPropagation()}>
               <h2>Confirm Action</h2>
               <p className='font-md'>Are you sure you want to submit this vendor for approval? Approvers will be notified immediately.</p>
-              <div className="confirm-actions">
-                <Button className="btn btn-sm" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
-                <Button className="btn btn-sm btn-primary" onClick={() => { confirmAction(); setShowConfirmModal(false) }}>
-                  <i className="ti ti-send" /> Yes, Submit
-                </Button>
-              </div>
+	              <div className="confirm-actions">
+	                <Button variant="outline" size="sm" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
+	                <Button size="sm" className="gap-1.5" onClick={() => { confirmAction(); setShowConfirmModal(false) }}>
+	                  <i className="ti ti-send" /> Yes, Submit
+	                </Button>
+	              </div>
             </div>
           </div>
         )}
