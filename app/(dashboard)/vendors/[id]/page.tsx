@@ -8,13 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, Shield, MapPin, LayoutDashboard, ShieldCheck, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, Shield, MapPin, LayoutDashboard, ShieldCheck, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck } from 'lucide-react'
 import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import {
   AreaChart, Area, LineChart, Line,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
 } from 'recharts'
 import EditVendorPage from '../components/Editvendorpage'
 
@@ -380,6 +381,7 @@ function VendorDashboard({ vendorId, vendor,dash,isLoading }: { vendorId: string
 
   const stats = dash?.stats ?? {}
   const transactions: any[] = dash?.recent_transactions ?? []
+  const recentQuotations: any[] = dash?.active_bids ?? []
   const perfScore = dash?.performance_score != null ? Math.round(Number(dash.performance_score))
     : vendor.performance_score != null ? Math.round(Number(vendor.performance_score))
       : null
@@ -454,146 +456,6 @@ function VendorDashboard({ vendorId, vendor,dash,isLoading }: { vendorId: string
         </Card>
 
 
-        {/* Compliance */}
-        <Card className="rounded-xl border shadow-none overflow-hidden">
-
-          <CardHeader className="py-2 px-3 border-b">
-            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Compliance Overview
-            </CardTitle>
-          </CardHeader>
-
-          <CardContent className="p-0">
-
-            {[
-              {
-                label: 'GST Certificate',
-                value: vendor.gst_number,
-                icon: FileBadge,
-                bg: 'bg-blue-100',
-                color: 'text-blue-700',
-                empty: 'Missing',
-                mono: true
-              },
-
-              {
-                label: 'PAN Card',
-                value: vendor.pan_number,
-                icon: CreditCard,
-                bg: 'bg-green-100',
-                color: 'text-green-700',
-                empty: 'Missing',
-                mono: true
-              },
-
-              {
-                label: 'Bank Verification',
-                value: vendor.bank_account
-                  ? `XXXX ${vendor.bank_account.slice(-4)}`
-                  : null,
-                icon: Landmark,
-                bg: 'bg-purple-100',
-                color: 'text-purple-700',
-                empty: 'Not provided',
-                mono: true
-              },
-
-              {
-                label: 'MSME Registration',
-                value: vendor.msme_number,
-                icon: BadgeCheck,
-                bg: 'bg-green-100',
-                color: 'text-green-700',
-                empty: 'Not registered'
-              },
-
-              {
-                label: 'SEZ Unit',
-                value: vendor.sez_number,
-                icon: Building2,
-                bg: 'bg-purple-100',
-                color: 'text-purple-700',
-                empty: 'Not registered'
-              },
-
-              {
-                label: 'ISO Certificate',
-                value: vendor.iso_type,
-                icon: Award,
-                bg: 'bg-amber-100',
-                color: 'text-amber-700',
-                empty: 'Not certified'
-              }
-
-            ].map(item => {
-              const hasValue = !!item.value
-              const Icon = item.icon
-
-              return (
-
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between px-3 py-2 border-b last:border-0"
-                >
-
-                  {/* Left */}
-                  <div className="flex items-center gap-2">
-
-                    <div
-                      className={`h-6 w-6 rounded-md flex items-center justify-center ${item.bg}`}
-                    >
-                      <Icon
-                        className={`h-3 w-3 ${item.color}`}
-                      />
-                    </div>
-
-                    <span className="text-[11px] font-medium">
-                      {item.label}
-                    </span>
-
-                  </div>
-
-
-                  {/* Right */}
-                  <div
-                    className={`
-          flex items-center gap-1 text-[10px] font-medium
-          ${hasValue
-                        ? 'text-green-700'
-                        : 'text-red-600'
-                      }
-        `}
-                  >
-
-                    {hasValue ? (
-                      <>
-                        <CheckCircle2 className="h-3 w-3 shrink-0" />
-
-                        <span className={item.mono ? 'font-mono' : ''}>
-                          {item.value}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="h-3 w-3 shrink-0" />
-
-                        <span>
-                          {item.empty}
-                        </span>
-                      </>
-                    )}
-
-                  </div>
-
-                </div>
-
-              )
-            })}
-
-          </CardContent>
-
-        </Card>
 
 
         {/* Purchase Orders */}
@@ -680,12 +542,219 @@ function VendorDashboard({ vendorId, vendor,dash,isLoading }: { vendorId: string
           </CardContent>
         </Card>
 
+        {/* Recent Quotations */}
+        <Card className="rounded-xl border shadow-none overflow-hidden">
+          <CardHeader className="py-3 px-4 border-b">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <FileText className="h-3.5 w-3.5" />
+              Recent Quotations
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-[12px]">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">PR Number</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Title</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentQuotations.length ? (
+                  recentQuotations.slice(0, 5).map((q: any) => (
+                    <tr key={q.bid_id} className="border-t hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{q.pr_number}</td>
+                      <td className="px-4 py-2.5 max-w-[160px] truncate">{q.title || '—'}</td>
+                      <td className="px-4 py-2.5 text-right">{q.bid_amount != null ? formatCurrency(q.bid_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          q.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                          q.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                          q.status === 'shortlisted' ? 'bg-blue-100 text-blue-700' :
+                          'bg-slate-100 text-slate-600'
+                        }`}>
+                          {q.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-[12px] text-muted-foreground">No quotations yet</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+
+        {/* ── Charts ───────────────────────────────────────────────────────── */}
+
+        {/* Monthly Spend Trend */}
+        <Card className="rounded-xl border shadow-none">
+          <CardHeader className="py-3 px-4 border-b flex-row items-center justify-between">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <TrendingUp className="h-3.5 w-3.5" />
+              Monthly Spend Trend
+            </CardTitle>
+            <span className="text-[11px] text-muted-foreground">Last 12 months</span>
+          </CardHeader>
+          <CardContent className="p-4">
+            {(dash.spend_trend ?? []).every((d: any) => d.spend === 0) ? (
+              <div className="h-[140px] flex items-center justify-center text-[12px] text-muted-foreground">No spend data yet</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={140}>
+                <AreaChart data={dash.spend_trend ?? []} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.18} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                  <Tooltip formatter={(v: any) => [formatCurrency(v), 'Spend']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                  <Area type="monotone" dataKey="spend" stroke="#2563eb" strokeWidth={2} fill="url(#spendGrad)" dot={false} activeDot={{ r: 4 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Bid Win Rate + Delivery Performance side by side */}
+        <div className="grid grid-cols-2 gap-4">
+
+          {/* Bid Win Rate Donut — 3 segments: won / rejected / pending */}
+          <Card className="rounded-xl border shadow-none">
+            <CardHeader className="py-3 px-4 border-b">
+              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                <Trophy className="h-3.5 w-3.5" />
+                Bid Win Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 flex flex-col items-center gap-2">
+              {stats.total_bids === 0 ? (
+                <div className="h-[120px] flex items-center justify-center text-[12px] text-muted-foreground">No bids yet</div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <ResponsiveContainer width={120} height={120}>
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'Won',     value: stats.accepted_bids ?? 0 },
+                            { name: 'Rejected', value: stats.rejected_bids ?? 0 },
+                            { name: 'Pending',  value: stats.pending_bids  ?? 0 },
+                          ]}
+                          cx={55} cy={55} innerRadius={36} outerRadius={52}
+                          startAngle={90} endAngle={-270}
+                          dataKey="value" strokeWidth={0}
+                        >
+                          <Cell fill="#2563eb" />
+                          <Cell fill="#ef4444" />
+                          <Cell fill="#e2e8f0" />
+                        </Pie>
+                        <Tooltip formatter={(v: any, name: any) => [v, name]} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[18px] font-bold text-slate-800">{stats.win_rate}%</span>
+                    </div>
+                  </div>
+                  <div className="text-center space-y-1">
+                    <div className="text-[11px] text-muted-foreground">{stats.accepted_bids} of {stats.total_bids} bids won</div>
+                    <div className="flex items-center justify-center gap-3 text-[10px]">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#2563eb] inline-block" />Won</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ef4444] inline-block" />Rejected</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#e2e8f0] inline-block" />Pending</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Delivery Performance — trend line over 6 months */}
+          <Card className="rounded-xl border shadow-none">
+            <CardHeader className="py-3 px-4 border-b">
+              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                <Truck className="h-3.5 w-3.5" />
+                Delivery Performance
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              {(dash.delivery_trend ?? []).every((d: any) => d.actual === null) ? (
+                <div className="h-[120px] flex items-center justify-center text-[12px] text-muted-foreground">No delivery data</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={120}>
+                  <LineChart data={dash.delivery_trend ?? []} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={(v: any, name: any) => [`${v} days`, name === 'actual' ? 'Actual' : 'Target']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <Line type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                    <Line type="monotone" dataKey="target" stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+              {stats.otd_pct != null && (
+                <p className="text-[10px] text-muted-foreground text-center mt-1">
+                  {stats.otd_pct}% on-time delivery
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+        </div>
+
       </div>
 
 
 
       {/* RIGHT SIDEBAR */}
       <div className="space-y-4">
+
+        {/* Compliance */}
+        <Card className="rounded-xl border shadow-none overflow-hidden">
+          <CardHeader className="py-2 px-3 border-b">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Compliance Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {[
+              { label: 'GST Certificate', value: vendor.gst_number, icon: FileBadge, bg: 'bg-blue-100', color: 'text-blue-700', empty: 'Missing', mono: true },
+              { label: 'PAN Card', value: vendor.pan_number, icon: CreditCard, bg: 'bg-green-100', color: 'text-green-700', empty: 'Missing', mono: true },
+              { label: 'Bank Verification', value: vendor.bank_account ? `XXXX ${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true },
+              { label: 'MSME Registration', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100', color: 'text-green-700', empty: 'Not registered' },
+              { label: 'SEZ Unit', value: vendor.sez_number, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not registered' },
+              { label: 'ISO Certificate', value: vendor.iso_type, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: 'Not certified' },
+            ].map(item => {
+              const hasValue = !!item.value
+              const Icon = item.icon
+              return (
+                <div key={item.label} className="flex items-center justify-between px-3 py-2 border-b last:border-0">
+                  <div className="flex items-center gap-2">
+                    <div className={`h-6 w-6 rounded-md flex items-center justify-center ${item.bg}`}>
+                      <Icon className={`h-3 w-3 ${item.color}`} />
+                    </div>
+                    <span className="text-[11px] font-medium">{item.label}</span>
+                  </div>
+                  <div className={`flex items-center gap-1 text-[10px] font-medium ${hasValue ? 'text-green-700' : 'text-red-600'}`}>
+                    {hasValue ? (
+                      <><CheckCircle2 className="h-3 w-3 shrink-0" /><span className={item.mono ? 'font-mono' : ''}>{item.value}</span></>
+                    ) : (
+                      <><XCircle className="h-3 w-3 shrink-0" /><span>{item.empty}</span></>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
 
         {/* Risk */}
         <Card className="rounded-xl border overflow-hidden">
@@ -1113,7 +1182,7 @@ export default function VendorDetailPage() {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
-  const [activeTabKey, setActiveTabKey] = useState<'overview' | 'details' | 'documents' | 'approval'>('overview')
+  const [activeTabKey, setActiveTabKey] = useState<'overview' | 'documents' | 'approval'>('overview')
 
   const { data: vendor, isLoading } = useQuery({
     queryKey: ['vendor', id],
@@ -1123,6 +1192,12 @@ export default function VendorDetailPage() {
   const { data: dash,  isLoading: dashLoading,} = useQuery({
     queryKey: ['vendor-dashboard', id],
     queryFn: async () => (await apiClient.get(`/vendors/${id}/dashboard/`)).data,
+  })
+
+  const { data: vendorDocs = [] } = useQuery({
+    queryKey: ['vendor-docs', id],
+    queryFn: async () => { const r = await apiClient.get(`/vendors/${id}/documents/`); return r.data.results ?? r.data },
+    enabled: activeTabKey === 'documents',
   })
 
 
@@ -1218,16 +1293,14 @@ export default function VendorDetailPage() {
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
   if (!vendor) return <div className="p-8 text-center text-muted-foreground">Vendor not found.</div>
 
-  const canEdit = ['draft', 'pending_approval'].includes(vendor.status)
+  const canFullEdit  = vendor.status === 'draft'
+  const canUploadDoc = ['draft', 'pending_approval', 'approved'].includes(vendor.status)
+  const isLocked     = ['rejected', 'blocked'].includes(vendor.status)
+
   const tabs = [
-    {
-      key: 'overview',
-      label: 'Overview',
-    },
-    {
-      key: 'approval',
-      label: 'Approval',
-    },
+    { key: 'overview', label: 'Overview' },
+    { key: 'documents', label: 'Documents' },
+    { key: 'approval', label: 'Approval' },
   ]
   return (
     <>
@@ -1297,19 +1370,26 @@ export default function VendorDetailPage() {
 
 
             {/* Actions */}
-            {vendor.status ==="draft" &&<div className="flex gap-2">
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-[13px]"
-                onClick={() => setIsEditing(true)}
-              >
-                <Pencil className="w-[14px] h-[14px] mr-1" />
-                Edit
-              </Button>
-
-            </div>}
+            <div className="flex gap-2">
+              {canFullEdit && (
+                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => setIsEditing(true)}>
+                  <Pencil className="w-[14px] h-[14px] mr-1" />
+                  Edit
+                </Button>
+              )}
+              {canUploadDoc && !canFullEdit && (
+                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => setIsEditing(true)}>
+                  <FileText className="w-[14px] h-[14px] mr-1" />
+                  Upload Documents
+                </Button>
+              )}
+              {isLocked && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[12px] font-medium">
+                  <XCircle className="w-3.5 h-3.5" />
+                  {vendor.status === 'blocked' ? 'Vendor blocked' : 'Vendor rejected'} — read only
+                </span>
+              )}
+            </div>
           </div>
 
 
@@ -1359,7 +1439,7 @@ export default function VendorDetailPage() {
             <button
               key={tab.key}
               onClick={() => {
-                setActiveTabKey(tab.key as 'overview' | 'approval')
+                setActiveTabKey(tab.key as 'overview' | 'documents' | 'approval')
                 setIsEditing(false)
               }}
               className={`
@@ -1379,12 +1459,12 @@ export default function VendorDetailPage() {
                 <LayoutDashboard className="w-[14px] h-[14px]" />
               )}
 
-              {tab.key === 'approval' && (
-                <ShieldCheck className="w-[14px] h-[14px]" />
+              {tab.key === 'documents' && (
+                <FileText className="w-[14px] h-[14px]" />
               )}
 
-              {tab.key === 'activity' && (
-                <History className="w-[14px] h-[14px]" />
+              {tab.key === 'approval' && (
+                <ShieldCheck className="w-[14px] h-[14px]" />
               )}
 
               <span>{tab.label}</span>
@@ -1394,107 +1474,87 @@ export default function VendorDetailPage() {
         {/* Overview Tab */}
         {activeTabKey === 'overview' && <VendorDashboard vendorId={id} vendor={vendor} dash={dash} isLoading={dashLoading}/>}
 
-        {/* Details Tab */}
-        {activeTabKey === 'details' && (
+
+
+        {/* Documents Tab */}
+        {activeTabKey === 'documents' && (
           <div className="space-y-4">
-            {/* {isEditing ? (
-            <EditDetailsForm
-              vendor={vendor}
-              categories={categories ?? []}
-              plants={plants ?? []}
-              onSave={data => editMutation.mutate(data)}
-              onCancel={() => setIsEditing(false)}
-              saving={editMutation.isPending}
-            />
-          ) : ( */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card className="shadow-sm">
-                <CardHeader className="pb-4 border-b">
-                  <CardTitle className="text-sm font-semibold">Contact & Location</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-5 space-y-3">
-                  {[
-                    { label: 'Contact Person', value: vendor.contact_name, icon: '👤' },
-                    { label: 'Email', value: vendor.contact_email, icon: '📧' },
-                    { label: 'Phone', value: vendor.contact_phone, icon: '📞' },
-                    { label: 'Address', value: [vendor.address, vendor.city, vendor.state, vendor.pincode].filter(Boolean).join(', ') || '—', icon: '📍' },
-                  ].map(({ label, value, icon }) => (
-                    <div key={label} className="flex justify-between items-start gap-2">
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
-                      </div>
-                      <p className="text-sm font-medium text-right text-slate-900">{value || '—'}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
 
-              <Card className="shadow-sm">
-                <CardHeader className="pb-4 border-b">
-                  <CardTitle className="text-sm font-semibold">Banking & Compliance</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-5 space-y-3">
-                  {[
-                    { label: 'Bank Name', value: vendor.bank_name },
-                    { label: 'Account Number', value: vendor.bank_account },
-                    { label: 'IFSC Code', value: vendor.bank_ifsc },
-                    { label: 'GST Number', value: vendor.gst_number },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="flex justify-between items-start gap-2">
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
-                      </div>
-                      <p className="text-sm font-medium text-right text-slate-900 font-mono">{value || '—'}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+            {/* Upload button — reuse edit form (starts at compliance step) */}
+            {canUploadDoc && (
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => setIsEditing(true)}>
+                  <FileText className="w-[14px] h-[14px] mr-1" />
+                  Upload Documents
+                </Button>
+              </div>
+            )}
 
-              <Card className="shadow-sm">
-                <CardHeader className="pb-4 border-b">
-                  <CardTitle className="text-sm font-semibold">Business Information</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-5 space-y-3">
-                  {[
-                    { label: 'PAN Number', value: vendor.pan_number },
-                    { label: 'Category', value: vendor.category_name || '—' },
-                    { label: 'Plant', value: vendor.plant_name || '—' },
-                    { label: 'Country', value: vendor.country },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="flex justify-between items-start gap-2">
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
-                      </div>
-                      <p className="text-sm font-medium text-right text-slate-900">{value || '—'}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+            {/* Locked notice — rejected / blocked */}
+            {isLocked && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-2 text-[13px] text-red-700">
+                <XCircle className="h-4 w-4 shrink-0" />
+                This vendor is <strong>{vendor.status}</strong>. Document uploads are disabled.
+              </div>
+            )}
 
-              <Card className="shadow-sm">
-                <CardHeader className="pb-4 border-b">
-                  <CardTitle className="text-sm font-semibold">Organization Profile</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-5 space-y-3">
-                  {[
-                    { label: 'Established', value: vendor.established },
-                    { label: 'Employees', value: vendor.employees },
-                    { label: 'Status', value: vendor.status && <StatusBadge status={vendor.status} /> },
-                    { label: 'Vendor Code', value: vendor.vendor_code, isMono: true },
-                  ].map(({ label, value, isMono }) => (
-                    <div key={label} className="flex justify-between items-start gap-2">
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
-                      </div>
-                      <div className="text-sm font-medium text-right text-slate-900">
-                        {typeof value === 'string' ? <span className={isMono ? 'font-mono' : ''}>{value || '—'}</span> : value}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-            {/* )} */}
+            {/* Documents table */}
+            {vendorDocs.length === 0 ? (
+              <div className="rounded-xl border bg-white p-10 text-center text-[13px] text-muted-foreground">
+                No documents uploaded yet.
+              </div>
+            ) : (
+              <div className="rounded-xl border bg-white overflow-hidden">
+                <table className="w-full text-[12px]">
+                  <thead className="bg-slate-50 border-b">
+                    <tr>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Document</th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Type</th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Uploaded</th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-center text-muted-foreground">AI Status</th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-center text-muted-foreground">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vendorDocs.map((doc: any) => {
+                      const isVerified = doc.ai_validation_status === 'passed' || doc.ai_validation_status === 'valid'
+                      const isFailed = doc.ai_validation_status === 'failed' || doc.ai_validation_status === 'invalid'
+                      const docLabel = (doc.doc_type ?? '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+                      return (
+                        <tr key={doc.id ?? doc.hash_id} className="border-t hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="h-7 w-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+                                <FileText className="h-3.5 w-3.5 text-blue-600" />
+                              </div>
+                              <span className="font-medium text-[12px] max-w-[200px] truncate">{doc.original_filename || doc.title || '—'}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{docLabel}</td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              isVerified ? 'bg-green-100 text-green-700' :
+                              isFailed ? 'bg-red-100 text-red-700' :
+                              'bg-amber-100 text-amber-700'
+                            }`}>
+                              {isVerified ? 'Verified' : isFailed ? 'Failed' : 'Pending'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {doc.file_url ? (
+                              <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 hover:underline font-medium">View</a>
+                            ) : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
