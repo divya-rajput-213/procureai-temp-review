@@ -1321,29 +1321,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
             {/* ══ STEP 2: Submit for Approval ══ */}
             {step === 2 && !isReadOnly && (
               <div className="form-section" style={{ border: 'none', background: 'transparent' }}>
-                <div style={{ padding: '16px 0' }}>
-                  {/* Vendor summary strip */}
-                  {(() => {
-                    const name = watch('company_name') || 'Unnamed Vendor'
-                    const city = watch('city') || ''
-                    const state = watch('state') || ''
-                    const plant = (plants as any[]).find((p: any) => p.id === watch('plant'))?.name || ''
-                    const col = colorForName(name)
-                    return (
-                      <div className="step3-summary">
-                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: col.bg, color: col.tx, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
-                          {getInitials(name)}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 2 }}>
-                            {[city, state, plant].filter(Boolean).join(' · ') || '—'}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })()}
-
+                <div style={{ padding: '16px 0' }}>              
                   {/* Matrix selector */}
                   {matrices === undefined && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--tx3)', padding: '8px 0' }}>

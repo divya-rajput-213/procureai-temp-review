@@ -378,7 +378,7 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
                   </th>
 
                   <th className="px-4 py-2 text-[11px] uppercase text-left">
-                    Description
+                    Type
                   </th>
 
                   <th className="px-4 py-2 text-[11px] uppercase">
@@ -452,7 +452,7 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-4 py-2 text-[11px] uppercase text-left">PR Number</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Title</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Quotation Number</th>
                   <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
                   <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
                 </tr>
@@ -973,10 +973,10 @@ export default function VendorDetailPage() {
               </div>
 
               <div>
-                <div className=' flex '>  <h1 className="text-[19px] font-semibold tracking-[-0.4px] mr-1">
-                  {vendor.company_name}
-                </h1>
-                  <StatusBadge status={vendor.status} /></div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-[19px] font-semibold tracking-[-0.4px]">{vendor.company_name}</h1>
+                  <StatusBadge status={vendor.status} />
+                </div>
 
                 <div className="flex flex-wrap items-center gap-2 mt-1 text-[13px] text-[#5a5a57]">
 
