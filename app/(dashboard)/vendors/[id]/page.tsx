@@ -353,8 +353,8 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
 
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[70%_30%] gap-4">      {/* LEFT */}
-      <div className="space-y-4">
+    <div className="grid grid-cols-1 xl:grid-cols-[70%_1fr] gap-4 min-w-0">      {/* LEFT */}
+      <div className="space-y-4 min-w-0 overflow-x-hidden">
         {/* Purchase Orders */}
         <Card>
           <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
@@ -378,7 +378,7 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
                   </th>
 
                   <th className="px-4 py-2 text-[11px] uppercase text-left">
-                    Description
+                    Type
                   </th>
 
                   <th className="px-4 py-2 text-[11px] uppercase">
@@ -452,7 +452,7 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-4 py-2 text-[11px] uppercase text-left">PR Number</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Title</th>
+                  <th className="px-4 py-2 text-[11px] uppercase text-left">Quotation Number</th>
                   <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
                   <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
                 </tr>
@@ -604,7 +604,7 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
       </div>
 
       {/* RIGHT SIDEBAR */}
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
 
         {/* Compliance */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
@@ -955,7 +955,7 @@ export default function VendorDetailPage() {
   ]
   return (
     <>
-      {isEditing ? <EditVendorPage setIsEditing={setIsEditing} vendorStatus={vendor?.status}/> : <div className="space-y-3">
+      {isEditing ? <EditVendorPage setIsEditing={setIsEditing} vendorStatus={vendor?.status}/> : <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
         {/* Header */}
         <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
 
@@ -973,10 +973,10 @@ export default function VendorDetailPage() {
               </div>
 
               <div>
-                <div className=' flex '>  <h1 className="text-[19px] font-semibold tracking-[-0.4px] mr-1">
-                  {vendor.company_name}
-                </h1>
-                  <StatusBadge status={vendor.status} /></div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-[19px] font-semibold tracking-[-0.4px]">{vendor.company_name}</h1>
+                  <StatusBadge status={vendor.status} />
+                </div>
 
                 <div className="flex flex-wrap items-center gap-2 mt-1 text-[13px] text-[#5a5a57]">
 
