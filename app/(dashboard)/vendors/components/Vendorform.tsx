@@ -793,7 +793,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleSrfFile(f); e.target.value = '' }} />
               </>
             )}
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => isEdit? setIsEditing?.(false): router.push('/vendors')}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => isEdit ? setIsEditing?.(false) : router.push('/vendors')}>
               <i className="ti ti-arrow-left" /> Back
             </Button>
           </div>
@@ -1276,7 +1276,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             {idx > 0 && <hr style={{ margin: '14px 0', borderColor: 'var(--bd)', borderTopWidth: '0.5px' }} />}
                             {isoRows.length > 1 && (
                               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                                <button type="button" className="abt del"  onClick={() => removeIsoRow(idx)} title="Remove">
+                                <button type="button" className="abt del" onClick={() => removeIsoRow(idx)} title="Remove">
                                   <i className="ti ti-x" />
                                 </button>
                               </div>
@@ -1388,43 +1388,44 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         </div>
 
         {/* ── Sticky form actions ── */}
-	        <div className="form-actions">
-	          <div style={{ display: 'flex', gap: 8 }}>
-	            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/vendors')}>
+        <div className="form-actions">
+          <div style={{ display: 'flex', gap: 8 }}>
+            {/* <Button variant="outline" size="sm" className="gap-1.5" onClick={() => isEdit? setIsEditing?.(false):router.push('/vendors')}>
 	              <i className="ti ti-x" /> Discard
-	            </Button>
-	          </div>
-	          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-	            <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Step {step + 1} of 3</span>
-	            {step > 0 && (
-	              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setStep(s => s - 1)}>
-	                <i className="ti ti-arrow-left" /> Previous
-	              </Button>
-	            )}
-	            {step < 2 && (
-	              <Button
-	                size="sm"
-	                className="gap-1.5"
-	                onClick={()=>step === 0 ? handleStep0Next() : handleStep1Next()}
-	                disabled={step0Mutation.isPending || step1Mutation.isPending}
-	              >
-	                {(step0Mutation.isPending || step1Mutation.isPending) ? 'Saving…' : <>{step===0?"Next & Save Draft":"Next" } <i className="ti ti-arrow-right" /></>}
-	              </Button>
-	            )}
-	            {step === 2 && (
-	              <>
-	                <Button
-	                  className="gap-1.5"
-	                  size="sm" 
-	                  onClick={handleSubmitForApproval}
-	                  disabled={submitMutation.isPending || (selectedMatrix === null && !!matrices && matrices.length > 0)}
-	                >
-	                  {submitMutation.isPending ? 'Submitting…' : <><i className="ti ti-send" /> Submit for Approval</>}
-	                </Button>
-	              </>
-	            )}
-	          </div>
-	        </div>
+	            </Button> */}
+            {step > 0 && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setStep(s => s - 1)}>
+                <i className="ti ti-arrow-left" /> Previous
+              </Button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Step {step + 1} of 3</span>
+
+            {step < 2 && (
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={() => step === 0 ? handleStep0Next() : handleStep1Next()}
+                disabled={step0Mutation.isPending || step1Mutation.isPending}
+              >
+                {(step0Mutation.isPending || step1Mutation.isPending) ? 'Saving…' : <>{step === 0 ? "Next & Save Draft" : "Next"} <i className="ti ti-arrow-right" /></>}
+              </Button>
+            )}
+            {step === 2 && (
+              <>
+                <Button
+                  className="gap-1.5"
+                  size="sm"
+                  onClick={handleSubmitForApproval}
+                  disabled={submitMutation.isPending || (selectedMatrix === null && !!matrices && matrices.length > 0)}
+                >
+                  {submitMutation.isPending ? 'Submitting…' : <><i className="ti ti-send" /> Submit for Approval</>}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* ── Confirm modal ── */}
         {showConfirmModal && (
@@ -1432,12 +1433,12 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
             <div className="confirm-modal" onClick={e => e.stopPropagation()}>
               <h2>Confirm Action</h2>
               <p className='font-md'>Are you sure you want to submit this vendor for approval? Approvers will be notified immediately.</p>
-	              <div className="confirm-actions">
-	                <Button variant="outline" size="sm" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
-	                <Button size="sm" className="gap-1.5" onClick={() => { confirmAction(); setShowConfirmModal(false) }}>
-	                  <i className="ti ti-send" /> Yes, Submit
-	                </Button>
-	              </div>
+              <div className="confirm-actions">
+                <Button variant="outline" size="sm" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
+                <Button size="sm" className="gap-1.5" onClick={() => { confirmAction(); setShowConfirmModal(false) }}>
+                  <i className="ti ti-send" /> Yes, Submit
+                </Button>
+              </div>
             </div>
           </div>
         )}
