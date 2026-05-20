@@ -93,7 +93,6 @@ function missingComplianceFields(v: Partial<VendorForm>): string[] {
   const m: string[] = []
   if (!v.gst_number) m.push('GST Number')
   if (!v.pan_number) m.push('PAN Number')
-  if (!v.bank_account || !v.bank_ifsc || !v.bank_name) m.push('Bank Details')
   return m
 }
 
@@ -264,7 +263,7 @@ function FormChecklist({ values, isMsme }: { values: Partial<VendorForm>; isMsme
     { group: 'Step 2 — Documents' },
     { label: 'GST Certificate', done: !!values.gst_number, req: true },
     { label: 'PAN Card', done: !!values.pan_number, req: true },
-    { label: 'Bank Verification', done: !!values.bank_account, req: true },
+    { label: 'Bank Verification', done: !!values.bank_account, req: false },
     ...(isMsme ? [{ label: 'MSME Certificate', done: !!values.msme_number, req: true }] : []),
   ]
 
@@ -419,7 +418,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     const errs: Record<string, string> = {}
     if (!data.gst_number?.trim()) errs['field_gst_number'] = 'GST Number is required'
     if (!data.pan_number?.trim()) errs['field_pan_number'] = 'PAN Number is required'
-    if (!data.bank_account?.trim() || !data.bank_ifsc?.trim() || !data.bank_name?.trim()) errs['field_bank_account'] = 'Complete bank details are required'
     if (data.is_msme && !data.msme_number?.trim()) errs['field_msme_number'] = 'MSME Number is required'
     isoRows.forEach((row, idx) => {
       if (row.standard.trim() && !docOf(isoDocType(idx))) errs[`field_iso_${idx}`] = 'Document upload is required'
