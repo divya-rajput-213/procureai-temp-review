@@ -10,7 +10,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-type DeleteDialogProps = {
+type ButtonVariant = 'destructive' | 'default' | 'outline' | 'secondary' | 'ghost' | 'link'
+
+type ConfirmDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
@@ -18,17 +20,19 @@ type DeleteDialogProps = {
   description?: string
   confirmText?: string
   cancelText?: string
+  confirmVariant?: ButtonVariant
 }
 
-export default function DeleteDialog({
+export function ConfirmDialog({
   open,
   onOpenChange,
   onConfirm,
-  title = 'Delete Item',
-  description = 'Are you sure you want to delete this item?',
-  confirmText = 'Delete',
+  title = 'Confirm Action',
+  description = 'Are you sure you want to proceed?',
+  confirmText = 'Yes, Submit',
   cancelText = 'Cancel',
-}: Readonly<DeleteDialogProps>) {
+  confirmVariant = 'default',
+}: Readonly<ConfirmDialogProps>) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -37,10 +41,44 @@ export default function DeleteDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>{cancelText}</Button>
-          <Button variant="destructive" onClick={onConfirm}>{confirmText}</Button>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            {cancelText}
+          </Button>
+          <Button
+            variant={confirmVariant}
+            size="sm"
+            onClick={() => {
+              onConfirm()
+              onOpenChange(false)
+            }}
+          >
+            {confirmText}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+export function DeleteDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  title = 'Delete Item',
+  description = 'Are you sure you want to delete this item?',
+  confirmText = 'Delete',
+  cancelText = 'Cancel',
+}: Readonly<Omit<ConfirmDialogProps, 'confirmVariant'>>) {
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      onConfirm={onConfirm}
+      title={title}
+      description={description}
+      confirmText={confirmText}
+      cancelText={cancelText}
+      confirmVariant="destructive"
+    />
   )
 }

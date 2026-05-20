@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import apiClient from '@/lib/api/client'
+import { ConfirmDialog } from '@/components/shared/CommonModal'
 import { DOC_CONFIG, ALPHANUM_WITH_SPACES, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -435,7 +436,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     if (!validationTriggered) return
     if (complianceErrors['field_gst_number']) setExpandedComplianceDocs(prev => ({ ...prev, gst_certificate: true }))
     if (complianceErrors['field_pan_number']) setExpandedComplianceDocs(prev => ({ ...prev, pan_card: true }))
-    if (complianceErrors['field_bank_account']) setExpandedComplianceDocs(prev => ({ ...prev, bank_details: true }))
     if (Object.keys(complianceErrors).some(k => k.startsWith('field_iso_'))) setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: true }))
   }, [validationTriggered, complianceErrors])
 
@@ -700,7 +700,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         .vf-root .cl-prog-bar{height:5px;background:var(--bg-t);border-radius:10px;flex:1;overflow:hidden}
         .vf-root .cl-prog-fill{height:100%;background:var(--grn-bd,#639922);border-radius:10px;transition:width .3s}
         .vf-root .cl-prog-txt{font-size:11px;font-weight:600;color:var(--tx3);white-space:nowrap}
-        .vf-root .form-actions{background:var(--bg);border-top:0.5px solid var(--bd);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px;border-radius:0 0 var(--rl) var(--rl)}
+	        .vf-root .form-actions{background:var(--bg);border-top:0.5px solid var(--bd);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:40;margin-top:16px;border-radius:0 0 var(--rl) var(--rl)}
         .vf-root .tog-card{border:0.5px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
         .vf-root .tog-card-head{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;background:var(--bg-s)}
         .vf-root .tog-card-body{padding:16px;border-top:0.5px solid var(--bd);background:var(--bg)}
@@ -751,9 +751,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         .vf-root .srf-off{background:var(--bg-s);opacity:.4}
         .vf-root .step3-summary{padding:12px 16px;background:var(--bg-s);border-radius:var(--r);margin-bottom:18px;display:flex;align-items:center;gap:12px;border:0.5px solid var(--bd)}
         .vf-root .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;display:flex;align-items:center;justify-content:center}
-        .vf-root .confirm-modal{background:var(--bg);border-radius:var(--rl);padding:28px;width:380px;border:0.5px solid var(--bdm)}
-        .vf-root .confirm-modal h2{font-size:16px;font-weight:600;margin-bottom:6px}
-        .vf-root .confirm-modal p{font-size:13px;color:var(--tx2);margin-bottom:20px;line-height:1.6}
+	        .vf-root .confirm-modal{background:var(--bg);border-radius:var(--rl);padding:24px;width:100%;max-width:384px;box-shadow:0 20px 25px -5px rgba(0,0,0,.15),0 8px 10px -6px rgba(0,0,0,.12);border:1px solid rgba(0,0,0,0.08)}
+	        .vf-root .confirm-modal h2{font-size:16px;font-weight:600;margin-bottom:6px}
+	        .vf-root .confirm-modal p{font-size:14px;color:var(--tx3);margin-bottom:20px;line-height:1.5}
         .vf-root .confirm-actions{display:flex;gap:8px;justify-content:flex-end}
         .vf-root .srf-overlay{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.8)}
       `}</style>
@@ -1116,8 +1116,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     )}
                   </div>
 
-                  {/* Bank */}
-                  <div style={{ border: `0.5px solid ${complianceErrors['field_bank_account'] ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
+	                  {/* Bank (optional) */}
+	                  <div style={{ border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
                     <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--pur-bg)', color: 'var(--pur-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
@@ -1263,7 +1263,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600 }}>ISO / Quality Certificate</div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG · {isoRows.length} document{isoRows.length !== 1 ? 's' : ''}</div>
-                        </div>
+                          i@1rcb.com                </div>
                       </div>
                       <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: !prev.iso_certificate }))} title="Toggle">
                         <i className={`ti ti-chevron-${expandedComplianceDocs.iso_certificate ? 'up' : 'down'}`} />
@@ -1427,20 +1427,16 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 	        </div>
 
         {/* ── Confirm modal ── */}
-        {showConfirmModal && (
-          <div className="confirm-overlay" onClick={() => setShowConfirmModal(false)}>
-            <div className="confirm-modal" onClick={e => e.stopPropagation()}>
-              <h2>Confirm Action</h2>
-              <p className='font-md'>Are you sure you want to submit this vendor for approval? Approvers will be notified immediately.</p>
-	              <div className="confirm-actions">
-	                <Button variant="outline" size="sm" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
-	                <Button size="sm" className="gap-1.5" onClick={() => { confirmAction(); setShowConfirmModal(false) }}>
-	                  <i className="ti ti-send" /> Yes, Submit
-	                </Button>
-	              </div>
-            </div>
-          </div>
-        )}
+                <ConfirmDialog
+          open={showConfirmModal}
+          onOpenChange={setShowConfirmModal}
+          onConfirm={confirmAction}
+          title="Confirm Action"
+          description="Are you sure you want to submit this vendor for approval? Approvers will be notified immediately."
+          confirmText="Yes, Submit"
+          confirmVariant="destructive"
+        />
+
       </div>
     </>
   )
