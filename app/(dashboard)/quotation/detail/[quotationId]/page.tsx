@@ -40,7 +40,7 @@ type Vendor = {
   bank_name: string
   bank_account: string
   bank_ifsc: string
-  vendor_code:string
+  vendor_code: string
 }
 
 type BillTo = {
@@ -86,6 +86,7 @@ type Quotation = {
   confidence_score?: number | null
   pr_no?: string
   buyer_details?: any
+  category?:any
 }
 
 type QuotationDetails = {
@@ -160,7 +161,7 @@ function mapVendor(raw: any): Vendor | null {
     bank_name: v.bank_name ?? '',
     bank_account: v.bank_account ?? '',
     bank_ifsc: v.bank_ifsc ?? '',
-    vendor_code:v.vendor_code??""
+    vendor_code: v.vendor_code ?? ""
   }
 }
 
@@ -219,6 +220,8 @@ function mapQuotation(raw: any): Quotation {
     category_name: raw.category_name ?? '',
     buyer_details: raw.buyer_details ?? null,
     confidence_score: nullableNumber(raw.confidence_score ?? raw.ai_confidence ?? raw.confidence),
+    category:raw.category ?? null
+    
   }
 }
 
@@ -269,7 +272,7 @@ function fmtDate(raw: string | undefined | null): string {
 export default function QuotationDetailsPage({ params }: Readonly<{ params: { quotationId: string } }>) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState('items')
 
   const { data, isLoading, isError } = useQuery<QuotationDetails>({
     queryKey: ['quotation', params.quotationId],
@@ -409,20 +412,25 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               </span>
             </div>
             <div style={{ fontSize: 13, color: 'var(--tx2)' }}>
-              {vendor?.company_name || '—'} · {quotation.plant_name || '—'} · Submitted {fmtDate(quotation.created_at)}
+              {vendor?.company_name || '—'} ·               {[vendor?.city, vendor?.state].filter(Boolean).join(', ') || '—'}
+              · Submitted {fmtDate(quotation.created_at)}
             </div>
           </div>
         </div>
 
         {/* Row 1: QT Number / Vendor Ref No / Quote Date / Valid Until */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 16 }}>
-          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
-            <div className="rhm-lbl">QT Number</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, color: 'var(--blu-tx)' }}>{quotation.ref_no || '—'}</div>
-          </div>
+
           <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Vendor Code</div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, color: 'var(--tx2)' }}>{vendor?.vendor_code || '—'}</div>
+          </div>
+          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
+            <div className="rhm-lbl">Vendor Contact</div>
+            <div style={{ fontSize: 11 }}>
+              {[vendor?.contact_name, vendor?.contact_phone ? `+${vendor.contact_phone}` : null].filter(Boolean).join(' · ') || '—'}
+            </div>            <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 1 }}>
+            </div>
           </div>
           <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Quote Date</div>
@@ -436,16 +444,21 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
         {/* Row 2: Vendor / Plant / Grand Total / PR Linked */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14, marginTop: 14 }}>
+        
           <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
-            <div className="rhm-lbl">Vendor</div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{vendor?.company_name || '—'}</div>
-            <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 1 }}>
-              {[vendor?.city, vendor?.state].filter(Boolean).join(', ') || '—'}
+            <div className="rhm-item">
+              <div className="rhm-lbl">Plant / Department / Category</div>
+
+              <div style={{ fontSize: 13, fontWeight: 500 }}>
+                {[
+                  quotation?.plant_name,
+                  quotation?.department_name,
+                  quotation?.category_name || quotation?.category,
+                ]
+                  .filter(Boolean)
+                  .join(' / ') || '—'}
+              </div>
             </div>
-          </div>
-          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
-            <div className="rhm-lbl">Plant</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{quotation.plant_name || '—'}</div>
           </div>
           <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Grand Total</div>
@@ -458,40 +471,11 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         </div>
       </div>
 
-      {/* KPI strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10, marginBottom: 16 }}>
-        <div className="stat-mini">
-          <div className="sm-lbl">Line Items</div>
-          <div className="sm-val">{items.length}</div>
-        </div>
-        <div className="stat-mini">
-          <div className="sm-lbl">Sub Total</div>
-          <div className="sm-val" style={{ fontSize: 16, color: 'var(--tx2)' }}>{formatINR(displaySubtotal)}</div>
-        </div>
-        <div className="stat-mini">
-          <div className="sm-lbl">GST</div>
-          <div className="sm-val" style={{ fontSize: 16, color: 'var(--tx2)' }}>
-            {formatINR(backendIgstAmount != null ? displayIgstAmount : (displayCgstAmount ?? 0) + (displaySgstAmount ?? 0))}
-          </div>
-        </div>
-        <div className="stat-mini">
-          <div className="sm-lbl">Category</div>
-          <div className="sm-val" style={{ fontSize: 14 }}>{quotation.category_name || '—'}</div>
-        </div>
-        <div className="stat-mini">
-          <div className="sm-lbl">Submitted</div>
-          <div className="sm-val" style={{ fontSize: 14 }}>{fmtDate(quotation.created_at)}</div>
-        </div>
-      </div>
-
-      {/* Tabs bar */}
       {/* Tabs bar */}
       <div className="flex w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white">
         {([
-          { id: 'overview',  label: 'Overview',           icon: <LayoutDashboard className="w-[14px] h-[14px]" /> },
-          { id: 'items',     label: 'Line Items',          icon: <List className="w-[14px] h-[14px]" />,  badge: items.length },
-          { id: 'terms',     label: 'Terms & Conditions',  icon: <ScrollText className="w-[14px] h-[14px]" /> },
-          { id: 'docs',      label: 'Documents',           icon: <FolderOpen className="w-[14px] h-[14px]" /> },
+          { id: 'items', label: 'Line Items', icon: <List className="w-[14px] h-[14px]" />, badge: items.length },
+          { id: 'terms', label: 'Terms & Conditions', icon: <ScrollText className="w-[14px] h-[14px]" /> },
         ] as { id: string; label: string; icon: React.ReactNode; badge?: number }[]).map(tab => (
           <button
             key={tab.id}
@@ -521,117 +505,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
       {/* Tab pane container */}
       <div className="border border-[rgba(0,0,0,0.08)] border-t-0 rounded-b-xl bg-white mb-4 overflow-hidden">
-
-        {/* ── Overview ── */}
-        {activeTab === 'overview' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px' }}>
-            {/* Left */}
-            <div style={{ padding: 16, borderRight: '0.5px solid var(--bd)' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 12 }}>Vendor Details</div>
-
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: avatar.bg, color: avatar.tx, fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {avatar.initials}
-                </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{vendor?.company_name || '—'}</div>
-                  <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>
-                    {[vendor?.city, vendor?.state].filter(Boolean).join(', ') || '—'}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                    <span className={`pill ${statusCls}`} style={{ fontSize: 10 }}>
-                      <span className="dot" />{statusLabel}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
-                <div style={{ background: 'var(--bg-s)', borderRadius: 6, padding: '9px 11px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 3 }}>GSTIN</div>
-                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)' }}>{vendor?.gst_number || '—'}</div>
-                </div>
-                <div style={{ background: 'var(--bg-s)', borderRadius: 6, padding: '9px 11px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 3 }}>Contact</div>
-                  <div style={{ fontSize: 11 }}>
-                    {[vendor?.contact_name, vendor?.contact_phone ? `+${vendor.contact_phone}` : null].filter(Boolean).join(' · ') || '—'}
-                  </div>
-                </div>
-                <div style={{ background: 'var(--bg-s)', borderRadius: 6, padding: '9px 11px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 3 }}>Department</div>
-                  <div style={{ fontSize: 12, fontWeight: 500 }}>{quotation.department_name || '—'}</div>
-                </div>
-                <div style={{ background: 'var(--bg-s)', borderRadius: 6, padding: '9px 11px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 3 }}>Category</div>
-                  <div style={{ fontSize: 12, fontWeight: 500 }}>{quotation.category_name || '—'}</div>
-                </div>
-              </div>
-
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>Tax Summary</div>
-              <div style={{ border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '0.5px solid var(--bd)' }}>
-                  <span style={{ fontSize: 12, color: 'var(--tx2)' }}>Sub Total</span>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{formatINR(displaySubtotal)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '0.5px solid var(--bd)' }}>
-                  <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Discount</span>
-                  <span style={{ fontSize: 12, color: 'var(--red-tx)', fontWeight: 600 }}>—</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '0.5px solid var(--bd)' }}>
-                  <span style={{ fontSize: 12, color: 'var(--tx2)' }}>Taxable Value</span>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{formatINR(displaySubtotal)}</span>
-                </div>
-                {backendIgstAmount != null && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '0.5px solid var(--bd)' }}>
-                    <span style={{ fontSize: 12, color: 'var(--tx3)' }}>
-                      IGST{backendIgstRate != null ? ` @ ${backendIgstRate}%` : ''}
-                    </span>
-                    <span style={{ fontSize: 12, color: 'var(--tx3)' }}>{formatINR(displayIgstAmount)}</span>
-                  </div>
-                )}
-                {displayCgstAmount != null && displayCgstAmount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '0.5px solid var(--bd)' }}>
-                    <span style={{ fontSize: 12, color: 'var(--tx3)' }}>CGST @ {displayCgstRate}%</span>
-                    <span style={{ fontSize: 12, color: 'var(--tx3)' }}>{formatINR(displayCgstAmount)}</span>
-                  </div>
-                )}
-                {displaySgstAmount != null && displaySgstAmount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '0.5px solid var(--bd)' }}>
-                    <span style={{ fontSize: 12, color: 'var(--tx3)' }}>SGST @ {displaySgstRate}%</span>
-                    <span style={{ fontSize: 12, color: 'var(--tx3)' }}>{formatINR(displaySgstAmount)}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-s)' }}>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>Grand Total</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--tel-tx)' }}>{formatINR(displayGrandTotal)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right sidebar */}
-            <div style={{ padding: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 12 }}>Quick Summary</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--blu-bg)', borderRadius: 'var(--r)' }}>
-                  <span style={{ fontSize: 12, color: 'var(--blu-tx)', fontWeight: 500 }}>
-                    <i className="ti ti-link" style={{ marginRight: 4 }} />Matched Items
-                  </span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--blu-tx)' }}>{matchedCount}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--grn-bg)', borderRadius: 'var(--r)' }}>
-                  <span style={{ fontSize: 12, color: 'var(--grn-tx)', fontWeight: 500 }}>
-                    <i className="ti ti-plus" style={{ marginRight: 4 }} />New Items
-                  </span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--grn-tx)' }}>{newCount}</span>
-                </div>
-              </div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>PR Link</div>
-              <div style={{ background: 'var(--bg-s)', borderRadius: 'var(--r)', padding: '10px 12px', fontSize: 12, color: 'var(--tx3)' }}>
-                {quotation.pr_no ? `Linked to ${quotation.pr_no}` : 'No PR linked'}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* ── Line Items ── */}
         {activeTab === 'items' && (
@@ -745,35 +618,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           </div>
         )}
 
-        {/* ── Documents ── */}
-        {activeTab === 'docs' && (
-          <div style={{ padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 500 }}>Attached Documents</div>
-            </div>
-            <div style={{ border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', overflow: 'hidden' }}>
-              {quotation.pdf_url ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px' }}>
-                  <i className="ti ti-file-type-pdf" style={{ fontSize: 20, color: 'var(--red-tx)', flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>quotation.pdf</div>
-                    <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Original document · Vendor&apos;s quotation</div>
-                  </div>
-                  <button className="qd-btn" onClick={handleDownloadGeneratedPdf} disabled={loading}>
-                    <i className="ti ti-download" /> Download
-                  </button>
-                  <button className="qd-btn" onClick={() => window.open(quotation.pdf_url!, '_blank')}>
-                    <i className="ti ti-eye" /> Preview
-                  </button>
-                </div>
-              ) : (
-                <div style={{ padding: 32, textAlign: 'center', color: 'var(--tx3)', fontSize: 13 }}>
-                  No document available
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
     </div>
@@ -798,7 +642,6 @@ const QD_CSS = `
     --gry-bg:#F1EFE8;--gry-tx:#5F5E5A;--gry-bd:#888780;
     --pur-bg:#EEEDFE;--pur-tx:#3C3489;--pur-bd:#7F77DD;
   }
-  .qd-root{font-family:'DM Sans',sans-serif;color:var(--tx)}
 
   /* Button */
   .qd-btn{padding:7px 14px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--tx);transition:background .15s}

@@ -149,7 +149,7 @@ export function CommonConfirmModal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center px-4 transition-all duration-200
+      className={`fixed inset-0 z-[10000] flex items-center justify-center px-4 transition-all duration-200
         ${animating ? 'bg-black/40' : 'bg-black/0'}`}
       onClick={handleClose}
     >

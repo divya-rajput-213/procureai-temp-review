@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
+import { CommonConfirmModal } from '@/components/shared/CommonModal'
 import VerifyItemsStep from '../../components/VerifyItemsStep'
 import ReviewSubmitStep from '../../components/ReviewSubmitStep'
 
@@ -36,34 +37,6 @@ function statusPill(status?: string) {
     if (s.includes('pending')) return { label: 'Pending', bg: 'var(--amb-bg)', tx: 'var(--amb-tx)', dot: 'var(--amb-bd)' }
     if (s === 'rejected') return { label: 'Rejected', bg: 'var(--red-bg)', tx: 'var(--red-tx)', dot: 'var(--red-bd)' }
     return { label: status, bg: 'var(--gry-bg)', tx: 'var(--gry-tx)', dot: 'var(--gry-bd)' }
-}
-
-function ConfirmModal({ open, onOpenChange, onConfirm, title, description, confirmText, isPending }: Readonly<{
-    open: boolean; onOpenChange: (v: boolean) => void; onConfirm: () => void
-    title: string; description: string; confirmText: string; isPending?: boolean
-}>) {
-    if (!open) return null
-    return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 px-4">
-            <div className="bg-white rounded-md shadow-xl w-full max-w-[520px] p-0 overflow-hidden relative">
-                <div className="p-5 space-y-3">
-                    <h2 className="text-xl font-semibold tracking-tight pr-10">{title}</h2>
-                    <button type="button" onClick={() => onOpenChange(false)}
-                        className="absolute top-3 right-3 inline-flex h-7 w-7 items-center justify-center rounded-sm text-slate-500 hover:text-slate-700 transition-colors" aria-label="Close">
-                        <X className="w-4 h-4" />
-                    </button>
-                    <div className="mt-2 text-sm text-slate-700 leading-relaxed whitespace-pre-line">{description}</div>
-                </div>
-                <div className="border-t px-5 py-3 flex items-center justify-end gap-4">
-                    <Button variant="ghost" className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button size="sm" disabled={isPending} onClick={onConfirm} className="gap-2 bg-[#042348] text-white hover:bg-[#032B5C] shadow-md rounded-md px-6 font-semibold">
-                        {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {confirmText}
-                    </Button>
-                </div>
-            </div>
-        </div>
-    )
 }
 
 export default function EditQuotationPage({ params }: Readonly<{ params: { quotationId: string } }>) {
@@ -198,11 +171,13 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
         },
         onSuccess: () => {
             toast({ title: 'Saved', description: 'Quotation updated successfully' })
+            setShowConfirm(false)
             router.push(`/quotation/detail/${params.quotationId}`)
         },
         onError: (error: any) => {
             const message = getApiErrorMessage(error, 'Failed to update quotation.')
             setErrorMessage(message)
+            setShowConfirm(false)
             toast({ title: 'Error', description: message, variant: 'destructive' })
         },
     })
@@ -236,7 +211,6 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
         <>
             <style>{`
                 *,*::before,*::after{box-sizing:border-box}
-                .qf-root{font-family:'DM Sans',sans-serif;color:var(--tx,#1a1a18)}
                 :root{
                     --bg:#fff;--bg-s:#f8f8f6;--bg-t:#f2f1ee;
                     --tx:#1a1a18;--tx2:#5a5a57;--tx3:#9a9a96;
@@ -288,7 +262,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 .qf-root .ci:last-child{border-bottom:none}
                 .qf-root .ci-ok{color:var(--grn-tx)}
                 .qf-root .ci-idle{color:var(--tx3)}
-                .qf-root .sticky-bar{background:var(--bg);border:0.5px solid var(--bd);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px;border-radius:0 0 var(--rl) var(--rl)}
+                .qf-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px;}
                 .qf-root .err-strip{background:var(--red-bg);border:0.5px solid var(--red-bd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:var(--red-tx)}
                 .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:13px}
                 .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
@@ -639,6 +613,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         setPrLinkId={setPrLinkId}
                         internalNotes={internalNotes}
                         setInternalNotes={setInternalNotes}
+                        showTerms={false}
                     />
                 )}
 
@@ -678,17 +653,24 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         )}
                     </div>
                 </div>
-
-                <ConfirmModal
-                    open={showConfirm}
-                    onOpenChange={setShowConfirm}
-                    onConfirm={() => quotationSaveMutation.mutate()}
-                    title="Save Changes"
-                    description={`You are about to update this quotation from ${vendors?.company_name || 'the vendor'} with ${lineItems.length} line item${lineItems.length !== 1 ? 's' : ''}.`}
-                    confirmText="Yes, Save"
-                    isPending={quotationSaveMutation.isPending}
-                />
             </div>
+
+            {/* ── Confirm modal — outside qf-root so Tailwind styles are not overridden ── */}
+            <CommonConfirmModal
+                isOpen={showConfirm}
+                title="Confirm Action"
+                description={
+                    <>
+                        You are about to update this quotation from{' '}
+                        <strong>{vendors?.company_name || 'the vendor'}</strong> with{' '}
+                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''}.
+                    </>
+                }
+                confirmLabel="Yes, Submit"
+                onClose={() => setShowConfirm(false)}
+                onConfirm={() => quotationSaveMutation.mutate()}
+                isPending={quotationSaveMutation.isPending}
+            />
         </>
     )
 }

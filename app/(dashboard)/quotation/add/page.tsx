@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
+import { CommonConfirmModal } from '@/components/shared/CommonModal'
 import UploadFile from '../components/UploadFile'
 import VerifyItemsStep from '../components/VerifyItemsStep'
 import ReviewSubmitStep from '../components/ReviewSubmitStep'
@@ -16,42 +17,8 @@ interface Category { id: number; hash_id: string; name: string; is_active: boole
 const STEPS = [
     { id: 0, label: 'Upload Document', sub: 'Upload & extract details' },
     { id: 1, label: 'Items & Matching', sub: 'Review & match line items' },
-    { id: 2, label: 'Review & Submit', sub: 'Confirm' },
+    { id: 2, label: 'Review & Submit', sub: 'Confirm & send for approval' },
 ]
-
-function ConfirmModal({ open, onOpenChange, onConfirm, title, description, confirmText, isPending }: Readonly<{
-    open: boolean; onOpenChange: (v: boolean) => void; onConfirm: () => void
-    title: string; description: string; confirmText: string; isPending?: boolean
-}>) {
-    if (!open) return null
-    return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 px-4">
-            <div className="bg-white rounded-md shadow-xl w-full max-w-[520px] p-0 overflow-hidden relative">
-                <div className="p-5 space-y-3">
-                    <h2 className="text-xl font-semibold tracking-tight pr-10">{title}</h2>
-                    <button
-                        type="button"
-                        onClick={() => onOpenChange(false)}
-                        className="absolute top-3 right-3 inline-flex h-7 w-7 items-center justify-center rounded-sm text-slate-500 hover:text-slate-700 transition-colors"
-                        aria-label="Close"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                    <div className="mt-2 text-sm text-slate-700 leading-relaxed whitespace-pre-line">{description}</div>
-                </div>
-                <div className="border-t px-5 py-3 flex items-center justify-end gap-4">
-                    <Button variant="ghost" className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent" onClick={() => onOpenChange(false)}>
-                        Cancel
-                    </Button>
-                    <Button size="sm" disabled={isPending} onClick={onConfirm} className="gap-2 bg-[#042348] text-white hover:bg-[#032B5C] shadow-md rounded-md px-6 font-semibold">
-                        {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {confirmText}
-                    </Button>
-                </div>
-            </div>
-        </div>
-    )
-}
 
 export default function UploadQuotationPage() {
     const { toast } = useToast()
@@ -82,7 +49,7 @@ export default function UploadQuotationPage() {
             else if (typeof data?.error === 'string') message = data.error
             else if (typeof data?.message === 'string') message = data.message
             else if (typeof data?.detail === 'string') message = data.detail
-            else message = Object.entries(data).map(([k, v]) => Array.isArray(v) ? `${k}: ${v.join(', ')}` : `${k}: ${v}`).join(' | ')
+            else message = Object.entries(data).map(([k, v]) => Array.isArray(v) ? `${k}: ${(v as string[]).join(', ')}` : `${k}: ${v}`).join(' | ')
         }
         const normalized = String(message || '').trim()
         if (normalized.toLowerCase().includes('vendor details are required')) return 'Vendor details are required to submit the quotation'
@@ -188,11 +155,13 @@ export default function UploadQuotationPage() {
         },
         onSuccess: (data: any) => {
             toast({ title: 'Success', description: data?.message || 'Quotation saved successfully' })
+            setShowConfirm(false)
             const id = data?.hash_id || data?.id
             router.push(id ? `/quotation/detail/${id}` : '/quotation')
         },
         onError: (error: any) => {
             const message = getApiErrorMessage(error, 'Failed to save quotation.')
+            setShowConfirm(false)
             setErrorMessage(message)
             toast({ title: 'Error', description: message, variant: 'destructive' })
         },
@@ -207,7 +176,6 @@ export default function UploadQuotationPage() {
         }
     }, [selectedFile])
 
-    // Auto-select first option for each dropdown once data loads
     useEffect(() => { if (plants.length > 0 && !plantId) setPlantId(String(plants[0].id)) }, [plants])
     useEffect(() => { if (departments.length > 0 && !departmentId) setDepartmentId(String(departments[0].id)) }, [departments])
     useEffect(() => { if (categories.length > 0 && !categoryId) setCategoryId(String(categories[0].id)) }, [categories])
@@ -228,11 +196,6 @@ export default function UploadQuotationPage() {
             return updated ? newItems : prev
         })
     }, [lineItems.length])
-
-    const computedSubtotal = lineItems.reduce((sum: number, item: any) => sum + (Number(item.item_price || 0) * Number(item.quantity || 1)), 0)
-    const subtotal: number = vendors?.subtotal_amount != null ? Number(vendors.subtotal_amount) : computedSubtotal
-    const gstPercentage = Number(vendors?.gst_percentage || 0)
-    const grandTotal: number = vendors?.grand_total != null ? Number(vendors.grand_total) : subtotal + (subtotal * gstPercentage) / 100
 
     const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }
     const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragging(false) }
@@ -287,7 +250,6 @@ export default function UploadQuotationPage() {
         <>
             <style>{`
                 *,*::before,*::after{box-sizing:border-box}
-                .qf-root{font-family:'DM Sans',sans-serif;color:var(--tx,#1a1a18)}
                 :root{
                     --bg:#fff;--bg-s:#f8f8f6;--bg-t:#f2f1ee;
                     --tx:#1a1a18;--tx2:#5a5a57;--tx3:#9a9a96;
@@ -303,7 +265,6 @@ export default function UploadQuotationPage() {
                 }
                 @keyframes spin{to{transform:rotate(360deg)}}
                 @keyframes qf-progress{from{width:30%}to{width:85%}}
-                /* Stepper */
                 .qf-root .stepper{display:flex;background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:20px}
                 .qf-root .step-item{flex:1;padding:14px 16px;display:flex;align-items:center;gap:10px;border-right:0.5px solid var(--bd);background:transparent;border-top:none;border-left:none;border-bottom:none}
                 .qf-root .step-item:last-child{border-right:none}
@@ -316,27 +277,23 @@ export default function UploadQuotationPage() {
                 .qf-root .step-item.active .step-lbl{color:var(--tx)}
                 .qf-root .step-item.done .step-lbl{color:var(--tx2)}
                 .qf-root .step-sub{font-size:11px;color:var(--tx3)}
-                /* Form sections */
                 .qf-root .form-sec{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:16px}
                 .qf-root .form-sec-head{padding:13px 18px;border-bottom:0.5px solid var(--bd);display:flex;align-items:center;gap:10px}
                 .qf-root .fsh-ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
                 .qf-root .fsh-title{font-size:13px;font-weight:600}
                 .qf-root .fsh-sub{font-size:11px;color:var(--tx3);margin-top:1px}
                 .qf-root .form-body{padding:18px}
-                /* Drop zone */
                 .qf-root .drop-zone{border:1.5px dashed var(--bdm);border-radius:var(--rl);padding:28px 24px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:var(--bg-s)}
                 .qf-root .drop-zone:hover,.qf-root .drop-zone.drag-over{border-color:var(--blu-bd);background:var(--blu-bg)}
                 .qf-root .drop-zone.has-file{border-style:solid;border-color:var(--grn-bd);background:var(--grn-bg);cursor:default;padding:14px 16px}
                 .qf-root .dz-icon{font-size:28px;color:var(--tx3);margin-bottom:6px;display:block}
                 .qf-root .dz-title{font-size:14px;font-weight:500}
                 .qf-root .dz-sub{font-size:12px;color:var(--tx3);margin-top:3px}
-                /* Parse progress */
                 .qf-root .parse-bar{height:4px;background:var(--bg-t);border-radius:2px;overflow:hidden;margin:10px 0 8px}
                 .qf-root .parse-fill{height:100%;background:var(--blu-bd);border-radius:2px;animation:qf-progress 2.5s ease-in-out infinite alternate}
                 .qf-root .parse-step{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx3);padding:3px 0}
                 .qf-root .parse-step.active-ps{color:var(--tx);font-weight:500}
                 .qf-root .parse-step i{animation:spin 1s linear infinite}
-                /* Fields */
                 .qf-root .fgrp{display:flex;flex-direction:column;gap:4px}
                 .qf-root .lbl{font-size:12px;font-weight:600;color:var(--tx2)}
                 .qf-root .req{color:var(--red-bd);margin-left:2px}
@@ -348,22 +305,17 @@ export default function UploadQuotationPage() {
                 .qf-root .textarea{padding:8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;resize:vertical;min-height:70px;width:100%}
                 .qf-root .textarea:focus{border-color:#1a1a18}
                 .qf-root .extracted-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--tel-tx);display:flex;align-items:center;gap:4px}
-                /* Sidebar cards */
                 .qf-root .card{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden}
                 .qf-root .card-head{padding:13px 16px;border-bottom:0.5px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
                 .qf-root .card-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;color:var(--tx)}
                 .qf-root .card-title i{font-size:14px;color:var(--tx3)}
                 .qf-root .card-body{padding:16px}
-                /* Checklist */
                 .qf-root .ci{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:0.5px solid var(--bd);font-size:12px}
                 .qf-root .ci:last-child{border-bottom:none}
                 .qf-root .ci-ok{color:var(--grn-tx)}
                 .qf-root .ci-idle{color:var(--tx3)}
-                /* Action bar */
-                .qf-root .sticky-bar{background:var(--bg);border:0.5px solid var(--bd);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px;border-radius:0 0 var(--rl) var(--rl)}
-                /* Error strip */
+                .qf-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px;}
                 .qf-root .err-strip{background:var(--red-bg);border:0.5px solid var(--red-bd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:var(--red-tx)}
-                /* Inline matching table */
                 .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:13px}
                 .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
                 .qf-root .match-tbl tbody tr{border-bottom:0.5px solid var(--bd);cursor:default;transition:background .1s}
@@ -383,7 +335,6 @@ export default function UploadQuotationPage() {
                 .qf-root .t-match{background:var(--blu-bg);color:var(--blu-tx)}
                 .qf-root .t-replace{background:var(--amb-bg);color:var(--amb-tx)}
                 .qf-root .t-skip{background:var(--gry-bg);color:var(--gry-tx)}
-                /* Step 3 — Review Hero */
                 .qf-root .review-hero{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);padding:20px}
                 .qf-root .rh-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:16px;padding-top:14px;border-top:0.5px solid var(--bd)}
                 .qf-root .rhm-item{padding:0 14px;border-right:0.5px solid var(--bd)}
@@ -394,7 +345,6 @@ export default function UploadQuotationPage() {
                 .qf-root .stat-mini{background:var(--bg-s);border-radius:var(--r);padding:12px 14px}
                 .qf-root .sm-lbl{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
                 .qf-root .sm-val{font-size:22px;font-weight:600;letter-spacing:-.6px;line-height:1}
-                /* Pills (step 3 status) */
                 .qf-root .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
                 .qf-root .pill .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
                 .qf-root .p-draft{background:var(--gry-bg);color:var(--gry-tx)}
@@ -516,46 +466,22 @@ export default function UploadQuotationPage() {
                 <div className="sticky-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
                         {currentStep > 0 ? (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setCurrentStep(s => s - 1)}
-                            >
+                            <Button variant="outline" size="sm" onClick={() => setCurrentStep(s => s - 1)}>
                                 Back
                             </Button>
                         ) : (
                             <div />
                         )}
                     </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: 12,
-                            alignItems: 'center',
-                            paddingRight: 8,
-                            borderRadius: '9999px', // curve
-                            padding: '6px 8px',
-                        }}
-                    >
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '6px 8px' }}>
                         <span style={{ fontSize: 12, color: 'var(--tx3)', marginRight: 4 }}>
                             Step {currentStep + 1} of 3
                         </span>
 
                         {currentStep === 0 && (
-                            <Button
-                                size="sm"
-                                onClick={handleStep0Continue}
-                                disabled={!selectedFile || uploadMutation.isPending || isExtracting}
-                                className="gap-1.5"
-                            >
+                            <Button size="sm" onClick={handleStep0Continue} disabled={!selectedFile || uploadMutation.isPending || isExtracting} className="gap-1.5">
                                 {(uploadMutation.isPending || isExtracting) && (
-                                    <Loader2
-                                        style={{
-                                            width: 14,
-                                            height: 14,
-                                            animation: 'spin 0.8s linear infinite',
-                                        }}
-                                    />
+                                    <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />
                                 )}
                                 {step0ContinueLabel()}
                                 <ChevronRight style={{ width: 14, height: 14 }} />
@@ -563,17 +489,11 @@ export default function UploadQuotationPage() {
                         )}
 
                         {currentStep === 1 && (
-                            <Button
-                                size="sm"
-                                onClick={handleStep1Continue}
-                                disabled={lineItems.length === 0}
-                                className="gap-1.5"
-                            >
+                            <Button size="sm" onClick={handleStep1Continue} disabled={lineItems.length === 0} className="gap-1.5">
                                 Review &amp; Submit
                                 <ChevronRight style={{ width: 14, height: 14 }} />
                             </Button>
                         )}
-
                         {currentStep === 2 && (
                             <Button
                                 size="sm"
@@ -582,24 +502,37 @@ export default function UploadQuotationPage() {
                                 className="gap-1.5"
                             >
                                 {isSaving && (
-                                    <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />
+                                    <Loader2
+                                        style={{
+                                            width: 14,
+                                            height: 14,
+                                            animation: 'spin 0.8s linear infinite',
+                                        }}
+                                    />
                                 )}
-                                Submit
+                               Submit
                             </Button>
                         )}
                     </div>
                 </div>
-
-                <ConfirmModal
-                    open={showConfirm}
-                    onOpenChange={setShowConfirm}
-                    onConfirm={() => quotationSaveMutation.mutate()}
-                    title="Submit Quotation"
-                    description={`You are about to save this quotation from ${vendors?.company_name || 'the vendor'} with ${lineItems.length} line item${lineItems.length !== 1 ? 's' : ''}.\n\nThis will create the quotation in Draft status and apply all item matching actions.`}
-                    confirmText="Yes, Submit"
-                    isPending={quotationSaveMutation.isPending}
-                />
             </div>
+
+            {/* ── Confirm modal — outside qf-root so Tailwind styles are not overridden ── */}
+            <CommonConfirmModal
+                isOpen={showConfirm}
+                title="Confirm Action"
+                description={
+                    <>
+                        You are about to save this quotation from{' '}
+                        <strong>{vendors?.company_name || 'the vendor'}</strong> with{' '}
+                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''}.
+                    </>
+                }
+                confirmLabel="Yes, Submit"
+                onClose={() => setShowConfirm(false)}
+                onConfirm={() => quotationSaveMutation.mutate()}
+                isPending={quotationSaveMutation.isPending}
+            />
         </>
     )
 }
