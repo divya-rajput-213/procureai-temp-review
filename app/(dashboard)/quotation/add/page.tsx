@@ -595,7 +595,7 @@ export default function UploadQuotationPage() {
                     onOpenChange={setShowConfirm}
                     onConfirm={() => quotationSaveMutation.mutate()}
                     title="Submit Quotation"
-                    description={`You are about to save this quotation from ${vendors?.company_name || 'the vendor'} with ${lineItems.length} line item${lineItems.length !== 1 ? 's' : ''}.\n\nThis will create the quotation in Draft status and apply all item matching actions. Continue?`}
+                    description={`You are about to save this quotation from ${vendors?.company_name || 'the vendor'} with ${lineItems.length} line item${lineItems.length !== 1 ? 's' : ''}.\n\nThis will create the quotation in Draft status and apply all item matching actions.`}
                     confirmText="Yes, Submit"
                     isPending={quotationSaveMutation.isPending}
                 />

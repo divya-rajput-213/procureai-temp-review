@@ -684,7 +684,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                     onOpenChange={setShowConfirm}
                     onConfirm={() => quotationSaveMutation.mutate()}
                     title="Save Changes"
-                    description={`You are about to update this quotation from ${vendors?.company_name || 'the vendor'} with ${lineItems.length} line item${lineItems.length !== 1 ? 's' : ''}.\n\nContinue?`}
+                    description={`You are about to update this quotation from ${vendors?.company_name || 'the vendor'} with ${lineItems.length} line item${lineItems.length !== 1 ? 's' : ''}.`}
                     confirmText="Yes, Save"
                     isPending={quotationSaveMutation.isPending}
                 />
