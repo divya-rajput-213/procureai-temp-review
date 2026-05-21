@@ -166,7 +166,7 @@ function colorForName(name: string) {
 /* ─── DocUploadWidget (matches HTML upload zone + file preview) ───────────── */
 
 function DocUploadWidget({
-  vendorId, docType, doc, onRefresh, setFieldError, dropLabel, hint, isReadOnly,
+  vendorId, docType, doc, onRefresh, setFieldError, dropLabel, hint, isReadOnly, onValidTillChange,
 }: Readonly<{
   vendorId: string
   docType: string
@@ -176,11 +176,19 @@ function DocUploadWidget({
   dropLabel?: string
   hint?: string
   isReadOnly?: boolean
+  onValidTillChange?: (val: string | null) => void
 }>) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const [localValidTill, setLocalValidTill] = useState<string | null>(doc?.valid_till ?? null)
+
+  useEffect(() => {
+    const vt = doc?.valid_till ?? null
+    setLocalValidTill(vt)
+    onValidTillChange?.(vt)
+  }, [doc?.valid_till])
 
   const upload = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
@@ -203,6 +211,9 @@ function DocUploadWidget({
         setFieldError?.(data?.ai_validation_notes || `${docType} validation failed`)
       } else {
         setFieldError?.('')
+        const vt = data?.valid_till ?? null
+        setLocalValidTill(vt)
+        onValidTillChange?.(vt)
       }
       onRefresh()
     } catch (err: any) {
@@ -219,6 +230,8 @@ function DocUploadWidget({
     setDeleting(true)
     try {
       await apiClient.delete(`/vendors/${vendorId}/documents/${doc.hash_id ?? doc.id}/`)
+      setLocalValidTill(null)
+      onValidTillChange?.(null)
       onRefresh()
       setFieldError?.('')
     } catch {
@@ -228,9 +241,24 @@ function DocUploadWidget({
 
   const status = doc?.ai_validation_status
   const isFailed = status === 'failed' || status === 'invalid'
-  const isVerified = status === 'passed' || status === 'valid'
+  const isVerified = status === 'passed' || status === 'valid' || status === 'warning'
 
   if (doc) {
+    const validTill = localValidTill
+    const daysLeft = validTill
+      ? Math.ceil((new Date(validTill).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : null
+    const isExpired = daysLeft !== null && daysLeft < 0
+    const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30
+    const expiryColor = isExpired ? 'var(--red-tx)' : isExpiringSoon ? '#d97706' : '#64748b'
+    const expiryLabel = validTill
+      ? isExpired
+        ? `Expired ${new Date(validTill).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+        : isExpiringSoon
+          ? `Expiring in ${daysLeft}d`
+          : `Valid till ${new Date(validTill).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+      : null
+
     return (
       <div>
         <div className="ufile" style={isFailed ? { borderColor: 'var(--red-bd)' } : isVerified ? { borderColor: 'var(--grn-bd, var(--bd))' } : {}}>
@@ -239,8 +267,16 @@ function DocUploadWidget({
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="ufile-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.original_filename}</div>
-            <div className="ufile-size" style={isFailed ? { color: 'var(--red-tx)' } : isVerified ? { color: 'var(--grn-tx)' } : {}}>
-              {isFailed ? 'Validation failed' : isVerified ? 'Verified ✓' : 'Uploaded'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div className="ufile-size" style={isFailed ? { color: 'var(--red-tx)' } : isVerified ? { color: 'var(--grn-tx)' } : {}}>
+                {isFailed ? 'Validation failed' : isVerified ? 'Verified ✓' : 'Uploaded'}
+              </div>
+              {expiryLabel && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: expiryColor, display: 'flex', alignItems: 'center', gap: 3 }}>
+                  {(isExpired || isExpiringSoon) && <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} />}
+                  {expiryLabel}
+                </span>
+              )}
             </div>
           </div>
           {doc.file_url && (
@@ -415,6 +451,31 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   }
 
   const docOf = (type: string) => (vendorDocs ?? []).find((d: any) => d.doc_type === type) ?? null
+
+  const [validTillMap, setValidTillMap] = useState<Record<string, string | null>>({})
+  const setDocValidTill = (docType: string) => (val: string | null) =>
+    setValidTillMap(prev => ({ ...prev, [docType]: val }))
+
+  const ValidTillChip = ({ docType: dt }: { docType: string }) => {
+    const vt = validTillMap[dt] ?? docOf(dt)?.valid_till ?? null
+    if (!vt) return null
+    const days = Math.ceil((new Date(vt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    const isExpired = days < 0
+    const isSoon = days >= 0 && days <= 30
+    const color = isExpired ? 'var(--red-tx)' : isSoon ? '#d97706' : 'var(--tx2)'
+    const bg = isExpired ? 'var(--red-bg)' : isSoon ? '#fef3c7' : 'var(--bg-s)'
+    const label = isExpired
+      ? `Expired ${new Date(vt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+      : isSoon
+        ? `Expiring in ${days}d — ${new Date(vt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+        : `Valid till ${new Date(vt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '5px 10px', borderRadius: 6, background: bg, border: `1px solid ${isExpired ? 'var(--red-bd)' : isSoon ? '#fde68a' : 'var(--bd)'}`, width: 'fit-content' }}>
+        <i className={`ti ${isExpired || isSoon ? 'ti-alert-triangle' : 'ti-calendar-check'}`} style={{ fontSize: 12, color }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color }}>Valid Till: {label}</span>
+      </div>
+    )
+  }
 
   const { data: matrices } = useQuery({
     queryKey: ['approval-matrices', 'vendor_onboarding'],
@@ -1155,7 +1216,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.gst_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="gst_certificate" doc={docOf('gst_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop GST Certificate here" isReadOnly={isReadOnly} setFieldError={setDocError('gst_certificate')} />
+                        <DocUploadWidget vendorId={vendorId} docType="gst_certificate" doc={docOf('gst_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop GST Certificate here" isReadOnly={isReadOnly} setFieldError={setDocError('gst_certificate')} onValidTillChange={setDocValidTill('gst_certificate')} />
+                        <ValidTillChip docType="gst_certificate" />
                         {docUploadErrors['gst_certificate'] && (
                           <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors['gst_certificate']}
@@ -1199,7 +1261,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.pan_card && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="pan_card" doc={docOf('pan_card')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop PAN Card here" isReadOnly={isReadOnly} setFieldError={setDocError('pan_card')} />
+                        <DocUploadWidget vendorId={vendorId} docType="pan_card" doc={docOf('pan_card')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop PAN Card here" isReadOnly={isReadOnly} setFieldError={setDocError('pan_card')} onValidTillChange={setDocValidTill('pan_card')} />
+                        <ValidTillChip docType="pan_card" />
                         {docUploadErrors['pan_card'] && (
                           <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors['pan_card']}
@@ -1241,7 +1304,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.bank_details && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="bank_details" doc={docOf('bank_details')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Bank Letter / Cancelled Cheque here" isReadOnly={isReadOnly} setFieldError={setDocError('bank_details')} />
+                        <DocUploadWidget vendorId={vendorId} docType="bank_details" doc={docOf('bank_details')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Bank Letter / Cancelled Cheque here" isReadOnly={isReadOnly} setFieldError={setDocError('bank_details')} onValidTillChange={setDocValidTill('bank_details')} />
+                        <ValidTillChip docType="bank_details" />
                         {docUploadErrors['bank_details'] && (
                           <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors['bank_details']}
@@ -1314,7 +1378,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.msme_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="msme_certificate" doc={docOf('msme_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Udyam Certificate here" isReadOnly={isReadOnly} setFieldError={setDocError('msme_certificate')} />
+                        <DocUploadWidget vendorId={vendorId} docType="msme_certificate" doc={docOf('msme_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop Udyam Certificate here" isReadOnly={isReadOnly} setFieldError={setDocError('msme_certificate')} onValidTillChange={setDocValidTill('msme_certificate')} />
+                        <ValidTillChip docType="msme_certificate" />
                         {docUploadErrors['msme_certificate'] && (
                           <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors['msme_certificate']}
@@ -1359,7 +1424,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     </div>
                     {expandedComplianceDocs.sez_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                        <DocUploadWidget vendorId={vendorId} docType="sez_certificate" doc={docOf('sez_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop SEZ Approval Letter here" isReadOnly={isReadOnly} setFieldError={setDocError('sez_certificate')} />
+                        <DocUploadWidget vendorId={vendorId} docType="sez_certificate" doc={docOf('sez_certificate')} onRefresh={refreshDocs} dropLabel="Drag &amp; drop SEZ Approval Letter here" isReadOnly={isReadOnly} setFieldError={setDocError('sez_certificate')} onValidTillChange={setDocValidTill('sez_certificate')} />
+                        <ValidTillChip docType="sez_certificate" />
                         {docUploadErrors['sez_certificate'] && (
                           <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors['sez_certificate']}
@@ -1423,7 +1489,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                                 <input className="form-input" disabled={isReadOnly} value={row.custom} onChange={e => updateIsoRow(idx, 'custom', e.target.value)} placeholder="e.g. Trade Licence, NDA, Warranty…" />
                               </div>
                             )}
-                            <DocUploadWidget vendorId={vendorId} docType={isoDocType(idx)} doc={docOf(isoDocType(idx))} onRefresh={refreshDocs} dropLabel="Drag &amp; drop document here" hint="PDF, JPG or PNG · max 5 MB" isReadOnly={isReadOnly} setFieldError={setDocError(isoDocType(idx))} />
+                            <DocUploadWidget vendorId={vendorId} docType={isoDocType(idx)} doc={docOf(isoDocType(idx))} onRefresh={refreshDocs} dropLabel="Drag &amp; drop document here" hint="PDF, JPG or PNG · max 5 MB" isReadOnly={isReadOnly} setFieldError={setDocError(isoDocType(idx))} onValidTillChange={setDocValidTill(isoDocType(idx))} />
+                            <ValidTillChip docType={isoDocType(idx)} />
                             {complianceErrors[`field_iso_${idx}`] && (
                               <div className="field-err" style={{ marginTop: 6 }}>{complianceErrors[`field_iso_${idx}`]}</div>
                             )}
