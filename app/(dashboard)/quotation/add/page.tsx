@@ -17,7 +17,7 @@ interface Category { id: number; hash_id: string; name: string; is_active: boole
 const STEPS = [
     { id: 0, label: 'Upload Document', sub: 'Upload & extract details' },
     { id: 1, label: 'Items & Matching', sub: 'Review & match line items' },
-    { id: 2, label: 'Review & Submit', sub: 'Confirm' },
+    { id: 2, label: 'Review & Submit', sub: 'Confirm & send for approval' },
 ]
 
 export default function UploadQuotationPage() {
@@ -496,6 +496,7 @@ export default function UploadQuotationPage() {
                             </Button>
                         )}
                         {currentStep === 2 && (
+<<<<<<< HEAD
                             <Button
                                 size="sm"
                                 onClick={() => setShowConfirm(true)}
@@ -512,6 +513,11 @@ export default function UploadQuotationPage() {
                                     />
                                 )}
                                Submit
+=======
+                            <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving} className="gap-1.5">
+                                {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
+                                Confirm &amp; Save
+>>>>>>> 1a0a250 (Added the common confirm modal in the quotation/Add page)
                             </Button>
                         )}
                     </div>
