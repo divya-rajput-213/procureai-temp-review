@@ -642,7 +642,6 @@ const QD_CSS = `
     --gry-bg:#F1EFE8;--gry-tx:#5F5E5A;--gry-bd:#888780;
     --pur-bg:#EEEDFE;--pur-tx:#3C3489;--pur-bd:#7F77DD;
   }
-  .qd-root{font-family:'DM Sans',sans-serif;color:var(--tx)}
 
   /* Button */
   .qd-btn{padding:7px 14px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--tx);transition:background .15s}
