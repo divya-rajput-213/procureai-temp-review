@@ -1519,9 +1519,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         {/* ── Sticky form actions ── */}
         <div className="form-actions">
           <div style={{ display: 'flex', gap: 8 }}>
-            {/* <Button variant="outline" size="sm" className="gap-1.5" onClick={() => isEdit? setIsEditing?.(false):router.push('/vendors')}>
-	              <i className="ti ti-x" /> Discard
-	            </Button> */}
             {step > 0 && (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setStep(s => s - 1)}>
                 <i className="ti ti-arrow-left" /> Previous
