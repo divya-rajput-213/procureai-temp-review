@@ -137,8 +137,8 @@ export const PHONE_PREFIX = '+91 '
 export const PAGE_SIZE = 25
 export const COMPANY_NAME_ALLOWED = /^[A-Za-z0-9 &.,\-_]+$/
 export const COMPANY_NAME_ALLOWED_PARTIAL = /^[A-Za-z0-9 &.,\-_]*$/
-export const ALPHA_SPACE_ONLY = /^[A-Za-z ]+$/
-export const ALPHA_SPACE_PARTIAL = /^[A-Za-z ]*$/
+export const ALPHA_SPACE_ONLY = /^[A-Za-z &]+$/
+export const ALPHA_SPACE_PARTIAL = /^[A-Za-z &]*$/
 export const ADDRESS_ALLOWED = /^[A-Za-z0-9\s/#,.\-()_]+$/
 export const ADDRESS_ALLOWED_PARTIAL = /^[A-Za-z0-9\s/#,.\-()_]*$/
 

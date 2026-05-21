@@ -250,7 +250,7 @@ export default function UploadQuotationPage() {
         <>
             <style>{`
                 *,*::before,*::after{box-sizing:border-box}
-                .qf-root{font-family:'DM Sans',sans-serif;color:var(--tx,#1a1a18)}
+                // .qf-root{font-family:'DM Sans',sans-serif;color:var(--tx,#1a1a18)}
                 :root{
                     --bg:#fff;--bg-s:#f8f8f6;--bg-t:#f2f1ee;
                     --tx:#1a1a18;--tx2:#5a5a57;--tx3:#9a9a96;
