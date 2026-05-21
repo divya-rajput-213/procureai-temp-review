@@ -614,6 +614,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         setPrLinkId={setPrLinkId}
                         internalNotes={internalNotes}
                         setInternalNotes={setInternalNotes}
+                        showTerms={false}
                     />
                 )}
 

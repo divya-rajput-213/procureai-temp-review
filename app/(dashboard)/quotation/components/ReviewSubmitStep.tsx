@@ -14,6 +14,7 @@ interface ReviewSubmitStepProps {
     internalNotes?: string
     setInternalNotes?: (v: string) => void
     discount?: number
+    showTerms?:boolean
 }
 
 const fmtI = (v: number) => '₹' + (isNaN(v) ? 0 : Math.round(v)).toLocaleString('en-IN')
@@ -36,6 +37,7 @@ export default function ReviewSubmitStep({
     internalNotes = '',
     setInternalNotes,
     discount = 0,
+    showTerms=true
 }: ReviewSubmitStepProps) {
     const [prEnabled, setPrEnabled] = useState(!!prLinkId)
     const [prTab, setPrTab] = useState<'exist' | 'new'>('exist')
@@ -237,7 +239,7 @@ export default function ReviewSubmitStep({
 
 
                 {/* Terms & Conditions */}
-                <div className="form-sec" style={{ marginBottom: 16 }}>
+         {  showTerms &&     <div className="form-sec" style={{ marginBottom: 16 }}>
                     <div className="form-sec-head">
                         <div className="fsh-ic" style={{ background: 'var(--gry-bg)', color: 'var(--gry-tx)' }}>
                             <i className="ti ti-file-description" />
@@ -270,7 +272,7 @@ export default function ReviewSubmitStep({
                             ))
                         })()}
                     </div>
-                </div>
+                </div>}
 
             </div>
 
