@@ -272,7 +272,7 @@ function fmtDate(raw: string | undefined | null): string {
 export default function QuotationDetailsPage({ params }: Readonly<{ params: { quotationId: string } }>) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState('items')
 
   const { data, isLoading, isError } = useQuery<QuotationDetails>({
     queryKey: ['quotation', params.quotationId],
