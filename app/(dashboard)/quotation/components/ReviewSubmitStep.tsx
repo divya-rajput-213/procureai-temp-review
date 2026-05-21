@@ -235,133 +235,6 @@ export default function ReviewSubmitStep({
                     </div>
                 </div>
 
-                {/* Link to PR */}
-                <div className="form-sec" style={{ marginBottom: 16 }}>
-                    <div className="form-sec-head">
-                        <div className="fsh-ic" style={{ background: 'var(--blu-bg)', color: 'var(--blu-tx)' }}>
-                            <i className="ti ti-file-plus" />
-                        </div>
-                        <div>
-                            <div className="fsh-title">
-                                Link to Purchase Request{' '}
-                                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--tx3)', marginLeft: 6 }}>Optional</span>
-                            </div>
-                            <div className="fsh-sub">Attach this quotation to an existing PR or create a new one</div>
-                        </div>
-                        <div style={{ marginLeft: 'auto' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: 'var(--tx2)' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={prEnabled}
-                                    onChange={e => { setPrEnabled(e.target.checked); if (!e.target.checked && setPrLinkId) setPrLinkId('') }}
-                                    style={{ accentColor: '#1a1a18', width: 13, height: 13 }}
-                                />
-                                Enable PR link
-                            </label>
-                        </div>
-                    </div>
-
-                    {prEnabled && (
-                        <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
-                            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                                <button style={tabBtn(prTab === 'exist')} onClick={() => setPrTab('exist')}>
-                                    <i className="ti ti-link" style={{ fontSize: 12 }} /> Link to Existing PR
-                                </button>
-                                <button style={tabBtn(prTab === 'new')} onClick={() => setPrTab('new')}>
-                                    <i className="ti ti-plus" style={{ fontSize: 12 }} /> Create New PR
-                                </button>
-                            </div>
-
-                            {prTab === 'exist' && (
-                                <div>
-                                    {!selectedPR ? (
-                                        <>
-                                            <div style={{ position: 'relative', marginBottom: 10 }}>
-                                                <i className="ti ti-search" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx3)', fontSize: 14, pointerEvents: 'none' }} />
-                                                <input
-                                                    className="inp"
-                                                    style={{ paddingLeft: 32 }}
-                                                    placeholder="Search by PR number or description…"
-                                                    value={prSearch}
-                                                    onChange={e => setPrSearch(e.target.value)}
-                                                />
-                                            </div>
-                                            {filteredPRs.length === 0 && (
-                                                <div style={{ fontSize: 12, color: 'var(--tx3)', padding: '8px 0' }}>No matching PRs found</div>
-                                            )}
-                                            {filteredPRs.slice(0, 5).map((pr: any) => (
-                                                <div
-                                                    key={pr.id}
-                                                    onClick={() => setPrLinkId && setPrLinkId(String(pr.id))}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', marginBottom: 6, cursor: 'pointer', transition: 'background .1s' }}
-                                                    onMouseOver={e => ((e.currentTarget as HTMLElement).style.background = 'var(--bg-s)')}
-                                                    onMouseOut={e => ((e.currentTarget as HTMLElement).style.background = '')}
-                                                >
-                                                    <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--blu-bg)', color: 'var(--blu-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
-                                                        <i className="ti ti-file-plus" />
-                                                    </div>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ fontSize: 13, fontWeight: 500 }}>{pr.title || pr.description || `PR #${pr.id}`}</div>
-                                                        <div style={{ fontSize: 11, color: 'var(--tx3)' }}>
-                                                            {pr.pr_number || `PR-${pr.id}`}
-                                                            {pr.plant ? ` · ${pr.plant}` : ''}
-                                                        </div>
-                                                    </div>
-                                                    <span className="pill" style={{ background: 'var(--amb-bg)', color: 'var(--amb-tx)', fontSize: 10 }}>
-                                                        <span className="dot" style={{ background: 'var(--amb-bd)' }} />Open
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </>
-                                    ) : (
-                                        <div style={{ border: '0.5px solid var(--grn-bd)', borderRadius: 'var(--r)', padding: '10px 14px', background: 'var(--grn-bg)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <i className="ti ti-circle-check" style={{ color: 'var(--grn-tx)', fontSize: 16, flexShrink: 0 }} />
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--grn-tx)' }}>
-                                                    {selectedPR.title || selectedPR.description || `PR #${selectedPR.id}`}
-                                                </div>
-                                                <div style={{ fontSize: 11, color: 'var(--grn-tx)', opacity: 0.8 }}>
-                                                    {selectedPR.pr_number || `PR-${selectedPR.id}`}
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => setPrLinkId && setPrLinkId('')}
-                                                style={{ padding: '3px 8px', borderRadius: 'var(--r)', border: '0.5px solid var(--bdm)', background: 'var(--bg)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center' }}
-                                            >
-                                                <i className="ti ti-x" style={{ fontSize: 11 }} />
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {prTab === 'new' && (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                    <div className="fgrp" style={{ gridColumn: '1/-1' }}>
-                                        <label className="lbl">PR Title <span className="req">*</span></label>
-                                        <input className="inp" placeholder="e.g. IT Infrastructure Expansion Q2 2026" />
-                                    </div>
-                                    <div className="fgrp">
-                                        <label className="lbl">Department</label>
-                                        <input className="inp" placeholder="e.g. IT &amp; Technology" />
-                                    </div>
-                                    <div className="fgrp">
-                                        <label className="lbl">Budget Code</label>
-                                        <input className="inp" placeholder="e.g. CAPEX-IT-2026" />
-                                    </div>
-                                    <div className="fgrp">
-                                        <label className="lbl">Required By</label>
-                                        <input className="inp" type="date" />
-                                    </div>
-                                    <div className="fgrp">
-                                        <label className="lbl">Cost Centre</label>
-                                        <input className="inp" placeholder="e.g. CC-2031" />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
 
                 {/* Terms & Conditions */}
                 <div className="form-sec" style={{ marginBottom: 16 }}>
@@ -396,30 +269,6 @@ export default function ReviewSubmitStep({
                                 </div>
                             ))
                         })()}
-                    </div>
-                </div>
-
-                {/* Internal Notes */}
-                <div className="form-sec">
-                    <div className="form-sec-head">
-                        <div className="fsh-ic" style={{ background: 'var(--pur-bg)', color: 'var(--pur-tx)' }}>
-                            <i className="ti ti-notes" />
-                        </div>
-                        <div>
-                            <div className="fsh-title">Internal Notes</div>
-                            <div className="fsh-sub">Optional notes for the procurement team</div>
-                        </div>
-                    </div>
-                    <div className="form-body">
-                        <div className="fgrp">
-                            <label className="lbl">Notes</label>
-                            <textarea
-                                className="textarea"
-                                value={internalNotes}
-                                onChange={e => setInternalNotes && setInternalNotes(e.target.value)}
-                                placeholder="Negotiation outcome, special considerations, follow-up actions…"
-                            />
-                        </div>
                     </div>
                 </div>
 
@@ -464,19 +313,6 @@ export default function ReviewSubmitStep({
                         {newCount > 0 && <div>2. {newCount} new master item{newCount > 1 ? 's' : ''} created</div>}
                         {replaced > 0 && <div>{newCount > 0 ? '3' : '2'}. {replaced} replacement{replaced > 1 ? 's' : ''} versioned</div>}
                         <div>{newCount > 0 && replaced > 0 ? '4' : newCount > 0 || replaced > 0 ? '3' : '2'}. Saved as Draft</div>
-                    </div>
-                </div>
-
-                {/* Warnings */}
-                <div className="card">
-                    <div className="card-head">
-                        <div className="card-title"><i className="ti ti-alert-triangle" />Warnings</div>
-                    </div>
-                    <div style={{ padding: '12px 14px', fontSize: 12, color: warnings.length ? 'var(--amb-tx)' : 'var(--tx3)' }}>
-                        {warnings.length === 0
-                            ? 'No warnings — ready to submit!'
-                            : warnings.map((w, i) => <div key={i} style={{ marginBottom: 4 }}>⚠ {w}</div>)
-                        }
                     </div>
                 </div>
             </div>

@@ -17,7 +17,7 @@ interface Category { id: number; hash_id: string; name: string; is_active: boole
 const STEPS = [
     { id: 0, label: 'Upload Document', sub: 'Upload & extract details' },
     { id: 1, label: 'Items & Matching', sub: 'Review & match line items' },
-    { id: 2, label: 'Review & Submit', sub: 'Confirm & send for approval' },
+    { id: 2, label: 'Review & Submit', sub: 'Confirm' },
 ]
 
 export default function UploadQuotationPage() {
@@ -500,6 +500,16 @@ export default function UploadQuotationPage() {
                             <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving} className="gap-1.5">
                                 {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
                                 Confirm &amp; Save
+                            <Button
+                                size="sm"
+                                onClick={() => setShowConfirm(true)}
+                                disabled={isSaving}
+                                className="gap-1.5"
+                            >
+                                {isSaving && (
+                                    <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />
+                                )}
+                                Submit
                             </Button>
                         )}
                     </div>

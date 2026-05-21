@@ -492,7 +492,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           { id: 'items',     label: 'Line Items',          icon: <List className="w-[14px] h-[14px]" />,  badge: items.length },
           { id: 'terms',     label: 'Terms & Conditions',  icon: <ScrollText className="w-[14px] h-[14px]" /> },
           { id: 'docs',      label: 'Documents',           icon: <FolderOpen className="w-[14px] h-[14px]" /> },
-          { id: 'activity',  label: 'Activity',            icon: <History className="w-[14px] h-[14px]" /> },
         ] as { id: string; label: string; icon: React.ReactNode; badge?: number }[]).map(tab => (
           <button
             key={tab.id}
@@ -773,27 +772,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 </div>
               )}
             </div>
-          </div>
-        )}
-
-        {/* ── Activity ── */}
-        {activeTab === 'activity' && (
-          <div style={{ padding: '0 16px' }}>
-            {([
-              { ic: 'ti-circle-check', bg: 'var(--grn-bg)', cl: 'var(--grn-tx)', t: 'Quotation submitted', m: `${fmtDate(quotation.created_at)} · ${quotation.uploaded_by || 'System'}` },
-              { ic: 'ti-file-check', bg: 'var(--blu-bg)', cl: 'var(--blu-tx)', t: 'Document uploaded & extracted', m: `${fmtDate(quotation.created_at)} · Auto extraction` },
-              { ic: 'ti-sparkles', bg: 'var(--pur-bg)', cl: 'var(--pur-tx)', t: 'Line items matched to master', m: `${matchedCount} matched, ${newCount} new` },
-            ] as { ic: string; bg: string; cl: string; t: string; m: string }[]).map((ev, i) => (
-              <div key={i} style={{ display: 'flex', gap: 12, padding: '11px 0', borderBottom: '0.5px solid var(--bd)' }}>
-                <div style={{ width: 28, height: 28, borderRadius: 7, background: ev.bg, color: ev.cl, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
-                  <i className={`ti ${ev.ic}`} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{ev.t}</div>
-                  <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 2 }}>{ev.m}</div>
-                </div>
-              </div>
-            ))}
           </div>
         )}
       </div>
