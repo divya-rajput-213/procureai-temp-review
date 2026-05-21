@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import apiClient from '@/lib/api/client'
-import { COMPANY_NAME_ALLOWED, ALPHA_SPACE_ONLY, ADDRESS_ALLOWED, COMPANY_NAME_ALLOWED_PARTIAL, ADDRESS_ALLOWED_PARTIAL, ALPHA_SPACE_PARTIAL} from '@/lib/utils'
+import { COMPANY_NAME_ALLOWED, ALPHA_SPACE_ONLY, ADDRESS_ALLOWED, COMPANY_NAME_ALLOWED_PARTIAL, ADDRESS_ALLOWED_PARTIAL, ALPHA_SPACE_PARTIAL } from '@/lib/utils'
 import { DOC_CONFIG, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { CommonConfirmModal } from '@/components/shared/CommonModal'
@@ -581,6 +581,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         is_msme: !!docOf('msme_certificate'),
         msme_number: data.msme_number ?? '',
         is_sez: !!docOf('sez_certificate'),
+        is_final: true,
       })
     },
     onSuccess: () => setStep(2),
@@ -1472,7 +1473,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
             {/* ══ STEP 2: Submit for Approval ══ */}
             {step === 2 && !isReadOnly && (
               <div className="form-section" style={{ border: 'none', background: 'transparent' }}>
-                <div style={{ padding: '16px 0' }}>              
+                <div style={{ padding: '16px 0' }}>
                   {/* Matrix selector */}
                   {matrices === undefined && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--tx3)', padding: '8px 0' }}>
@@ -1565,6 +1566,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         onConfirm={confirmAction}
         isPending={submitMutation.isPending}
       />
-    </> 
+    </>
   )
 }
