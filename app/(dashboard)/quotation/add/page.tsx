@@ -120,6 +120,7 @@ export default function UploadQuotationPage() {
 
     const quotationSaveMutation = useMutation({
         mutationFn: async () => {
+            const categoryName = categories.find((c: Category) => String(c.id) === String(categoryId))?.name ?? null
             const { data } = await apiClient.post('/quotations/save/', {
                 vendor: {
                     company_name: vendors?.company_name, contact_name: vendors?.contact_name,
@@ -136,6 +137,7 @@ export default function UploadQuotationPage() {
                 terms_and_conditions: internalNotes || vendors?.terms_and_conditions || null,
                 plant_id: plantId ? Number(plantId) : null,
                 department_id: departmentId ? Number(departmentId) : null,
+                category_name: categoryName,
                 file_key: quotation?.file_key ?? null,
                 items: lineItems.map((item: any) => {
                     const selectedSuggestion = item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))
