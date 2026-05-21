@@ -494,9 +494,9 @@ export default function VendorsPage() {
 
           {/* Desktop table */}
           {!isLoading && vendors.length > 0 && (
-            <div className="hidden md:block w-full overflow-auto max-h-[70vh]">
+            <div className="hidden md:block w-full overflow-x-auto">
               <table className="min-w-[900px] w-full text-sm">
-                <thead className="bg-slate-50 border-b sticky top-0 z-10">
+                <thead className="bg-slate-50 border-b">
                   <tr>
                     <SortableTh field="company_name" label="Company" {...sortProps} />
                     <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">

@@ -143,6 +143,7 @@ function missingComplianceFields(v: Partial<VendorForm>): string[] {
   const m: string[] = []
   if (!v.gst_number) m.push('GST Number')
   if (!v.pan_number) m.push('PAN Number')
+  if (!v.bank_account || !v.bank_ifsc || !v.bank_name) m.push('Bank Details')
   return m
 }
 
@@ -346,7 +347,7 @@ function FormChecklist({ values, isMsme }: { values: Partial<VendorForm>; isMsme
     { group: 'Step 2 — Documents' },
     { label: 'GST Certificate', done: !!values.gst_number, req: true },
     { label: 'PAN Card', done: !!values.pan_number, req: true },
-    { label: 'Bank Verification', done: !!values.bank_account, req: false },
+    { label: 'Bank Verification', done: !!(values.bank_account && values.bank_ifsc && values.bank_name), req: true },
     ...(isMsme ? [{ label: 'MSME Certificate', done: !!values.msme_number, req: true }] : []),
   ]
 
@@ -529,6 +530,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     const errs: Record<string, string> = {}
     if (!data.gst_number?.trim()) errs['field_gst_number'] = 'GST Number is required'
     if (!data.pan_number?.trim()) errs['field_pan_number'] = 'PAN Number is required'
+    if (!data.bank_account?.trim() || !data.bank_ifsc?.trim() || !data.bank_name?.trim()) errs['field_bank_account'] = 'Bank Account, IFSC and Bank Name are required'
     if (data.is_msme && !data.msme_number?.trim()) errs['field_msme_number'] = 'MSME Number is required'
     isoRows.forEach((row, idx) => {
       if (row.standard.trim() && !docOf(isoDocType(idx))) errs[`field_iso_${idx}`] = 'Document upload is required'
@@ -1286,15 +1288,15 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                     )}
                   </div>
 
-	                  {/* Bank (optional) */}
-	                  <div style={{ border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
+                  {/* Bank */}
+                  <div style={{ border: `0.5px solid ${complianceErrors['field_bank_account'] ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
                     <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--pur-bg)', color: 'var(--pur-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                           <i className="ti ti-building-bank" />
                         </div>
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>Bank Verification Letter</div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>Bank Verification Letter <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)', marginLeft: 6 }}>Required</span></div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
                         </div>
                       </div>

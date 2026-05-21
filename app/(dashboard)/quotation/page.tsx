@@ -381,9 +381,8 @@ export default function QuotationPage() {
           )}
           {!isLoading && quotations.length > 0 && (
             <div className="w-full overflow-x-auto">
-              <div className="max-h-[70vh] overflow-y-auto">
               <table className="min-w-[900px] w-full text-sm">
-                <thead className="bg-slate-50 border-b sticky top-0 z-10">
+                <thead className="bg-slate-50 border-b">
                   <tr>
                     <SortableTh field="ref_no" label="Quote Ref" {...sortProps} />
                     <SortableTh field="vendor_name" label="Vendor" {...sortProps} />
@@ -479,7 +478,6 @@ export default function QuotationPage() {
                   })}
                 </tbody>
               </table>
-              </div>
             </div>
           )}
         </CardContent>

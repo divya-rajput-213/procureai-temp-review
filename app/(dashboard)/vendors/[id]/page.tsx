@@ -688,6 +688,54 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
           </CardContent>
         </Card>
 
+        {/* Contact */}
+        <Card>
+
+          <CardHeader className="py-3 px-4 border-b">
+
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <span><User className="h-3.5 w-3.5" /></span>
+              Contact Details
+            </CardTitle>
+
+          </CardHeader>
+
+
+          <CardContent className="p-4">
+
+            <div className="flex gap-3">
+
+
+              <div className="flex-1">
+
+                <div className="text-[13px] font-medium">
+                  {vendor.contact_name}
+                </div>
+
+                <div className="text-[11px] text-muted-foreground">
+                  Owner
+                </div>
+
+              </div>
+
+
+              <div>
+
+                <div className="text-[12px]">
+                  {vendor.contact_email}                </div>
+
+                <div className="text-[11px] text-muted-foreground">
+                  {vendor.contact_phone}                </div>
+
+              </div>
+
+
+            </div>
+
+          </CardContent>
+
+        </Card>
+
         {/* Risk */}
         <Card className="rounded-xl border overflow-hidden">
           <CardHeader className="py-2.5 px-4 flex-row justify-between items-center border-b">
@@ -768,54 +816,6 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
         </Card>
 
 
-
-        {/* Contact */}
-        <Card>
-
-          <CardHeader className="py-3 px-4 border-b">
-
-            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-              <span><User className="h-3.5 w-3.5" /></span>
-              Contact Details
-            </CardTitle>
-
-          </CardHeader>
-
-
-          <CardContent className="p-4">
-
-            <div className="flex gap-3">
-
-
-              <div className="flex-1">
-
-                <div className="text-[13px] font-medium">
-                  {vendor.contact_name}
-                </div>
-
-                <div className="text-[11px] text-muted-foreground">
-                  Owner
-                </div>
-
-              </div>
-
-
-              <div>
-
-                <div className="text-[12px]">
-                  {vendor.contact_email}                </div>
-
-                <div className="text-[11px] text-muted-foreground">
-                  {vendor.contact_phone}                </div>
-
-              </div>
-
-
-            </div>
-
-          </CardContent>
-
-        </Card>
 
         {/* Vendor Score */}
         <Card className="rounded-xl border shadow-none">
