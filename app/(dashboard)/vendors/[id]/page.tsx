@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, Shield, MapPin, LayoutDashboard, ShieldCheck, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, Shield, MapPin, LayoutDashboard, ShieldCheck, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt, AlertTriangle } from 'lucide-react'
 import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_TYPE_LABELS } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
@@ -617,34 +617,74 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {[
-              { label: 'GST Certificate', value: vendor.gst_number, icon: FileBadge, bg: 'bg-blue-100', color: 'text-blue-700', empty: 'Missing', mono: true },
-              { label: 'PAN Card', value: vendor.pan_number, icon: CreditCard, bg: 'bg-green-100', color: 'text-green-700', empty: 'Missing', mono: true },
-              { label: 'Bank Verification', value: vendor.bank_account ? `XXXX ${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true },
-              { label: 'MSME Registration', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100', color: 'text-green-700', empty: 'Not registered' },
-              { label: 'SEZ Unit', value: vendor.sez_number, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not registered' },
-              { label: 'ISO Certificate', value: vendor.iso_type, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: 'Not certified' },
-            ].map(item => {
-              const hasValue = !!item.value
-              const Icon = item.icon
-              return (
-                <div key={item.label} className="flex items-center justify-between px-3 py-2 border-b last:border-0">
-                  <div className="flex items-center gap-2">
-                    <div className={`h-6 w-6 rounded-md flex items-center justify-center ${item.bg}`}>
+            {(() => {
+              const docs: any[] = vendor.documents ?? []
+              const docOf = (type: string) => docs.find((d: any) => d.doc_type === type || d.doc_type?.startsWith(type)) ?? null
+              const isVerified = (d: any) => d && (d.ai_validation_status === 'passed' || d.ai_validation_status === 'warning')
+              const today = new Date()
+              const daysUntil = (dateStr: string) => {
+                const diff = new Date(dateStr).getTime() - today.getTime()
+                return Math.ceil(diff / (1000 * 60 * 60 * 24))
+              }
+
+              return [
+                { label: 'GST Certificate',   docType: 'gst_certificate',  value: vendor.gst_number,  icon: FileBadge,  bg: 'bg-blue-100',   color: 'text-blue-700',   empty: 'Missing',        mono: true },
+                { label: 'PAN Card',           docType: 'pan_card',         value: vendor.pan_number,  icon: CreditCard, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Missing',        mono: true },
+                { label: 'Bank Verification',  docType: 'bank_details',     value: vendor.bank_account ? `XXXX ${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true },
+                { label: 'MSME Registration',  docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Not registered', mono: false },
+                { label: 'SEZ Unit',           docType: 'sez_certificate',  value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not registered', mono: false },
+                { label: 'ISO Certificate',    docType: 'iso_certificate',  value: vendor.iso_type,    icon: Award,      bg: 'bg-amber-100',  color: 'text-amber-700',  empty: 'Not certified',  mono: false },
+              ].map(item => {
+                const doc = docOf(item.docType)
+                const verified = isVerified(doc)
+                const hasDoc = !!doc
+                const hasValue = !!item.value
+                const Icon = item.icon
+                const expiry = doc?.valid_till ?? null
+                const days = expiry ? daysUntil(expiry) : null
+                const expiringSoon = days !== null && days >= 0 && days <= 30
+                const expired = days !== null && days < 0
+
+                return (
+                  <div key={item.label} className={`px-3 py-2 border-b last:border-0 flex items-center gap-2 ${expired ? 'bg-red-50/50' : expiringSoon ? 'bg-amber-50/50' : ''}`}>
+                    {/* Icon */}
+                    <div className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${item.bg}`}>
                       <Icon className={`h-3 w-3 ${item.color}`} />
                     </div>
-                    <span className="text-[11px] font-medium">{item.label}</span>
-                  </div>
-                  <div className={`flex items-center gap-1 text-[10px] font-medium ${hasValue ? 'text-green-700' : 'text-red-600'}`}>
-                    {hasValue ? (
-                      <><CheckCircle2 className="h-3 w-3 shrink-0" /><span className={item.mono ? 'font-mono' : ''}>{item.value}</span></>
-                    ) : (
-                      <><XCircle className="h-3 w-3 shrink-0" /><span>{item.empty}</span></>
+                    {/* Label */}
+                    <span className="text-[11px] font-medium w-[90px] shrink-0">{item.label}</span>
+                    {/* Value */}
+                    <span className={`text-[11px] text-slate-500 flex-1 truncate ${item.mono ? 'font-mono' : ''}`}>
+                      {hasValue ? item.value : '—'}
+                    </span>
+                    {/* Expiry chip */}
+                    {expiry && (
+                      <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium shrink-0 ${expired ? 'text-red-600' : expiringSoon ? 'text-amber-600' : 'text-slate-400'}`}>
+                        {(expired || expiringSoon) && <AlertTriangle className="h-2.5 w-2.5" />}
+                        {expired
+                          ? `Exp. ${new Date(expiry).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`
+                          : expiringSoon
+                            ? `${days}d left`
+                            : new Date(expiry).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                    )}
+                    {/* Verification badge */}
+                    {hasValue && verified && (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                    )}
+                    {hasValue && !verified && hasDoc && (
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    )}
+                    {hasValue && !hasDoc && (
+                      <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    )}
+                    {!hasValue && (
+                      <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
                     )}
                   </div>
-                </div>
-              )
-            })}
+                )
+              })
+            })()}
           </CardContent>
         </Card>
 
@@ -1136,43 +1176,87 @@ export default function VendorDetailPage() {
                 <table className="w-full text-[12px]">
                   <thead className="bg-slate-50 border-b">
                     <tr>
-                      <th className="px-4 py-2.5 text-[13px] font-semibold uppercase text-left text-muted-foreground">Document</th>
-                      <th className="px-4 py-2.5 text-[13px] font-semibold uppercase text-left text-muted-foreground">Type</th>
-                      <th className="px-4 py-2.5 text-[13px] font-semibold uppercase text-left text-muted-foreground">Uploaded</th>
-                      <th className="px-4 py-2.5 text-[13px] font-semibold uppercase text-center text-muted-foreground">AI Status</th>
-                      <th className="px-4 py-2.5 text-[13px] font-semibold uppercase text-center text-muted-foreground">Action</th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Document</th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Type</th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Uploaded</th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-center text-muted-foreground">Verification</th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Valid Till</th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-center text-muted-foreground">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {vendorDocs.map((doc: any) => {
-                      const isVerified = doc.ai_validation_status === 'passed' || doc.ai_validation_status === 'valid'
-                      const isFailed = doc.ai_validation_status === 'failed' || doc.ai_validation_status === 'invalid'
+                      const isVerified = doc.ai_validation_status === 'passed' || doc.ai_validation_status === 'warning'
+                      const isFailed = doc.ai_validation_status === 'failed'
+                      const isPending = !doc.ai_validation_status || doc.ai_validation_status === 'pending'
                       const docLabel = (doc.doc_type ?? '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+                      const today = new Date()
+                      const days = doc.valid_till
+                        ? Math.ceil((new Date(doc.valid_till).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+                        : null
+                      const isExpired = days !== null && days < 0
+                      const isExpiringSoon = days !== null && days >= 0 && days <= 30
                       return (
-                        <tr key={doc.id ?? doc.hash_id} className="border-t hover:bg-slate-50 transition-colors">
+                        <tr key={doc.id ?? doc.hash_id} className={`border-t hover:bg-slate-50 transition-colors ${isExpired ? 'bg-red-50/40' : isExpiringSoon ? 'bg-amber-50/40' : ''}`}>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <div className="h-7 w-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
                                 <FileText className="h-3.5 w-3.5 text-blue-600" />
                               </div>
-                              <span className="font-medium text-[13px] max-w-[200px] truncate">{doc.original_filename || doc.title || '—'}</span>
+                              <span className="font-medium text-[13px] max-w-[180px] truncate">{doc.original_filename || doc.title || '—'}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground text-[13px]">{docLabel}</td>
-                          <td className="px-4 py-3 text-muted-foreground text-[13px]">
+                          <td className="px-4 py-3 text-muted-foreground text-[12px]">{docLabel}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-[12px]">
                             {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                           </td>
-                          <td className="px-4 py-3 text-center ">
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-[13px] font-semibold ${isVerified ? 'bg-green-100 text-green-700' :
-                              isFailed ? 'bg-red-100 text-red-700' :
-                                'bg-amber-100 text-amber-700'
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                isVerified ? 'bg-green-100 text-green-700' :
+                                isFailed ? 'bg-red-100 text-red-700' :
+                                'bg-slate-100 text-slate-500'
                               }`}>
-                              {isVerified ? 'Verified' : isFailed ? 'Failed' : 'Pending'}
-                            </span>
+                                {isVerified
+                                  ? <><CheckCircle2 className="h-3 w-3" /> Verified</>
+                                  : isFailed
+                                    ? <><XCircle className="h-3 w-3" /> Failed</>
+                                    : <><Clock className="h-3 w-3" /> {isPending ? 'Pending' : 'Not Verified'}</>
+                                }
+                              </span>
+                              {doc.ai_validation_notes && (
+                                <span className="text-[9px] text-muted-foreground max-w-[120px] truncate" title={doc.ai_validation_notes}>
+                                  {doc.ai_validation_notes}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {doc.valid_till ? (
+                              <div className="flex flex-col gap-0.5">
+                                <span className={`text-[12px] font-medium ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-amber-600' : 'text-slate-700'}`}>
+                                  {new Date(doc.valid_till).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                                {isExpired && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-red-600">
+                                    <AlertTriangle className="h-2.5 w-2.5" />
+                                    Expired {Math.abs(days!)}d ago
+                                  </span>
+                                )}
+                                {isExpiringSoon && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
+                                    <AlertTriangle className="h-2.5 w-2.5" />
+                                    Expiring in {days}d
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[12px] text-muted-foreground">—</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-center text-[13px]">
                             {doc.file_url ? (
-                              <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-[13px] text-blue-600 hover:underline font-medium">View</a>
+                              <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-[12px] text-blue-600 hover:underline font-medium">View</a>
                             ) : '—'}
                           </td>
                         </tr>
