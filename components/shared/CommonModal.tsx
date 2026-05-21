@@ -1,6 +1,8 @@
 'use client'
 
+import { useState, useEffect } from "react";
 import { Button } from '@/components/ui/button'
+import { Loader2, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -104,5 +106,92 @@ export function DeleteDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+export function CommonConfirmModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  isPending,
+  title = 'Confirm',
+  description,
+  confirmLabel = 'Delete',
+}: Readonly<{
+  isOpen: boolean
+  onClose: () => void
+  onConfirm: () => void
+  isPending: boolean
+  title?: string
+  description: React.ReactNode  // required — always passed by parent
+  confirmLabel?: string
+}>) {
+  const [visible, setVisible] = useState(false)
+  const [animating, setAnimating] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      setVisible(true)
+      requestAnimationFrame(() => setAnimating(true))
+    } else {
+      setAnimating(false)
+      const timer = setTimeout(() => setVisible(false), 200)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen])
+
+  const handleClose = () => {
+    setAnimating(false)
+    setTimeout(onClose, 200)
+  }
+
+  if (!visible) return null
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center px-4 transition-all duration-200
+        ${animating ? 'bg-black/40' : 'bg-black/0'}`}
+      onClick={handleClose}
+    >
+      <div
+        className={`bg-white rounded-md shadow-xl w-full max-w-[520px] p-0 overflow-hidden relative
+          transition-all duration-200
+          ${animating ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5 space-y-3">
+          <h2 className="text-xl font-semibold tracking-tight pr-10">{title}</h2>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="absolute top-3 right-3 inline-flex h-7 w-7 items-center justify-center rounded-sm text-slate-500 hover:text-slate-700 transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <div className="mt-2 text-sm text-slate-700 leading-relaxed">
+            {description}
+          </div>
+        </div>
+        <div className="border-t px-5 py-3 flex items-center justify-end gap-4">
+          <Button
+            variant="ghost"
+            className="px-2 text-[#042348] hover:text-[#032B5C] hover:bg-transparent"
+            onClick={handleClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={isPending}
+            onClick={onConfirm}
+            className="gap-2 bg-[#042348] text-white hover:bg-[#032B5C] shadow-md rounded-md px-6 font-semibold"
+          >
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
