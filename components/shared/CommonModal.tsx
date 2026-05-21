@@ -108,7 +108,7 @@ export function DeleteDialog({
   )
 }
 
-export function DeleteConfirmModal({ name, onClose, onConfirm, isPending }: Readonly<{
+export function CommonConfirmModal({ name, onClose, onConfirm, isPending }: Readonly<{
   name: string; onClose: () => void; onConfirm: () => void; isPending: boolean
 }>) {
   return (

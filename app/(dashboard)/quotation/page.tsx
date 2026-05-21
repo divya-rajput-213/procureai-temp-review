@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { DeleteConfirmModal } from '@/components/shared/CommonModal'
+import { CommonConfirmModal } from '@/components/shared/CommonModal'
 import { formatCurrency, formatDate, PAGE_SIZE, VALIDITY_DAYS, parseLooseDate, diffDays } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { SortableTh } from '@/components/shared/SortableTh'
@@ -448,7 +448,7 @@ export default function QuotationPage() {
       </Card>
 
       {deletingQuotation && (
-        <DeleteConfirmModal
+        <CommonConfirmModal
           name={deletingQuotation.ref_no}
           onClose={() => setDeletingQuotation(null)}
           onConfirm={() => deleteMutation.mutate(deletingQuotation.id)}
