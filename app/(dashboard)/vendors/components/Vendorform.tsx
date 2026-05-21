@@ -13,7 +13,7 @@ import apiClient from '@/lib/api/client'
 import { COMPANY_NAME_ALLOWED, ALPHA_SPACE_ONLY, ADDRESS_ALLOWED, COMPANY_NAME_ALLOWED_PARTIAL, ADDRESS_ALLOWED_PARTIAL, ALPHA_SPACE_PARTIAL} from '@/lib/utils'
 import { DOC_CONFIG, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ConfirmModal } from '@/components/shared/CommonModal'
+import { CommonConfirmModal } from '@/components/shared/CommonModal'
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -1559,15 +1559,15 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
       </div>
 
       {/* ── Confirm modal — outside vf-root so Tailwind styles are not overridden ── */}
-      <ConfirmModal
-        open={showConfirmModal}
-        onOpenChange={setShowConfirmModal}
-        onConfirm={confirmAction}
+      <CommonConfirmModal
+        isOpen={showConfirmModal}
         title="Confirm Action"
-        description="Are you sure you want to submit this vendor for approval? Approvers will be notified immediately."
-        confirmText="Yes, Submit"
+        description={<>Are you sure you want to submit this vendor for approval?<br />Approvers will be notified immediately.</>}
+        confirmLabel="Yes, Submit"
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={confirmAction}
         isPending={submitMutation.isPending}
       />
-    </>
+    </> 
   )
 }

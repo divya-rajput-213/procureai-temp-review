@@ -447,14 +447,15 @@ export default function QuotationPage() {
         </CardContent>
       </Card>
 
-      {deletingQuotation && (
-        <CommonConfirmModal
-          name={deletingQuotation.ref_no}
-          onClose={() => setDeletingQuotation(null)}
-          onConfirm={() => deleteMutation.mutate(deletingQuotation.id)}
-          isPending={deleteMutation.isPending}
-        />
-      )}
+      <CommonConfirmModal
+        isOpen={!!deletingQuotation}
+        title="Delete Quotation"
+        description={<>By deleting <strong>{deletingQuotation?.ref_no}</strong>, this action cannot be undone. Are you sure?</>}
+        confirmLabel="Delete"
+        onClose={() => setDeletingQuotation(null)}
+        onConfirm={() => deletingQuotation && deleteMutation.mutate(deletingQuotation.id)}
+        isPending={deleteMutation.isPending}
+      />
 
       {/* ── Pagination ── */}
       <div className="flex items-center justify-between gap-4">
