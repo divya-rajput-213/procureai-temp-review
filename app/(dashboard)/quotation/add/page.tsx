@@ -17,7 +17,7 @@ interface Category { id: number; hash_id: string; name: string; is_active: boole
 const STEPS = [
     { id: 0, label: 'Upload Document', sub: 'Upload & extract details' },
     { id: 1, label: 'Items & Matching', sub: 'Review & match line items' },
-    { id: 2, label: 'Review & Submit', sub: 'Confirm' },
+    { id: 2, label: 'Review & Submit', sub: 'Confirm & send for approval' },
 ]
 
 export default function UploadQuotationPage() {
@@ -250,7 +250,7 @@ export default function UploadQuotationPage() {
         <>
             <style>{`
                 *,*::before,*::after{box-sizing:border-box}
-                .qf-root{font-family:'DM Sans',sans-serif;color:var(--tx,#1a1a18)}
+                // .qf-root{font-family:'DM Sans',sans-serif;color:var(--tx,#1a1a18)}
                 :root{
                     --bg:#fff;--bg-s:#f8f8f6;--bg-t:#f2f1ee;
                     --tx:#1a1a18;--tx2:#5a5a57;--tx3:#9a9a96;

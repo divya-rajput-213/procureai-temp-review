@@ -67,7 +67,7 @@ const schema = z.object({
     .max(150, 'Company name must be at most 150 characters'),
   contact_name: z.string()
     .min(2, 'Contact person is required')
-    .regex(ALPHA_SPACE_ONLY, 'Contact person can contain only letters and spaces.'),
+    .regex(ALPHA_SPACE_ONLY, 'Contact person can contain only letters, & and spaces..'),
   contact_email: z.string().email('Valid email required'),
   contact_phone: z.string()
     .refine(v => PHONE_ALLOWED_CHARS.test(v), 'Contact phone must contain only numbers')
@@ -1124,7 +1124,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                                   onChange: (e) => {
                                     const raw = String(e.target.value ?? '')
                                     if (!ALPHA_SPACE_PARTIAL.test(raw)) {
-                                      setError('contact_name', { type: 'manual', message: 'Contact person can contain only letters and spaces.' })
+                                      setError('contact_name', { type: 'manual', message: 'Contact person can contain only letters, & and spaces.' })
                                       return
                                     }
                                     if (errors.contact_name?.type === 'manual') clearErrors('contact_name')
