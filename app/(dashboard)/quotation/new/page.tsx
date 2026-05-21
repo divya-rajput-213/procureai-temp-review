@@ -1,185 +1,22 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { AlertCircle, ChevronRight, Loader2, Download, Pencil, Plus, Search, Trash2, X, Check, Building2, Package, Sparkles } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { AlertCircle, Loader2, Plus, X, Check, Building2, Package, ChevronRight } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Combobox } from '@/components/ui/combobox'
 import UploadFile from '../components/UploadFile'
-import AIExtractionStep from '../components/AIExtractionStep'
 import VerifyItemsStep from '../components/VerifyItemsStep'
 
-interface FilterState {
-    all: string;
-    new: string;
-    duplicates: string;
-}
 interface Category { id: number; hash_id: string; name: string; is_active: boolean }
 
-// ─── Stepper ─────────────────────────────────────────────────────────────────
 const STEPS = [
-    { id: 0, label: 'Upload' },
-    { id: 1, label: 'AI Extraction' },
-    { id: 2, label: 'Verify vendor' },
-    { id: 3, label: 'Verify items' },
+    { id: 0, label: 'Upload Document', sub: 'Upload & extract details' },
+    { id: 1, label: 'Items & Matching', sub: 'Review & match line items' },
+    { id: 2, label: 'Review & Submit', sub: 'Confirm & send for approval' },
 ]
-
-function Stepper({ currentStep, completedSteps }: { currentStep: number; completedSteps: Set<number> }) {
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-            {STEPS.map((step, i) => (
-                <div key={step.id} style={{ display: 'flex', alignItems: 'center' }}>
-                    {i > 0 && (
-                        <div
-                            style={{
-                                width: 48,
-                                height: 1,
-                                margin: '0 4px',
-                                background:
-                                    i < currentStep
-                                        ? 'hsl(var(--primary))'
-                                        : 'hsl(var(--border))',
-                            }}
-                        />
-                    )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span
-                            style={{
-                                width: 22,
-                                height: 22,
-                                borderRadius: '50%',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 16,
-                                fontWeight: 700,
-                                flexShrink: 0,
-                                background:
-                                    i < currentStep
-                                        ? '#10b981'
-                                        : i === currentStep
-                                            ? 'hsl(var(--primary))'
-                                            : 'hsl(var(--muted))',
-                                color:
-                                    i <= currentStep
-                                        ? 'hsl(var(--primary-foreground))'
-                                        : 'hsl(var(--muted-foreground))',
-                            }}
-                        >
-                            {i < currentStep ? (
-                                <Check style={{ width: 10, height: 10 }} />
-                            ) : (
-                                i + 1
-                            )}
-                        </span>
-                        <span
-                            style={{
-                                fontSize: 16,
-                                fontWeight: i === currentStep ? 600 : 400,
-                                color:
-                                    i === currentStep
-                                        ? 'hsl(var(--foreground))'
-                                        : 'hsl(var(--muted-foreground))',
-                            }}
-                        >
-                            {step.label}
-                        </span>
-                    </div>
-                </div>
-            ))}
-        </div>
-    )
-}
-
-// ─── Inline row-level master item search ─────────────────────────────────────
-function RowItemSearch({ masterItems, lineItems, rowIndex, onPick, onCreateCustom, onCancel }: {
-    masterItems: any[]
-    lineItems: any[]
-    rowIndex: number
-    onPick: (m: any) => void
-    onCreateCustom: (name: string) => void
-    onCancel: () => void
-}) {
-    const [query, setQuery] = useState('')
-    const [open, setOpen] = useState(true)
-    const wrapRef = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        const onClick = (e: MouseEvent) => {
-            if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
-        }
-        document.addEventListener('mousedown', onClick)
-        return () => document.removeEventListener('mousedown', onClick)
-    }, [])
-
-    const term = query.trim().toLowerCase()
-    const matches = term
-        ? masterItems.filter((m: any) => `${m.code} ${m.description}`.toLowerCase().includes(term)).slice(0, 30)
-        : []
-
-    return (
-        <div ref={wrapRef} className="relative flex items-center gap-1.5">
-            <input
-                autoFocus
-                type="text"
-                placeholder="Search master item or type to create…"
-                className="h-8 px-2 text-sm border border-primary rounded-md bg-background flex-1 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={query}
-                onChange={e => { setQuery(e.target.value); setOpen(true) }}
-                onFocus={() => setOpen(true)}
-                onKeyDown={e => {
-                    if (e.key === 'Escape') onCancel()
-                    if (e.key === 'Enter' && term && matches.length === 0) onCreateCustom(query.trim())
-                }}
-            />
-            <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-destructive shrink-0" aria-label="Cancel add row">
-                <X className="w-3.5 h-3.5" />
-            </button>
-            {open && term.length > 0 && (
-                <div className="absolute z-30 left-0 top-full mt-1 w-[420px] max-w-[95vw] bg-white border rounded-md shadow-lg max-h-64 overflow-auto divide-y">
-                    {matches.length === 0 ? (
-                        <button type="button" onClick={() => onCreateCustom(query.trim())} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50">
-                            <span className="text-muted-foreground">No master matches. </span>
-                            <span className="font-medium">Create item "{query.trim()}"</span>
-                        </button>
-                    ) : (
-                        matches.map((m: any) => {
-                            const alreadyAdded = lineItems.some((li: any, i: number) =>
-                                i !== rowIndex && (
-                                    String(li.selectedMasterId) === String(m.id) ||
-                                    (li.item_code && m.code && String(li.item_code).toLowerCase() === String(m.code).toLowerCase()) ||
-                                    (li.hsn_code && m.hsn_code && String(li.hsn_code).toLowerCase() === String(m.hsn_code).toLowerCase())
-                                )
-                            )
-                            return (
-                                <button key={m.id} type="button" disabled={alreadyAdded} onClick={() => !alreadyAdded && onPick(m)}
-                                    className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent flex items-start gap-2">
-                                    <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded shrink-0 mt-0.5">{m.code}</span>
-                                    <span className="flex-1 min-w-0">
-                                        <span className="block truncate font-medium">{m.description}</span>
-                                        <span className="block text-xs text-muted-foreground">
-                                            {m.unit_of_measure}
-                                            {m.unit_rate ? <> · ₹{Number(m.unit_rate).toLocaleString('en-IN')}</> : null}
-                                            {m.hsn_code ? <> · HSN {m.hsn_code}</> : null}
-                                        </span>
-                                    </span>
-                                    {alreadyAdded && <span className="text-[10px] uppercase tracking-wider text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded shrink-0 mt-0.5">Already added</span>}
-                                </button>
-                            )
-                        })
-                    )}
-                </div>
-            )}
-        </div>
-    )
-}
-
-const DEFAULT_FILTERS: FilterState = { all: "true", new: "false", duplicates: "false" }
 
 export default function UploadQuotationPage() {
     const { toast } = useToast()
@@ -187,24 +24,18 @@ export default function UploadQuotationPage() {
 
     const [currentStep, setCurrentStep] = useState(0)
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
-    const [showConfirmModal, setShowConfirmModal] = useState(false)
-    const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
-    const [file, setFile] = useState<File | null>(null)
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const [quotation, setQuotation] = useState<any>(null)
-    const [lineItems, setLineItems] = useState<any>([])
+    const [lineItems, setLineItems] = useState<any[]>([])
     const [vendors, setVendors] = useState<any>(null)
     const [dragging, setDragging] = useState(false)
     const [errorMessage, setErrorMessage] = useState('')
-    const [savedQuotationData, setSavedQuotationData] = useState<any>(null)
-    const [showExportModal, setShowExportModal] = useState(false)
     const [plantId, setPlantId] = useState<string>('')
     const [departmentId, setDepartmentId] = useState<string>('')
     const [categoryId, setCategoryId] = useState<string>('')
     const [prLinkId, setPrLinkId] = useState<string>('')
     const [financialYear, setFinancialYear] = useState<string>('')
-    const [showChangeVendorModal, setShowChangeVendorModal] = useState(false)
-    const [vendorSearch, setVendorSearch] = useState('')
+    const [internalNotes, setInternalNotes] = useState<string>('')
     const [isExtracting, setIsExtracting] = useState(false)
 
     const getApiErrorMessage = (error: any, fallback: string) => {
@@ -248,63 +79,15 @@ export default function UploadQuotationPage() {
         queryKey: ['vendors-approved'],
         queryFn: async () => { const r = await apiClient.get('/vendors/', { params: { status: 'approved' } }); return r.data.results ?? r.data },
     })
-
-    const vendorSearchResults = vendorSearch.trim().length === 0
-        ? allApprovedVendors
-        : allApprovedVendors.filter((v: any) => {
-            const q = vendorSearch.toLowerCase()
-            return v.company_name?.toLowerCase().includes(q) || v.city?.toLowerCase().includes(q) || v.state?.toLowerCase().includes(q) || v.gst_number?.toLowerCase().includes(q) || v.contact_email?.toLowerCase().includes(q)
-        })
-
-    const handleRemoveTagState = () => {
-        setPlantId(''); setDepartmentId(''); setCategoryId(''); setPrLinkId(''); setSelectedFile(null)
-        setErrorMessage('')
-    }
-
-    const exportMutation = useMutation({
-        mutationFn: async () => {
-            const newItems = lineItems.filter((i: any) => i.is_new)
-            const payload = {
-                items: newItems.map((i: any) => ({
-                    item_code: i.item_code, item_name: i.item_name, item_price: i.item_price,
-                    quantity: i.quantity || 1, unit_of_measure: i.unit_of_measure,
-                    hsn_code: i.hsn_code ?? i.suggestions?.[0]?.hsn_code ?? null,
-                    suggestions: i.suggestions || [], is_new: i.is_new, is_duplicate: i.is_duplicate,
-                })),
-                format: 'excel',
-            }
-            const { data } = await apiClient.post('/quotations/export-new-items/', payload, { responseType: 'blob' })
-            return data
-        },
-        onSuccess: (blob: Blob) => {
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url; a.download = 'new-items.xlsx'; a.click()
-            window.URL.revokeObjectURL(url)
-            setShowExportModal(false)
-        },
-        onError: () => { toast({ title: 'Export failed', description: 'Unable to export new items', variant: 'destructive' }) },
-    })
-
     const { data: masterItems = [] } = useQuery({
         queryKey: ['procurement-items'],
         queryFn: async () => { const { data } = await apiClient.get('/procurement/items/'); return data.results || data },
     })
 
-    const handleFilterChange = useCallback((key: keyof FilterState, value: string) => {
-        setFilters(() => {
-            const updated = {} as FilterState;
-            (Object.keys(DEFAULT_FILTERS) as (keyof FilterState)[]).forEach((filterKey) => {
-                updated[filterKey] = filterKey === key && value === "true" ? "true" : "false"
-            })
-            return updated
-        })
-    }, [])
-
     const uploadMutation = useMutation({
-        mutationFn: async (selectedFile: File) => {
+        mutationFn: async (file: File) => {
             const formData = new FormData()
-            formData.append('file', selectedFile)
+            formData.append('file', file)
             if (departmentId) formData.append('department_id', String(Number(departmentId)))
             if (plantId) formData.append('plant_id', String(Number(plantId)))
             if (categoryId) formData.append('category_id', String(Number(categoryId)))
@@ -321,25 +104,13 @@ export default function UploadQuotationPage() {
                 createNew: item?.is_new ? true : (item?.createNew ?? false),
                 selectedMasterId: item?.is_new ? '' : (item?.selectedMasterId ?? ''),
             })))
-            setPlantId(data.plant_id)
-            setDepartmentId(data.department_id)
-            // Auto-advance to step 2 after a delay
-            setTimeout(() => {
-                setIsExtracting(false)
-                setCompletedSteps(prev => {
-                    const updated = new Set(prev)
-                    updated.add(1)
-                    return updated
-                })
-                setCurrentStep(2)
-            }, 5000)
+            setPlantId(String(data.plant_id || ''))
+            setDepartmentId(String(data.department_id || ''))
+            setIsExtracting(false)
         },
         onError: (error: any) => {
-            const message =
-                error?.response?.data?.detail ||
-                error?.response?.data?.error ||
-                getApiErrorMessage(error, 'Failed to upload quotation.')
-
+            setIsExtracting(false)
+            const message = error?.response?.data?.detail || error?.response?.data?.error || getApiErrorMessage(error, 'Failed to upload quotation.')
             setErrorMessage(message)
         },
     })
@@ -359,7 +130,7 @@ export default function UploadQuotationPage() {
                 },
                 quotation_no: quotation?.vendor?.quotation_no ?? null,
                 quotation_date: quotation?.vendor?.quotation_date ?? null,
-                terms_and_conditions: vendors?.terms_and_conditions ?? null,
+                terms_and_conditions: internalNotes || vendors?.terms_and_conditions || null,
                 plant_id: plantId ? Number(plantId) : null,
                 department_id: departmentId ? Number(departmentId) : null,
                 file_key: quotation?.file_key ?? null,
@@ -375,14 +146,12 @@ export default function UploadQuotationPage() {
                         is_duplicate: item?.is_duplicate || false,
                         suggestions: item.createNew ? [] : selectedSuggestion ? [selectedSuggestion] : [],
                     }
-                })
+                }),
             })
             return data
         },
         onSuccess: (data: any) => {
-            setSavedQuotationData(data)
-            setPlantId(''); setDepartmentId('')
-            toast({ title: 'Success', description: data?.message || 'Quotation saved successfully', variant: 'default' })
+            toast({ title: 'Success', description: data?.message || 'Quotation saved successfully' })
             router.push('/quotation')
         },
         onError: (error: any) => {
@@ -393,72 +162,24 @@ export default function UploadQuotationPage() {
     })
 
     useEffect(() => {
-        if (!file) {
+        if (!selectedFile) {
             setQuotation(null); setVendors(null); setLineItems([]); setErrorMessage('')
-            setSavedQuotationData(null); handleRemoveTagState()
-            setCurrentStep(0); setCompletedSteps(new Set())
+            setPlantId(''); setDepartmentId(''); setCategoryId(''); setPrLinkId('')
+            setInternalNotes(''); setFinancialYear('')
+            setCurrentStep(0); setCompletedSteps(new Set()); setIsExtracting(false)
         }
-    }, [file])
+    }, [selectedFile])
 
-    const category = useMemo(() => categories?.find((c: Category) => c?.id === Number(quotation?.category_id)), [categories, quotation?.category_id])
-    const linkedPR = useMemo(() => PRs?.find((c: any) => c?.id === Number(quotation?.pr_id)), [PRs, quotation?.pr_id])
-
-    const addFile = (selectedFile: File | null) => {
-        if (!selectedFile) return
-        const isPdf = selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf')
-        if (!isPdf) { setErrorMessage('Only PDF files are allowed.'); setFile(null); return }
-        if (selectedFile.size === 0) { setErrorMessage('PDF file is empty.'); setFile(null); return }
-        setErrorMessage(''); setQuotation(null); setVendors(null); setLineItems([]); setFile(selectedFile)
-
-        // Move to AI Extraction step
-        setCurrentStep(1)
-        setIsExtracting(true)
-        setCompletedSteps(prev => {
-            const updated = new Set(prev)
-            updated.add(0)
-            return updated
-        })
-
-        if (!uploadMutation.isPending) uploadMutation.mutate(selectedFile)
-    }
-
-    const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }
-    const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragging(false) }
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault(); e.stopPropagation(); setDragging(false)
-        const droppedFile = e.dataTransfer.files?.[0] || null
-        if (!droppedFile) return
-        const isPdf = droppedFile.type === 'application/pdf' || droppedFile.name.toLowerCase().endsWith('.pdf')
-        if (!isPdf) { setErrorMessage('Only PDF files are allowed.'); return }
-        setErrorMessage(''); setSelectedFile(droppedFile)
-    }
-
-    const handleSubmit = () => {
-        if (currentStep === 3) {
-            setCompletedSteps(prev => {
-                const updated = new Set(prev)
-                updated.add(3)
-                return updated
-            })
-        }
-        setShowConfirmModal(true)
-    }
-    const confirmAndSubmit = () => { setShowConfirmModal(false); quotationSaveMutation.mutate() }
-
-    const formatSize = (bytes: number) => {
-        if (bytes < 1024) return `${bytes} B`
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    }
-
-    const getVendorInitials = (name: string) =>
-        name?.split(' ').filter(Boolean).slice(0, 2).map((p: string) => p[0]).join('').toUpperCase() || 'V'
-
-    const isLoading = uploadMutation.isPending || quotationSaveMutation.isPending
+    // Auto-select first option for each dropdown once data loads
+    useEffect(() => { if (plants.length > 0 && !plantId) setPlantId(String(plants[0].id)) }, [plants])
+    useEffect(() => { if (departments.length > 0 && !departmentId) setDepartmentId(String(departments[0].id)) }, [departments])
+    useEffect(() => { if (categories.length > 0 && !categoryId) setCategoryId(String(categories[0].id)) }, [categories])
+    useEffect(() => { if (PRs.length > 0 && !prLinkId) setPrLinkId(String(PRs[0].id)) }, [PRs])
+    useEffect(() => { if (!financialYear) setFinancialYear('2025-26') }, [])
 
     useEffect(() => {
         if (lineItems.length === 0) return
-        setLineItems((prev: any) => {
+        setLineItems(prev => {
             let updated = false
             const newItems = prev.map((item: any) => {
                 if (!item.selectedMasterId && item.suggestions?.length > 0) {
@@ -471,168 +192,197 @@ export default function UploadQuotationPage() {
         })
     }, [lineItems.length])
 
- // Replace your existing subtotal/grandTotal calculations with these:
+    const computedSubtotal = lineItems.reduce((sum: number, item: any) => sum + (Number(item.item_price || 0) * Number(item.quantity || 1)), 0)
+    const subtotal: number = vendors?.subtotal_amount != null ? Number(vendors.subtotal_amount) : computedSubtotal
+    const gstPercentage = Number(vendors?.gst_percentage || 0)
+    const grandTotal: number = vendors?.grand_total != null ? Number(vendors.grand_total) : subtotal + (subtotal * gstPercentage) / 100
 
-const computedSubtotal = lineItems.reduce((sum: number, item: any) => {
-    return sum + (Number(item.item_price || 0) * Number(item.quantity || 1))
-}, 0)
-
-const subtotal: number = vendors?.subtotal_amount != null
-    ? Number(vendors.subtotal_amount)
-    : computedSubtotal
-
-const gstPercentage = Number(vendors?.gst_percentage || 0)
-
-// Compute grand total: prefer extracted value, else derive from subtotal + GST
-const computedGrandTotal = subtotal + (subtotal * gstPercentage) / 100
-
-const grandTotal: number = vendors?.grand_total != null
-    ? Number(vendors.grand_total)
-    : computedGrandTotal
-
-    const filteredItems = lineItems.filter((item: any) => {
-        if (filters.new === 'true') return item.is_new
-        if (filters.duplicates === 'true') return item.is_duplicate
-        return true
-    })
-    const allCount = lineItems.length
-    const newCount = lineItems.filter((i: any) => i.is_new).length
-    const duplicatesCount = lineItems.filter((i: any) => i.is_duplicate).length
-
-    const canProceedFromVendor = !!vendors
-    const canProceedFromItems = lineItems.length > 0
-
-    const handleStepContinue = () => {
-        if (currentStep === 1) {
-            // This is AI Extraction step, handled by mutation onSuccess
-        } else if (currentStep === 2) {
-            setCompletedSteps(prev => {
-                const updated = new Set(prev)
-                updated.add(2)
-                return updated
-            })
-
-            setCurrentStep(3)
-        } else if (currentStep === 3) {
-            setCompletedSteps(prev => {
-                const updated = new Set(prev)
-                updated.add(3)
-                return updated
-            })
-            setShowConfirmModal(true)
+    const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }
+    const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragging(false) }
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault(); e.stopPropagation(); setDragging(false)
+        const droppedFile = e.dataTransfer.files?.[0] || null
+        if (!droppedFile) return
+        if (droppedFile.type !== 'application/pdf' && !droppedFile.name.toLowerCase().endsWith('.pdf')) {
+            setErrorMessage('Only PDF files are supported.'); return
         }
+        setErrorMessage(''); setSelectedFile(droppedFile)
     }
 
-    const handleStepBack = () => {
-        if (currentStep > 0) setCurrentStep(currentStep - 1)
-    }
-
-    const handleRetryAI = () => {
+    const handleExtract = () => {
         if (!selectedFile || uploadMutation.isPending) return
-        setErrorMessage('')
-        setIsExtracting(true)
+        if (!plantId) { setErrorMessage('Please select a Plant / Location before extracting.'); return }
+        if (!departmentId) { setErrorMessage('Please select a Department before extracting.'); return }
+        if (!categoryId) { setErrorMessage('Please select a Category before extracting.'); return }
+        setErrorMessage(''); setIsExtracting(true)
         uploadMutation.mutate(selectedFile)
     }
 
-    const handleNextFromAI = () => {
-        if (!quotation || !vendors) {
-            const message = 'AI extraction is not complete yet. Please retry and wait for extraction to finish.'
-            setErrorMessage(message)
-            toast({ title: 'Cannot continue', description: message, variant: 'destructive' })
-            return
-        }
-        setCompletedSteps(prev => {
-            const updated = new Set(prev)
-            updated.add(1)
-            return updated
-        })
+    const handleStep0Continue = () => {
+        if (!plantId) { setErrorMessage('Plant / Location is required.'); return }
+        if (!departmentId) { setErrorMessage('Department is required.'); return }
+        if (!categoryId) { setErrorMessage('Category is required.'); return }
+        if (!vendors) { handleExtract(); return }
+        setCompletedSteps(prev => { const u = new Set(prev); u.add(0); return u })
+        setCurrentStep(1)
+    }
+
+    const handleStep1Continue = () => {
+        setCompletedSteps(prev => { const u = new Set(prev); u.add(1); return u })
         setCurrentStep(2)
     }
 
+    const formatSize = (bytes: number) => {
+        if (bytes < 1024) return `${bytes} B`
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    }
+
+    const isSaving = quotationSaveMutation.isPending
+
+    const step0ContinueLabel = () => {
+        if (uploadMutation.isPending || isExtracting) return 'Extracting…'
+        if (selectedFile && !vendors) return 'Extract & Continue'
+        return 'Continue'
+    }
+
     return (
-        <div className="relative min-h-screen space-y-0 mx-auto">
+        <>
+            <style>{`
+                *,*::before,*::after{box-sizing:border-box}
+                .qf-root{font-family:'DM Sans',sans-serif;color:var(--tx,#1a1a18)}
+                :root{
+                    --bg:#fff;--bg-s:#f8f8f6;--bg-t:#f2f1ee;
+                    --tx:#1a1a18;--tx2:#5a5a57;--tx3:#9a9a96;
+                    --bd:rgba(0,0,0,0.08);--bdm:rgba(0,0,0,0.14);
+                    --r:8px;--rl:12px;
+                    --blu-bg:#E6F1FB;--blu-tx:#0C447C;--blu-bd:#185FA5;
+                    --amb-bg:#FAEEDA;--amb-tx:#854F0B;--amb-bd:#BA7517;
+                    --red-bg:#FCEBEB;--red-tx:#A32D2D;--red-bd:#E24B4A;
+                    --grn-bg:#EAF3DE;--grn-tx:#3B6D11;--grn-bd:#639922;
+                    --tel-bg:#E1F5EE;--tel-tx:#0F6E56;--tel-bd:#1D9E75;
+                    --gry-bg:#F1EFE8;--gry-tx:#5F5E5A;--gry-bd:#888780;
+                    --pur-bg:#EEEDFE;--pur-tx:#3C3489;--pur-bd:#7F77DD;
+                }
+                @keyframes spin{to{transform:rotate(360deg)}}
+                @keyframes qf-progress{from{width:30%}to{width:85%}}
+                /* Stepper */
+                .qf-root .stepper{display:flex;background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:20px}
+                .qf-root .step-item{flex:1;padding:14px 16px;display:flex;align-items:center;gap:10px;border-right:0.5px solid var(--bd);background:transparent;border-top:none;border-left:none;border-bottom:none}
+                .qf-root .step-item:last-child{border-right:none}
+                .qf-root .step-item.done{background:var(--bg-s)}
+                .qf-root .step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+                .qf-root .sn-idle{background:var(--bg-t);color:var(--tx3)}
+                .qf-root .sn-act{background:#1a1a18;color:#fff}
+                .qf-root .sn-done{background:var(--grn-bg);color:var(--grn-tx)}
+                .qf-root .step-lbl{font-size:12px;font-weight:600;color:var(--tx3)}
+                .qf-root .step-item.active .step-lbl{color:var(--tx)}
+                .qf-root .step-item.done .step-lbl{color:var(--tx2)}
+                .qf-root .step-sub{font-size:11px;color:var(--tx3)}
+                /* Form sections */
+                .qf-root .form-sec{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:16px}
+                .qf-root .form-sec-head{padding:13px 18px;border-bottom:0.5px solid var(--bd);display:flex;align-items:center;gap:10px}
+                .qf-root .fsh-ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+                .qf-root .fsh-title{font-size:13px;font-weight:600}
+                .qf-root .fsh-sub{font-size:11px;color:var(--tx3);margin-top:1px}
+                .qf-root .form-body{padding:18px}
+                /* Drop zone */
+                .qf-root .drop-zone{border:1.5px dashed var(--bdm);border-radius:var(--rl);padding:28px 24px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:var(--bg-s)}
+                .qf-root .drop-zone:hover,.qf-root .drop-zone.drag-over{border-color:var(--blu-bd);background:var(--blu-bg)}
+                .qf-root .drop-zone.has-file{border-style:solid;border-color:var(--grn-bd);background:var(--grn-bg);cursor:default;padding:14px 16px}
+                .qf-root .dz-icon{font-size:28px;color:var(--tx3);margin-bottom:6px;display:block}
+                .qf-root .dz-title{font-size:14px;font-weight:500}
+                .qf-root .dz-sub{font-size:12px;color:var(--tx3);margin-top:3px}
+                /* Parse progress */
+                .qf-root .parse-bar{height:4px;background:var(--bg-t);border-radius:2px;overflow:hidden;margin:10px 0 8px}
+                .qf-root .parse-fill{height:100%;background:var(--blu-bd);border-radius:2px;animation:qf-progress 2.5s ease-in-out infinite alternate}
+                .qf-root .parse-step{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx3);padding:3px 0}
+                .qf-root .parse-step.active-ps{color:var(--tx);font-weight:500}
+                .qf-root .parse-step i{animation:spin 1s linear infinite}
+                /* Fields */
+                .qf-root .fgrp{display:flex;flex-direction:column;gap:4px}
+                .qf-root .lbl{font-size:12px;font-weight:600;color:var(--tx2)}
+                .qf-root .req{color:var(--red-bd);margin-left:2px}
+                .qf-root .inp{padding:8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;width:100%}
+                .qf-root .inp:focus{border-color:#1a1a18}
+                .qf-root .inp-extracted{padding:8px 12px;border-radius:var(--r);border:0.5px solid rgba(29,158,117,.4);background:var(--tel-bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tel-tx);outline:none;width:100%;font-weight:500}
+                .qf-root .sel{padding:8px 32px 8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);appearance:none;outline:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9a96'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;width:100%}
+                .qf-root .sel:focus{border-color:#1a1a18}
+                .qf-root .textarea{padding:8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;resize:vertical;min-height:70px;width:100%}
+                .qf-root .textarea:focus{border-color:#1a1a18}
+                .qf-root .extracted-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--tel-tx);display:flex;align-items:center;gap:4px}
+                /* Sidebar cards */
+                .qf-root .card{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden}
+                .qf-root .card-head{padding:13px 16px;border-bottom:0.5px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
+                .qf-root .card-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;color:var(--tx)}
+                .qf-root .card-title i{font-size:14px;color:var(--tx3)}
+                .qf-root .card-body{padding:16px}
+                /* Checklist */
+                .qf-root .ci{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:0.5px solid var(--bd);font-size:12px}
+                .qf-root .ci:last-child{border-bottom:none}
+                .qf-root .ci-ok{color:var(--grn-tx)}
+                .qf-root .ci-idle{color:var(--tx3)}
+                /* Action bar */
+                .qf-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bd);padding:13px 0;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px}
+                /* Error strip */
+                .qf-root .err-strip{background:var(--red-bg);border:0.5px solid var(--red-bd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:var(--red-tx)}
+            `}</style>
 
-            {/* Loading overlay */}
-            {isLoading && currentStep !== 1 && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
-                    <div className="flex items-center gap-2 rounded-xl border bg-background px-5 py-4 text-sm text-muted-foreground shadow-sm">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {uploadMutation.isPending ? 'Extracting details…' : 'Saving quotation…'}
+            <div className="qf-root relative">
+                {/* Page header */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+                    <div>
+                        <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.4px' }}>New Quotation</div>
+                        <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>Upload document · Extract &amp; match items · Submit for approval</div>
                     </div>
+                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/quotation')}>
+                        <i className="ti ti-arrow-left" /> Back
+                    </Button>
                 </div>
-            )}
 
-            {/* Header — breadcrumb + Cancel */}
-            <div className="flex items-center justify-between gap-2 mb-0">
-                {/* <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <button onClick={() => router.push('/quotation')} className="hover:text-foreground transition-colors flex items-center gap-1">
-                        <ChevronRight className="w-3 h-3 rotate-180" />
-                        Quotations
-                    </button>
-                    <span>/</span>
-                    <span className="font-semibold text-foreground">Upload quotation</span>
-                    {quotation?.id && <Badge variant="outline" className="ml-1 text-xs">{quotation.id}</Badge>}
-                </div> */}
-                <div className="flex items-center gap-2">
-                    {/* {quotation?.file_url && (
-                        <a href={quotation.file_url} target="_blank" rel="noopener noreferrer">
-                            <Button variant="outline" size="sm" className="gap-1.5">
-                                <Download className="w-3.5 h-3.5" /> Download
-                            </Button>
-                        </a>
-                    )} */}
-                    {/* <Button variant="ghost" size="sm" onClick={() => router.push('/quotation')} className="gap-1.5 text-muted-foreground">
-                        <X className="w-3.5 h-3.5" /> Cancel
-                    </Button> */}
+                {/* Stepper */}
+                <div className="stepper">
+                    {STEPS.map((step, i) => {
+                        const isDone = completedSteps.has(i)
+                        const isActive = currentStep === i
+                        return (
+                            <div key={step.id} className={`step-item${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}>
+                                <div className={`step-num ${isDone ? 'sn-done' : isActive ? 'sn-act' : 'sn-idle'}`}>
+                                    {isDone ? <Check style={{ width: 10, height: 10 }} /> : i + 1}
+                                </div>
+                                <div>
+                                    <div className="step-lbl">{step.label}</div>
+                                    <div className="step-sub">{step.sub}</div>
+                                </div>
+                            </div>
+                        )
+                    })}
                 </div>
-            </div>
 
-            {/* Stepper + nav — always visible on ALL steps including step 0 */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottom: '1px solid hsl(var(--border))',
-                padding: '12px 20px',
-            }}>
-                <Stepper currentStep={currentStep} completedSteps={completedSteps} />
-                <div className="flex items-center gap-2">
-                    {currentStep === 1 && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleRetryAI}
-                            disabled={!selectedFile || uploadMutation.isPending}
-                            className="gap-1.5 shrink-0"
-                        >
-                            {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                            Retry AI
-                        </Button>
-                    )}
-                </div>
-            </div>
+                {/* Error */}
+                {errorMessage && (
+                    <div className="err-strip">
+                        <AlertCircle style={{ width: 16, height: 16, flexShrink: 0 }} />
+                        <span>{errorMessage}</span>
+                        <button type="button" onClick={() => setErrorMessage('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red-tx)' }}>
+                            <X style={{ width: 14, height: 14 }} />
+                        </button>
+                    </div>
+                )}
 
-            {/* Error */}
-            {errorMessage && (
-                <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 flex items-center gap-3 mb-4">
-                    <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                    <p className="text-destructive text-sm">{errorMessage}</p>
-                </div>
-            )}
-
-            {/* ── STEP 0: Upload ── */}
-            {currentStep === 0 && (
-                <div className="pt-4">
+                {/* ── STEP 0: Upload Document ── */}
+                {currentStep === 0 && (
                     <UploadFile
                         selectedFile={selectedFile}
                         setSelectedFile={setSelectedFile}
-                        addFile={addFile}
-                        handleRemoveTagState={handleRemoveTagState}
+                        handleRemoveTagState={() => {
+                            setPlantId(''); setDepartmentId(''); setCategoryId(''); setPrLinkId('')
+                            setInternalNotes(''); setSelectedFile(null); setErrorMessage('')
+                        }}
                         dragging={dragging}
                         handleDragOver={handleDragOver}
                         handleDragLeave={handleDragLeave}
                         handleDrop={handleDrop}
-                        uploadMutation={uploadMutation}
                         plantId={plantId}
                         setPlantId={setPlantId}
                         departmentId={departmentId}
@@ -643,470 +393,205 @@ const grandTotal: number = vendors?.grand_total != null
                         setPrLinkId={setPrLinkId}
                         financialYear={financialYear}
                         setFinancialYear={setFinancialYear}
+                        internalNotes={internalNotes}
+                        setInternalNotes={setInternalNotes}
                         plants={plants}
                         departments={departments}
                         categories={categories}
                         PRs={PRs}
                         formatSize={formatSize}
+                        quotation={quotation}
+                        vendors={vendors}
+                        isExtracting={isExtracting}
+                        allVendors={allApprovedVendors}
+                        vendorsFetching={vendorsFetching}
+                        onSelectVendor={(v: any) => setVendors((prev: any) => ({ ...v, gst_percentage: prev?.gst_percentage ?? v.gst_percentage }))}
                     />
-                </div>
-            )}
+                )}
 
-            {/* ── STEP 1: AI Extraction ── */}
-            {currentStep === 1 && (
-                <div className="pt-4">
-                    <AIExtractionStep selectedFile={selectedFile} quotation={quotation} onNext={handleNextFromAI} errorMessage={errorMessage} />
-                </div>
-            )}
-
-            {/* ── STEP 2: Verify Vendor ── */}
-            {currentStep === 2 && vendors && (
-                <div className="pt-4">
-                    <div className="mb-3">
-                    </div>
-                    <div className="grid gap-5 items-start">
-                        <div className="flex flex-col gap-4">
-
-                            {/* AI stripe */}
-                            {/* <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
-                                <span className="text-primary font-bold">✦</span>
-                                <div className="flex-1">
-                                    <span className="font-semibold text-primary">Vendor identified</span>
-                                    {vendors.gst_number && <span className="text-primary/80"> — GSTIN <span className="font-mono">{vendors.gst_number}</span> matched to existing vendor with 100% confidence.</span>}
-                                </div>
-                                <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">100%</span>
-                            </div> */}
-
-                            {/* Matched vendor card */}
-                            <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                                <div className="px-4 py-3 border-b flex items-center justify-between">
-                                    <div>
-                                        <span className="font-semibold text-sm">Matched vendor</span>
-                                        <span className="text-xs text-muted-foreground ml-2">Auto-filled from quote header · review & confirm</span>
-                                    </div>
-                                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setVendorSearch(''); setShowChangeVendorModal(true) }}>
-                                        <Pencil className="w-3 h-3" /> Override match
-                                    </Button>
-                                </div>
-
-                                <div className="p-4">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-12 h-12 rounded-full bg-teal-600 flex items-center justify-center text-white font-bold text-sm">
-                                            {getVendorInitials(vendors.company_name)}
-                                        </div>
-                                        <div>
-                                            <div className="font-semibold text-base">{vendors.company_name || '—'}</div>
-                                            <div className="text-sm text-muted-foreground">
-                                                {vendors.is_new === false ? 'Existing vendor' : 'New vendor'} · {[vendors.city, vendors.state].filter(Boolean).join(', ')}
-                                            </div>
-                                        </div>
-                                        <Badge className="ml-auto bg-emerald-100 text-emerald-700 border-emerald-200">
-                                            <Check className="w-3 h-3 mr-1" /> Matched
-                                        </Badge>
-                                    </div>
-
-                                    <div className="grid grid-cols-3 gap-3">
-                                        {[
-                                            ['GSTIN', vendors.gst_number || '—'],
-                                            ['PAN', vendors.pan_number || '—'],
-                                            ['Contact person', vendors.contact_name || '—'],
-                                            ['Email', vendors.contact_email || '—'],
-                                            ['Phone', `+${vendors.contact_phone} ` || '—'],
-                                            ['Bank', vendors.bank_name ? `${vendors.bank_name}${vendors.bank_ifsc ? ` · ${vendors.bank_ifsc}` : ''}` : '—'],
-                                            ['Bank A/C', vendors.bank_account || '—'],
-                                        ].map(([label, value]) => (
-                                            <div key={label} className="flex flex-col gap-0.5">
-                                                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
-                                                <span className="text-sm font-semibold text-foreground truncate" title={value}>{value}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                            {/* Terms & Conditions */}
-                            {vendors?.terms_and_conditions?.length > 0 && (
-                                <div className="bg-white border rounded-xl shadow-sm mt-4">
-                                    <div className="px-4 py-3 border-b">
-                                        <span className="font-semibold text-sm">Terms & Conditions</span>
-                                    </div>
-
-                                    <div className="p-4">
-                                        <ul className="list-disc pl-5 space-y-2">
-                                            {vendors.terms_and_conditions.map((term: string, index: number) => (
-                                                <li
-                                                    key={index}
-                                                    className="text-sm text-muted-foreground leading-relaxed"
-                                                >
-                                                    {term}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </div>
-                            )}
-                            {/* Plant & Department */}
-                            {/* <div className="rounded-xl border bg-white p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                                Plant & Department <span className="font-normal normal-case text-[10px]">(optional)</span>
-                            </p>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Plant</label>
-                                    <select className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1" value={plantId} onChange={e => setPlantId(e.target.value)}>
-                                        <option value="">— Not specified —</option>
-                                        {plants.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Department</label>
-                                    <select className="w-full h-10 border border-input rounded-md px-3 text-sm bg-background mt-1" value={departmentId} onChange={e => setDepartmentId(e.target.value)}>
-                                        <option value="">— Not specified —</option>
-                                        {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                        </div> */}
-                        </div>
-
-                        {/* Right panel */}
-                        <div className="flex flex-col gap-4">
-                            {/* Why this match? */}
-                            {/* <div className="rounded-xl overflow-hidden border border-primary/20">
-                                <div className="flex items-center gap-2 px-4 py-3 bg-primary text-white">
-                                    <span className="font-bold">✦</span>
-                                    <span className="font-semibold text-sm">Why this match?</span>
-                                    <span className="ml-auto text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">100%</span>
-                                </div>
-                                <div className="p-4 bg-primary/5 space-y-1.5">
-                                    {['GSTIN exact match — primary identifier', 'PAN segment matches', 'Sender email domain matches vendor record', 'Letterhead logo SSIM 0.94 vs. stored asset', 'Bank account matches active vendor file'].map((t, i) => (
-                                        <div key={i} className="flex items-start gap-2 text-sm text-slate-700">
-                                            <span className="text-primary mt-0.5">•</span>{t}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div> */}
-
-                            {/* Vendor at a glance */}
-                            {/* <div className="bg-white border rounded-xl shadow-sm">
-                                <div className="px-4 py-3 border-b font-semibold text-sm">Vendor at a glance</div>
-                                <div className="divide-y">
-                                    {[
-                                        ['Score · 90d', `${vendors.vendor_score || 88}`],
-                                        ['On-time', `${vendors.on_time_rate || 91}%`],
-                                        ['Defect rate', `${vendors.defect_rate || 0.8}%`],
-                                        ['Lead time', `${vendors.lead_time_days || 6} days`],
-                                        ['Transactions', `${vendors.transaction_count || 12}`],
-                                    ].map(([label, value]) => (
-                                        <div key={label} className="flex items-center justify-between px-4 py-2 text-sm">
-                                            <span className="text-muted-foreground">{label}</span>
-                                            <span className="font-semibold">{value}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div> */}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ── STEP 3: Verify Items ── */}
-            {currentStep === 3 && (
-                <div className="pt-4">
+                {/* ── STEP 1: Items & Matching ── */}
+                {currentStep === 1 && (
                     <VerifyItemsStep
                         file={selectedFile}
                         quotation={quotation}
                         lineItems={lineItems}
                         setLineItems={setLineItems}
                         masterItems={masterItems}
-                        onContinue={handleSubmit}
-                        onBack={() => setCurrentStep(2)}
+                        onContinue={handleStep1Continue}
+                        onBack={() => setCurrentStep(0)}
                     />
-                </div>
-            )}
+                )}
 
-            {/* Action Buttons */}
-            {currentStep <= 2 && (
-                <div
-                    style={{
-                        borderTop: '1px solid hsl(var(--border))',
-                        padding: '12px 24px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        marginTop: '10px',
-                    }}
-                >
-                    {currentStep > 0 ? (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleStepBack}
-                            className="gap-1"
-                        >
-                            Back
-                        </Button>
-                    ) : (
-                        <div />
-                    )}
-
-                    {currentStep === 0 ? (
-                        <Button
-                            size="sm"
-                            onClick={() => selectedFile && addFile(selectedFile)}
-                            disabled={!selectedFile || uploadMutation.isPending}
-                            className="gap-1.5"
-                        >
-                            {uploadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                            Continue <ChevronRight className="w-3.5 h-3.5" />
-                        </Button>
-                    ) : currentStep === 1 ? (
-                        <Button
-                            size="sm"
-                            onClick={handleNextFromAI}
-                            disabled={!quotation}
-                            className="gap-1.5"
-                        >
-                            Next <ChevronRight className="w-3.5 h-3.5" />
-                        </Button>
-                    ) : (
-                        <Button
-                            size="sm"
-                            onClick={handleStepContinue}
-                            disabled={currentStep === 2 ? !canProceedFromVendor : !canProceedFromItems}
-                            className="gap-1.5"
-                        >
-                            {currentStep === 2 ? 'Next' : 'Continue'} <ChevronRight className="w-3.5 h-3.5" />
-                        </Button>
-                    )}
-                </div>
-            )}
-
-            {currentStep === 3 && (
-                <div
-                    style={{
-                        borderTop: '1px solid hsl(var(--border))',
-                        padding: '12px 24px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        marginTop: '10px',
-                    }}
-                >
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleStepBack}
-                        className="gap-1"
-                    >
-                        Back
-                    </Button>
-
-                    <Button
-                        size="sm"
-                        onClick={handleSubmit}
-                        disabled={isLoading}
-                        className="gap-1.5"
-                        style={{ marginLeft: 'auto' }}
-                    >
-                        {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                        Review & save <ChevronRight className="w-3.5 h-3.5" />
-                    </Button>
-                </div>
-            )}
-
-            {/* ── Confirm Modal ── */}
-            {/* ── Confirm Modal ── */}
-            <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-                <DialogContent className="max-w-5xl p-0 overflow-hidden border border-border shadow-xl bg-background text-foreground rounded-2xl">
-                    <div className="flex max-h-[80vh]">
-                        {/* LEFT: Identity & Status */}
-                        <div className="w-[320px] bg-muted/30 p-6 flex flex-col border-r border-border">
-                            <div className="mb-0">
-                                <DialogHeader className="text-left mb-5">
-                                    <DialogTitle className="text-2xl font-semibold text-primary">Confirm Submission</DialogTitle>
-                                    <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-                                        Review summary & side-effects<br />before system persistence
-                                    </DialogDescription>
-                                </DialogHeader>
-
-                                {/* Vendor ID Card */}
-                                <div className="space-y-4 mb-7">
-                                    <div className="p-3 bg-white border border-border rounded-xl relative overflow-hidden group shadow-sm">
-                                        <div className="text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between">
-                                            <span>Vendor Match</span>
-                                        </div>
-                                        <div className="text-base font-semibold truncate leading-tight text-foreground">{vendors?.company_name || '—'}</div>
-                                        <div className="text-xs text-muted-foreground mt-1 font-mono">{vendors?.gst_number || 'GSTIN —'}</div>
-                                    </div>
-
-                                    <div className="p-3 bg-white border border-border rounded-xl shadow-sm">
-                                        <div className="text-xs font-semibold text-muted-foreground mb-1.5">Quote Reference</div>
-                                        <div className="text-sm font-semibold text-foreground">{vendors?.quotation_no || 'QT/2026/1001'}</div>
-                                    </div>
+                {/* ── STEP 2: Review & Submit ── */}
+                {currentStep === 2 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16, alignItems: 'start' }}>
+                        {/* Left summary */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div style={{ padding: 16, background: 'var(--bg)', border: '0.5px solid var(--bd)', borderRadius: 'var(--rl)' }}>
+                                <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Review &amp; Submit</div>
+                                <div style={{ fontSize: 12, color: 'var(--tx3)', lineHeight: 1.55 }}>Confirm the details below before submitting for approval</div>
+                            </div>
+                            <div style={{ padding: '12px 14px', background: 'var(--bg)', border: '0.5px solid var(--bd)', borderRadius: 'var(--r)' }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx3)', marginBottom: 4 }}>Vendor</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>{vendors?.company_name || '—'}</div>
+                                <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 2, fontFamily: 'monospace' }}>{vendors?.gst_number || '—'}</div>
+                            </div>
+                            <div style={{ padding: '12px 14px', background: 'var(--bg)', border: '0.5px solid var(--bd)', borderRadius: 'var(--r)' }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx3)', marginBottom: 4 }}>Quote Reference</div>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>{quotation?.vendor?.quotation_no || '—'}</div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                <div style={{ padding: '12px 14px', background: 'var(--bg)', border: '0.5px solid var(--bd)', borderRadius: 'var(--r)' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx3)', marginBottom: 4 }}>Items</div>
+                                    <div style={{ fontSize: 16, fontWeight: 700 }}>{lineItems.length}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 2 }}>lines</div>
                                 </div>
+                                <div style={{ padding: '12px 14px', background: 'var(--bg)', border: '0.5px solid var(--bd)', borderRadius: 'var(--r)' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx3)', marginBottom: 4 }}>Subtotal</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700 }}>₹{subtotal.toLocaleString('en-IN')}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 2 }}>net value</div>
+                                </div>
+                            </div>
+                            <div style={{ padding: 14, background: 'var(--grn-bg)', border: '0.5px solid rgba(99,153,34,.3)', borderRadius: 'var(--r)' }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--grn-tx)', marginBottom: 4 }}>Grand Total</div>
+                                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--grn-tx)', letterSpacing: '-.5px' }}>₹{grandTotal.toLocaleString('en-IN')}</div>
+                                <div style={{ fontSize: 11, color: 'var(--grn-tx)', opacity: 0.7, marginTop: 2 }}>inclusive of taxes</div>
                             </div>
                         </div>
 
-                        {/* RIGHT: High-Level Summary & Side Effects */}
-                        <div className="flex-1 flex flex-col bg-muted/20 p-8 overflow-y-auto">
-                            <div className="text-sm font-semibold text-muted-foreground mb-6">Review Summary</div>
-
-                            <div className="grid grid-cols-3 gap-4 mb-8">
-                                <div className="bg-white border rounded-xl p-4 shadow-sm">
-                                    <div className="text-xs font-semibold text-muted-foreground mb-2">Items</div>
-                                    <div className="text-lg font-bold text-foreground leading-none">{lineItems.length} lines</div>
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                        {lineItems.filter((i: any) => !i.is_new).length} Matched · {lineItems.filter((i: any) => i.is_new).length} New
-                                    </div>
-                                </div>
-                                <div className="bg-white border rounded-xl p-4 shadow-sm">
-                                    <div className="text-xs font-semibold text-muted-foreground mb-2">Subtotal</div>
-                                    <div className="text-lg font-bold text-foreground leading-none">₹{subtotal?.toLocaleString('en-IN')}</div>
-                                    <div className="text-xs text-muted-foreground mt-1">Net value</div>
-                                </div>
-                                <div className="bg-white border rounded-xl p-4 shadow-sm border-primary/20 ring-2 ring-primary/5">
-                                    <div className="text-xs font-semibold text-primary mb-2">Grand Total</div>
-                                    <div className="text-xl font-bold text-primary leading-none">₹{grandTotal?.toLocaleString('en-IN')}</div>
-                                    <div className="text-xs text-primary/70 mt-1 italic">Inclusive of taxes</div>
-                                </div>
+                        {/* Right side-effects */}
+                        <div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 12 }}>
+                                Pending Side-effects
+                                <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 8 }}>Will be applied on save</span>
                             </div>
-
-                            <div className="text-sm font-semibold text-muted-foreground mb-4">Pending Side-effects <span className="ml-2 font-normal text-xs text-muted-foreground whitespace-nowrap">Will be applied on save</span></div>
-
-                            <div className="space-y-3">
-                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/20 transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                        <Building2 className="w-5 h-5" />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ background: 'var(--bg)', border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--blu-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <Building2 style={{ width: 16, height: 16, color: 'var(--blu-tx)' }} />
                                     </div>
-                                    <div className="flex-1">
-                                        <div className="text-sm font-semibold text-foreground">Link {lineItems.filter((i: any) => !i.is_new).length} existing SKUs to vendor</div>
-                                        <div className="text-xs text-muted-foreground mt-0.5">Association will be recorded in the Vendor Master</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 600 }}>Link {lineItems.filter((i: any) => !i.is_new).length} existing SKUs to vendor</div>
+                                        <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>Association will be recorded in the Vendor Master</div>
                                     </div>
-                                    <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] font-semibold">UPDATE</Badge>
+                                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', background: 'var(--gry-bg)', color: 'var(--gry-tx)', borderRadius: 20 }}>UPDATE</span>
                                 </div>
-
-                                <div className="bg-white border rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/20 transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                        <Package className="w-5 h-5" />
+                                <div style={{ background: 'var(--bg)', border: '0.5px solid var(--bd)', borderRadius: 'var(--r)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--tel-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <Package style={{ width: 16, height: 16, color: 'var(--tel-tx)' }} />
                                     </div>
-                                    <div className="flex-1">
-                                        <div className="text-sm font-semibold text-foreground">Update price book</div>
-                                        <div className="text-xs text-muted-foreground mt-0.5">{lineItems.length} vendor prices vs. last 90d</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 600 }}>Update price book</div>
+                                        <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>{lineItems.length} vendor prices vs. last 90d</div>
                                     </div>
-                                    <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] font-semibold">UPDATE</Badge>
+                                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', background: 'var(--gry-bg)', color: 'var(--gry-tx)', borderRadius: 20 }}>UPDATE</span>
                                 </div>
-
                                 {lineItems.some((i: any) => i.is_new) && (
-                                    <div className="bg-white border border-primary/20 rounded-xl p-4 flex items-center gap-4 shadow-sm group hover:border-primary/40 transition-colors">
-                                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
-                                            <Plus className="w-5 h-5" />
+                                    <div style={{ background: 'var(--grn-bg)', border: '0.5px solid rgba(99,153,34,.3)', borderRadius: 'var(--r)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--grn-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <Plus style={{ width: 16, height: 16, color: '#fff' }} />
                                         </div>
-                                        <div className="flex-1">
-                                            <div className="text-sm font-semibold text-primary">Queue {lineItems.filter((i: any) => i.is_new).length} new SKUs for creation</div>
-                                            <div className="text-xs text-primary/70 mt-0.5">Category owners will be notified for approval</div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--grn-tx)' }}>Queue {lineItems.filter((i: any) => i.is_new).length} new SKUs for creation</div>
+                                            <div style={{ fontSize: 12, color: 'var(--grn-tx)', opacity: 0.7, marginTop: 2 }}>Category owners will be notified for approval</div>
                                         </div>
-                                        <Badge className="bg-primary/10 text-primary border-none text-[10px] font-semibold">NEW</Badge>
+                                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', background: 'rgba(59,109,17,.15)', color: 'var(--grn-tx)', borderRadius: 20 }}>NEW</span>
                                     </div>
                                 )}
                             </div>
-
-                            <div className="mt-auto pt-8 flex items-center justify-between">
-                                <div className="text-xs font-medium text-muted-foreground/70">
-                                    <span>Secured by ProcureAI Backend</span>
-                                </div>
-
-                                <div className="flex items-center gap-4">
-                                 
-
-                                    <Button
-                                        onClick={confirmAndSubmit}
-                                        disabled={isLoading}
-                                        className="bg-primary hover:bg-primary/90 text-primary-foreground h-10 px-6 font-semibold text-sm rounded-xl"
-                                    >
-                                        {isLoading ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            'Confirm & Save'
-                                        )}
-                                    </Button>
-                                </div>
-                            </div>
                         </div>
                     </div>
-                </DialogContent>
-            </Dialog>
-            {/* ── Export Modal ── */}
-            <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Export New Items</DialogTitle>
-                        <DialogDescription>Only <b>new items</b> will be exported to Excel. Existing or duplicate items will be ignored.</DialogDescription>
-                    </DialogHeader>
-                    <div className="text-sm text-muted-foreground">
-                        Total new items to export: <span className="font-semibold text-foreground">{lineItems.filter((i: any) => i.is_new).length}</span>
-                    </div>
-                    <DialogFooter className="gap-2">
-                        <Button variant="outline" onClick={() => setShowExportModal(false)}>Cancel</Button>
-                        <Button onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending || lineItems.filter((i: any) => i.is_new).length === 0}>
-                            {exportMutation.isPending ? 'Exporting...' : 'Export Excel'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                )}
 
-            {/* ── Change Vendor Modal ── */}
-            <Dialog open={showChangeVendorModal} onOpenChange={(open) => { setShowChangeVendorModal(open); if (!open) setVendorSearch('') }}>
-                <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
-                    <DialogHeader className="px-5 pt-5 pb-4 border-b">
-                        <DialogTitle>Change vendor</DialogTitle>
-                        <DialogDescription>Search and select an approved vendor</DialogDescription>
-                    </DialogHeader>
-                    <div className="px-5 py-3 border-b">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                            <input type="text" placeholder="Search by name, GSTIN, city, state…" value={vendorSearch} onChange={(e) => setVendorSearch(e.target.value)} autoFocus
-                                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground" />
-                        </div>
-                    </div>
-                    <div className="max-h-72 overflow-y-auto divide-y">
-                        {vendorsFetching && (
-                            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-                                <Loader2 className="w-4 h-4 animate-spin" /> Loading vendors…
-                            </div>
+                {/* ── Action bar ── */}
+                <div className="sticky-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        {currentStep > 0 ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentStep(s => s - 1)}
+                            >
+                                Back
+                            </Button>
+                        ) : (
+                            <div />
                         )}
-                        {!vendorsFetching && vendorSearchResults.length === 0 && (
-                            <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-                                <Search className="w-8 h-8 opacity-20" />
-                                <p>{vendorSearch.trim().length > 0 ? <>No vendors found for <span className="font-medium text-foreground">"{vendorSearch}"</span></> : 'No approved vendors available'}</p>
-                            </div>
-                        )}
-                        {!vendorsFetching && vendorSearchResults.map((v: any) => (
-                            <button key={v.id} className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-muted/40 transition-colors group"
-                                onClick={() => { setVendors((prev: any) => ({ ...v, gst_percentage: prev?.gst_percentage ?? v.gst_percentage })); setShowChangeVendorModal(false); setVendorSearch('') }}>
-                                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary flex-shrink-0">
-                                    {getVendorInitials(v.company_name)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-foreground truncate">{v.company_name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{[v.city, v.state].filter(Boolean).join(', ')}{v.gst_number ? ` · ${v.gst_number}` : ''}</p>
-                                </div>
-                                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </button>
-                        ))}
                     </div>
-                    {!vendorsFetching && vendorSearchResults.length > 0 && (
-                        <div className="px-5 py-2 border-t bg-muted/10 text-xs text-muted-foreground flex items-center justify-between">
-                            <span>Showing <span className="font-medium text-foreground">{vendorSearchResults.length}</span> of <span className="font-medium text-foreground">{allApprovedVendors.length}</span> vendors</span>
-                            {vendorSearch.trim().length > 0 && <button onClick={() => setVendorSearch('')} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Clear search</button>}
-                        </div>
-                    )}
-                    <DialogFooter className="px-5 py-3 border-t">
-                        <Button variant="outline" onClick={() => { setShowChangeVendorModal(false); setVendorSearch('') }}>Cancel</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div >
+                    <div
+                        style={{
+                            display: 'flex',
+                            gap: 12,
+                            alignItems: 'center',
+                            paddingRight: 8,
+                            borderRadius: '9999px', // curve
+                            padding: '6px 8px',
+                        }}
+                    >
+                        <span style={{ fontSize: 12, color: 'var(--tx3)', marginRight: 4 }}>
+                            Step {currentStep + 1} of 3
+                        </span>
+
+                        {currentStep === 0 && (
+                            <Button
+                                size="sm"
+                                onClick={handleStep0Continue}
+                                disabled={!selectedFile || uploadMutation.isPending || isExtracting}
+                                className="gap-1.5"
+                            >
+                                {(uploadMutation.isPending || isExtracting) && (
+                                    <Loader2
+                                        style={{
+                                            width: 14,
+                                            height: 14,
+                                            animation: 'spin 0.8s linear infinite',
+                                        }}
+                                    />
+                                )}
+                                {step0ContinueLabel()}
+                                <ChevronRight style={{ width: 14, height: 14 }} />
+                            </Button>
+                        )}
+
+                        {currentStep === 1 && (
+                            <Button
+                                size="sm"
+                                onClick={handleStep1Continue}
+                                disabled={lineItems.length === 0}
+                                className="gap-1.5"
+                            >
+                                Review &amp; Submit
+                                <ChevronRight style={{ width: 14, height: 14 }} />
+                            </Button>
+                        )}
+
+                        {currentStep === 2 && (
+                            <Button
+                                size="sm"
+                                onClick={() => quotationSaveMutation.mutate()}
+                                disabled={isSaving}
+                                style={{
+                                    background: '#1a1a18',
+                                    color: '#fff',
+                                    borderColor: '#1a1a18',
+                                }}
+                                className="gap-1.5"
+                            >
+                                {isSaving && (
+                                    <Loader2
+                                        style={{
+                                            width: 14,
+                                            height: 14,
+                                            animation: 'spin 0.8s linear infinite',
+                                        }}
+                                    />
+                                )}
+                                Confirm &amp; Save
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </>
     )
 }
