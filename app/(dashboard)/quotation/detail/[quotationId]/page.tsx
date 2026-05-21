@@ -40,6 +40,7 @@ type Vendor = {
   bank_name: string
   bank_account: string
   bank_ifsc: string
+  vendor_code:string
 }
 
 type BillTo = {
@@ -159,6 +160,7 @@ function mapVendor(raw: any): Vendor | null {
     bank_name: v.bank_name ?? '',
     bank_account: v.bank_account ?? '',
     bank_ifsc: v.bank_ifsc ?? '',
+    vendor_code:v.vendor_code??""
   }
 }
 
@@ -419,8 +421,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, color: 'var(--blu-tx)' }}>{quotation.ref_no || '—'}</div>
           </div>
           <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
-            <div className="rhm-lbl">Vendor Ref No.</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, color: 'var(--tx2)' }}>{quotation.quotation_no || '—'}</div>
+            <div className="rhm-lbl">Vendor Code</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, color: 'var(--tx2)' }}>{vendor?.vendor_code || '—'}</div>
           </div>
           <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Quote Date</div>
