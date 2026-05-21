@@ -113,8 +113,8 @@ function DeleteConfirmModal({ name, onClose, onConfirm, isPending }: Readonly<{
   name: string; onClose: () => void; onConfirm: () => void; isPending: boolean
 }>) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white rounded-md shadow-xl w-full max-w-[520px] p-0 overflow-hidden">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 px-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="bg-white rounded-md shadow-xl w-full max-w-[520px] p-0 overflow-hidden relative">
         <div className="p-5 space-y-3">
           <h2 className="text-xl font-semibold tracking-tight pr-10">Delete Quotation</h2>
           <button
@@ -355,7 +355,7 @@ export default function QuotationPage() {
               <span className="hidden sm:inline">Export CSV</span>
               <span className="sm:hidden">CSV</span>
             </Button>
-            <Link href="/quotation/new">
+            <Link href="/quotation/add">
               <Button size="sm" className="gap-1.5">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">New Quotation</span>
@@ -404,7 +404,7 @@ export default function QuotationPage() {
                     return (
                       <tr
                         key={q.id}
-                        onClick={() => router.push(`/quotation/${q.hash_id}`)}
+                        onClick={() => router.push(`/quotation/detail/${q.hash_id}`)}
                         className="hover:bg-slate-50/80 transition-colors cursor-pointer select-none"
                       >
                         <td className="px-4 py-3">
