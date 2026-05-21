@@ -647,8 +647,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     onSuccess: (mode) => {
       queryClient.invalidateQueries({ queryKey: ['vendors'] })
       toast({ title: mode === 'approval' ? 'Vendor submitted for approval' : 'Vendor saved as draft' })
-      if (onSuccess && vendorId) onSuccess(vendorId)
-      else router.push(`/vendors/${vendorId}`)
+      setShowConfirmModal(false)
+      router.push('/vendors')
     },
     onError: (err: any) => { setShowConfirmModal(false); setSubmitError(apiErrorMsg(err)) },
   })
