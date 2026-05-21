@@ -495,11 +495,7 @@ export default function UploadQuotationPage() {
                                 <ChevronRight style={{ width: 14, height: 14 }} />
                             </Button>
                         )}
-
                         {currentStep === 2 && (
-                            <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving} className="gap-1.5">
-                                {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
-                                Confirm &amp; Save
                             <Button
                                 size="sm"
                                 onClick={() => setShowConfirm(true)}
@@ -507,9 +503,15 @@ export default function UploadQuotationPage() {
                                 className="gap-1.5"
                             >
                                 {isSaving && (
-                                    <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />
+                                    <Loader2
+                                        style={{
+                                            width: 14,
+                                            height: 14,
+                                            animation: 'spin 0.8s linear infinite',
+                                        }}
+                                    />
                                 )}
-                                Submit
+                               Submit
                             </Button>
                         )}
                     </div>
