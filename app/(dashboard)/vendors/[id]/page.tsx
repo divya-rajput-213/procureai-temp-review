@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, MapPin, LayoutDashboard, ShieldCheck, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt, AlertTriangle } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, MapPin, LayoutDashboard, ShieldCheck, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt, AlertTriangle, ChevronLeft } from 'lucide-react'
 import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
@@ -771,12 +771,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '50%' }} />
                       <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '80%' }} />
                     </div>
-                    <div className="flex justify-between text-[9px] text-slate-300 mb-2 px-0.5">
-                      <span>0</span>
-                      <span className="relative" style={{ left: '-2%' }}>50</span>
-                      <span className="relative" style={{ left: '2%' }}>80</span>
-                      <span>100</span>
-                    </div>
                     <div className="flex flex-wrap gap-1">
                       {docItems.map(({ key, label }) => {
                         const d = docs[key]
@@ -814,13 +808,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                     <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '30%' }} />
                     <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '60%' }} />
                   </div>
-                  <div className="flex justify-between text-[9px] text-slate-300 mb-1 px-0.5">
-                    <span>0</span>
-                    <span className="relative" style={{ left: '-2%' }}>30</span>
-                    <span className="relative" style={{ left: '2%' }}>60</span>
-                    <span>100%</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">{stats.accepted_bids} of {stats.total_bids} bids won</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{stats.accepted_bids} of {stats.total_bids} bids won</p>
                 </div>
               )}
 
@@ -840,27 +828,8 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                     <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '60%' }} />
                     <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '85%' }} />
                   </div>
-                  <div className="flex justify-between text-[9px] text-slate-300 px-0.5">
-                    <span>0</span>
-                    <span className="relative" style={{ left: '-2%' }}>60</span>
-                    <span className="relative" style={{ left: '2%' }}>85</span>
-                    <span>100%</span>
-                  </div>
                 </div>
               )}
-
-              {/* Threshold legend */}
-              <div className="border-t pt-2 flex items-center gap-3 flex-wrap">
-                <span className="inline-flex items-center gap-1 text-[9px] text-slate-400">
-                  <span className="inline-block w-2 h-2 rounded-sm bg-red-400" />Poor
-                </span>
-                <span className="inline-flex items-center gap-1 text-[9px] text-slate-400">
-                  <span className="inline-block w-2 h-2 rounded-sm bg-amber-400" />Fair
-                </span>
-                <span className="inline-flex items-center gap-1 text-[9px] text-slate-400">
-                  <span className="inline-block w-2 h-2 rounded-sm bg-green-500" />Good
-                </span>
-              </div>
 
               {scorecard.win_rate == null && scorecard.otd == null && (
                 <p className="text-[11px] text-muted-foreground border-t pt-3">
@@ -909,7 +878,7 @@ export default function VendorDetailPage() {
   if (!vendor) return <div className="p-8 text-center text-muted-foreground">Vendor not found.</div>
 
   const canFullEdit = vendor.status === 'draft'
-  const canUploadDoc = ['draft', 'pending_approval', 'approved'].includes(vendor.status)
+  const canUploadDoc = ['draft', 'pending_approval'].includes(vendor.status)
   const isLocked = ['rejected', 'blocked'].includes(vendor.status)
 
   const tabs = [
@@ -922,6 +891,11 @@ export default function VendorDetailPage() {
       <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
         {/* Header */}
         <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
+
+          {/* Back link */}
+          <button onClick={() => router.push('/vendors')} className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors mb-3">
+            <ChevronLeft className="w-3.5 h-3.5" /> Vendors
+          </button>
 
           {/* Top */}
           <div className="flex justify-between items-start gap-4">
@@ -996,7 +970,7 @@ export default function VendorDetailPage() {
               ['GSTIN', vendor.gst_number],
               ['PAN', vendor.pan_number],
               ['Created At', formatDate(vendor.created_at)],
-              ['Vendor Score', dash?.performance_score],
+              ['Compliance Score', dash?.scorecard?.compliance?.score != null ? `${dash.scorecard.compliance.score}/100` : '—'],
             ].map(([label, value], index) => (
               <div
                 key={label}
@@ -1070,7 +1044,7 @@ export default function VendorDetailPage() {
           <div className="space-y-4">
 
             {/* Upload button — reuse edit form (starts at compliance step) */}
-            {canUploadDoc && canFullEdit &&  (
+            {canUploadDoc && (
               <div className="flex justify-end">
                 <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
                   <FileText className="w-[14px] h-[14px] mr-1" />
