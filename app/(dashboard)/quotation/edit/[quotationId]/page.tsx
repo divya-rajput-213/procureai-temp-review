@@ -9,13 +9,11 @@ import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { CommonConfirmModal } from '@/components/shared/CommonModal'
 import VerifyItemsStep from '../../components/VerifyItemsStep'
-import ReviewSubmitStep from '../../components/ReviewSubmitStep'
 import UploadFile from '../../components/UploadFile'
 
 const STEPS = [
     { id: 0, label: 'Document & Details', sub: 'Vendor, plant & category' },
     { id: 1, label: 'Items & Matching', sub: 'Review & edit line items' },
-    // { id: 2, label: 'Review & Submit', sub: 'Confirm & update quotation' },
 ]
 
 export default function EditQuotationPage({ params }: Readonly<{ params: { quotationId: string } }>) {
@@ -379,22 +377,6 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                     />
                 )}
 
-                {/* ── STEP 2: Review & Submit ── */}
-                {/* {currentStep === 2 && (
-                    <ReviewSubmitStep
-                        quotation={quotationData}
-                        lineItems={lineItems}
-                        vendors={vendors}
-                        plants={plants}
-                        plantId={plantId}
-                        PRs={PRs}
-                        prLinkId={prLinkId}
-                        setPrLinkId={setPrLinkId}
-                        internalNotes={internalNotes}
-                        setInternalNotes={setInternalNotes}
-                        showTerms={false}
-                    />
-                )} */}
 
                 {/* ── Action bar ── */}
                 <div className="sticky-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
