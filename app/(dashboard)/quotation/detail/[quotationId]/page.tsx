@@ -286,8 +286,18 @@ const QD_CSS = `
   .match-tbl tbody tr:hover{background:#fafaf8}
   .match-tbl td{padding:10px 12px;vertical-align:top}
   td.match-tfoot{padding:9px 12px;font-size:12px;background:var(--bg-s);border-top:0.5px solid var(--bdm)}
-  @media(max-width:900px){.hero-grid{grid-template-columns:1fr 1fr!important}}
-  @media(max-width:600px){.hero-grid{grid-template-columns:1fr!important}.vendor-link-cell{border-right:none;border-bottom:0.5px solid var(--bd)}}
+  @media(max-width:900px){
+    .hero-grid{grid-template-columns:1fr 1fr!important}
+    .qd-action-bar{flex-direction:column;align-items:flex-start!important;gap:10px}
+    .qd-action-bar>div{flex-wrap:wrap}
+  }
+  @media(max-width:600px){
+    .hero-grid{grid-template-columns:1fr!important}
+    .vendor-link-cell{border-right:none;border-bottom:0.5px solid var(--bd);padding-bottom:12px;margin-bottom:2px}
+    .qd-info-cell{border-right:none!important;border-bottom:0.5px solid var(--bd);padding-bottom:12px;margin-bottom:2px}
+    .qd-info-cell:last-child{border-bottom:none}
+    .qd-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  }
 `
 
 // ── Presentation helpers ────────────────────────────────────────────────────
@@ -433,6 +443,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
       {/* Action bar */}
       <div
+        className="qd-action-bar"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -536,14 +547,14 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               )}
             </div>
           </button>
-          <div style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
+          <div className="qd-info-cell" style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Vendor Contact</div>
             <div style={{ fontSize: 13, fontWeight: 500 }}>{vendor?.contact_name || '—'}</div>
             <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 1 }}>
               {[vendor?.contact_email, vendor?.contact_phone ? `+${vendor.contact_phone}` : null].filter(Boolean).join(' · ')}
             </div>
           </div>
-          <div style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
+          <div className="qd-info-cell" style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Plant / Department / Category</div>
             <div style={{ fontSize: 13, fontWeight: 500 }}>
               {[quotation?.plant_name, quotation?.department_name, quotation?.category_name || (quotation?.category ? String(quotation.category) : null)].filter(Boolean).join(' / ') || '—'}
@@ -553,15 +564,15 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
         {/* Row 2: Quote Date / Valid Until / Grand Total / PR Linked */}
         <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14, marginTop: 14 }}>
-          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
+          <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Quote Date</div>
             <div style={{ fontSize: 13, fontWeight: 500 }}>{fmtDate(quotation.quotation_date)}</div>
           </div>
-          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
+          <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Valid Until</div>
             <div style={{ fontSize: 13, fontWeight: 500 }}>{fmtDate(quotation.valid_until)}</div>
           </div>
-          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
+          <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Grand Total</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--tel-tx)' }}>{formatINR(displayGrandTotal)}</div>
           </div>
@@ -573,7 +584,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       </div>
 
       {/* Tabs bar */}
-      <div className="flex w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white">
+      <div className="qd-tabs flex w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white">
         {([
           { id: 'items', label: 'Line Items', icon: <List className="w-[14px] h-[14px]" />, badge: items.length },
           { id: 'terms', label: 'Terms & Conditions', icon: <ScrollText className="w-[14px] h-[14px]" /> },

@@ -163,11 +163,6 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
     // Summary
     const matched = lineItems.filter(i => !i.createNew && !i.is_new && !i.skipItem && !i.replaceExisting && !!i.selectedMasterId).length
     const newCount = lineItems.filter(i => (i.createNew || i.is_new) && !i.skipItem).length
-    const replaced = lineItems.filter(i => i.replaceExisting && !i.skipItem).length
-    const skipped = lineItems.filter(i => !!i.skipItem).length
-    const pending = lineItems.filter(i => !i.createNew && !i.is_new && !i.skipItem && !i.replaceExisting && !i.selectedMasterId).length
-    const actioned = lineItems.length - pending
-    const pct = lineItems.length > 0 ? Math.round(actioned / lineItems.length * 100) : 0
 
     return (
         <div className="vi-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16 }}>
@@ -187,14 +182,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                         {/* Extraction notice */}
                         <div style={{ background: 'var(--grn-bg)', border: '0.5px solid rgba(99,153,34,.3)', borderRadius: 'var(--r)', padding: '9px 13px', display: 'flex', alignItems: 'center', gap: 9, marginBottom: 12, fontSize: 12, color: 'var(--grn-tx)' }}>
                             <i className="ti ti-sparkles" style={{ fontSize: 14, flexShrink: 0 }} />
-                            <span><strong style={{ fontWeight: 600 }}>AI extraction complete.</strong> {lineItems.length} item{lineItems.length !== 1 ? 's' : ''} extracted. Edit any cell inline, then choose an action for each row.</span>
-                        </div>
-
-                        {/* Progress */}
-                        <div className="match-progress">
-                            <span style={{ whiteSpace: 'nowrap', fontWeight: 500 }}>{actioned} of {lineItems.length} actioned</span>
-                            <div className="mp-bar"><div className="mp-fill" style={{ width: `${pct}%` }} /></div>
-                            <span style={{ fontWeight: 700, fontSize: 13 }}>{pct}%</span>
+                            <span><strong style={{ fontWeight: 600 }}>AI extraction complete.</strong> {lineItems.length} item{lineItems.length !== 1 ? 's' : ''} extracted.</span>
                         </div>
 
                         {/* Table */}
@@ -209,8 +197,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                         <th style={{ width: 72 }}>UOM</th>
                                         <th style={{ width: 96, textAlign: 'right' }}>Unit Price</th>
                                         <th style={{ width: 106, textAlign: 'right' }}>Total</th>
-                                        <th style={{ width: 42, textAlign: 'center' }}>GST%</th>
-                                        {!hideMasterMatch && <th>Master Item Match</th>}
+                                        {!hideMasterMatch && <th style={{ width: 200 }}>Master Item Match</th>}
                                         <th style={{ width: 28 }} />
                                     </tr>
                                 </thead>
@@ -223,7 +210,6 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                         const selMasterId = item.selectedMasterId || (hasSugg ? String(item.suggestions[0].master_item_id) : '')
                                         const qty = Number(item.quantity || 1)
                                         const price = Number(item.item_price || 0)
-                                        const gst = Number(item.gst_percentage || 0)
                                         const isManual = !!item._manuallyAdded
 
                                         return (
@@ -251,12 +237,13 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
-                                                    {isManual
+                                                    {isManual || qty === 0
                                                         ? <input
                                                             type="number"
-                                                            value={qty}
+                                                            value={qty || ''}
                                                             onChange={e => updateItem(idx, 'quantity', Number(e.target.value))}
-                                                            style={{ ...editableStyle, width: 48, textAlign: 'right' }}
+                                                            placeholder="1"
+                                                            style={{ ...(isManual ? editableStyle : needsInputStyle), width: 48, textAlign: 'right' }}
                                                           />
                                                         : <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{qty}</span>
                                                     }
@@ -280,28 +267,20 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
                                                     {isManual
-                                                        ? price > 0
-                                                            ? <span style={extractedCellStyle}>{fmtI(price)}</span>
-                                                            : <input
-                                                                type="number"
-                                                                value={price || ''}
-                                                                onChange={e => updateItem(idx, 'item_price', Number(e.target.value))}
-                                                                placeholder="0"
-                                                                style={{ ...needsInputStyle, width: 85, textAlign: 'right' }}
-                                                              />
+                                                        ? <input
+                                                            type="number"
+                                                            value={price || ''}
+                                                            onChange={e => updateItem(idx, 'item_price', Number(e.target.value))}
+                                                            placeholder="0"
+                                                            style={{ ...editableStyle, width: 85, textAlign: 'right' }}
+                                                          />
                                                         : price > 0
                                                             ? <span style={extractedCellStyle}>{fmtI(price)}</span>
                                                             : <span style={{ fontSize: 11, color: 'var(--tx3)' }}>—</span>
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 12 }}>{fmtI(qty * price)}</td>
-                                                <td style={{ textAlign: 'center' }}>
-                                                    {isManual
-                                                        ? <input className="cell-num" type="number" value={gst} onChange={e => updateItem(idx, 'gst_percentage', Number(e.target.value))} style={{ width: 32, textAlign: 'center' }} />
-                                                        : <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--tx2)' }}>{gst}%</span>
-                                                    }
-                                                </td>
-                                                {!hideMasterMatch && <td style={{ minWidth: isManual ? 0 : 220 }}>
+                                                {!hideMasterMatch && <td style={{ minWidth: isManual ? 0 : 180, maxWidth: 200 }}>
                                                     {isManual ? null : hasSugg ? (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                             <select
@@ -386,7 +365,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                             <td style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--tx3)', verticalAlign: 'top', paddingTop: 10 }}>
                                                 <i className="ti ti-search" style={{ fontSize: 12 }} />
                                             </td>
-                                            <td colSpan={7} style={{ padding: '6px 8px', position: 'relative' }}>
+                                            <td colSpan={6} style={{ padding: '6px 8px', position: 'relative' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '0.5px solid var(--blu-bd)', borderRadius: 5, padding: '5px 8px', background: 'var(--bg)' }}>
                                                     <input
                                                         ref={searchInputRef}
@@ -451,29 +430,29 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colSpan={6} className="match-tfoot" style={{ fontWeight: 600, color: 'var(--tx2)', textAlign: 'right' }}>Sub Total</td>
+                                        <td colSpan={7} className="match-tfoot" style={{ fontWeight: 600, color: 'var(--tx2)', textAlign: 'right' }}>Sub Total</td>
                                         <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{fmtI(subtotal)}</td>
-                                        <td colSpan={3} className="match-tfoot" />
+                                        <td colSpan={2} className="match-tfoot" />
                                     </tr>
                                     <tr>
-                                        <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
+                                        <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
                                         <td className="match-tfoot" style={{ textAlign: 'right', color: cgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>{cgstAmount != null ? fmtI(cgstAmount) : '—'}</td>
-                                        <td colSpan={3} className="match-tfoot" />
+                                        <td colSpan={2} className="match-tfoot" />
                                     </tr>
                                     <tr>
-                                        <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
+                                        <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
                                         <td className="match-tfoot" style={{ textAlign: 'right', color: sgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>{sgstAmount != null ? fmtI(sgstAmount) : '—'}</td>
-                                        <td colSpan={3} className="match-tfoot" />
+                                        <td colSpan={2} className="match-tfoot" />
                                     </tr>
                                     <tr>
-                                        <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
+                                        <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
                                         <td className="match-tfoot" style={{ textAlign: 'right', color: igst > 0 ? 'var(--tx2)' : 'var(--tx3)' }}>{igst > 0 ? fmtI(igst) : '—'}</td>
-                                        <td colSpan={3} className="match-tfoot" />
+                                        <td colSpan={2} className="match-tfoot" />
                                     </tr>
                                     <tr style={{ background: 'var(--bg-t)' }}>
-                                        <td colSpan={6} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>Grand Total (incl. GST)</td>
+                                        <td colSpan={7} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>Grand Total (incl. GST)</td>
                                         <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{fmtI(grandTotal)}</td>
-                                        <td colSpan={3} style={{ borderTop: '0.5px solid var(--bdm)' }} />
+                                        <td colSpan={2} style={{ borderTop: '0.5px solid var(--bdm)' }} />
                                     </tr>
                                 </tfoot>
                             </table>
