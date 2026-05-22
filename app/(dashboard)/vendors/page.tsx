@@ -26,19 +26,17 @@ type SortField = 'company_name' | 'status' | 'created_at' | 'category_name' | 'p
 function VendorScore({ score }: Readonly<{ score: number | null }>) {
   if (score == null) return <span className="text-xs text-muted-foreground">—</span>
 
-  let textColor = 'text-green-600'
-  if (score > 90) textColor = 'text-red-600'
-  else if (score > 70) textColor = 'text-amber-600'
-
-  let bgColor = 'bg-green-500'
-  if (score > 90) bgColor = 'bg-red-500'
-  else if (score > 70) bgColor = 'bg-amber-500'
+  const textColor = score >= 80 ? 'text-green-600' : score >= 50 ? 'text-amber-600' : 'text-red-600'
+  const bgColor   = score >= 80 ? 'bg-green-500'   : score >= 50 ? 'bg-amber-400'   : 'bg-red-400'
 
   return (
     <div className="min-w-[80px]">
-      <span className={`text-xs font-semibold ${textColor}`}>{score}%</span>
-      <div className="h-1.5 bg-muted rounded-full overflow-hidden mt-0.5">
+      <span className={`text-xs font-semibold ${textColor}`}>{score}</span>
+      {/* Bar with threshold markers at 50 and 80 */}
+      <div className="relative h-1.5 bg-muted rounded-full overflow-hidden mt-0.5">
         <div className={`h-full rounded-full ${bgColor}`} style={{ width: `${Math.min(score, 100)}%` }} />
+        <div className="absolute top-0 h-full w-px bg-white/60" style={{ left: '50%' }} />
+        <div className="absolute top-0 h-full w-px bg-white/60" style={{ left: '80%' }} />
       </div>
     </div>
   )
