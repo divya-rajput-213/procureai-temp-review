@@ -495,7 +495,7 @@ export default function VendorsPage() {
 
                       <td className="px-4 py-3">
                         {v.category_name
-                          ? <p className="text-xs font-mono font-sm text-foreground">{v.category_name}</p>
+                          ? <p className="text-xs text-foreground">{v.category_name}</p>
                           : <span className="text-xs text-muted-foreground">—</span>
                         }
                       </td>

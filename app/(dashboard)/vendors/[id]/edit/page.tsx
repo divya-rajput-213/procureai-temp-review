@@ -1,13 +1,12 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/api/client'
 import VendorForm from '../../components/Vendorform'
 
 export default function EditVendorPage() {
   const { id } = useParams()
-  const router = useRouter()
 
   const { data: vendor, isLoading } = useQuery({
     queryKey: ['vendor', id],
@@ -36,8 +35,6 @@ export default function EditVendorPage() {
     return `+91 ${digits}`
   }
 
-  const backToDetail = () => router.push(`/vendors/${id}`)
-
   return (
     <VendorForm
       vendorId={vendor.hash_id ?? vendor.id}
@@ -62,8 +59,8 @@ export default function EditVendorPage() {
         msme_number: vendor.msme_number ?? '',
         is_sez: vendor.is_sez ?? false,
       }}
-      onSuccess={backToDetail}
-      setIsEditing={backToDetail}
+      onSuccess={undefined}
+      setIsEditing={undefined}
       vendorStatus={vendor.status}
     />
   )
