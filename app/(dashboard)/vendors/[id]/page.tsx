@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, MapPin, LayoutDashboard, ShieldCheck, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt, AlertTriangle } from 'lucide-react'
-import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
+import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_TYPE_LABELS } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import {
@@ -814,6 +814,45 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
   )
 }
 
+function DocFileCard({ doc }: { doc: any }) {
+  if (!doc) return (
+    <div style={{ fontSize: 12, color: '#9a9a96', padding: '10px 12px', background: '#f8f8f6', border: '0.5px dashed rgba(0,0,0,0.08)', borderRadius: 8, marginBottom: 12 }}>
+      No document uploaded
+    </div>
+  )
+  const isVerified = ['passed', 'warning'].includes(doc.ai_validation_status)
+  const isFailed = doc.ai_validation_status === 'failed'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#f8f8f6', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, marginBottom: 12 }}>
+      <div style={{ width: 32, height: 32, borderRadius: 6, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <i className="ti ti-file" style={{ fontSize: 14, color: '#2563eb' }} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {doc.original_filename || doc.title || 'Document'}
+        </div>
+        {doc.valid_till && (
+          <div style={{ fontSize: 11, color: '#9a9a96' }}>
+            Valid till {new Date(doc.valid_till).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+          </div>
+        )}
+      </div>
+      {doc.ai_validation_status && (
+        <span style={{
+          fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
+          background: isVerified ? '#dcfce7' : isFailed ? '#fee2e2' : '#f1f5f9',
+          color: isVerified ? '#166534' : isFailed ? '#991b1b' : '#64748b',
+        }}>
+          {isVerified ? '✓ Verified' : isFailed ? '✗ Failed' : '⏳ Pending'}
+        </span>
+      )}
+      {doc.file_url && (
+        <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#2563eb', fontWeight: 500, textDecoration: 'none', flexShrink: 0 }}>View</a>
+      )}
+    </div>
+  )
+}
+
 export default function VendorDetailPage() {
   const { id } = useParams()
   const { toast } = useToast()
@@ -821,6 +860,7 @@ export default function VendorDetailPage() {
 
   const queryClient = useQueryClient()
   const [activeTabKey, setActiveTabKey] = useState<'overview' | 'documents' | 'approval'>('overview')
+  const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({})
 
   const { data: vendor, isLoading } = useQuery({
     queryKey: ['vendor', id],
@@ -885,6 +925,17 @@ export default function VendorDetailPage() {
                 )}
               </div>
             </div>
+            {canFullEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-[12px] h-8 gap-1.5 shrink-0"
+                onClick={() => router.push(`/vendors/${id}/edit`)}
+              >
+                <Pencil className="w-[13px] h-[13px]" />
+                Edit
+              </Button>
+            )}
           </div>
 
           {/* Row 2 — Vendor Contact | Plant / Category | Type */}
@@ -947,25 +998,14 @@ export default function VendorDetailPage() {
               <span>{tab.label}</span>
             </button>
           ))}
-          <div className="ml-auto px-3 flex items-center gap-2">
-            {isLocked && (
+          {isLocked && (
+            <div className="ml-auto px-3">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 border border-red-200 text-red-700 text-[11px] font-medium">
                 <XCircle className="w-3 h-3" />
                 {vendor.status === 'blocked' ? 'Blocked' : 'Rejected'}
               </span>
-            )}
-            {canFullEdit && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-[12px] h-7 gap-1"
-                onClick={() => router.push(`/vendors/${id}/edit`)}
-              >
-                <Pencil className="w-[13px] h-[13px]" />
-                Edit
-              </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* ── Overview Tab ── */}
@@ -975,122 +1015,269 @@ export default function VendorDetailPage() {
 
         {/* ── Documents Tab ── */}
         {activeTabKey === 'documents' && (
-          <div className="space-y-4">
-            {canUploadDoc && (
-              <div className="flex justify-end">
-                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
-                  <FileText className="w-[14px] h-[14px] mr-1" />
+          <div style={{ background: 'var(--bg-s,#fff)', border: '0.5px solid var(--bd,rgba(0,0,0,0.08))', borderRadius: 'var(--rl,12px)', padding: 20 }}>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#9a9a96', textTransform: 'uppercase', letterSpacing: '.5px' }}>Compliance Documents</div>
+              {canUploadDoc && (
+                <Button variant="outline" size="sm" className="text-[12px] h-7 gap-1.5" onClick={() => router.push(`/vendors/${id}/edit`)}>
+                  <FileText className="w-[13px] h-[13px]" />
                   Upload Documents
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
 
-            {isLocked && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-2 text-[13px] text-red-700">
-                <XCircle className="h-4 w-4 shrink-0" />
-                This vendor is <strong>{vendor.status}</strong>. Document uploads are disabled.
-              </div>
-            )}
+            {/* GST Certificate */}
+            {(() => {
+              const doc = vendorDocs.find((d: any) => d.doc_type === 'gst_certificate')
+              const isVerified = ['passed', 'warning'].includes(doc?.ai_validation_status)
+              const isOpen = expandedDocs.gst_certificate ?? !!vendor.gst_number
+              return (
+                <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+                        <i className="ti ti-file-certificate" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          GST Certificate <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
+                          {isVerified ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                          ) : vendor.gst_number ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                          ) : null}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
+                      </div>
+                    </div>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, gst_certificate: !isOpen }))}>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                      <DocFileCard doc={doc} />
+                      <div style={{ marginTop: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>GST Number</div>
+                        <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none', fontFamily: 'monospace' }} value={vendor.gst_number || '—'} disabled readOnly />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
-            {vendorDocs.length === 0 ? (
-              <div className="rounded-xl border bg-white p-10 text-center text-[13px] text-muted-foreground">
-                No documents uploaded yet.
-              </div>
-            ) : (
-              <div className="rounded-xl border bg-white overflow-hidden">
-                <table className="w-full text-[12px]">
-                  <thead className="bg-slate-50 border-b">
-                    <tr>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Document</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Type</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Uploaded</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-center text-muted-foreground">Verification</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Valid Till</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-center text-muted-foreground">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vendorDocs.map((doc: any) => {
-                      const isVerified = doc.ai_validation_status === 'passed' || doc.ai_validation_status === 'warning'
-                      const isFailed = doc.ai_validation_status === 'failed'
-                      const isPending = !doc.ai_validation_status || doc.ai_validation_status === 'pending'
-                      const docLabel = (doc.doc_type ?? '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-                      const today = new Date()
-                      const days = doc.valid_till
-                        ? Math.ceil((new Date(doc.valid_till).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-                        : null
-                      const isExpired = days !== null && days < 0
-                      const isExpiringSoon = days !== null && days >= 0 && days <= 30
-                      return (
-                        <tr key={doc.id ?? doc.hash_id} className={`border-t hover:bg-slate-50 transition-colors ${isExpired ? 'bg-red-50/40' : isExpiringSoon ? 'bg-amber-50/40' : ''}`}>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="h-7 w-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
-                                <FileText className="h-3.5 w-3.5 text-blue-600" />
+            {/* PAN Card */}
+            {(() => {
+              const doc = vendorDocs.find((d: any) => d.doc_type === 'pan_card')
+              const isVerified = ['passed', 'warning'].includes(doc?.ai_validation_status)
+              const isOpen = expandedDocs.pan_card ?? !!vendor.pan_number
+              return (
+                <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+                        <i className="ti ti-id" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          PAN Card Copy <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
+                          {isVerified ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                          ) : vendor.pan_number ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                          ) : null}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
+                      </div>
+                    </div>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, pan_card: !isOpen }))}>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                      <DocFileCard doc={doc} />
+                      <div style={{ marginTop: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>PAN Number</div>
+                        <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none', fontFamily: 'monospace' }} value={vendor.pan_number || '—'} disabled readOnly />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Bank Verification Letter */}
+            {(() => {
+              const doc = vendorDocs.find((d: any) => d.doc_type === 'bank_details')
+              const isVerified = ['passed', 'warning'].includes(doc?.ai_validation_status)
+              const isOpen = expandedDocs.bank_details ?? !!vendor.bank_account
+              return (
+                <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+                        <i className="ti ti-building-bank" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          Bank Verification Letter <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
+                          {isVerified ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                          ) : vendor.bank_account ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                          ) : null}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
+                      </div>
+                    </div>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, bank_details: !isOpen }))}>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                      <DocFileCard doc={doc} />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>Account Number</div>
+                          <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none', fontFamily: 'monospace' }} value={vendor.bank_account || '—'} disabled readOnly />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>IFSC Code</div>
+                          <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none', fontFamily: 'monospace' }} value={vendor.bank_ifsc || '—'} disabled readOnly />
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>Bank Name</div>
+                          <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none' }} value={vendor.bank_name || '—'} disabled readOnly />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Certifications heading */}
+            <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)', margin: '14px 0 12px' }} />
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9a9a96', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 12 }}>Certifications</div>
+
+            {/* MSME */}
+            {(() => {
+              const doc = vendorDocs.find((d: any) => d.doc_type === 'msme_certificate')
+              const isEnabled = !!vendor.is_msme
+              const isOpen = expandedDocs.msme_certificate ?? isEnabled
+              return (
+                <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+                      <i className="ti ti-certificate-2" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        MSME Registered
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: isEnabled ? '#dcfce7' : '#f1f5f9', color: isEnabled ? '#166534' : '#64748b' }}>
+                          {isEnabled ? '✓ Enabled' : 'Not Registered'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9a9a96' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
+                    </div>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, msme_certificate: !isOpen }))}>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                      <DocFileCard doc={doc} />
+                      {vendor.msme_number && (
+                        <div style={{ marginTop: 4 }}>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>Udyam Registration No.</div>
+                          <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none', fontFamily: 'monospace' }} value={vendor.msme_number} disabled readOnly />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* SEZ */}
+            {(() => {
+              const doc = vendorDocs.find((d: any) => d.doc_type === 'sez_certificate')
+              const isEnabled = !!vendor.is_sez
+              const isOpen = expandedDocs.sez_certificate ?? isEnabled
+              return (
+                <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+                      <i className="ti ti-building-estate" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        SEZ Unit
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: isEnabled ? '#dcfce7' : '#f1f5f9', color: isEnabled ? '#166534' : '#64748b' }}>
+                          {isEnabled ? '✓ Enabled' : 'Not Applicable'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9a9a96' }}>Special Economic Zone registered unit</div>
+                    </div>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, sez_certificate: !isOpen }))}>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                      <DocFileCard doc={doc} />
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* ISO / Quality Certificates */}
+            {(() => {
+              const coreDocs = ['gst_certificate', 'pan_card', 'bank_details', 'msme_certificate', 'sez_certificate']
+              const isoDocs = vendorDocs.filter((d: any) => !coreDocs.includes(d.doc_type))
+              const isOpen = expandedDocs.iso ?? isoDocs.length > 0
+              return (
+                <>
+                  <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)', margin: '14px 0 12px' }} />
+                  <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: '#fffbeb', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+                        <i className="ti ti-award" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>ISO / Quality Certificates</div>
+                        <div style={{ fontSize: 11, color: '#9a9a96' }}>{isoDocs.length > 0 ? `${isoDocs.length} document${isoDocs.length !== 1 ? 's' : ''}` : 'No documents uploaded'}</div>
+                      </div>
+                      <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, iso: !isOpen }))}>
+                        <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                      </button>
+                    </div>
+                    {isOpen && (
+                      <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                        {isoDocs.length === 0 ? (
+                          <div style={{ fontSize: 12, color: '#9a9a96', textAlign: 'center', padding: '12px 0' }}>No ISO/Quality certificates uploaded</div>
+                        ) : (
+                          isoDocs.map((doc: any, idx: number) => (
+                            <div key={doc.id ?? idx} style={idx > 0 ? { borderTop: '0.5px solid rgba(0,0,0,0.06)', paddingTop: 12, marginTop: 12 } : {}}>
+                              <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 6 }}>
+                                {DOC_TYPE_LABELS[doc.doc_type] || (doc.doc_type ?? '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document'}
                               </div>
-                              <span className="font-medium text-[13px] max-w-[180px] truncate">{doc.original_filename || doc.title || '—'}</span>
+                              <DocFileCard doc={doc} />
                             </div>
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground text-[12px]">{docLabel}</td>
-                          <td className="px-4 py-3 text-muted-foreground text-[12px]">
-                            {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex flex-col items-center gap-0.5">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                                isVerified ? 'bg-green-100 text-green-700' :
-                                isFailed   ? 'bg-red-100 text-red-700' :
-                                             'bg-slate-100 text-slate-500'
-                              }`}>
-                                {isVerified
-                                  ? <><CheckCircle2 className="h-3 w-3" /> Verified</>
-                                  : isFailed
-                                    ? <><XCircle className="h-3 w-3" /> Failed</>
-                                    : <><Clock className="h-3 w-3" /> {isPending ? 'Pending' : 'Not Verified'}</>
-                                }
-                              </span>
-                              {doc.ai_validation_notes && (
-                                <span className="text-[9px] text-muted-foreground max-w-[120px] truncate" title={doc.ai_validation_notes}>
-                                  {doc.ai_validation_notes}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            {doc.valid_till ? (
-                              <div className="flex flex-col gap-0.5">
-                                <span className={`text-[12px] font-medium ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-amber-600' : 'text-slate-700'}`}>
-                                  {new Date(doc.valid_till).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </span>
-                                {isExpired && (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-red-600">
-                                    <AlertTriangle className="h-2.5 w-2.5" />
-                                    Expired {Math.abs(days!)}d ago
-                                  </span>
-                                )}
-                                {isExpiringSoon && (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
-                                    <AlertTriangle className="h-2.5 w-2.5" />
-                                    Expiring in {days}d
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-[12px] text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center text-[13px]">
-                            {doc.file_url ? (
-                              <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-[12px] text-blue-600 hover:underline font-medium">View</a>
-                            ) : '—'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
+
           </div>
         )}
 

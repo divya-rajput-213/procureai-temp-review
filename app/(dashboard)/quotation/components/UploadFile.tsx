@@ -563,13 +563,13 @@ export default function UploadFile({
                                     {PRs.map((p: any) => <option key={p.id} value={p.id}>{p.pr_number || p.id}</option>)}
                                 </select>
                             </div>
-                            <div className="fgrp">
+                            {/* <div className="fgrp">
                                 <label className="lbl">Financial Year</label>
                                 <select className="sel" value={financialYear} onChange={e => setFinancialYear(e.target.value)}>
                                     <option value="">— Not specified —</option>
                                     {financialYears.map(y => <option key={y.value} value={y.value}>{y.label}</option>)}
                                 </select>
-                            </div>
+                            </div> */}
                         </div>
 
                         {/* Internal Notes */}

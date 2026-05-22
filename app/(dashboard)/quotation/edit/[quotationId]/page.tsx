@@ -96,6 +96,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
         setDepartmentId(quotationData.department_id ? String(quotationData.department_id) : (quotationData.department ? String(quotationData.department) : ''))
         setCategoryId(quotationData.category_id ? String(quotationData.category_id) : (quotationData.category ? String(quotationData.category) : ''))
         setPrLinkId(quotationData.pr_id ? String(quotationData.pr_id) : (quotationData.pr ? String(quotationData.pr) : ''))
+        setInternalNotes(quotationData.internal_notes || '')
         setInitialized(true)
     }, [quotationData, initialized])
 
