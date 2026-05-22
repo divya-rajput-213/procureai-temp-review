@@ -374,6 +374,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         masterItems={masterItems}
                         onContinue={goNext}
                         onBack={() => setCurrentStep(0)}
+                        hideMasterMatch
                     />
                 )}
 

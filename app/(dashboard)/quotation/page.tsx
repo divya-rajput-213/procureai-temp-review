@@ -96,14 +96,6 @@ function StatusSummary({ totalCount, counts, totalValue }: {
           {b.count} {b.label}
         </span>
       ))}
-      {totalValue > 0 && (
-        <>
-          <span className="text-muted-foreground/40 text-xs mx-0.5">|</span>
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
-            VALUE {fmtValue(totalValue)} Total
-          </span>
-        </>
-      )}
     </div>
   )
 }
