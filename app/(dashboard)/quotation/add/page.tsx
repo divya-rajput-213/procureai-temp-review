@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { CommonConfirmModal } from '@/components/shared/CommonModal'
 import UploadFile from '../components/UploadFile'
 import VerifyItemsStep from '../components/VerifyItemsStep'
-import ReviewSubmitStep from '../components/ReviewSubmitStep'
 
 interface Category { id: number; hash_id: string; name: string; is_active: boolean }
 
@@ -129,11 +128,33 @@ export default function UploadQuotationPage() {
                     gst_number: vendors?.gst_number, pan_number: vendors?.pan_number ?? null,
                     bank_account: vendors?.bank_account ?? null, bank_ifsc: vendors?.bank_ifsc ?? null,
                     bank_name: vendors?.bank_name ?? null, gst_percentage: vendors?.gst_percentage ?? null,
+                    cgst_rate: vendors?.cgst_rate ?? null, sgst_rate: vendors?.sgst_rate ?? null,
+                    igst_rate: vendors?.igst_rate ?? null, cgst_amount: vendors?.cgst_amount ?? null,
+                    sgst_amount: vendors?.sgst_amount ?? null, igst_amount: vendors?.igst_amount ?? null,
+                    subtotal_amount: vendors?.subtotal_amount ?? null, grand_total: vendors?.grand_total ?? null,
+                    place_of_supply: vendors?.place_of_supply ?? null,
+                    quotation_no: vendors?.quotation_no ?? quotation?.quotation_no ?? null,
+                    quotation_date: vendors?.quotation_date ?? quotation?.quotation_date ?? null,
+                    valid_until: vendors?.valid_until ?? quotation?.valid_until ?? null,
+                    delivery_lead_time_days: vendors?.delivery_lead_time_days ?? null,
+                    delivery_terms: vendors?.delivery_terms ?? null,
+                    freight_charges: vendors?.freight_charges ?? null,
+                    terms_and_conditions: vendors?.terms_and_conditions ?? quotation?.terms_and_conditions ?? null,
+                    warranty: vendors?.warranty ?? null,
                     is_new: vendors?.is_new ?? true,
                 },
-                quotation_no: quotation?.vendor?.quotation_no ?? quotation?.quotation_no ?? null,
-                quotation_date: quotation?.vendor?.quotation_date ?? quotation?.quotation_date ?? null,
-                terms_and_conditions: vendors?.terms_and_conditions ?? quotation?.terms_and_conditions ?? null,
+                valid_until: quotation?.vendor?.valid_until ?? quotation?.valid_until ?? null,
+                grand_total: quotation?.grand_total ?? null,
+                subtotal_amount: quotation?.subtotal_amount ?? null,
+                cgst_rate: quotation?.cgst_rate ?? null,
+                sgst_rate: quotation?.sgst_rate ?? null,
+                igst_rate: quotation?.igst_rate ?? null,
+                cgst_amount: quotation?.cgst_amount ?? null,
+                sgst_amount: quotation?.sgst_amount ?? null,
+                freight_charges: quotation?.freight_charges ?? null,
+                delivery_terms: quotation?.delivery_terms ?? null,
+                delivery_lead_time_days: quotation?.delivery_lead_time_days ?? null,
+                warranty: quotation?.warranty ?? null,
                 internal_notes: internalNotes || null,
                 plant_id: plantId ? Number(plantId) : null,
                 department_id: departmentId ? Number(departmentId) : null,
@@ -463,22 +484,6 @@ export default function UploadQuotationPage() {
                         onBack={() => setCurrentStep(0)}
                     />
                 )}
-
-                {/* ── STEP 2: Review & Submit ── */}
-                {/* {currentStep === 2 && (
-                    <ReviewSubmitStep
-                        quotation={quotation}
-                        lineItems={lineItems}
-                        vendors={vendors}
-                        plants={plants}
-                        plantId={plantId}
-                        PRs={PRs}
-                        prLinkId={prLinkId}
-                        setPrLinkId={setPrLinkId}
-                        internalNotes={internalNotes}
-                        setInternalNotes={setInternalNotes}
-                    />
-                )} */}
 
                 {/* ── Action bar ── */}
                 <div className="sticky-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

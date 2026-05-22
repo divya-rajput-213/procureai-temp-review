@@ -26,6 +26,7 @@ type ExtractedLineItem = {
 }
 
 type Vendor = {
+  id:number,
   company_name: string
   address: string
   city: string
@@ -153,6 +154,7 @@ function mapVendor(raw: any): Vendor | null {
   const v = raw?.vendor ?? raw
   if (!v) return null
   return {
+    id:v.id,
     company_name: v.company_name ?? raw?.vendor_name ?? '—',
     address: v.address ?? raw?.vendor_address ?? '',
     city: v.city ?? '',
@@ -387,8 +389,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       .filter(Boolean)
   }, [quotation?.terms])
 
-  const matchedCount = useMemo(() => items.filter(it => it.master_item_matched).length, [items])
-  const newCount = useMemo(() => items.filter(it => !it.master_item_matched).length, [items])
 
   // ── Loading / error / not-found states ──────────────────────────────────
 
@@ -521,8 +521,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           <button
             type="button"
             className="vendor-link-cell"
-            onClick={() => router.push('/vendors')}
-            title="Go to vendor listing"
+            onClick={() => window.open(`/vendors/${vendor?.id}`, '_blank')}
+            title="Open vendor in new tab"
           >
             <div className="rhm-lbl" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               Vendor <i className="ti ti-arrow-up-right" style={{ fontSize: 9, opacity: 0.7 }} />
@@ -617,7 +617,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 <th>Item Description</th>
                 <th>HSN</th>
                 <th>Master Item</th>
-                <th>Action</th>
                 <th style={{ textAlign: 'right' }}>Qty</th>
                 <th>Unit</th>
                 <th style={{ textAlign: 'right' }}>Unit Price</th>
@@ -640,11 +639,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                       ? <><div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--blu-tx)' }}>{item.master_item_code || '—'}</div><div style={{ fontSize: 11, color: 'var(--tx2)', marginTop: 1 }}>{item.master_item_name}</div></>
                       : <span style={{ color: 'var(--tx3)', fontSize: 11 }}>—</span>}
                   </td>
-                  <td>
-                    {item.master_item_matched
-                      ? <span className="tag t-match">Matched</span>
-                      : <span className="tag t-new">New Item</span>}
-                  </td>
                   <td style={{ textAlign: 'right' }}>{item.quantity}</td>
                   <td style={{ color: 'var(--tx3)' }}>{item.unit}</td>
                   <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatINR(item.price_per_unit)}</td>
@@ -654,11 +648,11 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={8} className="match-tfoot" style={{ fontWeight: 600, textAlign: 'right', color: 'var(--tx2)' }}>Sub Total</td>
+                <td colSpan={7} className="match-tfoot" style={{ fontWeight: 600, textAlign: 'right', color: 'var(--tx2)' }}>Sub Total</td>
                 <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{formatINR(displaySubtotal)}</td>
               </tr>
               <tr>
-                <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
                   CGST{displayCgstRate != null ? ` @ ${displayCgstRate}%` : ''}
                 </td>
                 <td className="match-tfoot" style={{ textAlign: 'right', color: displayCgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
@@ -666,7 +660,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 </td>
               </tr>
               <tr>
-                <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
                   SGST {displaySgstRate != null ? ` @ ${displaySgstRate}%` : ''}
                 </td>
                 <td className="match-tfoot" style={{ textAlign: 'right', color: displaySgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
@@ -674,7 +668,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 </td>
               </tr>
               <tr>
-                <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
                   IGST{backendIgstRate != null ? ` @ ${backendIgstRate}%` : ''}
                 </td>
                 <td className="match-tfoot" style={{ textAlign: 'right', color: backendIgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
@@ -682,7 +676,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 </td>
               </tr>
               <tr style={{ background: 'var(--bg-t)' }}>
-                <td colSpan={8} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>
+                <td colSpan={7} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>
                   Grand Total (incl. GST)
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>

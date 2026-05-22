@@ -64,6 +64,9 @@ type UploadFileProps = {
     allVendors?: any[]
     vendorsFetching?: boolean
     onSelectVendor?: (vendor: any) => void
+    disableUpload?: boolean
+    pdfUrl?: string
+    pdfName?: string
 }
 
 export default function UploadFile({
@@ -76,6 +79,7 @@ export default function UploadFile({
     plants, departments, categories, PRs, formatSize,
     quotation, vendors, isExtracting = false,
     allVendors = [], vendorsFetching = false, onSelectVendor,
+    disableUpload = false, pdfUrl, pdfName,
 }: UploadFileProps) {
     const [showVendorSearch, setShowVendorSearch] = useState(false)
     const [vendorQuery, setVendorQuery] = useState('')
@@ -110,11 +114,30 @@ export default function UploadFile({
                         </div>
                         <div>
                             <div className="fsh-title">Upload Quotation Document</div>
-                            <div className="fsh-sub">PDF. max 20 MB · vendor details extracted automatically</div>
+                            <div className="fsh-sub">{disableUpload ? 'Original uploaded PDF — cannot be changed here' : 'PDF. max 20 MB · vendor details extracted automatically'}</div>
                         </div>
                     </div>
                     <div className="form-body">
-                        {selectedFile ? (
+                        {disableUpload ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg-s)', borderRadius: 'var(--r)', border: '0.5px solid var(--bd)' }}>
+                                <i className="ti ti-file-text" style={{ fontSize: 20, color: 'var(--red-tx)', flexShrink: 0 }} />
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600 }}>{pdfName || 'quotation.pdf'}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 2 }}>Original uploaded document</div>
+                                </div>
+                                {pdfUrl && (
+                                    <button
+                                        onClick={() => window.open(pdfUrl, '_blank')}
+                                        style={{ fontSize: 12, padding: '5px 12px', borderRadius: 'var(--r)', border: '0.5px solid var(--bdm)', background: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit', color: 'var(--tx)' }}
+                                    >
+                                        <i className="ti ti-eye" style={{ fontSize: 12 }} /> Preview
+                                    </button>
+                                )}
+                                <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: 'var(--gry-bg)', color: 'var(--gry-tx)' }}>
+                                    <i className="ti ti-lock" style={{ fontSize: 10, marginRight: 3 }} />Read-only
+                                </span>
+                            </div>
+                        ) : selectedFile ? (
                             <div className="drop-zone has-file" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 <i className="ti ti-file-text" style={{ fontSize: 22, color: 'var(--grn-tx)', flexShrink: 0 }} />
                                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -145,15 +168,16 @@ export default function UploadFile({
                                 <div className="dz-sub">PDF supported · max 20 MB</div>
                             </div>
                         )}
-                        <input
-                            id="uf-file-input"
-                            type="file"
-                            accept=".pdf,application/pdf"
-                            style={{ display: 'none' }}
-                            onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
-                        />
-
-                        {isExtracting && (
+                        {!disableUpload && (
+                            <input
+                                id="uf-file-input"
+                                type="file"
+                                accept=".pdf,application/pdf"
+                                style={{ display: 'none' }}
+                                onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
+                            />
+                        )}
+                        {!disableUpload && isExtracting && (
                             <div style={{ marginTop: 14 }}>
                                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Extracting data from document…</div>
                                 <div className="parse-bar">
