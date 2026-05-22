@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { AlertCircle, Loader2, X, Check, ChevronRight } from 'lucide-react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import { useToast } from '@/components/ui/use-toast'
@@ -21,6 +21,7 @@ const STEPS = [
 export default function UploadQuotationPage() {
     const { toast } = useToast()
     const router = useRouter()
+    const queryClient = useQueryClient()
 
     const [currentStep, setCurrentStep] = useState(0)
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
@@ -181,8 +182,8 @@ export default function UploadQuotationPage() {
         onSuccess: (data: any) => {
             toast({ title: 'Success', description: data?.message || 'Quotation saved successfully' })
             setShowConfirm(false)
-            const id = data?.hash_id || data?.id
-            router.push(id ? `/quotation/detail/${id}` : '/quotation')
+            queryClient.invalidateQueries({ queryKey: ['quotations'] })
+            router.push('/quotation')
         },
         onError: (error: any) => {
             const message = getApiErrorMessage(error, 'Failed to save quotation.')

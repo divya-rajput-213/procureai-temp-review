@@ -14,6 +14,7 @@ interface VerifyItemsStepProps {
     onBack?: () => void
     hideMasterMatch?: boolean
     onExport?: () => void
+    disableAddRow?: boolean
 }
 
 const fmtI = (v: number) => '₹' + (isNaN(v) ? 0 : Math.round(v)).toLocaleString('en-IN')
@@ -33,7 +34,7 @@ const extractedCellStyle: React.CSSProperties = {
     border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block',
 }
 
-export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation, onExport }: VerifyItemsStepProps) {
+export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation, onExport, disableAddRow = false }: VerifyItemsStepProps) {
     const [addRowActive, setAddRowActive] = useState(false)
     const [addSearch, setAddSearch] = useState('')
     const searchInputRef = useRef<HTMLInputElement>(null)
@@ -470,7 +471,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                             </table>
                         </div>
 
-                        {!addRowActive && (
+                        {!addRowActive && !disableAddRow && (
                             <button
                                 onClick={() => setAddRowActive(true)}
                                 style={{ marginTop: 10, padding: '6px 12px', borderRadius: 'var(--r)', border: '0.5px solid var(--bdm)', background: 'var(--bg)', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--tx)' }}
