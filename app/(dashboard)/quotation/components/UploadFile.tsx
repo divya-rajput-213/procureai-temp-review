@@ -518,11 +518,19 @@ export default function UploadFile({
 
                         {/* Internal Notes */}
                         <div className="fgrp">
-                            <label className="lbl">Internal Notes</label>
+                            <label className="lbl">
+                                Internal Notes
+                                <span style={{ fontSize: 11, color: 'var(--tx3)', marginLeft: 6 }}>
+                                    ({internalNotes.length}/500)
+                                </span>
+                            </label>
+
                             <textarea
                                 className="textarea"
                                 placeholder="Negotiation points, concerns, context for approvers…"
                                 value={internalNotes}
+                                minLength={10}
+                                maxLength={500}
                                 onChange={e => setInternalNotes(e.target.value)}
                             />
                         </div>
