@@ -84,10 +84,10 @@ function StatusSummary({ totalCount, counts, totalValue }: {
   const badges = [
     { key: 'total', label: 'Total', count: totalCount, cls: 'bg-gray-900 text-white' },
     { key: 'draft', label: 'Draft', count: counts['draft'] ?? 0, cls: 'bg-gray-100 text-gray-600 border border-gray-200' },
-    { key: 'under_review', label: 'Under Review', count: counts['under_review'] ?? 0, cls: 'bg-blue-50 text-blue-700 border border-blue-200' },
-    { key: 'pending_approval', label: 'Pending', count: counts['pending_approval'] ?? 0, cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
+    // { key: 'under_review', label: 'Under Review', count: counts['under_review'] ?? 0, cls: 'bg-blue-50 text-blue-700 border border-blue-200' },
+    // { key: 'pending_approval', label: 'Pending', count: counts['pending_approval'] ?? 0, cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
     { key: 'approved', label: 'Approved', count: counts['approved'] ?? 0, cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-    { key: 'rejected', label: 'Rejected', count: counts['rejected'] ?? 0, cls: 'bg-red-50 text-red-700 border border-red-200' },
+    // { key: 'rejected', label: 'Rejected', count: counts['rejected'] ?? 0, cls: 'bg-red-50 text-red-700 border border-red-200' },
   ]
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
