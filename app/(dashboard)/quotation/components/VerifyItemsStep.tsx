@@ -13,6 +13,7 @@ interface VerifyItemsStepProps {
     onContinue?: () => void
     onBack?: () => void
     hideMasterMatch?: boolean
+    onExport?: () => void
 }
 
 const fmtI = (v: number) => '₹' + (isNaN(v) ? 0 : Math.round(v)).toLocaleString('en-IN')
@@ -32,7 +33,7 @@ const extractedCellStyle: React.CSSProperties = {
     border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block',
 }
 
-export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation }: VerifyItemsStepProps) {
+export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation, onExport }: VerifyItemsStepProps) {
     const [addRowActive, setAddRowActive] = useState(false)
     const [addSearch, setAddSearch] = useState('')
     const searchInputRef = useRef<HTMLInputElement>(null)
@@ -169,14 +170,25 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
             {/* LEFT */}
             <div>
                 <div className="form-sec">
-                    <div className="form-sec-head">
-                        <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>
-                            <i className="ti ti-list-check" />
+                    <div className="form-sec-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>
+                                <i className="ti ti-list-check" />
+                            </div>
+                            <div>
+                                <div className="fsh-title">Extracted Items — Match to Master Catalogue</div>
+                                <div className="fsh-sub">Edit extracted values · choose an action for each item · pick a master match if available</div>
+                            </div>
                         </div>
-                        <div>
-                            <div className="fsh-title">Extracted Items — Match to Master Catalogue</div>
-                            <div className="fsh-sub">Edit extracted values · choose an action for each item · pick a master match if available</div>
-                        </div>
+                        {onExport && (
+                            <button
+                                type="button"
+                                onClick={onExport}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, padding: '5px 12px', border: '0.5px solid var(--bd)', borderRadius: 6, background: 'white', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+                            >
+                                <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
+                            </button>
+                        )}
                     </div>
                     <div className="form-body" style={{ padding: 14 }}>
                         {/* Extraction notice */}

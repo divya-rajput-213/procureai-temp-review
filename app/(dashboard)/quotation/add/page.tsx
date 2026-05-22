@@ -447,17 +447,6 @@ export default function UploadQuotationPage() {
                         <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>Upload document · Extract &amp; match items · Submit for approval</div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        {currentStep === 1 && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setShowExportModal(true)}
-                                disabled={lineItems.length === 0}
-                                className="gap-1.5"
-                            >
-                                <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
-                            </Button>
-                        )}
                         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/quotation')}>
                             <i className="ti ti-arrow-left" /> Back
                         </Button>
@@ -543,6 +532,7 @@ export default function UploadQuotationPage() {
                         masterItems={masterItems}
                         onContinue={handleStep1Continue}
                         onBack={() => setCurrentStep(0)}
+                        onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
                     />
                 )}
 

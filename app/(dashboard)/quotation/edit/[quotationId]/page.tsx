@@ -358,17 +358,6 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        {currentStep === 1 && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setShowExportModal(true)}
-                                disabled={lineItems.length === 0}
-                                className="gap-1.5"
-                            >
-                                <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
-                            </Button>
-                        )}
                         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push(`/quotation/detail/${params.quotationId}`)}>
                             <i className="ti ti-arrow-left" /> Back
                         </Button>
@@ -455,6 +444,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         onContinue={goNext}
                         onBack={() => setCurrentStep(0)}
                         hideMasterMatch
+                        onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
                     />
                 )}
 

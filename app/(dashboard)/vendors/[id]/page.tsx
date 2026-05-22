@@ -853,103 +853,69 @@ export default function VendorDetailPage() {
 
   return (
     <>
+      <style>{`
+        .vd-lbl{font-size:10px;font-weight:600;color:var(--tx3,#9a9a96);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+        .vd-val{font-size:13px;font-weight:500;color:#1a1a18}
+        .vd-sub{font-size:11px;color:var(--tx3,#9a9a96);margin-top:2px}
+        .vd-cell{padding:0 14px}
+        .vd-cell:first-child{padding-left:0}
+        .vd-cell:last-child{padding-right:0}
+      `}</style>
       <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
 
-        {/* ── Page-level action bar: action buttons right only ── */}
-        <div className="flex items-center justify-end gap-2">
-          {canFullEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-[13px]"
-              onClick={() => router.push(`/vendors/${id}/edit`)}
-            >
-              <Pencil className="w-[14px] h-[14px] mr-1" />
-              Edit
-            </Button>
-          )}
-          {isLocked && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[12px] font-medium">
-              <XCircle className="w-3.5 h-3.5" />
-              {vendor.status === 'blocked' ? 'Vendor blocked' : 'Vendor rejected'} — read only
-            </span>
-          )}
-        </div>
 
         {/* ── Header card ── */}
-        <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
+        <div style={{ background: 'var(--bg,#fff)', border: '0.5px solid var(--bd,rgba(0,0,0,0.08))', borderRadius: 'var(--rl,12px)', padding: 22, marginBottom: 4 }}>
 
           {/* Row 1 — Avatar + company name + status badge + location/date */}
-          <div className="flex items-start gap-[14px] mb-5">
-            <div className="w-[48px] h-[48px] rounded-[12px] bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-              <span className="text-[17px] font-bold">
-                {(vendor.company_name ?? '?')[0].toUpperCase()}
-              </span>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 18 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#ede9fe', color: '#7c3aed', fontSize: 17, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {(vendor.company_name ?? '?')[0].toUpperCase()}
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-[19px] font-semibold tracking-[-0.4px]">{vendor.company_name}</h1>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const, marginBottom: 4 }}>
+                <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-.4px' }}>{vendor.company_name}</span>
                 <StatusBadge status={vendor.status} />
               </div>
-              <p className="text-[12px] text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
+              <div style={{ fontSize: 13, color: 'var(--tx2,#6b6b69)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <MapPin className="w-3 h-3 shrink-0" />
-                <span>{vendor.city}, {vendor.state}</span>
+                <span>{[vendor.city, vendor.state].filter(Boolean).join(', ')}</span>
                 {vendor.created_at && (
-                  <span className="ml-1">· Created {formatDate(vendor.created_at)}</span>
+                  <span style={{ marginLeft: 4 }}>· Created {formatDate(vendor.created_at)}</span>
                 )}
-              </p>
+              </div>
             </div>
           </div>
 
-          {/* Row 2 — 3-column contextual info strip */}
-          <div className="grid grid-cols-3 border rounded-lg overflow-hidden mb-5">
-            {/* Vendor */}
-            <div className="px-4 py-3 border-r">
-              <p className="text-[10px] uppercase font-semibold tracking-[0.5px] text-muted-foreground mb-1">Vendor</p>
-              <p className="font-medium text-[13px] text-[#1a1a18]">{vendor.company_name}</p>
-              {(vendor.city || vendor.state) && (
-                <p className="text-[12px] text-muted-foreground mt-0.5">
-                  {[vendor.city, vendor.state].filter(Boolean).join(', ')}
-                </p>
-              )}
+          {/* Row 2 — Vendor Contact | Plant / Category | Type */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14, marginBottom: 14 }}>
+            <div className="vd-cell">
+              <div className="vd-lbl">Vendor Contact</div>
+              <div className="vd-val">{vendor.contact_name || '—'}</div>
+              <div className="vd-sub">{[vendor.contact_email, vendor.contact_phone].filter(Boolean).join(' · ') || '—'}</div>
             </div>
-
-            {/* Contact */}
-            <div className="px-4 py-3 border-r">
-              <p className="text-[10px] uppercase font-semibold tracking-[0.5px] text-muted-foreground mb-1">Vendor Contact</p>
-              <p className="font-medium text-[13px] text-[#1a1a18]">{vendor.contact_name || '—'}</p>
-              <p className="text-[12px] text-muted-foreground mt-0.5">
-                {[vendor.contact_email, vendor.contact_phone].filter(Boolean).join(' · ') || '—'}
-              </p>
+            <div className="vd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+              <div className="vd-lbl">Plant / Category</div>
+              <div className="vd-val">{[vendor.plant_name, vendor.category_name].filter(Boolean).join(' / ') || '—'}</div>
             </div>
-
-            {/* Plant / Category */}
-            <div className="px-4 py-3">
-              <p className="text-[10px] uppercase font-semibold tracking-[0.5px] text-muted-foreground mb-1">Plant / Department / Category</p>
-              <p className="font-medium text-[13px] text-[#1a1a18]">
-                {[vendor.plant_name, vendor.category_name].filter(Boolean).join(' / ') || '—'}
-              </p>
+            <div className="vd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+              <div className="vd-lbl">Vendor Type</div>
+              <div className="vd-val">{vendor.vendor_type || '—'}</div>
             </div>
           </div>
 
           {/* Row 3 — key metadata strip */}
-          <div className="grid grid-cols-5 divide-x divide-[rgba(0,0,0,0.07)]">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
             {[
-              { label: 'Vendor ID',        value: vendor.vendor_code,   mono: false },
-              { label: 'GSTIN',            value: vendor.gst_number,    mono: true  },
-              { label: 'PAN',              value: vendor.pan_number,    mono: true  },
-              { label: 'MSME',             value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—', mono: false },
-              {
-                label: 'Compliance Score',
-                value: dash?.scorecard?.compliance?.score != null
-                  ? `${dash.scorecard.compliance.score}/100`
-                  : '—',
-                mono: false,
-              },
-            ].map(({ label, value }) => (
-              <div key={label} className="px-4 first:pl-0 last:pr-0">
-                <p className="text-[10px] uppercase font-semibold tracking-[0.4px] text-muted-foreground mb-1">{label}</p>
-                <p className="text-[13px] font-medium text-[#1a1a18]">{value || '—'}</p>
+              { label: 'Vendor ID',  value: vendor.vendor_code },
+              { label: 'GSTIN',      value: vendor.gst_number },
+              { label: 'PAN',        value: vendor.pan_number },
+              { label: 'MSME',       value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
+              { label: 'Compliance Score', value: dash?.scorecard?.compliance?.score != null ? `${dash.scorecard.compliance.score}/100` : '—' },
+            ].map(({ label, value }, i) => (
+              <div key={label} className="vd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
+                <div className="vd-lbl">{label}</div>
+                <div className="vd-val">{value || '—'}</div>
               </div>
             ))}
           </div>
@@ -957,7 +923,7 @@ export default function VendorDetailPage() {
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
+        <div className="flex items-center w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -981,6 +947,25 @@ export default function VendorDetailPage() {
               <span>{tab.label}</span>
             </button>
           ))}
+          <div className="ml-auto px-3 flex items-center gap-2">
+            {isLocked && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 border border-red-200 text-red-700 text-[11px] font-medium">
+                <XCircle className="w-3 h-3" />
+                {vendor.status === 'blocked' ? 'Blocked' : 'Rejected'}
+              </span>
+            )}
+            {canFullEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-[12px] h-7 gap-1"
+                onClick={() => router.push(`/vendors/${id}/edit`)}
+              >
+                <Pencil className="w-[13px] h-[13px]" />
+                Edit
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* ── Overview Tab ── */}
