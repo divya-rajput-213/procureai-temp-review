@@ -13,6 +13,7 @@ import apiClient from '@/lib/api/client'
 import { COMPANY_NAME_ALLOWED, ALPHA_SPACE_ONLY, ADDRESS_ALLOWED, COMPANY_NAME_ALLOWED_PARTIAL, ADDRESS_ALLOWED_PARTIAL, ALPHA_SPACE_PARTIAL } from '@/lib/utils'
 import { DOC_CONFIG, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Combobox } from '@/components/ui/combobox'
 import { CommonConfirmModal } from '@/components/shared/CommonModal'
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
@@ -382,10 +383,10 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const isEdit = !!existingVendorId
   const isFieldReadOnly = isEdit && vendorStatus !== 'draft'
   const isComplianceReadOnly = isEdit && !['draft', 'pending_approval'].includes(vendorStatus ?? '')
-  const isDocReadOnly = isEdit && ['rejected', 'blocked'].includes(vendorStatus ?? '')
+  const isDocReadOnly = isEdit && !['draft', 'pending_approval'].includes(vendorStatus ?? '')
   const isReadOnly = isFieldReadOnly
 
-  const [step, setStep] = useState(isEdit ? 1 : 0)
+  const [step, setStep] = useState(0)
   const [vendorId, setVendorId] = useState<string | null>(existingVendorId ?? null)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
@@ -891,7 +892,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleSrfFile(f); e.target.value = '' }} />
               </>
             )}
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => isEdit ? setIsEditing?.(false) : router.push('/vendors')}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/vendors')}>
               <i className="ti ti-arrow-left" /> Back
             </Button>
           </div>
@@ -1014,32 +1015,28 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                       </div>
                       <div className="form-group">
                         <label className="form-label">Vendor Category <span className="req">*</span></label>
-                        <select
-                          className="form-select"
-                          value={watchedCategory ?? ''}
-                          onChange={e => setValue('category', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
-                          style={errors.category ? { borderColor: 'var(--red-bd)' } : {}}
-                        >
-                          <option value="">Select category</option>
-                          {(categories as any[]).map((c: any) => (
-                            <option key={c.id} value={c.id}>{c.series_code} — {c.name}</option>
-                          ))}
-                        </select>
+                        <Combobox
+                          options={(categories as any[]).map((c: any) => ({ value: String(c.id), label: `${c.series_code} — ${c.name}` }))}
+                          value={watchedCategory ? String(watchedCategory) : ''}
+                          onValueChange={v => setValue('category', v ? Number(v) : (undefined as any), { shouldValidate: true })}
+                          placeholder="Select category"
+                          searchPlaceholder="Search category…"
+                          disabled={isComplianceReadOnly}
+                          className={`h-9 text-[13px] ${errors.category ? 'border-red-400' : ''}`}
+                        />
                         {errors.category && <span className="field-err">{errors.category.message}</span>}
                       </div>
                       <div className="form-group">
                         <label className="form-label">Plant <span className="req">*</span></label>
-                        <select
-                          className="form-select"
-                          value={watchedPlant ?? ''}
-                          onChange={e => setValue('plant', e.target.value ? Number(e.target.value) : (undefined as any), { shouldValidate: true })}
-                          style={errors.plant ? { borderColor: 'var(--red-bd)' } : {}}
-                        >
-                          <option value="">Select plant</option>
-                          {(plants as any[]).map((p: any) => (
-                            <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-                          ))}
-                        </select>
+                        <Combobox
+                          options={(plants as any[]).map((p: any) => ({ value: String(p.id), label: `${p.code} — ${p.name}` }))}
+                          value={watchedPlant ? String(watchedPlant) : ''}
+                          onValueChange={v => setValue('plant', v ? Number(v) : (undefined as any), { shouldValidate: true })}
+                          placeholder="Select plant"
+                          searchPlaceholder="Search plant…"
+                          disabled={isComplianceReadOnly}
+                          className={`h-9 text-[13px] ${errors.plant ? 'border-red-400' : ''}`}
+                        />
                         {errors.plant && <span className="field-err">{errors.plant.message}</span>}
                       </div>
                     </div>
@@ -1190,8 +1187,13 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <i className="ti ti-file-certificate" />
                         </div>
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>
-                            GST Certificate <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)', marginLeft: 6 }}>Required</span>
+                          <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            GST Certificate <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>
+                            {docVerified('gst_certificate') ? (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                            ) : allValues.gst_number ? (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            ) : null}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
                         </div>
@@ -1235,8 +1237,13 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <i className="ti ti-id" />
                         </div>
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>
-                            PAN Card Copy <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)', marginLeft: 6 }}>Required</span>
+                          <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            PAN Card Copy <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>
+                            {docVerified('pan_card') ? (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                            ) : allValues.pan_number ? (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            ) : null}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
                         </div>
@@ -1280,7 +1287,14 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <i className="ti ti-building-bank" />
                         </div>
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>Bank Verification Letter <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)', marginLeft: 6 }}>Required</span></div>
+                          <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            Bank Verification Letter <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>
+                            {docVerified('bank_details') ? (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                            ) : allValues.bank_account ? (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            ) : null}
+                          </div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
                         </div>
                       </div>
@@ -1352,11 +1366,11 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           MSME Registered
-                          {expandedComplianceDocs.msme_certificate && docOf('msme_certificate') && (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: docVerified('msme_certificate') ? 'var(--grn-bg)' : '#fef3c7', color: docVerified('msme_certificate') ? 'var(--grn-tx)' : '#92400e' }}>
-                              {docVerified('msme_certificate') ? '✓ Verified' : '⚠ Not Verified'}
-                            </span>
-                          )}
+                          {docVerified('msme_certificate') ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                          ) : expandedComplianceDocs.msme_certificate ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                          ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
                       </div>
@@ -1392,11 +1406,11 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           SEZ Unit
-                          {expandedComplianceDocs.sez_certificate && docOf('sez_certificate') && (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: docVerified('sez_certificate') ? 'var(--grn-bg)' : '#fef3c7', color: docVerified('sez_certificate') ? 'var(--grn-tx)' : '#92400e' }}>
-                              {docVerified('sez_certificate') ? '✓ Verified' : '⚠ Not Verified'}
-                            </span>
-                          )}
+                          {docVerified('sez_certificate') ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                          ) : expandedComplianceDocs.sez_certificate ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                          ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Special Economic Zone registered unit</div>
                       </div>
@@ -1425,11 +1439,11 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           ISO / Quality Certificate
-                          {expandedComplianceDocs.iso_certificate && docOf('iso_certificate') && (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: docVerified('iso_certificate') ? 'var(--grn-bg)' : '#fef3c7', color: docVerified('iso_certificate') ? 'var(--grn-tx)' : '#92400e' }}>
-                              {docVerified('iso_certificate') ? '✓ Verified' : '⚠ Not Verified'}
-                            </span>
-                          )}
+                          {docVerified('iso_certificate') ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                          ) : expandedComplianceDocs.iso_certificate ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                          ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--tx3)' }}>{expandedComplianceDocs.iso_certificate ? `${isoRows.length} document${isoRows.length !== 1 ? 's' : ''}` : 'Optional — enable to upload'}</div>
                       </div>
@@ -1540,9 +1554,13 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         {/* ── Sticky form actions ── */}
         <div className="form-actions">
           <div style={{ display: 'flex', gap: 8 }}>
-            {step > 0 && (
+            {step > 0 ? (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setStep(s => s - 1)}>
                 <i className="ti ti-arrow-left" /> Previous
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => router.push('/vendors')}>
+                <i className="ti ti-x" /> Cancel
               </Button>
             )}
           </div>
