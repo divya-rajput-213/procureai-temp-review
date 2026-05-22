@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, MapPin, LayoutDashboard, ShieldCheck, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt, AlertTriangle, ChevronLeft } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, MapPin, LayoutDashboard, ShieldCheck, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt, AlertTriangle } from 'lucide-react'
 import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
@@ -54,7 +54,7 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
   if (!actions?.length) return null
   return (
     <div className="px-4 py-3 bg-white border-b">
-      <p className="text-[13px] font-semibold   tracking-wide mb-2">Approval Timeline</p>
+      <p className="text-[13px] font-semibold tracking-wide mb-2">Approval Timeline</p>
       {requestedAt && (
         <p className="text-[11px] text-muted-foreground mb-2">Requested for approval: <span className="font-medium text-slate-700">{formatDateTime(requestedAt)}</span></p>
       )}
@@ -199,12 +199,12 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
 
   return (
     <div>
-   {matrices === undefined && (
-  <div className="flex items-center justify-center gap-2 w-full py-4 text-sm text-muted-foreground">
-    <Loader2 className="w-4 h-4 animate-spin" />
-    <span>Loading matrices…</span>
-  </div>
-)}
+      {matrices === undefined && (
+        <div className="flex items-center justify-center gap-2 w-full py-4 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Loading matrices…</span>
+        </div>
+      )}
       {matrices && matrixCount === 0 && (
         <p className="text-xs text-amber-600 font-medium">No active PR approval matrices configured. The system will use the default matrix.</p>
       )}
@@ -215,10 +215,10 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
           expandedMatrix={expandedMatrix}
           onSelect={(id) => {
             setSelectedMatrix(id)
-            setExpandedMatrix(id) // Expands the matrix when selected
+            setExpandedMatrix(id)
           }}
           onToggleExpand={(id) => {
-            setExpandedMatrix(prev => (prev === id ? null : id)) // Toggles expand/collapse
+            setExpandedMatrix(prev => (prev === id ? null : id))
           }}
         />
       )}
@@ -333,11 +333,9 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
   )
 }
 
-// ─── VendorDashboard — matches reference exactly ──────────────────────────────
+// ─── VendorDashboard ──────────────────────────────────────────────────────────
 function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, isLoading: boolean }) {
-
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
-
   if (!dash) return null
 
   const stats = dash?.stats ?? {}
@@ -345,10 +343,12 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
   const recentQuotations: any[] = dash?.recent_quotations ?? []
   const recentInvoices: any[] = dash?.recent_invoices ?? []
   const scorecard = dash?.scorecard ?? null
-
+  const viewQuotationHref = '/quotation'
+  const openInNewTab = (href: string) => window.open(href, '_blank', 'noopener,noreferrer')
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[70%_1fr] gap-4 min-w-0">      {/* LEFT */}
+    <div className="grid grid-cols-1 xl:grid-cols-[70%_1fr] gap-4 min-w-0">
+      {/* LEFT */}
       <div className="space-y-4 min-w-0 overflow-x-hidden">
         {/* Purchase Orders */}
         <Card>
@@ -357,11 +357,11 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <span><ShoppingCart className="h-3.5 w-3.5" /></span>
               Recent Purchase Orders
             </CardTitle>
-            <Link href="/purchase-orders"><Button variant="outline" size="sm" className="text-[12px] h-7">View</Button></Link>
+            <Link href="/purchase-orders" target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="text-[12px] h-7">View</Button>
+            </Link>
           </CardHeader>
-
           <CardContent className="p-0">
-
             <table className="w-full text-[12px]">
               <thead className="bg-slate-50">
                 <tr>
@@ -375,7 +375,11 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <tbody>
                 {recentPOs.length ? (
                   recentPOs.slice(0, 5).map((po: any) => (
-                    <tr key={po.id} className="border-t hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={po.id}
+                      onClick={() => { if (!po?.id) return; openInNewTab(`/purchase-orders/${po.id}`) }}
+                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-2.5 font-mono text-[11px]">{po.po_number || '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{po.po_type_display || po.po_type || '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{po.plant_name || '—'}</td>
@@ -390,9 +394,9 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 )}
               </tbody>
             </table>
-
           </CardContent>
         </Card>
+
         {/* Recent Quotations */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
           <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
@@ -400,7 +404,9 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <FileText className="h-3.5 w-3.5" />
               Recent Quotations
             </CardTitle>
-            <Link href="/quotations"><Button variant="outline" size="sm" className="text-[12px] h-7">View</Button></Link>
+            <Link href={viewQuotationHref} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="text-[12px] h-7">View</Button>
+            </Link>
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-[12px]">
@@ -416,14 +422,20 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <tbody>
                 {recentQuotations.length ? (
                   recentQuotations.slice(0, 5).map((q: any) => (
-                    <tr key={q.id ?? q.bid_id} className="border-t hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={q.id ?? q.bid_id}
+                      onClick={() => {
+                        const quotationId = q?.hash_id ?? q?.id ?? q?.bid_id
+                        if (!quotationId) return
+                        openInNewTab(`/quotation/detail/${quotationId}`)
+                      }}
+                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{q.ref_no || q.pr_number || '—'}</td>
                       <td className="px-4 py-2.5 max-w-[160px] truncate">{q.quotation_no || q.title || '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{q.valid_until ? formatDate(q.valid_until) : '—'}</td>
                       <td className="px-4 py-2.5 text-right">{(q.total_amount ?? q.bid_amount) != null ? formatCurrency(q.total_amount ?? q.bid_amount) : '—'}</td>
-                      <td className="px-4 py-2.5 text-center">
-                        <StatusBadge status={q.status} />
-                      </td>
+                      <td className="px-4 py-2.5 text-center"><StatusBadge status={q.status} /></td>
                     </tr>
                   ))
                 ) : (
@@ -435,6 +447,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </table>
           </CardContent>
         </Card>
+
         {/* Recent Invoices */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
           <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
@@ -442,7 +455,9 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <Receipt className="h-3.5 w-3.5" />
               Recent Invoices
             </CardTitle>
-            <Link href="/invoices"><Button variant="outline" size="sm" className="text-[12px] h-7">View</Button></Link>
+            <Link href="/invoices" target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="text-[12px] h-7">View</Button>
+            </Link>
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-[12px]">
@@ -459,15 +474,17 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <tbody>
                 {recentInvoices.length ? (
                   recentInvoices.slice(0, 5).map((inv: any) => (
-                    <tr key={inv.id} className="border-t hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={inv.id}
+                      onClick={() => { if (!inv?.id) return; openInNewTab(`/invoices/${inv.id}`) }}
+                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-2.5 font-mono text-[11px]">{inv.invoice_number || '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground capitalize">{inv.invoice_type?.replace(/_/g, ' ') || '—'}</td>
                       <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{inv.po_number || '—'}</td>
                       <td className="px-4 py-2.5 text-right">{inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
-                      <td className="px-4 py-2.5 text-center">
-                        <StatusBadge status={inv.status} />
-                      </td>
+                      <td className="px-4 py-2.5 text-center"><StatusBadge status={inv.status} /></td>
                     </tr>
                   ))
                 ) : (
@@ -480,7 +497,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
           </CardContent>
         </Card>
 
-        {/* ── Charts ───────────────────────────────────────────────────────── */}
         {/* Monthly Spend Trend */}
         <Card className="rounded-xl border shadow-none">
           <CardHeader className="py-3 px-4 border-b flex-row items-center justify-between">
@@ -508,9 +524,9 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </ResponsiveContainer>
           </CardContent>
         </Card>
-        {/* Bid Win Rate + Delivery Performance side by side */}
+
+        {/* Bid Win Rate + Delivery Performance */}
         <div className="grid grid-cols-2 gap-4">
-          {/* Bid Win Rate Donut — 3 segments: won / rejected / pending */}
           <Card className="rounded-xl border shadow-none">
             <CardHeader className="py-3 px-4 border-b">
               <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
@@ -560,7 +576,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </CardContent>
           </Card>
 
-          {/* Delivery Performance — trend line over 6 months */}
           <Card className="rounded-xl border shadow-none">
             <CardHeader className="py-3 px-4 border-b">
               <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
@@ -580,20 +595,15 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 </LineChart>
               </ResponsiveContainer>
               {stats.otd_pct != null && (
-                <p className="text-[10px] text-muted-foreground text-center mt-1">
-                  {stats.otd_pct}% on-time delivery
-                </p>
+                <p className="text-[10px] text-muted-foreground text-center mt-1">{stats.otd_pct}% on-time delivery</p>
               )}
             </CardContent>
           </Card>
-
         </div>
-
       </div>
 
       {/* RIGHT SIDEBAR */}
       <div className="space-y-4 min-w-0">
-
         {/* Compliance */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
           <CardHeader className="py-2 px-3 border-b">
@@ -614,12 +624,12 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               }
 
               const allItems = [
-                { label: 'GST',          docType: 'gst_certificate',  value: vendor.gst_number,  icon: FileBadge,  bg: 'bg-blue-100',   color: 'text-blue-700',   empty: 'Missing',    mono: true,  show: true },
-                { label: 'PAN',          docType: 'pan_card',         value: vendor.pan_number,  icon: CreditCard, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Missing',    mono: true,  show: true },
-                { label: 'Bank',         docType: 'bank_details',     value: vendor.bank_account ? `••${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true, show: true },
-                { label: 'MSME',         docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100',  color: 'text-green-700',  empty: '—',          mono: false, show: !!vendor.is_msme },
-                { label: 'SEZ',          docType: 'sez_certificate',  value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: '—', mono: false, show: !!vendor.is_sez },
-                { label: 'ISO / Quality',docType: 'iso_certificate',  value: docOf('iso_certificate') ? 'Uploaded' : null, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: '—', mono: false, show: !!docOf('iso_certificate') },
+                { label: 'GST',           docType: 'gst_certificate',  value: vendor.gst_number,  icon: FileBadge,  bg: 'bg-blue-100',   color: 'text-blue-700',   empty: 'Missing',      mono: true,  show: true },
+                { label: 'PAN',           docType: 'pan_card',         value: vendor.pan_number,  icon: CreditCard, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Missing',      mono: true,  show: true },
+                { label: 'Bank',          docType: 'bank_details',     value: vendor.bank_account ? `••${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true, show: true },
+                { label: 'MSME',          docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100',  color: 'text-green-700',  empty: '—',            mono: false, show: !!vendor.is_msme },
+                { label: 'SEZ',           docType: 'sez_certificate',  value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: '—', mono: false, show: !!vendor.is_sez },
+                { label: 'ISO / Quality', docType: 'iso_certificate',  value: docOf('iso_certificate') ? 'Uploaded' : null, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: '—', mono: false, show: !!docOf('iso_certificate') },
               ]
 
               return allItems.filter(item => item.show).map(item => {
@@ -636,17 +646,13 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 return (
                   <div key={item.label} className={`px-3 py-2.5 border-b last:border-0 ${expired ? 'bg-red-50/40' : expiringSoon ? 'bg-amber-50/40' : ''}`}>
                     <div className="flex items-center gap-2">
-                      {/* Icon */}
                       <div className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${item.bg}`}>
                         <Icon className={`h-3 w-3 ${item.color}`} />
                       </div>
-                      {/* Label */}
                       <span className="text-[11px] font-medium w-[68px] shrink-0">{item.label}</span>
-                      {/* Value */}
                       <span className={`text-[11px] text-slate-500 flex-1 truncate ${item.mono ? 'font-mono' : ''}`}>
                         {hasValue ? item.value : <span className="text-slate-300">{item.empty}</span>}
                       </span>
-                      {/* Verification tag */}
                       {hasValue && verified && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[9px] font-semibold shrink-0">
                           <CheckCircle2 className="h-2.5 w-2.5" />Verified
@@ -662,11 +668,8 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                           <Clock className="h-2.5 w-2.5" />No Doc
                         </span>
                       )}
-                      {!hasValue && (
-                        <XCircle className="h-3 w-3 text-slate-300 shrink-0" />
-                      )}
+                      {!hasValue && <XCircle className="h-3 w-3 text-slate-300 shrink-0" />}
                     </div>
-                    {/* Expiry row — only when set */}
                     {expiry && (
                       <div className="pl-8 mt-0.5">
                         <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${expired ? 'text-red-600' : expiringSoon ? 'text-amber-600' : 'text-slate-400'}`}>
@@ -688,50 +691,24 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
 
         {/* Contact */}
         <Card>
-
           <CardHeader className="py-3 px-4 border-b">
-
             <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-              <span><User className="h-3.5 w-3.5" /></span>
+              <User className="h-3.5 w-3.5" />
               Contact Details
             </CardTitle>
-
           </CardHeader>
-
-
           <CardContent className="p-4">
-
             <div className="flex gap-3">
-
-
               <div className="flex-1">
-
-                <div className="text-[13px] font-medium">
-                  {vendor.contact_name}
-                </div>
-
-                <div className="text-[11px] text-muted-foreground">
-                  Owner
-                </div>
-
+                <div className="text-[13px] font-medium">{vendor.contact_name}</div>
+                <div className="text-[11px] text-muted-foreground">Owner</div>
               </div>
-
-
               <div>
-
-                <div className="text-[12px]">
-                  {vendor.contact_email}                </div>
-
-                <div className="text-[11px] text-muted-foreground">
-                  {vendor.contact_phone}                </div>
-
+                <div className="text-[12px]">{vendor.contact_email}</div>
+                <div className="text-[11px] text-muted-foreground">{vendor.contact_phone}</div>
               </div>
-
-
             </div>
-
           </CardContent>
-
         </Card>
 
         {/* Vendor Scorecard */}
@@ -744,8 +721,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-
-              {/* Compliance */}
               {(() => {
                 const c = scorecard.compliance
                 const score: number = c?.score ?? 0
@@ -753,11 +728,11 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 const barColor = score >= 80 ? 'bg-green-500' : score >= 50 ? 'bg-amber-400' : 'bg-red-400'
                 const docs = c?.docs ?? {}
                 const docItems = [
-                  { key: 'gst',  label: 'GST' },
-                  { key: 'pan',  label: 'PAN' },
+                  { key: 'gst', label: 'GST' },
+                  { key: 'pan', label: 'PAN' },
                   { key: 'bank', label: 'Bank' },
                   { key: 'msme', label: 'MSME' },
-                  { key: 'iso',  label: 'ISO' },
+                  { key: 'iso', label: 'ISO' },
                 ]
                 return (
                   <div>
@@ -765,7 +740,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       <span className="text-[11px] font-semibold text-slate-600">Compliance</span>
                       <span className={`text-[13px] font-bold ${color}`}>{score}<span className="text-[10px] font-normal text-muted-foreground">/100</span></span>
                     </div>
-                    {/* Threshold bar — markers at 50 and 80 */}
                     <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
                       <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${score}%` }} />
                       <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '50%' }} />
@@ -792,7 +766,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 )
               })()}
 
-              {/* Bid Win Rate — only when data exists */}
               {scorecard.win_rate != null && (
                 <div className="border-t pt-3">
                   <div className="flex items-center justify-between mb-1.5">
@@ -801,7 +774,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       {scorecard.win_rate}<span className="text-[10px] font-normal text-muted-foreground">%</span>
                     </span>
                   </div>
-                  {/* Threshold bar — markers at 30 and 60 */}
                   <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
                     <div className={`h-full rounded-full transition-all ${scorecard.win_rate >= 60 ? 'bg-green-500' : scorecard.win_rate >= 30 ? 'bg-amber-400' : 'bg-red-400'}`}
                       style={{ width: `${scorecard.win_rate}%` }} />
@@ -812,7 +784,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 </div>
               )}
 
-              {/* OTD — only when data exists */}
               {scorecard.otd != null && (
                 <div className="border-t pt-3">
                   <div className="flex items-center justify-between mb-1.5">
@@ -821,7 +792,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       {scorecard.otd}<span className="text-[10px] font-normal text-muted-foreground">%</span>
                     </span>
                   </div>
-                  {/* Threshold bar — markers at 60 and 85 */}
                   <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
                     <div className={`h-full rounded-full transition-all ${scorecard.otd >= 85 ? 'bg-green-500' : scorecard.otd >= 60 ? 'bg-amber-400' : 'bg-red-400'}`}
                       style={{ width: `${scorecard.otd}%` }} />
@@ -836,13 +806,10 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                   Win rate & delivery scores appear once bid activity is recorded.
                 </p>
               )}
-
             </CardContent>
           </Card>
         )}
-
       </div>
-
     </div>
   )
 }
@@ -860,7 +827,7 @@ export default function VendorDetailPage() {
     queryFn: async () => (await apiClient.get(`/vendors/${id}/`)).data,
   })
 
-  const { data: dash, isLoading: dashLoading, } = useQuery({
+  const { data: dash, isLoading: dashLoading } = useQuery({
     queryKey: ['vendor-dashboard', id],
     queryFn: async () => (await apiClient.get(`/vendors/${id}/dashboard/`)).data,
   })
@@ -871,9 +838,6 @@ export default function VendorDetailPage() {
     enabled: activeTabKey === 'documents',
   })
 
-
-
-
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
   if (!vendor) return <div className="p-8 text-center text-muted-foreground">Vendor not found.</div>
 
@@ -882,168 +846,151 @@ export default function VendorDetailPage() {
   const isLocked = ['rejected', 'blocked'].includes(vendor.status)
 
   const tabs = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'documents', label: 'Documents' },
-    { key: 'approval', label: 'Approval' },
+    { key: 'overview',   label: 'Overview'   },
+    { key: 'documents',  label: 'Documents'  },
+    { key: 'approval',   label: 'Approval'   },
   ]
+
   return (
     <>
       <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
-        {/* Header */}
+
+        {/* ── Page-level action bar: action buttons right only ── */}
+        <div className="flex items-center justify-end gap-2">
+          {canFullEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[13px]"
+              onClick={() => router.push(`/vendors/${id}/edit`)}
+            >
+              <Pencil className="w-[14px] h-[14px] mr-1" />
+              Edit
+            </Button>
+          )}
+          {isLocked && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[12px] font-medium">
+              <XCircle className="w-3.5 h-3.5" />
+              {vendor.status === 'blocked' ? 'Vendor blocked' : 'Vendor rejected'} — read only
+            </span>
+          )}
+        </div>
+
+        {/* ── Header card ── */}
         <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
 
-          {/* Back link */}
-          <button onClick={() => router.push('/vendors')} className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors mb-3">
-            <ChevronLeft className="w-3.5 h-3.5" /> Vendors
-          </button>
-
-          {/* Top */}
-          <div className="flex justify-between items-start gap-4">
-
-            {/* Left */}
-            <div className="flex items-center gap-[14px]">
-
-              {/* Avatar */}
-              <div className="w-[52px] h-[52px] rounded-[12px] bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                <span className="text-[17px] font-bold">
-                  {(vendor.company_name ?? '?')[0].toUpperCase()}
-                </span>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-[19px] font-semibold tracking-[-0.4px]">{vendor.company_name}</h1>
-                  <StatusBadge status={vendor.status} />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 mt-1 text-[13px] text-[#5a5a57]">
-
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-[13px] h-[13px]" />
-                    <span>
-                      {vendor.city}, {vendor.state}
-                    </span>
-                  </div>
-
-                </div>
-              </div>
+          {/* Row 1 — Avatar + company name + status badge + location/date */}
+          <div className="flex items-start gap-[14px] mb-5">
+            <div className="w-[48px] h-[48px] rounded-[12px] bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+              <span className="text-[17px] font-bold">
+                {(vendor.company_name ?? '?')[0].toUpperCase()}
+              </span>
             </div>
-
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              {canFullEdit && (
-                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
-                  <Pencil className="w-[14px] h-[14px] mr-1" />
-                  Edit
-                </Button>
-              )}
-              {canUploadDoc && !canFullEdit && (
-                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
-                  <FileText className="w-[14px] h-[14px] mr-1" />
-                  Upload Documents
-                </Button>
-              )}
-              {isLocked && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[12px] font-medium">
-                  <XCircle className="w-3.5 h-3.5" />
-                  {vendor.status === 'blocked' ? 'Vendor blocked' : 'Vendor rejected'} — read only
-                </span>
-              )}
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-[19px] font-semibold tracking-[-0.4px]">{vendor.company_name}</h1>
+                <StatusBadge status={vendor.status} />
+              </div>
+              <p className="text-[12px] text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
+                <MapPin className="w-3 h-3 shrink-0" />
+                <span>{vendor.city}, {vendor.state}</span>
+                {vendor.created_at && (
+                  <span className="ml-1">· Created {formatDate(vendor.created_at)}</span>
+                )}
+              </p>
             </div>
           </div>
 
+          {/* Row 2 — 3-column contextual info strip */}
+          <div className="grid grid-cols-3 border rounded-lg overflow-hidden mb-5">
+            {/* Vendor */}
+            <div className="px-4 py-3 border-r">
+              <p className="text-[10px] uppercase font-semibold tracking-[0.5px] text-muted-foreground mb-1">Vendor</p>
+              <p className="font-medium text-[13px] text-[#1a1a18]">{vendor.company_name}</p>
+              {(vendor.city || vendor.state) && (
+                <p className="text-[12px] text-muted-foreground mt-0.5">
+                  {[vendor.city, vendor.state].filter(Boolean).join(', ')}
+                </p>
+              )}
+            </div>
 
-          {/* Divider */}
-          <div className="border-t border-[rgba(0,0,0,0.08)] my-[18px]" />
+            {/* Contact */}
+            <div className="px-4 py-3 border-r">
+              <p className="text-[10px] uppercase font-semibold tracking-[0.5px] text-muted-foreground mb-1">Vendor Contact</p>
+              <p className="font-medium text-[13px] text-[#1a1a18]">{vendor.contact_name || '—'}</p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">
+                {[vendor.contact_email, vendor.contact_phone].filter(Boolean).join(' · ') || '—'}
+              </p>
+            </div>
 
+            {/* Plant / Category */}
+            <div className="px-4 py-3">
+              <p className="text-[10px] uppercase font-semibold tracking-[0.5px] text-muted-foreground mb-1">Plant / Department / Category</p>
+              <p className="font-medium text-[13px] text-[#1a1a18]">
+                {[vendor.plant_name, vendor.category_name].filter(Boolean).join(' / ') || '—'}
+              </p>
+            </div>
+          </div>
 
-          {/* Bottom stats */}
-          <div className="grid grid-cols-6">
-
+          {/* Row 3 — key metadata strip */}
+          <div className="grid grid-cols-5 divide-x divide-[rgba(0,0,0,0.07)]">
             {[
-              ['Vendor ID', vendor.vendor_code],
-              [
-                'Plant/ Category',
-                [vendor?.plant_name, vendor?.category_name].filter(Boolean).join(' / ') || '—',
-              ],
-              ['GSTIN', vendor.gst_number],
-              ['PAN', vendor.pan_number],
-              ['Created At', formatDate(vendor.created_at)],
-              ['Compliance Score', dash?.scorecard?.compliance?.score != null ? `${dash.scorecard.compliance.score}/100` : '—'],
-            ].map(([label, value], index) => (
-              <div
-                key={label}
-                className={`${index !== 0 ? 'border-l border-[rgba(0,0,0,0.08)] pl-[18px]' : ''}`}
-              >
-                <p className="text-[11px] uppercase font-semibold tracking-[0.4px] text-[#9a9a96] mb-1">
-                  {label}
-                </p>
-
-                <p
-                  className={`
-          text-[13px] font-medium
-          ${label === 'GSTIN' || label === 'PAN'
-                      ? 'font-mono text-[#5a5a57]'
-                      : 'text-[#1a1a18]'
-                    }
-        `}
-                >
-                  {value}
-                </p>
+              { label: 'Vendor ID',        value: vendor.vendor_code,   mono: false },
+              { label: 'GSTIN',            value: vendor.gst_number,    mono: true  },
+              { label: 'PAN',              value: vendor.pan_number,    mono: true  },
+              { label: 'MSME',             value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—', mono: false },
+              {
+                label: 'Compliance Score',
+                value: dash?.scorecard?.compliance?.score != null
+                  ? `${dash.scorecard.compliance.score}/100`
+                  : '—',
+                mono: false,
+              },
+            ].map(({ label, value }) => (
+              <div key={label} className="px-4 first:pl-0 last:pr-0">
+                <p className="text-[10px] uppercase font-semibold tracking-[0.4px] text-muted-foreground mb-1">{label}</p>
+                <p className="text-[13px] font-medium text-[#1a1a18]">{value || '—'}</p>
               </div>
             ))}
-
           </div>
 
         </div>
-        {/* Tabs */}
+
+        {/* ── Tabs ── */}
         <div className="flex w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => {
-                setActiveTabKey(tab.key as 'overview' | 'documents' | 'approval')
-              }}
+              onClick={() => setActiveTabKey(tab.key as 'overview' | 'documents' | 'approval')}
               className={`
-        flex items-center justify-center gap-1.5
-        px-5 py-[11px]
-        text-[13px] font-medium
-        transition-colors
-        border-b-[2.5px]
-        whitespace-nowrap
-        ${activeTabKey === tab.key
+                flex items-center justify-center gap-1.5
+                px-5 py-[11px]
+                text-[13px] font-medium
+                transition-colors
+                border-b-[2.5px]
+                whitespace-nowrap
+                ${activeTabKey === tab.key
                   ? 'text-[#042348] border-[#042348] bg-white'
                   : 'text-[#9a9a96] border-transparent hover:bg-[#f8f8f6] hover:text-[#042348]'
                 }
-      `}
+              `}
             >
-              {tab.key === 'overview' && (
-                <LayoutDashboard className="w-[14px] h-[14px]" />
-              )}
-
-              {tab.key === 'documents' && (
-                <FileText className="w-[14px] h-[14px]" />
-              )}
-
-              {tab.key === 'approval' && (
-                <ShieldCheck className="w-[14px] h-[14px]" />
-              )}
-
+              {tab.key === 'overview'  && <LayoutDashboard className="w-[14px] h-[14px]" />}
+              {tab.key === 'documents' && <FileText        className="w-[14px] h-[14px]" />}
+              {tab.key === 'approval'  && <ShieldCheck     className="w-[14px] h-[14px]" />}
               <span>{tab.label}</span>
             </button>
           ))}
         </div>
-        {/* Overview Tab */}
-        {activeTabKey === 'overview' && <VendorDashboard vendor={vendor} dash={dash} isLoading={dashLoading} />}
 
+        {/* ── Overview Tab ── */}
+        {activeTabKey === 'overview' && (
+          <VendorDashboard vendor={vendor} dash={dash} isLoading={dashLoading} />
+        )}
 
-
-        {/* Documents Tab */}
+        {/* ── Documents Tab ── */}
         {activeTabKey === 'documents' && (
           <div className="space-y-4">
-
-            {/* Upload button — reuse edit form (starts at compliance step) */}
             {canUploadDoc && (
               <div className="flex justify-end">
                 <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
@@ -1053,7 +1000,6 @@ export default function VendorDetailPage() {
               </div>
             )}
 
-            {/* Locked notice — rejected / blocked */}
             {isLocked && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-2 text-[13px] text-red-700">
                 <XCircle className="h-4 w-4 shrink-0" />
@@ -1061,7 +1007,6 @@ export default function VendorDetailPage() {
               </div>
             )}
 
-            {/* Documents table */}
             {vendorDocs.length === 0 ? (
               <div className="rounded-xl border bg-white p-10 text-center text-[13px] text-muted-foreground">
                 No documents uploaded yet.
@@ -1109,8 +1054,8 @@ export default function VendorDetailPage() {
                             <div className="flex flex-col items-center gap-0.5">
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                                 isVerified ? 'bg-green-100 text-green-700' :
-                                isFailed ? 'bg-red-100 text-red-700' :
-                                'bg-slate-100 text-slate-500'
+                                isFailed   ? 'bg-red-100 text-red-700' :
+                                             'bg-slate-100 text-slate-500'
                               }`}>
                                 {isVerified
                                   ? <><CheckCircle2 className="h-3 w-3" /> Verified</>
@@ -1164,7 +1109,7 @@ export default function VendorDetailPage() {
           </div>
         )}
 
-        {/* Approval Tab */}
+        {/* ── Approval Tab ── */}
         {activeTabKey === 'approval' && (
           <div>
             {vendor.status !== 'draft' && (
@@ -1187,6 +1132,5 @@ export default function VendorDetailPage() {
 
       </div>
     </>
-
   )
 }
