@@ -261,7 +261,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                         <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{fmtI(subtotal)}</td>
                                         <td colSpan={3} className="match-tfoot" />
                                     </tr>
-                                    <tr>
+                                    {/* <tr>
                                         <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
                                             Discount{' '}
                                             <input
@@ -272,7 +272,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                         </td>
                                         <td className="match-tfoot" style={{ textAlign: 'right', color: 'var(--red-tx)', fontWeight: 600 }}>{discAmt > 0 ? `− ${fmtI(discAmt)}` : '—'}</td>
                                         <td colSpan={3} className="match-tfoot" />
-                                    </tr>
+                                    </tr> */}
                                     <tr>
                                         <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', fontWeight: 600, color: 'var(--tx2)' }}>Taxable Value</td>
                                         <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{fmtI(taxable)}</td>
