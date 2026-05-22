@@ -60,6 +60,7 @@ type Quotation = {
   id: number | string
   quotation_no: string
   quotation_date: string
+  valid_until: string | null
   ref_no: string
   status: string
   uploaded_by: string
@@ -77,6 +78,11 @@ type Quotation = {
   grand_total: number | null
   amount_in_words: string
   terms: string[]
+  internal_notes: string | null
+  delivery_lead_time_days: number | null
+  delivery_terms: string | null
+  freight_charges: number | null
+  warranty: string | null
   plant_id: number | null
   plant_name: string
   department_id: number | null
@@ -86,7 +92,7 @@ type Quotation = {
   confidence_score?: number | null
   pr_no?: string
   buyer_details?: any
-  category?:any
+  category?: any
 }
 
 type QuotationDetails = {
@@ -211,6 +217,12 @@ function mapQuotation(raw: any): Quotation {
       : typeof raw.terms_and_conditions === 'string'
         ? raw.terms_and_conditions.split(/\r?\n/).filter(Boolean)
         : [],
+    internal_notes: raw.internal_notes ?? null,
+    valid_until: raw.valid_until ?? null,
+    delivery_lead_time_days: nullableNumber(raw.delivery_lead_time_days),
+    delivery_terms: raw.delivery_terms || null,
+    freight_charges: nullableNumber(raw.freight_charges),
+    warranty: raw.warranty || null,
     plant_id: raw.plant ?? null,
     plant_name: raw.plant_name ?? '',
     department_id: raw.department ?? null,
@@ -220,11 +232,61 @@ function mapQuotation(raw: any): Quotation {
     category_name: raw.category_name ?? '',
     buyer_details: raw.buyer_details ?? null,
     confidence_score: nullableNumber(raw.confidence_score ?? raw.ai_confidence ?? raw.confidence),
-    category:raw.category ?? null
-    
+    category: raw.category ?? null
+
   }
 }
 
+
+// ── Styles ──────────────────────────────────────────────────────────────────
+
+const QD_CSS = `
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --bg:#fff;--bg-s:#f8f8f6;--bg-t:#f2f1ee;
+    --tx:#1a1a18;--tx2:#5a5a57;--tx3:#9a9a96;
+    --bd:rgba(0,0,0,0.08);--bdm:rgba(0,0,0,0.14);
+    --r:8px;--rl:12px;
+    --mono:'DM Mono',monospace;
+    --blu-bg:#E6F1FB;--blu-tx:#0C447C;--blu-bd:#185FA5;
+    --amb-bg:#FAEEDA;--amb-tx:#854F0B;--amb-bd:#BA7517;
+    --red-bg:#FCEBEB;--red-tx:#A32D2D;--red-bd:#E24B4A;
+    --grn-bg:#EAF3DE;--grn-tx:#3B6D11;--grn-bd:#639922;
+    --tel-bg:#E1F5EE;--tel-tx:#0F6E56;--tel-bd:#1D9E75;
+    --gry-bg:#F1EFE8;--gry-tx:#5F5E5A;--gry-bd:#888780;
+    --pur-bg:#EEEDFE;--pur-tx:#3C3489;--pur-bd:#7F77DD;
+  }
+  .qd-btn{padding:7px 14px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--tx);transition:background .15s}
+  .qd-btn:hover{background:var(--bg-t)}
+  .qd-btn:disabled{opacity:.5;cursor:not-allowed}
+  .rhm-lbl{font-size:10px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+  .stat-mini{background:var(--bg-s);border-radius:var(--r);padding:12px 14px}
+  .sm-lbl{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+  .sm-val{font-size:22px;font-weight:600;letter-spacing:-.6px;line-height:1}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+  .pill .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+  .p-draft{background:var(--gry-bg);color:var(--gry-tx)}.p-draft .dot{background:var(--gry-bd)}
+  .p-review{background:var(--blu-bg);color:var(--blu-tx)}.p-review .dot{background:var(--blu-bd)}
+  .p-pending{background:var(--amb-bg);color:var(--amb-tx)}.p-pending .dot{background:var(--amb-bd)}
+  .p-approved{background:var(--grn-bg);color:var(--grn-tx)}.p-approved .dot{background:var(--grn-bd)}
+  .p-rejected{background:var(--red-bg);color:var(--red-tx)}.p-rejected .dot{background:var(--red-bd)}
+  .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-block;white-space:nowrap}
+  .t-new{background:var(--grn-bg);color:var(--grn-tx)}
+  .t-match{background:var(--blu-bg);color:var(--blu-tx)}
+  .t-replace{background:var(--amb-bg);color:var(--amb-tx)}
+  .t-skip{background:var(--gry-bg);color:var(--gry-tx)}
+  .vendor-link-cell{all:unset;display:block;cursor:pointer;text-align:left;border-right:0.5px solid var(--bd);padding:0 14px;transition:background .15s}
+  .vendor-link-cell:hover{background:var(--bg-s)}
+  .match-tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .match-tbl thead th{padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
+  .match-tbl tbody tr{border-bottom:0.5px solid var(--bd);transition:background .1s}
+  .match-tbl tbody tr:last-child{border-bottom:none}
+  .match-tbl tbody tr:hover{background:#fafaf8}
+  .match-tbl td{padding:10px 12px;vertical-align:top}
+  td.match-tfoot{padding:9px 12px;font-size:12px;background:var(--bg-s);border-top:0.5px solid var(--bdm)}
+  @media(max-width:900px){.hero-grid{grid-template-columns:1fr 1fr!important}}
+  @media(max-width:600px){.hero-grid{grid-template-columns:1fr!important}.vendor-link-cell{border-right:none;border-bottom:0.5px solid var(--bd)}}
+`
 
 // ── Presentation helpers ────────────────────────────────────────────────────
 
@@ -370,26 +432,62 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       <style>{QD_CSS}</style>
 
       {/* Action bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <button className="qd-btn" onClick={() => router.push('/quotation')}>
-          <i className="ti ti-arrow-left" /> All Quotations
-        </button>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          marginBottom: 16,
+          flexWrap: 'wrap',
+          gap: 8,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+          }}
+        >
           <button
             className="qd-btn"
-            onClick={() => { if (!quotation.pr_no) router.push(`/quotation/edit/${params.quotationId}`) }}
+            onClick={() => {
+              if (!quotation.pr_no)
+                router.push(`/quotation/edit/${params.quotationId}`)
+            }}
             disabled={!!quotation.pr_no}
-            title={quotation.pr_no ? `Linked to PR ${quotation.pr_no} — cannot edit` : 'Edit quotation'}
+            title={
+              quotation.pr_no
+                ? `Linked to PR ${quotation.pr_no} — cannot edit`
+                : 'Edit quotation'
+            }
           >
             <i className="ti ti-pencil" /> Edit
           </button>
-          <button className="qd-btn" onClick={handleDownloadGeneratedPdf} disabled={loading}>
-            {loading
-              ? <Loader2 className="w-3 h-3 animate-spin" style={{ display: 'inline' }} />
-              : <i className="ti ti-download" />}
+
+          <button
+            className="qd-btn"
+            onClick={handleDownloadGeneratedPdf}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2
+                className="w-3 h-3 animate-spin"
+                style={{ display: 'inline' }}
+              />
+            ) : (
+              <i className="ti ti-download" />
+            )}
             {' '}Download PDF
           </button>
-          <button className="qd-btn" onClick={() => quotation.pdf_url && window.open(quotation.pdf_url, '_blank')}>
+
+          <button
+            className="qd-btn"
+            onClick={() =>
+              quotation.pdf_url && window.open(quotation.pdf_url, '_blank')
+            }
+          >
             <i className="ti ti-eye" /> Preview PDF
           </button>
         </div>
@@ -412,53 +510,56 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               </span>
             </div>
             <div style={{ fontSize: 13, color: 'var(--tx2)' }}>
-              {vendor?.company_name || '—'} ·               {[vendor?.city, vendor?.state].filter(Boolean).join(', ') || '—'}
-              · Submitted {fmtDate(quotation.created_at)}
+              
+               Submitted {fmtDate(quotation.created_at)}
             </div>
           </div>
         </div>
 
-        {/* Row 1: QT Number / Vendor Ref No / Quote Date / Valid Until */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 16 }}>
-
-          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
-            <div className="rhm-lbl">Vendor Code</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, color: 'var(--tx2)' }}>{vendor?.vendor_code || '—'}</div>
-          </div>
-          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
+        {/* Row 1: Vendor / Vendor Contact / Plant-Dept-Category */}
+        <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14 }}>
+          <button
+            type="button"
+            className="vendor-link-cell"
+            onClick={() => router.push('/vendors')}
+            title="Go to vendor listing"
+          >
+            <div className="rhm-lbl" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              Vendor <i className="ti ti-arrow-up-right" style={{ fontSize: 9, opacity: 0.7 }} />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--blu-tx)' }}>
+              {vendor?.company_name || '—'}
+              {(vendor?.city || vendor?.state) && (
+                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--tx3)', marginLeft: 6 }}>
+                  {[vendor?.city, vendor?.state].filter(Boolean).join(', ')}
+                </span>
+              )}
+            </div>
+          </button>
+          <div style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Vendor Contact</div>
-            <div style={{ fontSize: 11 }}>
-              {[vendor?.contact_name, vendor?.contact_phone ? `+${vendor.contact_phone}` : null].filter(Boolean).join(' · ') || '—'}
-            </div>            <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>{vendor?.contact_name || '—'}</div>
+            <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 1 }}>
+              {[vendor?.contact_email, vendor?.contact_phone ? `+${vendor.contact_phone}` : null].filter(Boolean).join(' · ')}
             </div>
           </div>
+          <div style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
+            <div className="rhm-lbl">Plant / Department / Category</div>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>
+              {[quotation?.plant_name, quotation?.department_name, quotation?.category_name || (quotation?.category ? String(quotation.category) : null)].filter(Boolean).join(' / ') || '—'}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Quote Date / Valid Until / Grand Total / PR Linked */}
+        <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14, marginTop: 14 }}>
           <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Quote Date</div>
             <div style={{ fontSize: 13, fontWeight: 500 }}>{fmtDate(quotation.quotation_date)}</div>
           </div>
-          <div style={{ padding: '0 14px' }}>
-            <div className="rhm-lbl">Valid Until</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>—</div>
-          </div>
-        </div>
-
-        {/* Row 2: Vendor / Plant / Grand Total / PR Linked */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14, marginTop: 14 }}>
-        
           <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
-            <div className="rhm-item">
-              <div className="rhm-lbl">Plant / Department / Category</div>
-
-              <div style={{ fontSize: 13, fontWeight: 500 }}>
-                {[
-                  quotation?.plant_name,
-                  quotation?.department_name,
-                  quotation?.category_name || quotation?.category,
-                ]
-                  .filter(Boolean)
-                  .join(' / ') || '—'}
-              </div>
-            </div>
+            <div className="rhm-lbl">Valid Until</div>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>{fmtDate(quotation.valid_until)}</div>
           </div>
           <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Grand Total</div>
@@ -508,6 +609,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
         {/* ── Line Items ── */}
         {activeTab === 'items' && (
+          <div style={{ overflowX: 'auto' }}>
           <table className="match-tbl">
             <thead>
               <tr>
@@ -555,26 +657,30 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 <td colSpan={8} className="match-tfoot" style={{ fontWeight: 600, textAlign: 'right', color: 'var(--tx2)' }}>Sub Total</td>
                 <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{formatINR(displaySubtotal)}</td>
               </tr>
-              {backendIgstAmount != null && (
-                <tr>
-                  <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
-                    IGST{backendIgstRate != null ? ` @ ${backendIgstRate}%` : ''}
-                  </td>
-                  <td className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>{formatINR(displayIgstAmount)}</td>
-                </tr>
-              )}
-              {displayCgstAmount != null && displayCgstAmount > 0 && (
-                <tr>
-                  <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>CGST @ {displayCgstRate}%</td>
-                  <td className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>{formatINR(displayCgstAmount)}</td>
-                </tr>
-              )}
-              {displaySgstAmount != null && displaySgstAmount > 0 && (
-                <tr>
-                  <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>SGST @ {displaySgstRate}%</td>
-                  <td className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>{formatINR(displaySgstAmount)}</td>
-                </tr>
-              )}
+              <tr>
+                <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                  CGST{displayCgstRate != null ? ` @ ${displayCgstRate}%` : ''}
+                </td>
+                <td className="match-tfoot" style={{ textAlign: 'right', color: displayCgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
+                  {displayCgstAmount != null ? formatINR(displayCgstAmount) : '—'}
+                </td>
+              </tr>
+              <tr>
+                <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                  SGST {displaySgstRate != null ? ` @ ${displaySgstRate}%` : ''}
+                </td>
+                <td className="match-tfoot" style={{ textAlign: 'right', color: displaySgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
+                  {displaySgstAmount != null ? formatINR(displaySgstAmount) : '—'}
+                </td>
+              </tr>
+              <tr>
+                <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                  IGST{backendIgstRate != null ? ` @ ${backendIgstRate}%` : ''}
+                </td>
+                <td className="match-tfoot" style={{ textAlign: 'right', color: backendIgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
+                  {backendIgstAmount != null ? formatINR(backendIgstAmount) : '—'}
+                </td>
+              </tr>
               <tr style={{ background: 'var(--bg-t)' }}>
                 <td colSpan={8} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>
                   Grand Total (incl. GST)
@@ -585,38 +691,63 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               </tr>
             </tfoot>
           </table>
+          </div>
         )}
 
         {/* ── Terms & Conditions ── */}
-        {activeTab === 'terms' && (
-          <div style={{ padding: 16 }}>
-            {displayTerms.length === 0 ? (
-              <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--tx3)', fontSize: 13 }}>
-                <i className="ti ti-file-off" style={{ fontSize: 28, display: 'block', marginBottom: 8, opacity: .5 }} />
-                No terms &amp; conditions provided for this quotation
+        {activeTab === 'terms' && (() => {
+          const tcLbl: React.CSSProperties = { fontSize: 10, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }
+          const tcVal: React.CSSProperties = { fontSize: 13, fontWeight: 500 }
+          const tcCard: React.CSSProperties = { background: 'var(--bg-s)', borderRadius: 'var(--r)', padding: '13px 14px' }
+          return (
+            <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {/* Structured API fields */}
+              {/* <div style={tcCard}>
+                <div style={tcLbl}>Quote Validity</div>
+                <div style={tcVal}>{fmtDate(quotation.valid_until) || '—'}</div>
               </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                {displayTerms.map((term, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      background: 'var(--bg-s)',
-                      borderRadius: 'var(--r)',
-                      padding: '13px 14px',
-                      ...(idx === displayTerms.length - 1 && displayTerms.length % 2 !== 0 ? { gridColumn: '1 / -1' } : {}),
-                    }}
-                  >
-                    <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>
-                      Term {String(idx + 1).padStart(2, '0')}
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--tx2)', lineHeight: 1.6 }}>{term}</div>
-                  </div>
-                ))}
+              <div style={tcCard}>
+                <div style={tcLbl}>Delivery Lead Time</div>
+                <div style={tcVal}>{quotation.delivery_lead_time_days != null ? `${quotation.delivery_lead_time_days} days` : '—'}</div>
               </div>
-            )}
-          </div>
-        )}
+              <div style={tcCard}>
+                <div style={tcLbl}>Delivery Terms</div>
+                <div style={tcVal}>{quotation.delivery_terms || '—'}</div>
+              </div>
+              <div style={tcCard}>
+                <div style={tcLbl}>Freight Charges</div>
+                <div style={tcVal}>{quotation.freight_charges != null ? formatINR(quotation.freight_charges) : '—'}</div>
+              </div>
+              <div style={tcCard}>
+                <div style={tcLbl}>Warranty</div>
+                <div style={tcVal}>{quotation.warranty || '—'}</div>
+              </div> */}
+
+              {/* Plain terms — numbered bullet list in a single full-width card */}
+              {displayTerms.length > 0 && (
+                <div style={{ ...tcCard, gridColumn: '1 / -1' }}>
+                  {/* <div style={tcLbl}>Terms &amp; Conditions</div> */}
+                  <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {displayTerms.map((term, idx) => (
+                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--tx2)', lineHeight: 1.6 }}>
+                        <span style={{ flexShrink: 0, minWidth: 18, fontWeight: 600, color: 'var(--tx3)', fontSize: 12 }}>{idx + 1}.</span>
+                        <span>{term}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {/* Additional Terms & Notes — always full-width, shows — if empty */}
+              <div style={{ ...tcCard, gridColumn: '1 / -1' }}>
+                <div style={tcLbl}>Additional Notes</div>
+                <div style={{ fontSize: 12, color: 'var(--tx2)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+                  {quotation.internal_notes || '—'}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
       </div>
 
@@ -624,60 +755,3 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   )
 }
 
-// ── Styles ──────────────────────────────────────────────────────────────────
-
-const QD_CSS = `
-  *,*::before,*::after{box-sizing:border-box}
-  :root{
-    --bg:#fff;--bg-s:#f8f8f6;--bg-t:#f2f1ee;
-    --tx:#1a1a18;--tx2:#5a5a57;--tx3:#9a9a96;
-    --bd:rgba(0,0,0,0.08);--bdm:rgba(0,0,0,0.14);
-    --r:8px;--rl:12px;
-    --mono:'DM Mono',monospace;
-    --blu-bg:#E6F1FB;--blu-tx:#0C447C;--blu-bd:#185FA5;
-    --amb-bg:#FAEEDA;--amb-tx:#854F0B;--amb-bd:#BA7517;
-    --red-bg:#FCEBEB;--red-tx:#A32D2D;--red-bd:#E24B4A;
-    --grn-bg:#EAF3DE;--grn-tx:#3B6D11;--grn-bd:#639922;
-    --tel-bg:#E1F5EE;--tel-tx:#0F6E56;--tel-bd:#1D9E75;
-    --gry-bg:#F1EFE8;--gry-tx:#5F5E5A;--gry-bd:#888780;
-    --pur-bg:#EEEDFE;--pur-tx:#3C3489;--pur-bd:#7F77DD;
-  }
-
-  /* Button */
-  .qd-btn{padding:7px 14px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--tx);transition:background .15s}
-  .qd-btn:hover{background:var(--bg-t)}
-  .qd-btn:disabled{opacity:.5;cursor:not-allowed}
-
-  /* Hero meta label */
-  .rhm-lbl{font-size:10px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
-
-  /* KPI cards */
-  .stat-mini{background:var(--bg-s);border-radius:var(--r);padding:12px 14px}
-  .sm-lbl{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
-  .sm-val{font-size:22px;font-weight:600;letter-spacing:-.6px;line-height:1}
-
-  /* Status pills */
-  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
-  .pill .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
-  .p-draft{background:var(--gry-bg);color:var(--gry-tx)}.p-draft .dot{background:var(--gry-bd)}
-  .p-review{background:var(--blu-bg);color:var(--blu-tx)}.p-review .dot{background:var(--blu-bd)}
-  .p-pending{background:var(--amb-bg);color:var(--amb-tx)}.p-pending .dot{background:var(--amb-bd)}
-  .p-approved{background:var(--grn-bg);color:var(--grn-tx)}.p-approved .dot{background:var(--grn-bd)}
-  .p-rejected{background:var(--red-bg);color:var(--red-tx)}.p-rejected .dot{background:var(--red-bd)}
-
-  /* Item action tags */
-  .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-block;white-space:nowrap}
-  .t-new{background:var(--grn-bg);color:var(--grn-tx)}
-  .t-match{background:var(--blu-bg);color:var(--blu-tx)}
-  .t-replace{background:var(--amb-bg);color:var(--amb-tx)}
-  .t-skip{background:var(--gry-bg);color:var(--gry-tx)}
-
-  /* Line items table */
-  .match-tbl{width:100%;border-collapse:collapse;font-size:13px}
-  .match-tbl thead th{padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
-  .match-tbl tbody tr{border-bottom:0.5px solid var(--bd);transition:background .1s}
-  .match-tbl tbody tr:last-child{border-bottom:none}
-  .match-tbl tbody tr:hover{background:#fafaf8}
-  .match-tbl td{padding:10px 12px;vertical-align:top}
-  td.match-tfoot{padding:9px 12px;font-size:12px;background:var(--bg-s);border-top:0.5px solid var(--bdm)}
-`
