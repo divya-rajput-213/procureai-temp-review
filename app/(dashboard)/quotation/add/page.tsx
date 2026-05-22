@@ -38,6 +38,8 @@ export default function UploadQuotationPage() {
     const [internalNotes, setInternalNotes] = useState<string>('')
     const [isExtracting, setIsExtracting] = useState(false)
     const [showConfirm, setShowConfirm] = useState(false)
+    const [showExportModal, setShowExportModal] = useState(false)
+    const [exporting, setExporting] = useState(false)
 
     const getApiErrorMessage = (error: any, fallback: string) => {
         const data = error?.response?.data
@@ -74,7 +76,7 @@ export default function UploadQuotationPage() {
         queryKey: ['purchase-requisitions'],
         queryFn: async () => {
             const params = new URLSearchParams()
-            params.set('status', 'approved')
+            params.set('status', 'draft')
             const { data } = await apiClient.get(`/procurement/?${params}`)
             return data.results || data
         },
@@ -210,7 +212,6 @@ export default function UploadQuotationPage() {
     useEffect(() => { if (plants.length > 0 && !plantId) setPlantId(String(plants[0].id)) }, [plants])
     useEffect(() => { if (departments.length > 0 && !departmentId) setDepartmentId(String(departments[0].id)) }, [departments])
     useEffect(() => { if (categories?.length > 0 && !categoryId) setCategoryId(String(categories?.[0].id)) }, [categories])
-    useEffect(() => { if (PRs.length > 0 && !prLinkId) setPrLinkId(String(PRs[0].id)) }, [PRs])
     useEffect(() => { if (!financialYear) setFinancialYear('2025-26') }, [])
 
     useEffect(() => {
@@ -258,6 +259,43 @@ export default function UploadQuotationPage() {
     }
 
     const isSaving = quotationSaveMutation.isPending
+
+    const handleExportExcel = async () => {
+        try {
+            setExporting(true)
+            const response = await apiClient.post(
+                '/quotations/export-new-items/',
+                {
+                    items: lineItems.map((item: any) => ({
+                        item_code: item.item_code ?? item.code ?? '',
+                        item_name: item.item_name ?? '',
+                        item_price: item.item_price ?? 0,
+                        quantity: item.quantity ?? 1,
+                        unit_of_measure: item.unit_of_measure ?? item.uom ?? '',
+                        hsn_code: item.hsn_code ?? '',
+                        suggestions: item.suggestions ?? [],
+                        is_new: item.is_new ?? item.createNew ?? false,
+                        is_duplicate: item.is_duplicate ?? false,
+                    })),
+                    format: 'excel',
+                },
+                { responseType: 'blob' },
+            )
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `quotation-items.xlsx`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+            setShowExportModal(false)
+        } catch (e) {
+            console.error(e)
+        } finally {
+            setExporting(false)
+        }
+    }
 
     const step0ContinueLabel = () => {
         // if (uploadMutation.isPending || isExtracting) return 'Extracting…'
@@ -408,9 +446,22 @@ export default function UploadQuotationPage() {
                         <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.4px' }}>Add Quotation</div>
                         <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>Upload document · Extract &amp; match items · Submit for approval</div>
                     </div>
-                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/quotation')}>
-                        <i className="ti ti-arrow-left" /> Back
-                    </Button>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {currentStep === 1 && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setShowExportModal(true)}
+                                disabled={lineItems.length === 0}
+                                className="gap-1.5"
+                            >
+                                <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
+                            </Button>
+                        )}
+                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/quotation')}>
+                            <i className="ti ti-arrow-left" /> Back
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Stepper */}
@@ -513,34 +564,40 @@ export default function UploadQuotationPage() {
 
                         {currentStep === 0 && (
                             <Button size="sm" onClick={handleStep0Continue} disabled={!quotation || !vendors || uploadMutation.isPending || isExtracting} className="gap-1.5">
-                        
+
                                 {step0ContinueLabel()}
                                 <ChevronRight style={{ width: 14, height: 14 }} />
                             </Button>
                         )}
 
                         {currentStep === 1 && (
-                                <Button
+                            <Button
                                 size="sm"
                                 onClick={() => setShowConfirm(true)}
                                 disabled={isSaving}
                                 className="gap-1.5"
                             >
-                                {isSaving && (
-                                    <Loader2
-                                        style={{
-                                            width: 14,
-                                            height: 14,
-                                            animation: 'spin 0.8s linear infinite',
-                                        }}
-                                    />
-                                )}
-                               Submit
+                                {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
+                                Submit
                             </Button>
                         )}
                     </div>
                 </div>
             </div>
+
+            <CommonConfirmModal
+                isOpen={showExportModal}
+                title="Export Line Items"
+                description={
+                    <>
+                        Export <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} from this quotation as an Excel sheet?
+                    </>
+                }
+                confirmLabel="Export Excel"
+                onClose={() => setShowExportModal(false)}
+                onConfirm={handleExportExcel}
+                isPending={exporting}
+            />
 
             {/* ── Confirm modal — outside qf-root so Tailwind styles are not overridden ── */}
             <CommonConfirmModal

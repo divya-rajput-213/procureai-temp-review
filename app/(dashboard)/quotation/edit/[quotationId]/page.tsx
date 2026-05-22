@@ -31,6 +31,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
     const [prLinkId, setPrLinkId] = useState<string>('')
     const [errorMessage, setErrorMessage] = useState('')
     const [showConfirm, setShowConfirm] = useState(false)
+    const [showExportModal, setShowExportModal] = useState(false)
+    const [exporting, setExporting] = useState(false)
     const [initialized, setInitialized] = useState(false)
     const [financialYear, setFinancialYear] = useState<string>('')
 
@@ -68,7 +70,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
       })
     const { data: PRs = [] } = useQuery({
         queryKey: ['purchase-requisitions'],
-        queryFn: async () => { const { data } = await apiClient.get('/procurement/?status=approved'); return data.results || data },
+        queryFn: async () => { const { data } = await apiClient.get('/procurement/?status=draft'); return data.results || data },
         staleTime: 0,
     })
     const { data: allApprovedVendors = [], isFetching: vendorsFetching } = useQuery({
@@ -168,6 +170,43 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
     const goNext = () => {
         setCompletedSteps(prev => { const u = new Set(prev); u.add(currentStep); return u })
         setCurrentStep(s => s + 1)
+    }
+
+    const handleExportExcel = async () => {
+        try {
+            setExporting(true)
+            const response = await apiClient.post(
+                '/quotations/export-new-items/',
+                {
+                    items: lineItems.map((item: any) => ({
+                        item_code: item.item_code ?? item.code ?? '',
+                        item_name: item.item_name ?? '',
+                        item_price: item.item_price ?? 0,
+                        quantity: item.quantity ?? 1,
+                        unit_of_measure: item.unit_of_measure ?? item.uom ?? '',
+                        hsn_code: item.hsn_code ?? '',
+                        suggestions: item.suggestions ?? [],
+                        is_new: item.is_new ?? item.createNew ?? false,
+                        is_duplicate: item.is_duplicate ?? false,
+                    })),
+                    format: 'excel',
+                },
+                { responseType: 'blob' },
+            )
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `quotation-items-${params.quotationId}.xlsx`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+            setShowExportModal(false)
+        } catch (e) {
+            console.error(e)
+        } finally {
+            setExporting(false)
+        }
     }
 
     const isSaving = quotationSaveMutation.isPending
@@ -318,9 +357,22 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                             {quotationData?.ref_no || ''}{vendors?.company_name ? ` · ${vendors.company_name}` : ''}
                         </div>
                     </div>
-                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push(`/quotation/detail/${params.quotationId}`)}>
-                        <i className="ti ti-arrow-left" /> Back
-                    </Button>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {currentStep === 1 && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setShowExportModal(true)}
+                                disabled={lineItems.length === 0}
+                                className="gap-1.5"
+                            >
+                                <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
+                            </Button>
+                        )}
+                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push(`/quotation/detail/${params.quotationId}`)}>
+                            <i className="ti ti-arrow-left" /> Back
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Stepper */}
@@ -429,15 +481,30 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         )}
 
                         {currentStep === 1 && (
-                             <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving} className="gap-1.5">
-                             {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
-                             Save Changes
-                         </Button>
+                            <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving} className="gap-1.5">
+                                {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
+                                Save Changes
+                            </Button>
                         )}
 
                     </div>
                 </div>
             </div>
+
+            {/* ── Export modal ── */}
+            <CommonConfirmModal
+                isOpen={showExportModal}
+                title="Export Line Items"
+                description={
+                    <>
+                        Export <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} from this quotation as an Excel sheet?
+                    </>
+                }
+                confirmLabel="Export Excel"
+                onClose={() => setShowExportModal(false)}
+                onConfirm={handleExportExcel}
+                isPending={exporting}
+            />
 
             {/* ── Confirm modal — outside qf-root so Tailwind styles are not overridden ── */}
             <CommonConfirmModal

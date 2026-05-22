@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { FolderOpen, History, LayoutDashboard, List, Loader2, ScrollText } from 'lucide-react'
 import apiClient from '@/lib/api/client'
+import { CommonConfirmModal } from '@/components/shared/CommonModal'
 
 
 type ExtractedLineItem = {
@@ -347,6 +348,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('items')
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const { data, isLoading, isError } = useQuery<QuotationDetails>({
     queryKey: ['quotation', params.quotationId],
@@ -364,6 +367,43 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const quotation = data?.quotation ?? null
   const vendor = data?.vendor ?? null
   const items = useMemo(() => data?.items ?? [], [data?.items])
+
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true)
+      const response = await apiClient.post(
+        '/quotations/export-new-items/',
+        {
+          items: items.map((item: any) => ({
+            item_code: item.item_code ?? '',
+            item_name: item.item_name ?? '',
+            item_price: item.price_per_unit ?? 0,
+            quantity: item.quantity ?? 1,
+            unit_of_measure: item.unit ?? '',
+            hsn_code: item.hsn_sac ?? '',
+            suggestions: [],
+            is_new: false,
+            is_duplicate: false,
+          })),
+          format: 'excel',
+        },
+        { responseType: 'blob' },
+      )
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `quotation-items-${params.quotationId}.xlsx`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      setShowExportModal(false)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const handleDownloadGeneratedPdf = async () => {
     try {
@@ -500,6 +540,14 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             }
           >
             <i className="ti ti-eye" /> Preview PDF
+          </button>
+
+          <button
+            className="qd-btn"
+            onClick={() => setShowExportModal(true)}
+            disabled={items.length === 0}
+          >
+            <i className="ti ti-file-spreadsheet" /> Export Excel
           </button>
         </div>
       </div>
@@ -754,6 +802,20 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         })()}
 
       </div>
+
+      <CommonConfirmModal
+        isOpen={showExportModal}
+        title="Export Line Items"
+        description={
+          <>
+            Export <strong>{items.length}</strong> line item{items.length !== 1 ? 's' : ''} from this quotation as an Excel sheet?
+          </>
+        }
+        confirmLabel="Export Excel"
+        onClose={() => setShowExportModal(false)}
+        onConfirm={handleExportExcel}
+        isPending={exporting}
+      />
 
     </div>
   )

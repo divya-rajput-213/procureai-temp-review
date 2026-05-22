@@ -253,7 +253,6 @@ export default function UploadFile({
                             {/* Extracting */}
                             {isExtracting && (
                                 <div style={{ border: '1.5px dashed var(--blu-bd)', borderRadius: 'var(--r)', padding: 16, background: 'var(--blu-bg)', display: 'flex', alignItems: 'center', gap: 12, color: 'var(--blu-tx)' }}>
-                                    <i className="ti ti-loader-2" style={{ fontSize: 22, flexShrink: 0 }} />
                                     <div style={{ fontSize: 13, fontWeight: 500 }}>Identifying vendor from document…</div>
                                 </div>
                             )}
