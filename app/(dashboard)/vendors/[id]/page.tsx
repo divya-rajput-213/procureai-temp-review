@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -9,15 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, Shield, MapPin, LayoutDashboard, ShieldCheck, History, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt, AlertTriangle } from 'lucide-react'
-import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_TYPE_LABELS } from '@/lib/utils'
+import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, MapPin, LayoutDashboard, ShieldCheck, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt, AlertTriangle } from 'lucide-react'
+import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts'
-import EditVendorPage from '../components/Editvendorpage'
 
 function actionStepClass(action: string) {
   if (action === 'approved') return 'bg-green-50 border-green-200 text-green-700'
@@ -125,7 +124,7 @@ function MyActionPanel({ pendingAction, onProcess, onReleaseHold }: {
 
   const handle = async (action: string) => {
     setLoading(action)
-    await onProcess(action, comments)
+    onProcess(action, comments)
     setLoading('')
     setComments('')
   }
@@ -335,22 +334,17 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
 }
 
 // ─── VendorDashboard — matches reference exactly ──────────────────────────────
-function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: string | string[]; vendor: any, dash: any, isLoading: boolean }) {
+function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, isLoading: boolean }) {
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
 
   if (!dash) return null
 
   const stats = dash?.stats ?? {}
-  const recentPOs: any[] = vendor?.purchase_orders ?? []
-  const recentQuotations: any[] = vendor?.quotations ?? []
-  const recentInvoices: any[] = vendor?.invoices ?? []
-  const perfScore = dash?.performance_score != null ? Math.round(Number(dash.performance_score))
-    : vendor.performance_score != null ? Math.round(Number(vendor.performance_score))
-      : null
-  const riskScore = dash.risk_score != null ? Math.round(Number(dash.risk_score))
-    : vendor.risk_score != null ? Math.round(Number(vendor.risk_score))
-      : null
+  const recentPOs: any[] = dash?.recent_pos ?? []
+  const recentQuotations: any[] = dash?.recent_quotations ?? []
+  const recentInvoices: any[] = dash?.recent_invoices ?? []
+  const scorecard = dash?.scorecard ?? null
 
 
   return (
@@ -497,25 +491,21 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
             <span className="text-[11px] text-muted-foreground">Last 12 months</span>
           </CardHeader>
           <CardContent className="p-4">
-            {(dash.spend_trend ?? []).every((d: any) => d.spend === 0) ? (
-              <div className="h-[140px] flex items-center justify-center text-[12px] text-muted-foreground">No spend data yet</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={140}>
-                <AreaChart data={dash.spend_trend ?? []} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.18} />
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
-                  <Tooltip formatter={(v: any) => [formatCurrency(v), 'Spend']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                  <Area type="monotone" dataKey="spend" stroke="#2563eb" strokeWidth={2} fill="url(#spendGrad)" dot={false} activeDot={{ r: 4 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+            <ResponsiveContainer width="100%" height={140}>
+              <AreaChart data={dash.spend_trend ?? []} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                <Tooltip formatter={(v: any) => [formatCurrency(v), 'Spend']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                <Area type="monotone" dataKey="spend" stroke="#2563eb" strokeWidth={2} fill="url(#spendGrad)" dot={false} activeDot={{ r: 4 }} />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
         {/* Bid Win Rate + Delivery Performance side by side */}
@@ -579,20 +569,16 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4">
-              {(dash.delivery_trend ?? []).every((d: any) => d.actual === null) ? (
-                <div className="h-[120px] flex items-center justify-center text-[12px] text-muted-foreground">No delivery data</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={dash.delivery_trend ?? []} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(v: any, name: any) => [`${v} days`, name === 'actual' ? 'Actual' : 'Target']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                    <Line type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-                    <Line type="monotone" dataKey="target" stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
+              <ResponsiveContainer width="100%" height={120}>
+                <LineChart data={dash.delivery_trend ?? []} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v: any, name: any) => [`${v} days`, name === 'actual' ? 'Actual' : 'Target']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                  <Line type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                  <Line type="monotone" dataKey="target" stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
               {stats.otd_pct != null && (
                 <p className="text-[10px] text-muted-foreground text-center mt-1">
                   {stats.otd_pct}% on-time delivery
@@ -627,14 +613,16 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
                 return Math.ceil(diff / (1000 * 60 * 60 * 24))
               }
 
-              return [
-                { label: 'GST Certificate',   docType: 'gst_certificate',  value: vendor.gst_number,  icon: FileBadge,  bg: 'bg-blue-100',   color: 'text-blue-700',   empty: 'Missing',        mono: true },
-                { label: 'PAN Card',           docType: 'pan_card',         value: vendor.pan_number,  icon: CreditCard, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Missing',        mono: true },
-                { label: 'Bank Verification',  docType: 'bank_details',     value: vendor.bank_account ? `XXXX ${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true },
-                { label: 'MSME Registration',  docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Not registered', mono: false },
-                { label: 'SEZ Unit',           docType: 'sez_certificate',  value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not registered', mono: false },
-                { label: 'ISO Certificate',    docType: 'iso_certificate',  value: vendor.iso_type,    icon: Award,      bg: 'bg-amber-100',  color: 'text-amber-700',  empty: 'Not certified',  mono: false },
-              ].map(item => {
+              const allItems = [
+                { label: 'GST',          docType: 'gst_certificate',  value: vendor.gst_number,  icon: FileBadge,  bg: 'bg-blue-100',   color: 'text-blue-700',   empty: 'Missing',    mono: true,  show: true },
+                { label: 'PAN',          docType: 'pan_card',         value: vendor.pan_number,  icon: CreditCard, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Missing',    mono: true,  show: true },
+                { label: 'Bank',         docType: 'bank_details',     value: vendor.bank_account ? `••${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true, show: true },
+                { label: 'MSME',         docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100',  color: 'text-green-700',  empty: '—',          mono: false, show: !!vendor.is_msme },
+                { label: 'SEZ',          docType: 'sez_certificate',  value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: '—', mono: false, show: !!vendor.is_sez },
+                { label: 'ISO / Quality',docType: 'iso_certificate',  value: docOf('iso_certificate') ? 'Uploaded' : null, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: '—', mono: false, show: !!docOf('iso_certificate') },
+              ]
+
+              return allItems.filter(item => item.show).map(item => {
                 const doc = docOf(item.docType)
                 const verified = isVerified(doc)
                 const hasDoc = !!doc
@@ -646,40 +634,50 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
                 const expired = days !== null && days < 0
 
                 return (
-                  <div key={item.label} className={`px-3 py-2 border-b last:border-0 flex items-center gap-2 ${expired ? 'bg-red-50/50' : expiringSoon ? 'bg-amber-50/50' : ''}`}>
-                    {/* Icon */}
-                    <div className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${item.bg}`}>
-                      <Icon className={`h-3 w-3 ${item.color}`} />
-                    </div>
-                    {/* Label */}
-                    <span className="text-[11px] font-medium w-[90px] shrink-0">{item.label}</span>
-                    {/* Value */}
-                    <span className={`text-[11px] text-slate-500 flex-1 truncate ${item.mono ? 'font-mono' : ''}`}>
-                      {hasValue ? item.value : '—'}
-                    </span>
-                    {/* Expiry chip */}
-                    {expiry && (
-                      <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium shrink-0 ${expired ? 'text-red-600' : expiringSoon ? 'text-amber-600' : 'text-slate-400'}`}>
-                        {(expired || expiringSoon) && <AlertTriangle className="h-2.5 w-2.5" />}
-                        {expired
-                          ? `Exp. ${new Date(expiry).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`
-                          : expiringSoon
-                            ? `${days}d left`
-                            : new Date(expiry).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  <div key={item.label} className={`px-3 py-2.5 border-b last:border-0 ${expired ? 'bg-red-50/40' : expiringSoon ? 'bg-amber-50/40' : ''}`}>
+                    <div className="flex items-center gap-2">
+                      {/* Icon */}
+                      <div className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${item.bg}`}>
+                        <Icon className={`h-3 w-3 ${item.color}`} />
+                      </div>
+                      {/* Label */}
+                      <span className="text-[11px] font-medium w-[68px] shrink-0">{item.label}</span>
+                      {/* Value */}
+                      <span className={`text-[11px] text-slate-500 flex-1 truncate ${item.mono ? 'font-mono' : ''}`}>
+                        {hasValue ? item.value : <span className="text-slate-300">{item.empty}</span>}
                       </span>
-                    )}
-                    {/* Verification badge */}
-                    {hasValue && verified && (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                    )}
-                    {hasValue && !verified && hasDoc && (
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                    )}
-                    {hasValue && !hasDoc && (
-                      <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    )}
-                    {!hasValue && (
-                      <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                      {/* Verification tag */}
+                      {hasValue && verified && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[9px] font-semibold shrink-0">
+                          <CheckCircle2 className="h-2.5 w-2.5" />Verified
+                        </span>
+                      )}
+                      {hasValue && !verified && hasDoc && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-semibold shrink-0">
+                          <AlertTriangle className="h-2.5 w-2.5" />Not Verified
+                        </span>
+                      )}
+                      {hasValue && !hasDoc && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[9px] font-semibold shrink-0">
+                          <Clock className="h-2.5 w-2.5" />No Doc
+                        </span>
+                      )}
+                      {!hasValue && (
+                        <XCircle className="h-3 w-3 text-slate-300 shrink-0" />
+                      )}
+                    </div>
+                    {/* Expiry row — only when set */}
+                    {expiry && (
+                      <div className="pl-8 mt-0.5">
+                        <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${expired ? 'text-red-600' : expiringSoon ? 'text-amber-600' : 'text-slate-400'}`}>
+                          {(expired || expiringSoon) && <AlertTriangle className="h-2.5 w-2.5" />}
+                          {expired
+                            ? `Expired ${new Date(expiry).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                            : expiringSoon
+                              ? `Expiring in ${days}d`
+                              : `Valid till ${new Date(expiry).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+                        </span>
+                      </div>
                     )}
                   </div>
                 )
@@ -736,147 +734,144 @@ function VendorDashboard({ vendorId, vendor, dash, isLoading }: { vendorId: stri
 
         </Card>
 
-        {/* Risk */}
-        <Card className="rounded-xl border overflow-hidden">
-          <CardHeader className="py-2.5 px-4 flex-row justify-between items-center border-b">
-            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-              <span><Shield className="h-3.5 w-3.5" /></span>
-              Risk Assessment
-            </CardTitle>
+        {/* Vendor Scorecard */}
+        {scorecard && (
+          <Card className="rounded-xl border overflow-hidden">
+            <CardHeader className="py-2.5 px-4 flex-row justify-between items-center border-b">
+              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                <ChartNoAxesColumnIncreasing className="h-3.5 w-3.5" />
+                Vendor Scorecard
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
 
-            <Badge
-              className={
-                dash.risk_level === "High"
-                  ? "bg-red-100 text-red-700 text-xs px-2 py-0.5 font-medium"
-                  : dash.risk_level === "Medium"
-                    ? "bg-orange-100 text-orange-700 text-xs px-2 py-0.5 font-medium"
-                    : "bg-green-100 text-green-700 text-xs px-2 py-0.5 font-medium"
-              }
-            >
-              {dash.risk_level}
-            </Badge>
-          </CardHeader>
-
-          <CardContent className="p-4">
-            {/* Risk Score */}
-            <div className="text-center mb-3">
-              <div className="text-[30px] font-bold tracking-tight text-red-600">
-                {riskScore || 80}
-              </div>
-
-              <div className="text-[11px] text-muted-foreground">
-                Risk Score
-              </div>
-            </div>
-
-            {/* Breakdown */}
-            <div className="space-y-2">
-              {[
-                {
-                  label: "Financial",
-                  value: dash.score_breakdown?.financial_stability ?? 0,
-                  color: "bg-orange-400",
-                  text: "text-orange-700",
-                },
-                {
-                  label: "Operational",
-                  value: dash.score_breakdown?.quality_delivery ?? 0,
-                  color: "bg-orange-400",
-                  text: "text-orange-700",
-                },
-                {
-                  label: "Compliance",
-                  value: dash.score_breakdown?.compliance ?? 0,
-                  color: "bg-green-500",
-                  text: "text-green-700",
-                },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-center py-1 border-b last:border-0"
-                >
-                  <span className="w-[90px] text-[12px] text-muted-foreground">
-                    {item.label}
-                  </span>
-
-                  <div className="flex-1 h-1 bg-slate-100 rounded-full mx-2 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${item.color}`}
-                      style={{ width: `${item.value}%` }}
-                    />
+              {/* Compliance */}
+              {(() => {
+                const c = scorecard.compliance
+                const score: number = c?.score ?? 0
+                const color = score >= 80 ? 'text-green-600' : score >= 50 ? 'text-amber-600' : 'text-red-600'
+                const barColor = score >= 80 ? 'bg-green-500' : score >= 50 ? 'bg-amber-400' : 'bg-red-400'
+                const docs = c?.docs ?? {}
+                const docItems = [
+                  { key: 'gst',  label: 'GST' },
+                  { key: 'pan',  label: 'PAN' },
+                  { key: 'bank', label: 'Bank' },
+                  { key: 'msme', label: 'MSME' },
+                  { key: 'iso',  label: 'ISO' },
+                ]
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-semibold text-slate-600">Compliance</span>
+                      <span className={`text-[13px] font-bold ${color}`}>{score}<span className="text-[10px] font-normal text-muted-foreground">/100</span></span>
+                    </div>
+                    {/* Threshold bar — markers at 50 and 80 */}
+                    <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
+                      <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${score}%` }} />
+                      <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '50%' }} />
+                      <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '80%' }} />
+                    </div>
+                    <div className="flex justify-between text-[9px] text-slate-300 mb-2 px-0.5">
+                      <span>0</span>
+                      <span className="relative" style={{ left: '-2%' }}>50</span>
+                      <span className="relative" style={{ left: '2%' }}>80</span>
+                      <span>100</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {docItems.map(({ key, label }) => {
+                        const d = docs[key]
+                        if (d === null || d === undefined) return null
+                        const st: string = d?.status ?? 'missing'
+                        const chip = st === 'verified' ? 'bg-green-50 text-green-700 border-green-200'
+                          : st === 'uploaded' ? 'bg-blue-50 text-blue-600 border-blue-200'
+                          : st === 'expired'  ? 'bg-red-50 text-red-600 border-red-200'
+                          : 'bg-slate-50 text-slate-400 border-slate-200'
+                        const icon = st === 'verified' ? '✓' : st === 'expired' ? '!' : st === 'uploaded' ? '↑' : '–'
+                        return (
+                          <span key={key} className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${chip}`}>
+                            {icon} {label}
+                          </span>
+                        )
+                      })}
+                    </div>
                   </div>
+                )
+              })()}
 
-                  <span className={`text-[12px] font-bold ${item.text}`}>
-                    {item.value}
-                  </span>
+              {/* Bid Win Rate — only when data exists */}
+              {scorecard.win_rate != null && (
+                <div className="border-t pt-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-semibold text-slate-600">Bid Win Rate</span>
+                    <span className={`text-[13px] font-bold ${scorecard.win_rate >= 60 ? 'text-green-600' : scorecard.win_rate >= 30 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {scorecard.win_rate}<span className="text-[10px] font-normal text-muted-foreground">%</span>
+                    </span>
+                  </div>
+                  {/* Threshold bar — markers at 30 and 60 */}
+                  <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
+                    <div className={`h-full rounded-full transition-all ${scorecard.win_rate >= 60 ? 'bg-green-500' : scorecard.win_rate >= 30 ? 'bg-amber-400' : 'bg-red-400'}`}
+                      style={{ width: `${scorecard.win_rate}%` }} />
+                    <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '30%' }} />
+                    <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '60%' }} />
+                  </div>
+                  <div className="flex justify-between text-[9px] text-slate-300 mb-1 px-0.5">
+                    <span>0</span>
+                    <span className="relative" style={{ left: '-2%' }}>30</span>
+                    <span className="relative" style={{ left: '2%' }}>60</span>
+                    <span>100%</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{stats.accepted_bids} of {stats.total_bids} bids won</p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              )}
 
-
-
-        {/* Vendor Score */}
-        <Card className="rounded-xl border shadow-none">
-          <CardHeader className="py-3 px-4 flex-row items-center justify-between border-b">
-            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-              <span><ChartNoAxesColumnIncreasing className="h-3.5 w-3.5" /></span>
-              Vendor Score Breakdown
-            </CardTitle>
-
-            <Badge className="text-[11px] px-2 py-0.5">
-              {perfScore ? `${perfScore}/100` : "Not scored"}
-            </Badge>
-          </CardHeader>
-
-          <CardContent className="p-4 space-y-3">
-
-            {[
-              {
-                label: "Quality & Delivery",
-                value: dash.score_breakdown?.quality_delivery ?? 0,
-              },
-              {
-                label: "Pricing & Value",
-                value: dash.score_breakdown?.pricing_value ?? 0,
-              },
-              {
-                label: "Compliance",
-                value: dash.score_breakdown?.compliance ?? 0,
-              },
-              {
-                label: "Communication",
-                value: dash.score_breakdown?.communication ?? 0,
-              },
-              {
-                label: "Financial Stability",
-                value: dash.score_breakdown?.financial_stability ?? 0,
-              },
-            ].map(item => (
-
-              <div key={item.label} className="flex items-center gap-3">
-
-                <span className="w-32 text-[12px] text-muted-foreground">
-                  {item.label}
-                </span>
-
-                <div className="flex-1 h-1.5 bg-slate-100 rounded-full">
-                  <div
-                    className="h-full bg-red-500 rounded-full"
-                    style={{ width: `${item.value}%` }}
-                  />
+              {/* OTD — only when data exists */}
+              {scorecard.otd != null && (
+                <div className="border-t pt-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-semibold text-slate-600">On-Time Delivery</span>
+                    <span className={`text-[13px] font-bold ${scorecard.otd >= 85 ? 'text-green-600' : scorecard.otd >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {scorecard.otd}<span className="text-[10px] font-normal text-muted-foreground">%</span>
+                    </span>
+                  </div>
+                  {/* Threshold bar — markers at 60 and 85 */}
+                  <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
+                    <div className={`h-full rounded-full transition-all ${scorecard.otd >= 85 ? 'bg-green-500' : scorecard.otd >= 60 ? 'bg-amber-400' : 'bg-red-400'}`}
+                      style={{ width: `${scorecard.otd}%` }} />
+                    <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '60%' }} />
+                    <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '85%' }} />
+                  </div>
+                  <div className="flex justify-between text-[9px] text-slate-300 px-0.5">
+                    <span>0</span>
+                    <span className="relative" style={{ left: '-2%' }}>60</span>
+                    <span className="relative" style={{ left: '2%' }}>85</span>
+                    <span>100%</span>
+                  </div>
                 </div>
+              )}
 
-                <span className="text-[12px] font-semibold w-5 text-right text-red-600">
-                  {item.value}
+              {/* Threshold legend */}
+              <div className="border-t pt-2 flex items-center gap-3 flex-wrap">
+                <span className="inline-flex items-center gap-1 text-[9px] text-slate-400">
+                  <span className="inline-block w-2 h-2 rounded-sm bg-red-400" />Poor
                 </span>
-
+                <span className="inline-flex items-center gap-1 text-[9px] text-slate-400">
+                  <span className="inline-block w-2 h-2 rounded-sm bg-amber-400" />Fair
+                </span>
+                <span className="inline-flex items-center gap-1 text-[9px] text-slate-400">
+                  <span className="inline-block w-2 h-2 rounded-sm bg-green-500" />Good
+                </span>
               </div>
 
-            ))}
-          </CardContent>
-        </Card>
+              {scorecard.win_rate == null && scorecard.otd == null && (
+                <p className="text-[11px] text-muted-foreground border-t pt-3">
+                  Win rate & delivery scores appear once bid activity is recorded.
+                </p>
+              )}
+
+            </CardContent>
+          </Card>
+        )}
+
       </div>
 
     </div>
@@ -889,7 +884,6 @@ export default function VendorDetailPage() {
   const router = useRouter()
 
   const queryClient = useQueryClient()
-  const [isEditing, setIsEditing] = useState(false)
   const [activeTabKey, setActiveTabKey] = useState<'overview' | 'documents' | 'approval'>('overview')
 
   const { data: vendor, isLoading } = useQuery({
@@ -909,78 +903,6 @@ export default function VendorDetailPage() {
   })
 
 
-  const editMutation = useMutation({
-    mutationFn: async (data: Record<string, any>) => {
-      // Strip empty strings for FK fields (send null instead)
-      const payload = { ...data }
-      if (!payload.category) payload.category = null
-      if (!payload.plant) payload.plant = null
-      return (await apiClient.patch(`/vendors/${id}/`, payload)).data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-      toast({ title: 'Vendor details updated.' })
-      setIsEditing(false)
-    },
-    onError: (err: any) => {
-      const detail = err?.response?.data?.gst_number?.[0] || err?.response?.data?.error || 'Update failed.'
-      toast({ title: 'Save failed', description: detail, variant: 'destructive' })
-    },
-  })
-
-  const handleFieldUpdate = async (key: string, value: string | boolean) => {
-    await apiClient.patch(`/vendors/${id}/`, { [key]: value })
-    queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-    toast({ title: 'Field updated.' })
-  }
-
-  // ── Documents tab edit state ──────────────────────────────────────────────
-  const [docFields, setDocFields] = useState<Record<string, string>>({})
-  const [savingDocs, setSavingDocs] = useState(false)
-
-  const validateCompliancePairs = (): boolean => {
-    const errs: Record<string, string> = {}
-    // Documents are optional. Only these fields are mandatory.
-    if (!docFields.gst_number) errs['field_gst_number'] = 'GST Number is required'
-    if (!docFields.pan_number) errs['field_pan_number'] = 'PAN Number is required'
-
-    const bankMissing = !docFields.bank_account || !docFields.bank_ifsc || !docFields.bank_name
-    if (bankMissing) errs['field_bank_account'] = 'Bank Name, Account No and IFSC Code are required'
-    return Object.keys(errs).length === 0
-  }
-
-  const saveDocChanges = async () => {
-    if (!validateCompliancePairs()) return
-
-    setSavingDocs(true)
-
-    try {
-      await apiClient.patch(`/vendors/${id}/`, docFields)
-
-      queryClient.invalidateQueries({ queryKey: ['vendor', id] })
-
-      toast({
-        title: 'Documents saved.'
-      })
-
-      setIsEditing(false)
-    } catch (err: any) {
-      const errors = err?.response?.data
-
-      const message =
-        typeof errors === 'object'
-          ? Object.values(errors).flat().join('\n')
-          : errors?.error || 'Please try again.'
-
-      toast({
-        title: 'Save failed',
-        description: message,
-        variant: 'destructive',
-      })
-    } finally {
-      setSavingDocs(false)
-    }
-  }
 
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
@@ -997,7 +919,7 @@ export default function VendorDetailPage() {
   ]
   return (
     <>
-      {isEditing ? <EditVendorPage setIsEditing={setIsEditing} vendorStatus={vendor?.status}/> : <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
+      <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
         {/* Header */}
         <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
 
@@ -1037,13 +959,13 @@ export default function VendorDetailPage() {
             {/* Actions */}
             <div className="flex gap-2">
               {canFullEdit && (
-                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => setIsEditing(true)}>
+                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
                   <Pencil className="w-[14px] h-[14px] mr-1" />
                   Edit
                 </Button>
               )}
               {canUploadDoc && !canFullEdit && (
-                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => setIsEditing(true)}>
+                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
                   <FileText className="w-[14px] h-[14px] mr-1" />
                   Upload Documents
                 </Button>
@@ -1108,7 +1030,6 @@ export default function VendorDetailPage() {
               key={tab.key}
               onClick={() => {
                 setActiveTabKey(tab.key as 'overview' | 'documents' | 'approval')
-                setIsEditing(false)
               }}
               className={`
         flex items-center justify-center gap-1.5
@@ -1140,7 +1061,7 @@ export default function VendorDetailPage() {
           ))}
         </div>
         {/* Overview Tab */}
-        {activeTabKey === 'overview' && <VendorDashboard vendorId={id} vendor={vendor} dash={dash} isLoading={dashLoading} />}
+        {activeTabKey === 'overview' && <VendorDashboard vendor={vendor} dash={dash} isLoading={dashLoading} />}
 
 
 
@@ -1151,7 +1072,7 @@ export default function VendorDetailPage() {
             {/* Upload button — reuse edit form (starts at compliance step) */}
             {canUploadDoc && canFullEdit &&  (
               <div className="flex justify-end">
-                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => setIsEditing(true)}>
+                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
                   <FileText className="w-[14px] h-[14px] mr-1" />
                   Upload Documents
                 </Button>
@@ -1290,7 +1211,7 @@ export default function VendorDetailPage() {
           </div>
         )}
 
-      </div>}
+      </div>
     </>
 
   )
