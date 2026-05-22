@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { FolderOpen, History, LayoutDashboard, List, Loader2, ScrollText } from 'lucide-react'
 import apiClient from '@/lib/api/client'
+import { CommonConfirmModal } from '@/components/shared/CommonModal'
 
 
 type ExtractedLineItem = {
@@ -26,6 +27,7 @@ type ExtractedLineItem = {
 }
 
 type Vendor = {
+  id:number,
   company_name: string
   address: string
   city: string
@@ -153,6 +155,7 @@ function mapVendor(raw: any): Vendor | null {
   const v = raw?.vendor ?? raw
   if (!v) return null
   return {
+    id:v.id,
     company_name: v.company_name ?? raw?.vendor_name ?? '—',
     address: v.address ?? raw?.vendor_address ?? '',
     city: v.city ?? '',
@@ -256,36 +259,46 @@ const QD_CSS = `
     --gry-bg:#F1EFE8;--gry-tx:#5F5E5A;--gry-bd:#888780;
     --pur-bg:#EEEDFE;--pur-tx:#3C3489;--pur-bd:#7F77DD;
   }
-  .qd-btn{padding:7px 14px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--tx);transition:background .15s}
+  .qd-btn{padding:8px 16px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--tx);transition:background .15s}
   .qd-btn:hover{background:var(--bg-t)}
   .qd-btn:disabled{opacity:.5;cursor:not-allowed}
-  .rhm-lbl{font-size:10px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+  .rhm-lbl{font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
   .stat-mini{background:var(--bg-s);border-radius:var(--r);padding:12px 14px}
-  .sm-lbl{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
-  .sm-val{font-size:22px;font-weight:600;letter-spacing:-.6px;line-height:1}
-  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
-  .pill .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+  .sm-lbl{font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+  .sm-val{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px}
+  .pill .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
   .p-draft{background:var(--gry-bg);color:var(--gry-tx)}.p-draft .dot{background:var(--gry-bd)}
   .p-review{background:var(--blu-bg);color:var(--blu-tx)}.p-review .dot{background:var(--blu-bd)}
   .p-pending{background:var(--amb-bg);color:var(--amb-tx)}.p-pending .dot{background:var(--amb-bd)}
   .p-approved{background:var(--grn-bg);color:var(--grn-tx)}.p-approved .dot{background:var(--grn-bd)}
   .p-rejected{background:var(--red-bg);color:var(--red-tx)}.p-rejected .dot{background:var(--red-bd)}
-  .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-block;white-space:nowrap}
+  .tag{font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap}
   .t-new{background:var(--grn-bg);color:var(--grn-tx)}
   .t-match{background:var(--blu-bg);color:var(--blu-tx)}
   .t-replace{background:var(--amb-bg);color:var(--amb-tx)}
   .t-skip{background:var(--gry-bg);color:var(--gry-tx)}
   .vendor-link-cell{all:unset;display:block;cursor:pointer;text-align:left;border-right:0.5px solid var(--bd);padding:0 14px;transition:background .15s}
   .vendor-link-cell:hover{background:var(--bg-s)}
-  .match-tbl{width:100%;border-collapse:collapse;font-size:13px}
-  .match-tbl thead th{padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
+  .match-tbl{width:100%;border-collapse:collapse;font-size:14px}
+  .match-tbl thead th{padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
   .match-tbl tbody tr{border-bottom:0.5px solid var(--bd);transition:background .1s}
   .match-tbl tbody tr:last-child{border-bottom:none}
   .match-tbl tbody tr:hover{background:#fafaf8}
-  .match-tbl td{padding:10px 12px;vertical-align:top}
-  td.match-tfoot{padding:9px 12px;font-size:12px;background:var(--bg-s);border-top:0.5px solid var(--bdm)}
-  @media(max-width:900px){.hero-grid{grid-template-columns:1fr 1fr!important}}
-  @media(max-width:600px){.hero-grid{grid-template-columns:1fr!important}.vendor-link-cell{border-right:none;border-bottom:0.5px solid var(--bd)}}
+  .match-tbl td{padding:11px 12px;vertical-align:top}
+  td.match-tfoot{padding:10px 12px;font-size:13px;background:var(--bg-s);border-top:0.5px solid var(--bdm)}
+  @media(max-width:900px){
+    .hero-grid{grid-template-columns:1fr 1fr!important}
+    .qd-action-bar{flex-direction:column;align-items:flex-start!important;gap:10px}
+    .qd-action-bar>div{flex-wrap:wrap}
+  }
+  @media(max-width:600px){
+    .hero-grid{grid-template-columns:1fr!important}
+    .vendor-link-cell{border-right:none;border-bottom:0.5px solid var(--bd);padding-bottom:12px;margin-bottom:2px}
+    .qd-info-cell{border-right:none!important;border-bottom:0.5px solid var(--bd);padding-bottom:12px;margin-bottom:2px}
+    .qd-info-cell:last-child{border-bottom:none}
+    .qd-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  }
 `
 
 // ── Presentation helpers ────────────────────────────────────────────────────
@@ -335,6 +348,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('items')
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const { data, isLoading, isError } = useQuery<QuotationDetails>({
     queryKey: ['quotation', params.quotationId],
@@ -352,6 +367,43 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
   const quotation = data?.quotation ?? null
   const vendor = data?.vendor ?? null
   const items = useMemo(() => data?.items ?? [], [data?.items])
+
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true)
+      const response = await apiClient.post(
+        '/quotations/export-new-items/',
+        {
+          items: items.map((item: any) => ({
+            item_code: item.item_code ?? '',
+            item_name: item.item_name ?? '',
+            item_price: item.price_per_unit ?? 0,
+            quantity: item.quantity ?? 1,
+            unit_of_measure: item.unit ?? '',
+            hsn_code: item.hsn_sac ?? '',
+            suggestions: [],
+            is_new: false,
+            is_duplicate: false,
+          })),
+          format: 'excel',
+        },
+        { responseType: 'blob' },
+      )
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `quotation-items-${params.quotationId}.xlsx`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      setShowExportModal(false)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const handleDownloadGeneratedPdf = async () => {
     try {
@@ -387,8 +439,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
       .filter(Boolean)
   }, [quotation?.terms])
 
-  const matchedCount = useMemo(() => items.filter(it => it.master_item_matched).length, [items])
-  const newCount = useMemo(() => items.filter(it => !it.master_item_matched).length, [items])
 
   // ── Loading / error / not-found states ──────────────────────────────────
 
@@ -433,6 +483,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
       {/* Action bar */}
       <div
+        className="qd-action-bar"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -490,6 +541,14 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           >
             <i className="ti ti-eye" /> Preview PDF
           </button>
+
+          <button
+            className="qd-btn"
+            onClick={() => setShowExportModal(true)}
+            disabled={items.length === 0}
+          >
+            <i className="ti ti-file-spreadsheet" /> Export Excel
+          </button>
         </div>
       </div>
 
@@ -509,8 +568,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 {statusLabel}
               </span>
             </div>
-            <div style={{ fontSize: 13, color: 'var(--tx2)' }}>
-              
+            <div style={{ fontSize: 14, color: 'var(--tx2)' }}>
                Submitted {fmtDate(quotation.created_at)}
             </div>
           </div>
@@ -521,31 +579,31 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           <button
             type="button"
             className="vendor-link-cell"
-            onClick={() => router.push('/vendors')}
-            title="Go to vendor listing"
+            onClick={() => window.open(`/vendors/${vendor?.id}`, '_blank')}
+            title="Open vendor in new tab"
           >
             <div className="rhm-lbl" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               Vendor <i className="ti ti-arrow-up-right" style={{ fontSize: 9, opacity: 0.7 }} />
             </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--blu-tx)' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--blu-tx)' }}>
               {vendor?.company_name || '—'}
               {(vendor?.city || vendor?.state) && (
-                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--tx3)', marginLeft: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--tx3)', marginLeft: 6 }}>
                   {[vendor?.city, vendor?.state].filter(Boolean).join(', ')}
                 </span>
               )}
             </div>
           </button>
-          <div style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
+          <div className="qd-info-cell" style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Vendor Contact</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{vendor?.contact_name || '—'}</div>
-            <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{vendor?.contact_name || '—'}</div>
+            <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 1 }}>
               {[vendor?.contact_email, vendor?.contact_phone ? `+${vendor.contact_phone}` : null].filter(Boolean).join(' · ')}
             </div>
           </div>
-          <div style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
+          <div className="qd-info-cell" style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Plant / Department / Category</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>
               {[quotation?.plant_name, quotation?.department_name, quotation?.category_name || (quotation?.category ? String(quotation.category) : null)].filter(Boolean).join(' / ') || '—'}
             </div>
           </div>
@@ -553,27 +611,27 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
         {/* Row 2: Quote Date / Valid Until / Grand Total / PR Linked */}
         <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14, marginTop: 14 }}>
-          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
+          <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Quote Date</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{fmtDate(quotation.quotation_date)}</div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{fmtDate(quotation.quotation_date)}</div>
           </div>
-          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
+          <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Valid Until</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{fmtDate(quotation.valid_until)}</div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{fmtDate(quotation.valid_until)}</div>
           </div>
-          <div style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
+          <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Grand Total</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--tel-tx)' }}>{formatINR(displayGrandTotal)}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--tel-tx)' }}>{formatINR(displayGrandTotal)}</div>
           </div>
           <div style={{ padding: '0 14px' }}>
             <div className="rhm-lbl">PR Linked</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{quotation.pr_no || '—'}</div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{quotation.pr_no || '—'}</div>
           </div>
         </div>
       </div>
 
       {/* Tabs bar */}
-      <div className="flex w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white">
+      <div className="qd-tabs flex w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white">
         {([
           { id: 'items', label: 'Line Items', icon: <List className="w-[14px] h-[14px]" />, badge: items.length },
           { id: 'terms', label: 'Terms & Conditions', icon: <ScrollText className="w-[14px] h-[14px]" /> },
@@ -617,7 +675,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 <th>Item Description</th>
                 <th>HSN</th>
                 <th>Master Item</th>
-                <th>Action</th>
                 <th style={{ textAlign: 'right' }}>Qty</th>
                 <th>Unit</th>
                 <th style={{ textAlign: 'right' }}>Unit Price</th>
@@ -627,23 +684,18 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.id ?? idx}>
-                  <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
+                  <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
                   <td style={{ fontWeight: 500 }}>
                     {item.item_name}
                     {item.item_sub_name && (
-                      <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 2 }}>{item.item_sub_name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>{item.item_sub_name}</div>
                     )}
                   </td>
-                  <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--tx3)' }}>{item.hsn_sac}</td>
+                  <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)' }}>{item.hsn_sac}</td>
                   <td>
                     {item.master_item_name
-                      ? <><div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--blu-tx)' }}>{item.master_item_code || '—'}</div><div style={{ fontSize: 11, color: 'var(--tx2)', marginTop: 1 }}>{item.master_item_name}</div></>
-                      : <span style={{ color: 'var(--tx3)', fontSize: 11 }}>—</span>}
-                  </td>
-                  <td>
-                    {item.master_item_matched
-                      ? <span className="tag t-match">Matched</span>
-                      : <span className="tag t-new">New Item</span>}
+                      ? <><div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--blu-tx)' }}>{item.master_item_code || '—'}</div><div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 1 }}>{item.master_item_name}</div></>
+                      : <span style={{ color: 'var(--tx3)', fontSize: 13 }}>—</span>}
                   </td>
                   <td style={{ textAlign: 'right' }}>{item.quantity}</td>
                   <td style={{ color: 'var(--tx3)' }}>{item.unit}</td>
@@ -654,11 +706,11 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={8} className="match-tfoot" style={{ fontWeight: 600, textAlign: 'right', color: 'var(--tx2)' }}>Sub Total</td>
+                <td colSpan={7} className="match-tfoot" style={{ fontWeight: 600, textAlign: 'right', color: 'var(--tx2)' }}>Sub Total</td>
                 <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{formatINR(displaySubtotal)}</td>
               </tr>
               <tr>
-                <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
                   CGST{displayCgstRate != null ? ` @ ${displayCgstRate}%` : ''}
                 </td>
                 <td className="match-tfoot" style={{ textAlign: 'right', color: displayCgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
@@ -666,7 +718,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 </td>
               </tr>
               <tr>
-                <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
                   SGST {displaySgstRate != null ? ` @ ${displaySgstRate}%` : ''}
                 </td>
                 <td className="match-tfoot" style={{ textAlign: 'right', color: displaySgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
@@ -674,7 +726,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 </td>
               </tr>
               <tr>
-                <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
                   IGST{backendIgstRate != null ? ` @ ${backendIgstRate}%` : ''}
                 </td>
                 <td className="match-tfoot" style={{ textAlign: 'right', color: backendIgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
@@ -682,7 +734,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 </td>
               </tr>
               <tr style={{ background: 'var(--bg-t)' }}>
-                <td colSpan={8} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>
+                <td colSpan={7} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>
                   Grand Total (incl. GST)
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>
@@ -696,8 +748,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
         {/* ── Terms & Conditions ── */}
         {activeTab === 'terms' && (() => {
-          const tcLbl: React.CSSProperties = { fontSize: 10, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }
-          const tcVal: React.CSSProperties = { fontSize: 13, fontWeight: 500 }
+          const tcLbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }
+          const tcVal: React.CSSProperties = { fontSize: 14, fontWeight: 500 }
           const tcCard: React.CSSProperties = { background: 'var(--bg-s)', borderRadius: 'var(--r)', padding: '13px 14px' }
           return (
             <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -729,8 +781,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                   {/* <div style={tcLbl}>Terms &amp; Conditions</div> */}
                   <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {displayTerms.map((term, idx) => (
-                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--tx2)', lineHeight: 1.6 }}>
-                        <span style={{ flexShrink: 0, minWidth: 18, fontWeight: 600, color: 'var(--tx3)', fontSize: 12 }}>{idx + 1}.</span>
+                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 14, color: 'var(--tx2)', lineHeight: 1.6 }}>
+                        <span style={{ flexShrink: 0, minWidth: 18, fontWeight: 600, color: 'var(--tx3)', fontSize: 13 }}>{idx + 1}.</span>
                         <span>{term}</span>
                       </li>
                     ))}
@@ -741,7 +793,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               {/* Additional Terms & Notes — always full-width, shows — if empty */}
               <div style={{ ...tcCard, gridColumn: '1 / -1' }}>
                 <div style={tcLbl}>Additional Notes</div>
-                <div style={{ fontSize: 12, color: 'var(--tx2)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+                <div style={{ fontSize: 14, color: 'var(--tx2)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
                   {quotation.internal_notes || '—'}
                 </div>
               </div>
@@ -750,6 +802,20 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         })()}
 
       </div>
+
+      <CommonConfirmModal
+        isOpen={showExportModal}
+        title="Export Line Items"
+        description={
+          <>
+            Export <strong>{items.length}</strong> line item{items.length !== 1 ? 's' : ''} from this quotation as an Excel sheet?
+          </>
+        }
+        confirmLabel="Export Excel"
+        onClose={() => setShowExportModal(false)}
+        onConfirm={handleExportExcel}
+        isPending={exporting}
+      />
 
     </div>
   )

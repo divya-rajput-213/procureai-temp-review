@@ -10,14 +10,12 @@ import { Button } from '@/components/ui/button'
 import { CommonConfirmModal } from '@/components/shared/CommonModal'
 import UploadFile from '../components/UploadFile'
 import VerifyItemsStep from '../components/VerifyItemsStep'
-import ReviewSubmitStep from '../components/ReviewSubmitStep'
 
 interface Category { id: number; hash_id: string; name: string; is_active: boolean }
 
 const STEPS = [
     { id: 0, label: 'Upload Document', sub: 'Upload & extract details' },
     { id: 1, label: 'Items & Matching', sub: 'Review & match line items' },
-    // { id: 2, label: 'Review & Submit', sub: 'Confirm & send for approval' },
 ]
 
 export default function UploadQuotationPage() {
@@ -40,6 +38,8 @@ export default function UploadQuotationPage() {
     const [internalNotes, setInternalNotes] = useState<string>('')
     const [isExtracting, setIsExtracting] = useState(false)
     const [showConfirm, setShowConfirm] = useState(false)
+    const [showExportModal, setShowExportModal] = useState(false)
+    const [exporting, setExporting] = useState(false)
 
     const getApiErrorMessage = (error: any, fallback: string) => {
         const data = error?.response?.data
@@ -76,7 +76,7 @@ export default function UploadQuotationPage() {
         queryKey: ['purchase-requisitions'],
         queryFn: async () => {
             const params = new URLSearchParams()
-            params.set('status', 'approved')
+            params.set('status', 'draft')
             const { data } = await apiClient.get(`/procurement/?${params}`)
             return data.results || data
         },
@@ -129,11 +129,33 @@ export default function UploadQuotationPage() {
                     gst_number: vendors?.gst_number, pan_number: vendors?.pan_number ?? null,
                     bank_account: vendors?.bank_account ?? null, bank_ifsc: vendors?.bank_ifsc ?? null,
                     bank_name: vendors?.bank_name ?? null, gst_percentage: vendors?.gst_percentage ?? null,
+                    cgst_rate: vendors?.cgst_rate ?? null, sgst_rate: vendors?.sgst_rate ?? null,
+                    igst_rate: vendors?.igst_rate ?? null, cgst_amount: vendors?.cgst_amount ?? null,
+                    sgst_amount: vendors?.sgst_amount ?? null, igst_amount: vendors?.igst_amount ?? null,
+                    subtotal_amount: vendors?.subtotal_amount ?? null, grand_total: vendors?.grand_total ?? null,
+                    place_of_supply: vendors?.place_of_supply ?? null,
+                    quotation_no: vendors?.quotation_no ?? quotation?.quotation_no ?? null,
+                    quotation_date: vendors?.quotation_date ?? quotation?.quotation_date ?? null,
+                    valid_until: vendors?.valid_until ?? quotation?.valid_until ?? null,
+                    delivery_lead_time_days: vendors?.delivery_lead_time_days ?? null,
+                    delivery_terms: vendors?.delivery_terms ?? null,
+                    freight_charges: vendors?.freight_charges ?? null,
+                    terms_and_conditions: vendors?.terms_and_conditions ?? quotation?.terms_and_conditions ?? null,
+                    warranty: vendors?.warranty ?? null,
                     is_new: vendors?.is_new ?? true,
                 },
-                quotation_no: quotation?.vendor?.quotation_no ?? quotation?.quotation_no ?? null,
-                quotation_date: quotation?.vendor?.quotation_date ?? quotation?.quotation_date ?? null,
-                terms_and_conditions: vendors?.terms_and_conditions ?? quotation?.terms_and_conditions ?? null,
+                valid_until: quotation?.vendor?.valid_until ?? quotation?.valid_until ?? null,
+                grand_total: quotation?.grand_total ?? null,
+                subtotal_amount: quotation?.subtotal_amount ?? null,
+                cgst_rate: quotation?.cgst_rate ?? null,
+                sgst_rate: quotation?.sgst_rate ?? null,
+                igst_rate: quotation?.igst_rate ?? null,
+                cgst_amount: quotation?.cgst_amount ?? null,
+                sgst_amount: quotation?.sgst_amount ?? null,
+                freight_charges: quotation?.freight_charges ?? null,
+                delivery_terms: quotation?.delivery_terms ?? null,
+                delivery_lead_time_days: quotation?.delivery_lead_time_days ?? null,
+                warranty: quotation?.warranty ?? null,
                 internal_notes: internalNotes || null,
                 plant_id: plantId ? Number(plantId) : null,
                 department_id: departmentId ? Number(departmentId) : null,
@@ -190,7 +212,6 @@ export default function UploadQuotationPage() {
     useEffect(() => { if (plants.length > 0 && !plantId) setPlantId(String(plants[0].id)) }, [plants])
     useEffect(() => { if (departments.length > 0 && !departmentId) setDepartmentId(String(departments[0].id)) }, [departments])
     useEffect(() => { if (categories?.length > 0 && !categoryId) setCategoryId(String(categories?.[0].id)) }, [categories])
-    useEffect(() => { if (PRs.length > 0 && !prLinkId) setPrLinkId(String(PRs[0].id)) }, [PRs])
     useEffect(() => { if (!financialYear) setFinancialYear('2025-26') }, [])
 
     useEffect(() => {
@@ -239,8 +260,45 @@ export default function UploadQuotationPage() {
 
     const isSaving = quotationSaveMutation.isPending
 
+    const handleExportExcel = async () => {
+        try {
+            setExporting(true)
+            const response = await apiClient.post(
+                '/quotations/export-new-items/',
+                {
+                    items: lineItems.map((item: any) => ({
+                        item_code: item.item_code ?? item.code ?? '',
+                        item_name: item.item_name ?? '',
+                        item_price: item.item_price ?? 0,
+                        quantity: item.quantity ?? 1,
+                        unit_of_measure: item.unit_of_measure ?? item.uom ?? '',
+                        hsn_code: item.hsn_code ?? '',
+                        suggestions: item.suggestions ?? [],
+                        is_new: item.is_new ?? item.createNew ?? false,
+                        is_duplicate: item.is_duplicate ?? false,
+                    })),
+                    format: 'excel',
+                },
+                { responseType: 'blob' },
+            )
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `quotation-items.xlsx`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+            setShowExportModal(false)
+        } catch (e) {
+            console.error(e)
+        } finally {
+            setExporting(false)
+        }
+    }
+
     const step0ContinueLabel = () => {
-        if (uploadMutation.isPending || isExtracting) return 'Extracting…'
+        // if (uploadMutation.isPending || isExtracting) return 'Extracting…'
         return 'Continue'
     }
 
@@ -267,68 +325,68 @@ export default function UploadQuotationPage() {
                 .qf-root .step-item{flex:1;padding:14px 16px;display:flex;align-items:center;gap:10px;border-right:0.5px solid var(--bd);background:transparent;border-top:none;border-left:none;border-bottom:none}
                 .qf-root .step-item:last-child{border-right:none}
                 .qf-root .step-item.done{background:var(--bg-s)}
-                .qf-root .step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+                .qf-root .step-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
                 .qf-root .sn-idle{background:var(--bg-t);color:var(--tx3)}
                 .qf-root .sn-act{background:#1a1a18;color:#fff}
                 .qf-root .sn-done{background:var(--grn-bg);color:var(--grn-tx)}
-                .qf-root .step-lbl{font-size:12px;font-weight:600;color:var(--tx3)}
+                .qf-root .step-lbl{font-size:13px;font-weight:600;color:var(--tx3)}
                 .qf-root .step-item.active .step-lbl{color:var(--tx)}
                 .qf-root .step-item.done .step-lbl{color:var(--tx2)}
-                .qf-root .step-sub{font-size:11px;color:var(--tx3)}
+                .qf-root .step-sub{font-size:12px;color:var(--tx3)}
                 .qf-root .form-sec{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:16px}
                 .qf-root .form-sec-head{padding:13px 18px;border-bottom:0.5px solid var(--bd);display:flex;align-items:center;gap:10px}
                 .qf-root .fsh-ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
-                .qf-root .fsh-title{font-size:13px;font-weight:600}
-                .qf-root .fsh-sub{font-size:11px;color:var(--tx3);margin-top:1px}
+                .qf-root .fsh-title{font-size:15px;font-weight:600}
+                .qf-root .fsh-sub{font-size:12px;color:var(--tx3);margin-top:1px}
                 .qf-root .form-body{padding:18px}
                 .qf-root .drop-zone{border:1.5px dashed var(--bdm);border-radius:var(--rl);padding:28px 24px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:var(--bg-s)}
                 .qf-root .drop-zone:hover,.qf-root .drop-zone.drag-over{border-color:var(--blu-bd);background:var(--blu-bg)}
                 .qf-root .drop-zone.has-file{border-style:solid;border-color:var(--grn-bd);background:var(--grn-bg);cursor:default;padding:14px 16px}
                 .qf-root .dz-icon{font-size:28px;color:var(--tx3);margin-bottom:6px;display:block}
-                .qf-root .dz-title{font-size:14px;font-weight:500}
-                .qf-root .dz-sub{font-size:12px;color:var(--tx3);margin-top:3px}
-                .qf-root .parse-bar{height:4px;background:var(--bg-t);border-radius:2px;overflow:hidden;margin:10px 0 8px}
+                .qf-root .dz-title{font-size:15px;font-weight:500}
+                .qf-root .dz-sub{font-size:13px;color:var(--tx3);margin-top:3px}
+                .qf-root .parse-bar{height:5px;background:var(--bg-t);border-radius:2px;overflow:hidden;margin:10px 0 8px}
                 .qf-root .parse-fill{height:100%;background:var(--blu-bd);border-radius:2px;animation:qf-progress 2.5s ease-in-out infinite alternate}
-                .qf-root .parse-step{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx3);padding:3px 0}
+                .qf-root .parse-step{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx3);padding:3px 0}
                 .qf-root .parse-step.active-ps{color:var(--tx);font-weight:500}
                 .qf-root .parse-step i{animation:spin 1s linear infinite}
                 .qf-root .fgrp{display:flex;flex-direction:column;gap:4px}
-                .qf-root .lbl{font-size:12px;font-weight:600;color:var(--tx2)}
+                .qf-root .lbl{font-size:13px;font-weight:600;color:var(--tx2)}
                 .qf-root .req{color:var(--red-bd);margin-left:2px}
-                .qf-root .inp{padding:8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;width:100%}
+                .qf-root .inp{padding:9px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:100%}
                 .qf-root .inp:focus{border-color:#1a1a18}
-                .qf-root .inp-extracted{padding:8px 12px;border-radius:var(--r);border:0.5px solid rgba(29,158,117,.4);background:var(--tel-bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tel-tx);outline:none;width:100%;font-weight:500}
-                .qf-root .sel{padding:8px 32px 8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);appearance:none;outline:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9a96'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;width:100%}
+                .qf-root .inp-extracted{padding:9px 12px;border-radius:var(--r);border:0.5px solid rgba(29,158,117,.4);background:var(--tel-bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tel-tx);outline:none;width:100%;font-weight:500}
+                .qf-root .sel{padding:9px 32px 9px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);appearance:none;outline:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9a96'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;width:100%}
                 .qf-root .sel:focus{border-color:#1a1a18}
-                .qf-root .textarea{padding:8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;resize:vertical;min-height:70px;width:100%}
+                .qf-root .textarea{padding:9px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;resize:vertical;min-height:70px;width:100%}
                 .qf-root .textarea:focus{border-color:#1a1a18}
-                .qf-root .extracted-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--tel-tx);display:flex;align-items:center;gap:4px}
+                .qf-root .extracted-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--tel-tx);display:flex;align-items:center;gap:4px}
                 .qf-root .card{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden}
                 .qf-root .card-head{padding:13px 16px;border-bottom:0.5px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
-                .qf-root .card-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;color:var(--tx)}
-                .qf-root .card-title i{font-size:14px;color:var(--tx3)}
+                .qf-root .card-title{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;color:var(--tx)}
+                .qf-root .card-title i{font-size:15px;color:var(--tx3)}
                 .qf-root .card-body{padding:16px}
-                .qf-root .ci{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:0.5px solid var(--bd);font-size:12px}
+                .qf-root .ci{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:0.5px solid var(--bd);font-size:13px}
                 .qf-root .ci:last-child{border-bottom:none}
                 .qf-root .ci-ok{color:var(--grn-tx)}
                 .qf-root .ci-idle{color:var(--tx3)}
                 .qf-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px;}
-                .qf-root .err-strip{background:var(--red-bg);border:0.5px solid var(--red-bd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:var(--red-tx)}
-                .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:13px}
-                .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
+                .qf-root .err-strip{background:var(--red-bg);border:0.5px solid var(--red-bd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:14px;color:var(--red-tx)}
+                .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:14px}
+                .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
                 .qf-root .match-tbl tbody tr{border-bottom:0.5px solid var(--bd);cursor:default;transition:background .1s}
                 .qf-root .match-tbl tbody tr:last-child{border-bottom:none}
                 .qf-root .match-tbl tbody tr:hover{background:#fafaf8}
-                .qf-root .match-tbl td{padding:10px 12px;vertical-align:top}
-                .qf-root .cell-inp{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;width:100%}
+                .qf-root .match-tbl td{padding:11px 12px;vertical-align:top}
+                .qf-root .cell-inp{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:100%}
                 .qf-root .cell-inp:focus{background:var(--blu-bg);border-radius:4px;padding:2px 4px}
-                .qf-root .cell-num{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;width:60px;text-align:right}
+                .qf-root .cell-num{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:60px;text-align:right}
                 .qf-root .cell-num:focus{background:var(--blu-bg);border-radius:4px;padding:2px 4px}
-                .qf-root td.match-tfoot{padding:9px 12px;font-size:12px;background:var(--bg-s);border-top:0.5px solid var(--bdm)}
-                .qf-root .match-progress{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx2);background:var(--bg);border:0.5px solid var(--bd);padding:8px 14px;border-radius:var(--r);margin-bottom:12px}
+                .qf-root td.match-tfoot{padding:10px 12px;font-size:13px;background:var(--bg-s);border-top:0.5px solid var(--bdm)}
+                .qf-root .match-progress{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx2);background:var(--bg);border:0.5px solid var(--bd);padding:8px 14px;border-radius:var(--r);margin-bottom:12px}
                 .qf-root .mp-bar{flex:1;height:5px;background:var(--bg-t);border-radius:3px;overflow:hidden}
                 .qf-root .mp-fill{height:100%;border-radius:3px;background:#1a1a18;transition:width .3s}
-                .qf-root .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-block;white-space:nowrap}
+                .qf-root .tag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-block;white-space:nowrap}
                 .qf-root .t-new{background:var(--grn-bg);color:var(--grn-tx)}
                 .qf-root .t-match{background:var(--blu-bg);color:var(--blu-tx)}
                 .qf-root .t-replace{background:var(--amb-bg);color:var(--amb-tx)}
@@ -338,12 +396,12 @@ export default function UploadQuotationPage() {
                 .qf-root .rhm-item{padding:0 14px;border-right:0.5px solid var(--bd)}
                 .qf-root .rhm-item:first-child{padding-left:0}
                 .qf-root .rhm-item:last-child{border-right:none}
-                .qf-root .rhm-lbl{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
-                .qf-root .rhm-val{font-size:13px;font-weight:500}
+                .qf-root .rhm-lbl{font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+                .qf-root .rhm-val{font-size:14px;font-weight:500}
                 .qf-root .stat-mini{background:var(--bg-s);border-radius:var(--r);padding:12px 14px}
-                .qf-root .sm-lbl{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
-                .qf-root .sm-val{font-size:22px;font-weight:600;letter-spacing:-.6px;line-height:1}
-                .qf-root .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+                .qf-root .sm-lbl{font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+                .qf-root .sm-val{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1}
+                .qf-root .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px}
                 .qf-root .pill .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
                 .qf-root .p-draft{background:var(--gry-bg);color:var(--gry-tx)}
                 .qf-root .p-draft .dot{background:var(--gry-bd)}
@@ -351,35 +409,59 @@ export default function UploadQuotationPage() {
                 @media(max-width:900px){
                     .qf-root .uf-grid{grid-template-columns:1fr!important}
                     .qf-root .g3{grid-template-columns:1fr 1fr!important}
-                    .qf-root .g2{grid-template-columns:1fr!important}
+                    .qf-root .g2{grid-template-columns:1fr 1fr!important}
                     .qf-root .g4v{grid-template-columns:1fr 1fr!important}
                     .qf-root .g3v{grid-template-columns:1fr 1fr!important}
                     .qf-root .uf-sidebar{flex-direction:row!important;flex-wrap:wrap}
-                    .qf-root .uf-sidebar .card{flex:1;min-width:240px}
+                    .qf-root .uf-sidebar .card{flex:1;min-width:220px}
                     .qf-root .vi-grid{grid-template-columns:1fr!important}
+                    .qf-root .rh-meta{grid-template-columns:1fr 1fr!important}
+                    .qf-root .rhm-item:nth-child(2n){border-right:none}
                 }
                 @media(max-width:600px){
+                    .qf-root .stepper{flex-direction:column}
+                    .qf-root .step-item{border-right:none!important;border-bottom:0.5px solid var(--bd)}
+                    .qf-root .step-item:last-child{border-bottom:none}
                     .qf-root .g3{grid-template-columns:1fr!important}
+                    .qf-root .g2{grid-template-columns:1fr!important}
                     .qf-root .g4v{grid-template-columns:1fr 1fr!important}
                     .qf-root .g3v{grid-template-columns:1fr!important}
                     .qf-root .sticky-bar{flex-wrap:wrap;gap:8px}
+                    .qf-root .sticky-bar>*{flex:1;min-width:120px}
                     .qf-root .uf-sidebar{flex-direction:column!important}
                     .qf-root .uf-sidebar .card{min-width:unset}
                     .qf-root .vi-sidebar{display:flex;flex-direction:row;flex-wrap:wrap;gap:12px}
-                    .qf-root .vi-sidebar .card{flex:1;min-width:260px;margin-bottom:0!important}
+                    .qf-root .vi-sidebar .card{flex:1;min-width:240px;margin-bottom:0!important}
+                    .qf-root .rh-meta{grid-template-columns:1fr!important}
+                    .qf-root .rhm-item{border-right:none;padding-left:0;border-bottom:0.5px solid var(--bd);padding-bottom:10px;margin-bottom:10px}
+                    .qf-root .rhm-item:last-child{border-bottom:none;margin-bottom:0}
+                    .qf-root .page-hd{flex-direction:column;align-items:flex-start!important;gap:10px}
                 }
             `}</style>
 
             <div className="qf-root relative">
                 {/* Page header */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+                <div className="page-hd" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                         <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.4px' }}>Add Quotation</div>
                         <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>Upload document · Extract &amp; match items · Submit for approval</div>
                     </div>
-                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/quotation')}>
-                        <i className="ti ti-arrow-left" /> Back
-                    </Button>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {currentStep === 1 && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setShowExportModal(true)}
+                                disabled={lineItems.length === 0}
+                                className="gap-1.5"
+                            >
+                                <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
+                            </Button>
+                        )}
+                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/quotation')}>
+                            <i className="ti ti-arrow-left" /> Back
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Stepper */}
@@ -464,22 +546,6 @@ export default function UploadQuotationPage() {
                     />
                 )}
 
-                {/* ── STEP 2: Review & Submit ── */}
-                {/* {currentStep === 2 && (
-                    <ReviewSubmitStep
-                        quotation={quotation}
-                        lineItems={lineItems}
-                        vendors={vendors}
-                        plants={plants}
-                        plantId={plantId}
-                        PRs={PRs}
-                        prLinkId={prLinkId}
-                        setPrLinkId={setPrLinkId}
-                        internalNotes={internalNotes}
-                        setInternalNotes={setInternalNotes}
-                    />
-                )} */}
-
                 {/* ── Action bar ── */}
                 <div className="sticky-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -498,49 +564,52 @@ export default function UploadQuotationPage() {
 
                         {currentStep === 0 && (
                             <Button size="sm" onClick={handleStep0Continue} disabled={!quotation || !vendors || uploadMutation.isPending || isExtracting} className="gap-1.5">
-                                {(uploadMutation.isPending || isExtracting) && (
-                                    <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />
-                                )}
+
                                 {step0ContinueLabel()}
                                 <ChevronRight style={{ width: 14, height: 14 }} />
                             </Button>
                         )}
 
                         {currentStep === 1 && (
-                                <Button
+                            <Button
                                 size="sm"
                                 onClick={() => setShowConfirm(true)}
                                 disabled={isSaving}
                                 className="gap-1.5"
                             >
-                                {isSaving && (
-                                    <Loader2
-                                        style={{
-                                            width: 14,
-                                            height: 14,
-                                            animation: 'spin 0.8s linear infinite',
-                                        }}
-                                    />
-                                )}
-                               Submit
+                                {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
+                                Submit
                             </Button>
                         )}
                     </div>
                 </div>
             </div>
 
+            <CommonConfirmModal
+                isOpen={showExportModal}
+                title="Export Line Items"
+                description={
+                    <>
+                        Export <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} from this quotation as an Excel sheet?
+                    </>
+                }
+                confirmLabel="Export Excel"
+                onClose={() => setShowExportModal(false)}
+                onConfirm={handleExportExcel}
+                isPending={exporting}
+            />
+
             {/* ── Confirm modal — outside qf-root so Tailwind styles are not overridden ── */}
             <CommonConfirmModal
                 isOpen={showConfirm}
-                title="Confirm Action"
+                title="Submit Quotation"
                 description={
                     <>
-                        You are about to save this quotation from{' '}
-                        <strong>{vendors?.company_name || 'the vendor'}</strong> with{' '}
-                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''}.
+                        Submit quotation from <strong>{vendors?.company_name || 'the vendor'}</strong> with{' '}
+                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} for approval?
                     </>
                 }
-                confirmLabel="Yes, Submit"
+                confirmLabel="Submit for Approval"
                 onClose={() => setShowConfirm(false)}
                 onConfirm={() => quotationSaveMutation.mutate()}
                 isPending={quotationSaveMutation.isPending}
