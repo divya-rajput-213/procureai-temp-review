@@ -214,11 +214,11 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
 
                                         return (
                                             <tr key={idx} style={{ opacity: isSkip ? 0.45 : 1 }}>
-                                                <td style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
+                                                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
                                                 <td>
                                                     {isManual
                                                         ? <input className="cell-inp" value={item.item_name || ''} onChange={e => updateItem(idx, 'item_name', e.target.value)} style={{ fontWeight: 500 }} />
-                                                        : <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--tx)' }}>{item.item_name}</span>
+                                                        : <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--tx)' }}>{item.item_name}</span>
                                                     }
                                                 </td>
                                                 <td>
@@ -233,7 +233,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                               />
                                                         : item.hsn_code
                                                             ? <span style={extractedCellStyle}>{item.hsn_code}</span>
-                                                            : <span style={{ fontSize: 11, color: 'var(--tx3)' }}>—</span>
+                                                            : <span style={{ fontSize: 13, color: 'var(--tx3)' }}>—</span>
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
@@ -245,7 +245,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                             placeholder="1"
                                                             style={{ ...(isManual ? editableStyle : needsInputStyle), width: 48, textAlign: 'right' }}
                                                           />
-                                                        : <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{qty}</span>
+                                                        : <span style={{ fontSize: 14, fontFamily: 'monospace' }}>{qty}</span>
                                                     }
                                                 </td>
                                                 <td>
@@ -262,7 +262,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                               </select>
                                                         : item.unit_of_measure
                                                             ? <span style={extractedCellStyle}>{item.unit_of_measure}</span>
-                                                            : <span style={{ fontSize: 11, color: 'var(--tx3)' }}>—</span>
+                                                            : <span style={{ fontSize: 13, color: 'var(--tx3)' }}>—</span>
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
@@ -276,10 +276,10 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                           />
                                                         : price > 0
                                                             ? <span style={extractedCellStyle}>{fmtI(price)}</span>
-                                                            : <span style={{ fontSize: 11, color: 'var(--tx3)' }}>—</span>
+                                                            : <span style={{ fontSize: 13, color: 'var(--tx3)' }}>—</span>
                                                     }
                                                 </td>
-                                                <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 12 }}>{fmtI(qty * price)}</td>
+                                                <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 14 }}>{fmtI(qty * price)}</td>
                                                 {!hideMasterMatch && <td style={{ minWidth: isManual ? 0 : 180, maxWidth: 200 }}>
                                                     {isManual ? null : hasSugg ? (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -288,7 +288,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 onChange={e => selectMaster(idx, e.target.value)}
                                                                 disabled={isNew}
                                                                 style={{
-                                                                    fontSize: 11, fontFamily: 'monospace', padding: '4px 8px',
+                                                                    fontSize: 12, fontFamily: 'monospace', padding: '5px 8px',
                                                                     border: `0.5px solid ${isNew ? 'var(--gry-bd)' : 'var(--blu-bd)'}`,
                                                                     borderRadius: 5,
                                                                     background: isNew ? 'var(--gry-bg)' : 'var(--blu-bg)',
@@ -311,7 +311,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 })}
                                                             </select>
                                                             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                                                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--tx2)', cursor: 'pointer' }}>
+                                                                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--tx2)', cursor: 'pointer' }}>
                                                                     <input type="checkbox" checked={isNew} onChange={e => toggleCreateNew(idx, e.target.checked)} style={{ accentColor: 'var(--grn-bd)', width: 12, height: 12 }} />
                                                                     <span>Create New</span>
                                                                 </label>
@@ -320,21 +320,21 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                     <span>Replace Existing</span>
                                                                 </label>
                                                             </div>
-                                                            <div style={{ fontSize: 10, color: 'var(--tx3)', padding: '2px 0' }}>
+                                                            <div style={{ fontSize: 12, color: 'var(--tx3)', padding: '2px 0' }}>
                                                                 {isNew
-                                                                    ? <span style={{ color: 'var(--grn-tx)', fontWeight: 600 }}><i className="ti ti-plus" style={{ fontSize: 10, marginRight: 2 }} />Will create new master item</span>
+                                                                    ? <span style={{ color: 'var(--grn-tx)', fontWeight: 600 }}><i className="ti ti-plus" style={{ fontSize: 11, marginRight: 2 }} />Will create new master item</span>
                                                                     : isReplace
-                                                                        ? <span style={{ color: 'var(--amb-tx)', fontWeight: 600 }}><i className="ti ti-refresh" style={{ fontSize: 10, marginRight: 2 }} />Will update existing item&apos;s spec &amp; price</span>
-                                                                        : <span style={{ color: 'var(--blu-tx)', fontWeight: 600 }}><i className="ti ti-link" style={{ fontSize: 10, marginRight: 2 }} />Using existing master item</span>
+                                                                        ? <span style={{ color: 'var(--amb-tx)', fontWeight: 600 }}><i className="ti ti-refresh" style={{ fontSize: 11, marginRight: 2 }} />Will update existing item&apos;s spec &amp; price</span>
+                                                                        : <span style={{ color: 'var(--blu-tx)', fontWeight: 600 }}><i className="ti ti-link" style={{ fontSize: 11, marginRight: 2 }} />Using existing master item</span>
                                                                 }
                                                             </div>
                                                         </div>
                                                     ) : (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                                                            <div style={{ fontSize: 11, color: 'var(--amb-tx)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                                <i className="ti ti-search-off" style={{ fontSize: 12 }} />No match found
+                                                            <div style={{ fontSize: 13, color: 'var(--amb-tx)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                <i className="ti ti-search-off" style={{ fontSize: 13 }} />No match found
                                                             </div>
-                                                            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--tx2)', cursor: 'pointer' }}>
+                                                            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--tx2)', cursor: 'pointer' }}>
                                                                 <input type="checkbox" checked={isNew && !isSkip} onChange={e => toggleCreateNew(idx, e.target.checked)} style={{ accentColor: 'var(--grn-bd)', width: 12, height: 12 }} />
                                                                 <span style={{ color: 'var(--grn-tx)', fontWeight: 500 }}>Create New Master Item</span>
                                                             </label>
@@ -461,7 +461,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                         {!addRowActive && (
                             <button
                                 onClick={() => setAddRowActive(true)}
-                                style={{ marginTop: 10, padding: '5px 10px', borderRadius: 'var(--r)', border: '0.5px solid var(--bdm)', background: 'var(--bg)', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--tx)' }}
+                                style={{ marginTop: 10, padding: '6px 12px', borderRadius: 'var(--r)', border: '0.5px solid var(--bdm)', background: 'var(--bg)', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--tx)' }}
                             >
                                 <i className="ti ti-plus" style={{ fontSize: 13 }} /> Add Row
                             </button>
@@ -482,8 +482,8 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                             { bg: 'var(--grn-bg)', tx: 'var(--grn-tx)', icon: 'ti-plus', label: 'Add New', count: newCount },
                         ] as const).map(({ bg, tx, icon, label, count }) => (
                             <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: bg, borderRadius: 'var(--r)' }}>
-                                <span style={{ fontSize: 12, color: tx, fontWeight: 500 }}><i className={`ti ${icon}`} style={{ marginRight: 4 }} />{label}</span>
-                                <span style={{ fontSize: 15, fontWeight: 700, color: tx }}>{count}</span>
+                                <span style={{ fontSize: 13, color: tx, fontWeight: 500 }}><i className={`ti ${icon}`} style={{ marginRight: 4 }} />{label}</span>
+                                <span style={{ fontSize: 16, fontWeight: 700, color: tx }}>{count}</span>
                             </div>
                         ))}
 
@@ -493,9 +493,9 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                     <div className="card-head">
                         <div className="card-title"><i className="ti ti-info-circle" /> Action Guide</div>
                     </div>
-                    <div className="card-body" style={{ fontSize: 12, color: 'var(--tx2)', lineHeight: 2 }}>
-                        <div><span className="tag t-match" style={{ fontSize: 10, marginRight: 5 }}>Match</span>Link to an existing master item</div>
-                        <div><span className="tag t-new" style={{ fontSize: 10, marginRight: 5 }}>New</span>Create a new master item</div>
+                    <div className="card-body" style={{ fontSize: 13, color: 'var(--tx2)', lineHeight: 2 }}>
+                        <div><span className="tag t-match" style={{ marginRight: 8, marginBottom:8 }}>Match</span>Link to an existing master item</div>
+                        <div><span className="tag t-new" style={{ marginRight: 8}}>New</span>Create a new master item</div>
                     </div>
                 </div>
             </div>

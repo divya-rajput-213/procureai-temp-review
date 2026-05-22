@@ -520,8 +520,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                 {statusLabel}
               </span>
             </div>
-            <div style={{ fontSize: 13, color: 'var(--tx2)' }}>
-              
+            <div style={{ fontSize: 14, color: 'var(--tx2)' }}>
                Submitted {fmtDate(quotation.created_at)}
             </div>
           </div>
@@ -538,10 +537,10 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             <div className="rhm-lbl" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               Vendor <i className="ti ti-arrow-up-right" style={{ fontSize: 9, opacity: 0.7 }} />
             </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--blu-tx)' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--blu-tx)' }}>
               {vendor?.company_name || '—'}
               {(vendor?.city || vendor?.state) && (
-                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--tx3)', marginLeft: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--tx3)', marginLeft: 6 }}>
                   {[vendor?.city, vendor?.state].filter(Boolean).join(', ')}
                 </span>
               )}
@@ -549,14 +548,14 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           </button>
           <div className="qd-info-cell" style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Vendor Contact</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{vendor?.contact_name || '—'}</div>
-            <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{vendor?.contact_name || '—'}</div>
+            <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 1 }}>
               {[vendor?.contact_email, vendor?.contact_phone ? `+${vendor.contact_phone}` : null].filter(Boolean).join(' · ')}
             </div>
           </div>
           <div className="qd-info-cell" style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Plant / Department / Category</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>
               {[quotation?.plant_name, quotation?.department_name, quotation?.category_name || (quotation?.category ? String(quotation.category) : null)].filter(Boolean).join(' / ') || '—'}
             </div>
           </div>
@@ -566,19 +565,19 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14, marginTop: 14 }}>
           <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Quote Date</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{fmtDate(quotation.quotation_date)}</div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{fmtDate(quotation.quotation_date)}</div>
           </div>
           <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Valid Until</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{fmtDate(quotation.valid_until)}</div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{fmtDate(quotation.valid_until)}</div>
           </div>
           <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Grand Total</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--tel-tx)' }}>{formatINR(displayGrandTotal)}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--tel-tx)' }}>{formatINR(displayGrandTotal)}</div>
           </div>
           <div style={{ padding: '0 14px' }}>
             <div className="rhm-lbl">PR Linked</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{quotation.pr_no || '—'}</div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{quotation.pr_no || '—'}</div>
           </div>
         </div>
       </div>
@@ -637,18 +636,18 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.id ?? idx}>
-                  <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
+                  <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
                   <td style={{ fontWeight: 500 }}>
                     {item.item_name}
                     {item.item_sub_name && (
-                      <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 2 }}>{item.item_sub_name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>{item.item_sub_name}</div>
                     )}
                   </td>
-                  <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--tx3)' }}>{item.hsn_sac}</td>
+                  <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)' }}>{item.hsn_sac}</td>
                   <td>
                     {item.master_item_name
-                      ? <><div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--blu-tx)' }}>{item.master_item_code || '—'}</div><div style={{ fontSize: 11, color: 'var(--tx2)', marginTop: 1 }}>{item.master_item_name}</div></>
-                      : <span style={{ color: 'var(--tx3)', fontSize: 11 }}>—</span>}
+                      ? <><div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--blu-tx)' }}>{item.master_item_code || '—'}</div><div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 1 }}>{item.master_item_name}</div></>
+                      : <span style={{ color: 'var(--tx3)', fontSize: 13 }}>—</span>}
                   </td>
                   <td style={{ textAlign: 'right' }}>{item.quantity}</td>
                   <td style={{ color: 'var(--tx3)' }}>{item.unit}</td>
@@ -701,8 +700,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
 
         {/* ── Terms & Conditions ── */}
         {activeTab === 'terms' && (() => {
-          const tcLbl: React.CSSProperties = { fontSize: 10, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }
-          const tcVal: React.CSSProperties = { fontSize: 13, fontWeight: 500 }
+          const tcLbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }
+          const tcVal: React.CSSProperties = { fontSize: 14, fontWeight: 500 }
           const tcCard: React.CSSProperties = { background: 'var(--bg-s)', borderRadius: 'var(--r)', padding: '13px 14px' }
           return (
             <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -734,8 +733,8 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                   {/* <div style={tcLbl}>Terms &amp; Conditions</div> */}
                   <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {displayTerms.map((term, idx) => (
-                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--tx2)', lineHeight: 1.6 }}>
-                        <span style={{ flexShrink: 0, minWidth: 18, fontWeight: 600, color: 'var(--tx3)', fontSize: 12 }}>{idx + 1}.</span>
+                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 14, color: 'var(--tx2)', lineHeight: 1.6 }}>
+                        <span style={{ flexShrink: 0, minWidth: 18, fontWeight: 600, color: 'var(--tx3)', fontSize: 13 }}>{idx + 1}.</span>
                         <span>{term}</span>
                       </li>
                     ))}
@@ -746,7 +745,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               {/* Additional Terms & Notes — always full-width, shows — if empty */}
               <div style={{ ...tcCard, gridColumn: '1 / -1' }}>
                 <div style={tcLbl}>Additional Notes</div>
-                <div style={{ fontSize: 12, color: 'var(--tx2)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+                <div style={{ fontSize: 14, color: 'var(--tx2)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
                   {quotation.internal_notes || '—'}
                 </div>
               </div>
