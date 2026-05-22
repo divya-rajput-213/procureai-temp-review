@@ -65,7 +65,7 @@ const STEP0_FIELDS: (keyof VendorForm)[] = [
 const schema = z.object({
   company_name: z.string()
     .min(2, 'Company name is required')
-    .regex(COMPANY_NAME_ALLOWED, 'Company name can contain only letters, numbers, spaces, &, ., ,, -, and _.')
+    .regex(COMPANY_NAME_ALLOWED, 'Company name contains an invalid character.')
     .max(150, 'Company name must be at most 150 characters'),
   contact_name: z.string()
     .min(2, 'Contact person is required')
@@ -604,6 +604,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const isReadOnly = isFieldReadOnly
 
   const [step, setStep] = useState(0)
+  const [maxStep, setMaxStep] = useState(0)
   const [vendorId, setVendorId] = useState<string | null>(existingVendorId ?? null)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
@@ -809,6 +810,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
       setVendorId(vendor.hash_id ?? vendor.id)
       queryClient.invalidateQueries({ queryKey: ['vendors'] })
       setStep(1)
+      setMaxStep(prev => Math.max(prev, 1))
     },
     onError: (err: any) => {
       if (applyServerFieldErrors(err)) return
@@ -830,7 +832,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         is_final: true,
       })
     },
-    onSuccess: () => setStep(2),
+    onSuccess: () => { setStep(2); setMaxStep(prev => Math.max(prev, 2)) },
     onError: (err: any) => {
       if (applyServerFieldErrors(err)) return
       toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' })
@@ -860,7 +862,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const handleStep0Next = async () => {
     const valid = await trigger(STEP0_FIELDS)
     if (!valid) return
-    handleSubmit(data => step0Mutation.mutate(data))()
+    step0Mutation.mutate(getValues())
   }
 
   const handleStep1Next = async () => {
@@ -1182,7 +1184,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         {/* Step bar */}
         <div className="step-bar">
           {steps.map((s, i) =>  (
-            <button key={s} type="button" className={stepClass(i)} onClick={() => i < step && setStep(i)}>
+            <button key={s} type="button" className={stepClass(i)} onClick={() => i !== step && i <= maxStep && setStep(i)}>
               <div className="step-num">{stepNum(i)}</div>
               <div>
                 <div className="step-label">{s}</div>
@@ -1217,7 +1219,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             onChange: (e) => {
                               const raw = String(e.target.value ?? '')
                               if (!COMPANY_NAME_ALLOWED_PARTIAL.test(raw)) {
-                                setError('company_name', { type: 'manual', message: 'Company name can contain only letters, numbers, spaces, &, ., ,, -, and _.' })
+                                setError('company_name', { type: 'manual', message: 'Company name contains an invalid character.' })
                                 return
                               }
                               if (errors.company_name?.type === 'manual') clearErrors('company_name')
@@ -1678,7 +1680,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             <div className="form-group" style={{ marginBottom: 12 }}>
                               <label className="form-label">Document Type</label>
                               <select className="form-select" disabled={isComplianceReadOnly} value={row.standard} onChange={(e) => { updateIsoRow(idx, 'standard', e.target.value); if (e.target.value !== 'other') updateIsoRow(idx, 'custom', '') }}>
-                                <option value="" disabled>Select type</option>
+                                <option value="">— Select type —</option>
                                 <option value="ISO 9001:2015">ISO 9001:2015 – Quality Management</option>
                                 <option value="ISO 14001:2015">ISO 14001:2015 – Environmental Management</option>
                                 <option value="ISO 45001:2018">ISO 45001:2018 – Occupational Health &amp; Safety</option>
