@@ -95,7 +95,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
     const pct = lineItems.length > 0 ? Math.round(actioned / lineItems.length * 100) : 0
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16 }}>
+        <div className="vi-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16 }}>
             {/* LEFT */}
             <div>
                 <div className="form-sec">
@@ -303,7 +303,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
             </div>
 
             {/* SIDEBAR */}
-            <div>
+            <div className="vi-sidebar">
                 <div className="card" style={{ marginBottom: 12 }}>
                     <div className="card-head">
                         <div className="card-title"><i className="ti ti-chart-pie" /> Matching Summary</div>

@@ -17,7 +17,7 @@ interface Category { id: number; hash_id: string; name: string; is_active: boole
 const STEPS = [
     { id: 0, label: 'Upload Document', sub: 'Upload & extract details' },
     { id: 1, label: 'Items & Matching', sub: 'Review & match line items' },
-    { id: 2, label: 'Review & Submit', sub: 'Confirm & send for approval' },
+    // { id: 2, label: 'Review & Submit', sub: 'Confirm & send for approval' },
 ]
 
 export default function UploadQuotationPage() {
@@ -64,10 +64,14 @@ export default function UploadQuotationPage() {
         queryKey: ['departments'],
         queryFn: async () => { const r = await apiClient.get('/users/departments/'); return r.data?.results ?? r.data ?? [] },
     })
-    const { data: categories = [] } = useQuery<Category[]>({
-        queryKey: ['item-categories-active'],
-        queryFn: async () => { const r = await apiClient.get('/procurement/categories/?active_only=true'); return r.data.results ?? r.data },
-    })
+
+      const { data: categories,  } = useQuery({
+        queryKey: ['vendor-categories-manage'],
+        queryFn: async () => {
+          const r = await apiClient.get(`/vendors/categories/`)
+          return r.data.results ?? r.data
+        },
+      })
     const { data: PRs = [] } = useQuery({
         queryKey: ['purchase-requisitions'],
         queryFn: async () => {
@@ -91,11 +95,6 @@ export default function UploadQuotationPage() {
         mutationFn: async (file: File) => {
             const formData = new FormData()
             formData.append('file', file)
-            if (departmentId) formData.append('department_id', String(Number(departmentId)))
-            if (plantId) formData.append('plant_id', String(Number(plantId)))
-            if (categoryId) formData.append('category_id', String(Number(categoryId)))
-            if (prLinkId) formData.append('pr_id', String(Number(prLinkId)))
-            if (financialYear) formData.append('financial_year', financialYear)
             const { data } = await apiClient.post('/quotations/upload/', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
             return data
         },
@@ -107,20 +106,20 @@ export default function UploadQuotationPage() {
                 createNew: item?.is_new ? true : (item?.createNew ?? false),
                 selectedMasterId: item?.is_new ? '' : (item?.selectedMasterId ?? ''),
             })))
-            setPlantId(String(data.plant_id || ''))
-            setDepartmentId(String(data.department_id || ''))
+            if (data.plant_id) setPlantId(String(data.plant_id))
+            if (data.department_id) setDepartmentId(String(data.department_id))
             setIsExtracting(false)
         },
         onError: (error: any) => {
             setIsExtracting(false)
-            const message = error?.response?.data?.detail || error?.response?.data?.error || getApiErrorMessage(error, 'Failed to upload quotation.')
+            const message = error?.response?.data?.detail || error?.response?.data?.error || getApiErrorMessage(error, 'Failed to process quotation. Please check the PDF and try again.')
             setErrorMessage(message)
+            setSelectedFile(null)
         },
     })
 
     const quotationSaveMutation = useMutation({
         mutationFn: async () => {
-            const categoryName = categories.find((c: Category) => String(c.id) === String(categoryId))?.name ?? null
             const { data } = await apiClient.post('/quotations/save/', {
                 vendor: {
                     company_name: vendors?.company_name, contact_name: vendors?.contact_name,
@@ -132,12 +131,14 @@ export default function UploadQuotationPage() {
                     bank_name: vendors?.bank_name ?? null, gst_percentage: vendors?.gst_percentage ?? null,
                     is_new: vendors?.is_new ?? true,
                 },
-                quotation_no: quotation?.vendor?.quotation_no ?? null,
-                quotation_date: quotation?.vendor?.quotation_date ?? null,
-                terms_and_conditions: internalNotes || vendors?.terms_and_conditions || null,
+                quotation_no: quotation?.vendor?.quotation_no ?? quotation?.quotation_no ?? null,
+                quotation_date: quotation?.vendor?.quotation_date ?? quotation?.quotation_date ?? null,
+                terms_and_conditions: vendors?.terms_and_conditions ?? quotation?.terms_and_conditions ?? null,
+                internal_notes: internalNotes || null,
                 plant_id: plantId ? Number(plantId) : null,
                 department_id: departmentId ? Number(departmentId) : null,
-                category_name: categoryName,
+                category_id: categoryId ? Number(categoryId) : null,
+                pr_id: prLinkId ? Number(prLinkId) : null,
                 file_key: quotation?.file_key ?? null,
                 items: lineItems.map((item: any) => {
                     const selectedSuggestion = item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))
@@ -169,18 +170,26 @@ export default function UploadQuotationPage() {
         },
     })
 
+    // Reset all form state when file is removed
     useEffect(() => {
         if (!selectedFile) {
-            setQuotation(null); setVendors(null); setLineItems([]); setErrorMessage('')
-            setPlantId(''); setDepartmentId(''); setCategoryId(''); setPrLinkId('')
-            setInternalNotes(''); setFinancialYear('')
+            setQuotation(null); setVendors(null); setLineItems([])
             setCurrentStep(0); setCompletedSteps(new Set()); setIsExtracting(false)
         }
     }, [selectedFile])
 
+    // Auto-trigger extraction the moment a file is selected
+    useEffect(() => {
+        if (!selectedFile) return
+        setErrorMessage('')
+        setIsExtracting(true)
+        uploadMutation.mutate(selectedFile)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedFile])
+
     useEffect(() => { if (plants.length > 0 && !plantId) setPlantId(String(plants[0].id)) }, [plants])
     useEffect(() => { if (departments.length > 0 && !departmentId) setDepartmentId(String(departments[0].id)) }, [departments])
-    useEffect(() => { if (categories.length > 0 && !categoryId) setCategoryId(String(categories[0].id)) }, [categories])
+    useEffect(() => { if (categories?.length > 0 && !categoryId) setCategoryId(String(categories?.[0].id)) }, [categories])
     useEffect(() => { if (PRs.length > 0 && !prLinkId) setPrLinkId(String(PRs[0].id)) }, [PRs])
     useEffect(() => { if (!financialYear) setFinancialYear('2025-26') }, [])
 
@@ -211,20 +220,8 @@ export default function UploadQuotationPage() {
         setErrorMessage(''); setSelectedFile(droppedFile)
     }
 
-    const handleExtract = () => {
-        if (!selectedFile || uploadMutation.isPending) return
-        if (!plantId) { setErrorMessage('Please select a Plant / Location before extracting.'); return }
-        if (!departmentId) { setErrorMessage('Please select a Department before extracting.'); return }
-        if (!categoryId) { setErrorMessage('Please select a Category before extracting.'); return }
-        setErrorMessage(''); setIsExtracting(true)
-        uploadMutation.mutate(selectedFile)
-    }
-
     const handleStep0Continue = () => {
-        if (!plantId) { setErrorMessage('Plant / Location is required.'); return }
-        if (!departmentId) { setErrorMessage('Department is required.'); return }
-        if (!categoryId) { setErrorMessage('Category is required.'); return }
-        if (!vendors) { handleExtract(); return }
+        if (!quotation || !vendors) return
         setCompletedSteps(prev => { const u = new Set(prev); u.add(0); return u })
         setCurrentStep(1)
     }
@@ -244,7 +241,6 @@ export default function UploadQuotationPage() {
 
     const step0ContinueLabel = () => {
         if (uploadMutation.isPending || isExtracting) return 'Extracting…'
-        if (selectedFile && !vendors) return 'Extract & Continue'
         return 'Continue'
     }
 
@@ -352,6 +348,26 @@ export default function UploadQuotationPage() {
                 .qf-root .p-draft{background:var(--gry-bg);color:var(--gry-tx)}
                 .qf-root .p-draft .dot{background:var(--gry-bd)}
                 .qf-root .ci-warn{color:var(--amb-tx)}
+                @media(max-width:900px){
+                    .qf-root .uf-grid{grid-template-columns:1fr!important}
+                    .qf-root .g3{grid-template-columns:1fr 1fr!important}
+                    .qf-root .g2{grid-template-columns:1fr!important}
+                    .qf-root .g4v{grid-template-columns:1fr 1fr!important}
+                    .qf-root .g3v{grid-template-columns:1fr 1fr!important}
+                    .qf-root .uf-sidebar{flex-direction:row!important;flex-wrap:wrap}
+                    .qf-root .uf-sidebar .card{flex:1;min-width:240px}
+                    .qf-root .vi-grid{grid-template-columns:1fr!important}
+                }
+                @media(max-width:600px){
+                    .qf-root .g3{grid-template-columns:1fr!important}
+                    .qf-root .g4v{grid-template-columns:1fr 1fr!important}
+                    .qf-root .g3v{grid-template-columns:1fr!important}
+                    .qf-root .sticky-bar{flex-wrap:wrap;gap:8px}
+                    .qf-root .uf-sidebar{flex-direction:column!important}
+                    .qf-root .uf-sidebar .card{min-width:unset}
+                    .qf-root .vi-sidebar{display:flex;flex-direction:row;flex-wrap:wrap;gap:12px}
+                    .qf-root .vi-sidebar .card{flex:1;min-width:260px;margin-bottom:0!important}
+                }
             `}</style>
 
             <div className="qf-root relative">
@@ -449,7 +465,7 @@ export default function UploadQuotationPage() {
                 )}
 
                 {/* ── STEP 2: Review & Submit ── */}
-                {currentStep === 2 && (
+                {/* {currentStep === 2 && (
                     <ReviewSubmitStep
                         quotation={quotation}
                         lineItems={lineItems}
@@ -462,7 +478,7 @@ export default function UploadQuotationPage() {
                         internalNotes={internalNotes}
                         setInternalNotes={setInternalNotes}
                     />
-                )}
+                )} */}
 
                 {/* ── Action bar ── */}
                 <div className="sticky-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -477,11 +493,11 @@ export default function UploadQuotationPage() {
                     </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '6px 8px' }}>
                         <span style={{ fontSize: 12, color: 'var(--tx3)', marginRight: 4 }}>
-                            Step {currentStep + 1} of 3
+                            Step {currentStep + 1} of 2
                         </span>
 
                         {currentStep === 0 && (
-                            <Button size="sm" onClick={handleStep0Continue} disabled={!selectedFile || uploadMutation.isPending || isExtracting} className="gap-1.5">
+                            <Button size="sm" onClick={handleStep0Continue} disabled={!quotation || !vendors || uploadMutation.isPending || isExtracting} className="gap-1.5">
                                 {(uploadMutation.isPending || isExtracting) && (
                                     <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />
                                 )}
@@ -491,13 +507,7 @@ export default function UploadQuotationPage() {
                         )}
 
                         {currentStep === 1 && (
-                            <Button size="sm" onClick={handleStep1Continue} disabled={lineItems.length === 0} className="gap-1.5">
-                                Review &amp; Submit
-                                <ChevronRight style={{ width: 14, height: 14 }} />
-                            </Button>
-                        )}
-                        {currentStep === 2 && (
-                            <Button
+                                <Button
                                 size="sm"
                                 onClick={() => setShowConfirm(true)}
                                 disabled={isSaving}

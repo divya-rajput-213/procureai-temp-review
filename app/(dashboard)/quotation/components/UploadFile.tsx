@@ -55,7 +55,7 @@ type UploadFileProps = {
     setInternalNotes: (v: string) => void
     plants: any[]
     departments: any[]
-    categories: any[]
+    categories: any
     PRs: any[]
     formatSize: (size: number) => string
     quotation?: any
@@ -99,7 +99,7 @@ export default function UploadFile({
     const sp = statusPill(vendors?.status)
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
+        <div className="uf-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
             {/* LEFT COLUMN */}
             <div>
                 {/* Upload section */}
@@ -228,7 +228,7 @@ export default function UploadFile({
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-.3px', marginBottom: 8 }}>{vendors.company_name || '—'}</div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                                            <div className="g4v" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
                                                 {[
                                                     { label: 'Location', value: [vendors.city, vendors.state].filter(Boolean).join(', ') || '—' },
                                                     { label: 'GSTIN', value: vendors.gst_number || '—', mono: true },
@@ -305,7 +305,7 @@ export default function UploadFile({
                                                     {category && <span><i className="ti ti-tag" style={{ fontSize: 11, marginRight: 2 }} />{category}</span>}
                                                 </div>
                                                 {/* 3-col info grid: GSTIN | Contact | Vendor Score */}
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                                                <div className="g3v" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
                                                     <div style={{ background: 'var(--bg-s)', borderRadius: 6, padding: '8px 10px' }}>
                                                         <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 2 }}>GSTIN</div>
                                                         <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--tx2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vendors.gst_number || '—'}</div>
@@ -457,7 +457,7 @@ export default function UploadFile({
                         </div>
 
                         {/* Auto-extracted fields */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+                        <div className="g3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                             {[
                                 { label: 'Quotation Number', value: quotation?.vendor?.quotation_no || '' },
                                 { label: 'Quote Date', value: quotation?.vendor?.quotation_date || '' },
@@ -474,7 +474,7 @@ export default function UploadFile({
                         </div>
 
                         {/* Plant, Department, Category */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+                        <div className="g3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                             <div className="fgrp">
                                 <label className="lbl">Plant / Location <span className="req">*</span></label>
                                 <select className="sel" value={plantId} onChange={e => setPlantId(e.target.value)}>
@@ -493,13 +493,13 @@ export default function UploadFile({
                                 <label className="lbl">Category <span className="req">*</span></label>
                                 <select className="sel" value={categoryId} onChange={e => setCategoryId(e.target.value)}>
                                     <option value="">Select category</option>
-                                    {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    {categories?.map((c: any) => <option key={c?.id} value={c?.id}>{c?.name}</option>)}
                                 </select>
                             </div>
                         </div>
 
                         {/* PR Link + Financial Year */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                        <div className="g2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                             <div className="fgrp">
                                 <label className="lbl">Link to Purchase Request</label>
                                 <select className="sel" value={prLinkId} onChange={e => setPrLinkId(e.target.value)}>
@@ -531,7 +531,7 @@ export default function UploadFile({
             </div>
 
             {/* SIDEBAR */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="uf-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {/* Checklist */}
                 <div className="card">
                     <div className="card-head">

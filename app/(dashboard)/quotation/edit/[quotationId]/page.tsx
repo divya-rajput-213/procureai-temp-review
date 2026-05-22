@@ -14,7 +14,7 @@ import ReviewSubmitStep from '../../components/ReviewSubmitStep'
 const STEPS = [
     { id: 0, label: 'Document & Details', sub: 'Vendor, plant & category' },
     { id: 1, label: 'Items & Matching', sub: 'Review & edit line items' },
-    { id: 2, label: 'Review & Submit', sub: 'Confirm & update quotation' },
+    // { id: 2, label: 'Review & Submit', sub: 'Confirm & update quotation' },
 ]
 
 const AVATAR_COLORS = [
@@ -83,10 +83,13 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
         queryKey: ['departments'],
         queryFn: async () => { const r = await apiClient.get('/users/departments/'); return r.data?.results ?? r.data ?? [] },
     })
-    const { data: categories = [] } = useQuery({
-        queryKey: ['item-categories-active'],
-        queryFn: async () => { const r = await apiClient.get('/procurement/categories/?active_only=true'); return r.data.results ?? r.data },
-    })
+    const { data: categories,  } = useQuery({
+        queryKey: ['vendor-categories-manage'],
+        queryFn: async () => {
+          const r = await apiClient.get(`/vendors/categories/`)
+          return r.data.results ?? r.data
+        },
+      })
     const { data: PRs = [] } = useQuery({
         queryKey: ['purchase-requisitions'],
         queryFn: async () => { const { data } = await apiClient.get('/procurement/?status=approved'); return data.results || data },
@@ -524,7 +527,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                                             <label className="lbl">Category</label>
                                             <select className="sel" value={categoryId} onChange={e => setCategoryId(e.target.value)}>
                                                 <option value="">Select category</option>
-                                                {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                {categories?.map((c: any) => <option key={c?.id} value={c?.id}>{c?.name}</option>)}
                                             </select>
                                         </div>
                                     </div>
@@ -601,7 +604,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 )}
 
                 {/* ── STEP 2: Review & Submit ── */}
-                {currentStep === 2 && (
+                {/* {currentStep === 2 && (
                     <ReviewSubmitStep
                         quotation={quotationData}
                         lineItems={lineItems}
@@ -615,7 +618,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         setInternalNotes={setInternalNotes}
                         showTerms={false}
                     />
-                )}
+                )} */}
 
                 {/* ── Action bar ── */}
                 <div className="sticky-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -639,18 +642,12 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         )}
 
                         {currentStep === 1 && (
-                            <Button size="sm" onClick={goNext} disabled={lineItems.length === 0} className="gap-1.5">
-                                Review &amp; Submit
-                                <ChevronRight style={{ width: 14, height: 14 }} />
-                            </Button>
+                             <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving} className="gap-1.5">
+                             {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
+                             Save Changes
+                         </Button>
                         )}
 
-                        {currentStep === 2 && (
-                            <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving} className="gap-1.5">
-                                {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
-                                Save Changes
-                            </Button>
-                        )}
                     </div>
                 </div>
             </div>
