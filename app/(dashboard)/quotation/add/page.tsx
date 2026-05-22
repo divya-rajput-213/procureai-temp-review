@@ -16,7 +16,6 @@ interface Category { id: number; hash_id: string; name: string; is_active: boole
 const STEPS = [
     { id: 0, label: 'Upload Document', sub: 'Upload & extract details' },
     { id: 1, label: 'Items & Matching', sub: 'Review & match line items' },
-    // { id: 2, label: 'Review & Submit', sub: 'Confirm & send for approval' },
 ]
 
 export default function UploadQuotationPage() {
@@ -372,28 +371,39 @@ export default function UploadQuotationPage() {
                 @media(max-width:900px){
                     .qf-root .uf-grid{grid-template-columns:1fr!important}
                     .qf-root .g3{grid-template-columns:1fr 1fr!important}
-                    .qf-root .g2{grid-template-columns:1fr!important}
+                    .qf-root .g2{grid-template-columns:1fr 1fr!important}
                     .qf-root .g4v{grid-template-columns:1fr 1fr!important}
                     .qf-root .g3v{grid-template-columns:1fr 1fr!important}
                     .qf-root .uf-sidebar{flex-direction:row!important;flex-wrap:wrap}
-                    .qf-root .uf-sidebar .card{flex:1;min-width:240px}
+                    .qf-root .uf-sidebar .card{flex:1;min-width:220px}
                     .qf-root .vi-grid{grid-template-columns:1fr!important}
+                    .qf-root .rh-meta{grid-template-columns:1fr 1fr!important}
+                    .qf-root .rhm-item:nth-child(2n){border-right:none}
                 }
                 @media(max-width:600px){
+                    .qf-root .stepper{flex-direction:column}
+                    .qf-root .step-item{border-right:none!important;border-bottom:0.5px solid var(--bd)}
+                    .qf-root .step-item:last-child{border-bottom:none}
                     .qf-root .g3{grid-template-columns:1fr!important}
+                    .qf-root .g2{grid-template-columns:1fr!important}
                     .qf-root .g4v{grid-template-columns:1fr 1fr!important}
                     .qf-root .g3v{grid-template-columns:1fr!important}
                     .qf-root .sticky-bar{flex-wrap:wrap;gap:8px}
+                    .qf-root .sticky-bar>*{flex:1;min-width:120px}
                     .qf-root .uf-sidebar{flex-direction:column!important}
                     .qf-root .uf-sidebar .card{min-width:unset}
                     .qf-root .vi-sidebar{display:flex;flex-direction:row;flex-wrap:wrap;gap:12px}
-                    .qf-root .vi-sidebar .card{flex:1;min-width:260px;margin-bottom:0!important}
+                    .qf-root .vi-sidebar .card{flex:1;min-width:240px;margin-bottom:0!important}
+                    .qf-root .rh-meta{grid-template-columns:1fr!important}
+                    .qf-root .rhm-item{border-right:none;padding-left:0;border-bottom:0.5px solid var(--bd);padding-bottom:10px;margin-bottom:10px}
+                    .qf-root .rhm-item:last-child{border-bottom:none;margin-bottom:0}
+                    .qf-root .page-hd{flex-direction:column;align-items:flex-start!important;gap:10px}
                 }
             `}</style>
 
             <div className="qf-root relative">
                 {/* Page header */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+                <div className="page-hd" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                         <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.4px' }}>Add Quotation</div>
                         <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>Upload document · Extract &amp; match items · Submit for approval</div>

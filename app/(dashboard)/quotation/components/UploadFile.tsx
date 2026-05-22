@@ -23,8 +23,9 @@ function vendorInitials(name: string) {
 function avatarColor(name: string) {
     return AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length]
 }
-function statusPill(status?: string) {
-    if (!status) return { label: 'Unknown', bg: 'var(--gry-bg)', tx: 'var(--gry-tx)', dot: 'var(--gry-bd)' }
+function statusPill(status?: string, isNew?: boolean) {
+    if (isNew) return { label: 'New', bg: 'var(--amb-bg)', tx: 'var(--amb-tx)', dot: 'var(--amb-bd)' }
+    if (!status) return { label: 'Matched', bg: 'var(--grn-bg)', tx: 'var(--grn-tx)', dot: 'var(--grn-bd)' }
     const s = status.toLowerCase()
     if (s === 'approved') return { label: 'Approved', bg: 'var(--grn-bg)', tx: 'var(--grn-tx)', dot: 'var(--grn-bd)' }
     if (s.includes('pending')) return { label: 'Pending', bg: 'var(--amb-bg)', tx: 'var(--amb-tx)', dot: 'var(--amb-bd)' }
@@ -83,8 +84,25 @@ export default function UploadFile({
 }: UploadFileProps) {
     const [showVendorSearch, setShowVendorSearch] = useState(false)
     const [vendorQuery, setVendorQuery] = useState('')
+    const [extractProgress, setExtractProgress] = useState(0)
 
     useEffect(() => { setShowVendorSearch(false); setVendorQuery('') }, [vendors])
+
+    useEffect(() => {
+        if (isExtracting) {
+            setExtractProgress(0)
+            const id = setInterval(() => {
+                setExtractProgress(p => {
+                    if (p >= 90) { clearInterval(id); return 90 }
+                    const step = p < 30 ? 4 : p < 60 ? 2 : 1
+                    return p + step
+                })
+            }, 300)
+            return () => clearInterval(id)
+        } else {
+            setExtractProgress(prev => prev > 0 ? 100 : 0)
+        }
+    }, [isExtracting])
 
     const filteredVendors = useMemo(() => {
         if (!vendorQuery.trim()) return allVendors
@@ -100,7 +118,7 @@ export default function UploadFile({
     const isNewVendor = vendors?.is_new === true
     const isMatchedVendor = vendors && !vendors.is_new
     const av = vendors ? avatarColor(vendors.company_name || '') : { bg: 'var(--pur-bg)', tx: 'var(--pur-tx)' }
-    const sp = statusPill(vendors?.status)
+    const sp = statusPill(vendors?.status, vendors?.is_new === true)
 
     return (
         <div className="uf-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
@@ -179,13 +197,20 @@ export default function UploadFile({
                         )}
                         {!disableUpload && isExtracting && (
                             <div style={{ marginTop: 14 }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Extracting data from document…</div>
-                                <div className="parse-bar">
-                                    <div className="parse-fill" style={{ width: '65%' }} />
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)' }}>Extracting data from document…</div>
+                                    <div style={{ fontSize: 11, color: 'var(--tx3)', fontFamily: 'monospace' }}>{extractProgress}%</div>
                                 </div>
-                                {['OCR & text extraction', 'Vendor identification', 'Line item parsing'].map(s => (
-                                    <div key={s} className="parse-step active-ps">
-                                        <i className="ti ti-loader-2" style={{ fontSize: 13 }} /> {s}
+                                <div className="parse-bar">
+                                    <div className="parse-fill" style={{ width: `${extractProgress}%`, transition: 'width 0.3s ease', animation: 'none' }} />
+                                </div>
+                                {[
+                                    { label: 'OCR & text extraction', activeAt: 10 },
+                                    { label: 'Vendor identification', activeAt: 35 },
+                                    { label: 'Line item parsing', activeAt: 65 },
+                                ].map(({ label, activeAt }) => (
+                                    <div key={label} className={`parse-step${extractProgress >= activeAt ? ' active-ps' : ''}`}>
+                                        <i className={`ti ${extractProgress >= activeAt ? 'ti-loader-2' : 'ti-circle'}`} style={{ fontSize: 13 }} /> {label}
                                     </div>
                                 ))}
                             </div>
@@ -208,8 +233,13 @@ export default function UploadFile({
                         {/* VENDOR CARD */}
                         <div className="fgrp" style={{ marginBottom: 14 }}>
                             <div className="extracted-lbl" style={{ marginBottom: 6 }}>
-                                <i className="ti ti-sparkles" style={{ fontSize: 11 }} /> Vendor
-                                <span style={{ fontSize: 9, background: 'var(--tel-bg)', color: 'var(--tel-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Auto-extracted</span>
+                                <i className="ti ti-sparkles" style={{ fontSize: 11 }} /> Vendor  {isExtracting
+                                    ? <span style={{ fontSize: 9, background: 'var(--blu-bg)', color: 'var(--blu-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Extracting…</span>
+                                    : vendors
+                                        ? <span style={{ fontSize: 9, background: 'var(--tel-bg)', color: 'var(--tel-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Auto-extracted</span>
+                                        : null
+                                }
+                                
                             </div>
 
                             {/* State 1: Placeholder */}
@@ -433,7 +463,7 @@ export default function UploadFile({
                                         )}
                                         {!vendorsFetching && filteredVendors.map((v: any) => {
                                             const vav = avatarColor(v.company_name || '')
-                                            const vsp = statusPill(v.status)
+                                            const vsp = statusPill(v.status || v.is_new)
                                             return (
                                                 <button
                                                     key={v.id}
@@ -490,9 +520,12 @@ export default function UploadFile({
                                 <div key={label} className="fgrp">
                                     <div className="extracted-lbl">
                                         <i className="ti ti-sparkles" style={{ fontSize: 11 }} /> {label}
-                                        <span style={{ fontSize: 9, background: 'var(--tel-bg)', color: 'var(--tel-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Auto-extracted</span>
+                                        { value
+                                                ? <span style={{ fontSize: 9, background: 'var(--tel-bg)', color: 'var(--tel-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Auto-extracted</span>
+                                                : null
+                                        }
                                     </div>
-                                    <input readOnly className="inp-extracted" placeholder="Extracted from document…" value={value} onChange={() => { }} />
+                                    <input readOnly className="inp-extracted" placeholder="Extract from document…" value={value} onChange={() => { }} />
                                 </div>
                             ))}
                         </div>

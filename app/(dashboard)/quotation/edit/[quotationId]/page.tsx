@@ -9,13 +9,11 @@ import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { CommonConfirmModal } from '@/components/shared/CommonModal'
 import VerifyItemsStep from '../../components/VerifyItemsStep'
-import ReviewSubmitStep from '../../components/ReviewSubmitStep'
 import UploadFile from '../../components/UploadFile'
 
 const STEPS = [
     { id: 0, label: 'Document & Details', sub: 'Vendor, plant & category' },
     { id: 1, label: 'Items & Matching', sub: 'Review & edit line items' },
-    // { id: 2, label: 'Review & Submit', sub: 'Confirm & update quotation' },
 ]
 
 export default function EditQuotationPage({ params }: Readonly<{ params: { quotationId: string } }>) {
@@ -281,11 +279,39 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 .qf-root .p-draft{background:var(--gry-bg);color:var(--gry-tx)}
                 .qf-root .p-draft .dot{background:var(--gry-bd)}
                 .qf-root .ci-warn{color:var(--amb-tx)}
+                @media(max-width:900px){
+                    .qf-root .uf-grid{grid-template-columns:1fr!important}
+                    .qf-root .g3{grid-template-columns:1fr 1fr!important}
+                    .qf-root .g2{grid-template-columns:1fr 1fr!important}
+                    .qf-root .g4v{grid-template-columns:1fr 1fr!important}
+                    .qf-root .g3v{grid-template-columns:1fr 1fr!important}
+                    .qf-root .uf-sidebar{flex-direction:row!important;flex-wrap:wrap}
+                    .qf-root .uf-sidebar .card{flex:1;min-width:220px}
+                    .qf-root .vi-grid{grid-template-columns:1fr!important}
+                    .qf-root .rh-meta{grid-template-columns:1fr 1fr!important}
+                }
+                @media(max-width:600px){
+                    .qf-root .stepper{flex-direction:column}
+                    .qf-root .step-item{border-right:none!important;border-bottom:0.5px solid var(--bd)}
+                    .qf-root .step-item:last-child{border-bottom:none}
+                    .qf-root .g3{grid-template-columns:1fr!important}
+                    .qf-root .g2{grid-template-columns:1fr!important}
+                    .qf-root .g4v{grid-template-columns:1fr 1fr!important}
+                    .qf-root .g3v{grid-template-columns:1fr!important}
+                    .qf-root .sticky-bar{flex-wrap:wrap;gap:8px}
+                    .qf-root .sticky-bar>*{flex:1;min-width:120px}
+                    .qf-root .uf-sidebar{flex-direction:column!important}
+                    .qf-root .uf-sidebar .card{min-width:unset}
+                    .qf-root .vi-sidebar{display:flex;flex-direction:row;flex-wrap:wrap;gap:12px}
+                    .qf-root .vi-sidebar .card{flex:1;min-width:240px;margin-bottom:0!important}
+                    .qf-root .rh-meta{grid-template-columns:1fr!important}
+                    .qf-root .page-hd{flex-direction:column;align-items:flex-start!important;gap:10px}
+                }
             `}</style>
 
             <div className="qf-root relative">
                 {/* Page header */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+                <div className="page-hd" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                         <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.4px' }}>Edit Quotation</div>
                         <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>
@@ -376,25 +402,10 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         masterItems={masterItems}
                         onContinue={goNext}
                         onBack={() => setCurrentStep(0)}
+                        hideMasterMatch
                     />
                 )}
 
-                {/* ── STEP 2: Review & Submit ── */}
-                {/* {currentStep === 2 && (
-                    <ReviewSubmitStep
-                        quotation={quotationData}
-                        lineItems={lineItems}
-                        vendors={vendors}
-                        plants={plants}
-                        plantId={plantId}
-                        PRs={PRs}
-                        prLinkId={prLinkId}
-                        setPrLinkId={setPrLinkId}
-                        internalNotes={internalNotes}
-                        setInternalNotes={setInternalNotes}
-                        showTerms={false}
-                    />
-                )} */}
 
                 {/* ── Action bar ── */}
                 <div className="sticky-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
