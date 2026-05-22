@@ -292,12 +292,12 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                             </table>
                         </div>
 
-                        <button
+                        {/* <button
                             onClick={addRow}
                             style={{ marginTop: 10, padding: '5px 10px', borderRadius: 'var(--r)', border: '0.5px solid var(--bdm)', background: 'var(--bg)', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--tx)' }}
                         >
                             <i className="ti ti-plus" style={{ fontSize: 13 }} /> Add Row
-                        </button>
+                        </button> */}
                     </div>
                 </div>
             </div>
