@@ -545,15 +545,14 @@ export default function UploadQuotationPage() {
             {/* ── Confirm modal — outside qf-root so Tailwind styles are not overridden ── */}
             <CommonConfirmModal
                 isOpen={showConfirm}
-                title="Confirm Action"
+                title="Submit Quotation"
                 description={
                     <>
-                        You are about to save this quotation from{' '}
-                        <strong>{vendors?.company_name || 'the vendor'}</strong> with{' '}
-                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''}.
+                        Submit quotation from <strong>{vendors?.company_name || 'the vendor'}</strong> with{' '}
+                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} for approval?
                     </>
                 }
-                confirmLabel="Yes, Submit"
+                confirmLabel="Submit for Approval"
                 onClose={() => setShowConfirm(false)}
                 onConfirm={() => quotationSaveMutation.mutate()}
                 isPending={quotationSaveMutation.isPending}

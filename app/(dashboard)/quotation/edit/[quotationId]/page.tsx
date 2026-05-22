@@ -442,15 +442,14 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
             {/* ── Confirm modal — outside qf-root so Tailwind styles are not overridden ── */}
             <CommonConfirmModal
                 isOpen={showConfirm}
-                title="Confirm Action"
+                title="Save Quotation Changes"
                 description={
                     <>
-                        You are about to update this quotation from{' '}
-                        <strong>{vendors?.company_name || 'the vendor'}</strong> with{' '}
-                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''}.
+                        You&apos;re editing the quotation from <strong>{vendors?.company_name || 'the vendor'}</strong>.{' '}
+                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} will be updated. This will overwrite the existing data.
                     </>
                 }
-                confirmLabel="Yes, Submit"
+                confirmLabel="Save Changes"
                 onClose={() => setShowConfirm(false)}
                 onConfirm={() => quotationSaveMutation.mutate()}
                 isPending={quotationSaveMutation.isPending}
