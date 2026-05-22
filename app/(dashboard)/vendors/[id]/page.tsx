@@ -868,17 +868,6 @@ export default function VendorDetailPage() {
               Edit
             </Button>
           )}
-          {canUploadDoc && !canFullEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-[13px]"
-              onClick={() => router.push(`/vendors/${id}/edit`)}
-            >
-              <FileText className="w-[14px] h-[14px] mr-1" />
-              Upload Documents
-            </Button>
-          )}
           {isLocked && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[12px] font-medium">
               <XCircle className="w-3.5 h-3.5" />
