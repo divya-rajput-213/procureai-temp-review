@@ -514,7 +514,7 @@ export default function VendorsPage() {
                             <>
                               {/* {!!v.contracts_count && ( */}
                                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
-                                  {v.contracts_count??0} C
+                                  {v.contracts_count ?? 0} C
                                 </span>
                               {/* )} */}
                               {/* {!!v.quotation_count && ( */}
