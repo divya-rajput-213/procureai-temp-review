@@ -574,58 +574,61 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           </div>
         </div>
 
-        {/* Row 1: Vendor / Vendor Contact / Plant-Dept-Category */}
-        <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14 }}>
+        {/* Row 1: Vendor / Vendor Contact / Plant-Dept-Category — bordered 3-col box */}
+        <div className="grid grid-cols-3 border rounded-lg overflow-hidden mb-4" style={{ marginTop: 14 }}>
           <button
             type="button"
-            className="vendor-link-cell"
-            onClick={() => window.open(`/vendors/${vendor?.id}`, '_blank')}
+            onClick={() => window.open(`/vendor/detail/${vendor?.id}`, '_blank')}
             title="Open vendor in new tab"
+            className="px-4 py-3 text-left border-r group hover:bg-slate-50 transition-colors"
           >
-            <div className="rhm-lbl" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              Vendor <i className="ti ti-arrow-up-right" style={{ fontSize: 9, opacity: 0.7 }} />
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--blu-tx)' }}>
+            <p className="text-[10px] uppercase font-semibold tracking-[0.5px] text-muted-foreground mb-1 flex items-center gap-1">
+              Vendor <i className="ti ti-arrow-up-right" style={{ fontSize: 9, opacity: 0.6 }} />
+            </p>
+            <p className="font-medium text-[13px] text-[#1a1a18] group-hover:text-blue-600 transition-colors">
               {vendor?.company_name || '—'}
-              {(vendor?.city || vendor?.state) && (
-                <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--tx3)', marginLeft: 6 }}>
-                  {[vendor?.city, vendor?.state].filter(Boolean).join(', ')}
-                </span>
-              )}
-            </div>
+            </p>
+            {(vendor?.city || vendor?.state) && (
+              <p className="text-[12px] text-muted-foreground mt-0.5">
+                {[vendor?.city, vendor?.state].filter(Boolean).join(', ')}
+              </p>
+            )}
           </button>
-          <div className="qd-info-cell" style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
-            <div className="rhm-lbl">Vendor Contact</div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{vendor?.contact_name || '—'}</div>
-            <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 1 }}>
-              {[vendor?.contact_email, vendor?.contact_phone ? `+${vendor.contact_phone}` : null].filter(Boolean).join(' · ')}
-            </div>
+          <div className="px-4 py-3 border-r">
+            <p className="text-[10px] uppercase font-semibold tracking-[0.5px] text-muted-foreground mb-1">Vendor Contact</p>
+            <p className="font-medium text-[13px] text-[#1a1a18]">{vendor?.contact_name || '—'}</p>
+            {(vendor?.contact_email || vendor?.contact_phone) && (
+              <p className="text-[12px] text-muted-foreground mt-0.5">
+                {[vendor?.contact_email, vendor?.contact_phone ? `+${vendor.contact_phone}` : null].filter(Boolean).join(' · ')}
+              </p>
+            )}
           </div>
-          <div className="qd-info-cell" style={{ padding: '0 14px', borderLeft: '0.5px solid var(--bd)' }}>
-            <div className="rhm-lbl">Plant / Department / Category</div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>
+          <div className="px-4 py-3">
+            <p className="text-[10px] uppercase font-semibold tracking-[0.5px] text-muted-foreground mb-1">Plant / Department / Category</p>
+            <p className="font-medium text-[13px] text-[#1a1a18]">
               {[quotation?.plant_name, quotation?.department_name, quotation?.category_name || (quotation?.category ? String(quotation.category) : null)].filter(Boolean).join(' / ') || '—'}
-            </div>
+            </p>
           </div>
         </div>
 
         {/* Row 2: Quote Date / Valid Until / Grand Total / PR Linked */}
-        <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14, marginTop: 14 }}>
-          <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
-            <div className="rhm-lbl">Quote Date</div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{fmtDate(quotation.quotation_date)}</div>
+        <div className="grid grid-cols-4 divide-x divide-[rgba(0,0,0,0.07)]">
+          {[
+            { label: 'Quote Date',  value: fmtDate(quotation.quotation_date) },
+            { label: 'Valid Until', value: fmtDate(quotation.valid_until)    },
+          ].map(({ label, value }) => (
+            <div key={label} className="px-4">
+              <p className="text-[10px] uppercase font-semibold tracking-[0.4px] text-muted-foreground mb-1">{label}</p>
+              <p className="text-[13px] font-medium text-[#1a1a18]">{value}</p>
+            </div>
+          ))}
+          <div className="px-4">
+            <p className="text-[10px] uppercase font-semibold tracking-[0.4px] text-muted-foreground mb-1">Grand Total</p>
+            <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--tel-tx)' }}>{formatINR(displayGrandTotal)}</p>
           </div>
-          <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
-            <div className="rhm-lbl">Valid Until</div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{fmtDate(quotation.valid_until)}</div>
-          </div>
-          <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
-            <div className="rhm-lbl">Grand Total</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--tel-tx)' }}>{formatINR(displayGrandTotal)}</div>
-          </div>
-          <div style={{ padding: '0 14px' }}>
-            <div className="rhm-lbl">PR Linked</div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{quotation.pr_no || '—'}</div>
+          <div className="px-4">
+            <p className="text-[10px] uppercase font-semibold tracking-[0.4px] text-muted-foreground mb-1">PR Linked</p>
+            <p className="text-[13px] font-medium text-[#1a1a18]">{quotation.pr_no || '—'}</p>
           </div>
         </div>
       </div>
