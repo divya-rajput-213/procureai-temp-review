@@ -210,56 +210,56 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 .qf-root .step-item{flex:1;padding:14px 16px;display:flex;align-items:center;gap:10px;border-right:0.5px solid var(--bd);background:transparent;border-top:none;border-left:none;border-bottom:none}
                 .qf-root .step-item:last-child{border-right:none}
                 .qf-root .step-item.done{background:var(--bg-s)}
-                .qf-root .step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+                .qf-root .step-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
                 .qf-root .sn-idle{background:var(--bg-t);color:var(--tx3)}
                 .qf-root .sn-act{background:#1a1a18;color:#fff}
                 .qf-root .sn-done{background:var(--grn-bg);color:var(--grn-tx)}
-                .qf-root .step-lbl{font-size:12px;font-weight:600;color:var(--tx3)}
+                .qf-root .step-lbl{font-size:13px;font-weight:600;color:var(--tx3)}
                 .qf-root .step-item.active .step-lbl{color:var(--tx)}
                 .qf-root .step-item.done .step-lbl{color:var(--tx2)}
-                .qf-root .step-sub{font-size:11px;color:var(--tx3)}
+                .qf-root .step-sub{font-size:12px;color:var(--tx3)}
                 .qf-root .form-sec{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:16px}
                 .qf-root .form-sec-head{padding:13px 18px;border-bottom:0.5px solid var(--bd);display:flex;align-items:center;gap:10px}
-                .qf-root .fsh-ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
-                .qf-root .fsh-title{font-size:13px;font-weight:600}
-                .qf-root .fsh-sub{font-size:11px;color:var(--tx3);margin-top:1px}
+                .qf-root .fsh-ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+                .qf-root .fsh-title{font-size:15px;font-weight:600}
+                .qf-root .fsh-sub{font-size:12px;color:var(--tx3);margin-top:1px}
                 .qf-root .form-body{padding:18px}
                 .qf-root .fgrp{display:flex;flex-direction:column;gap:4px}
-                .qf-root .lbl{font-size:12px;font-weight:600;color:var(--tx2)}
+                .qf-root .lbl{font-size:13px;font-weight:600;color:var(--tx2)}
                 .qf-root .req{color:var(--red-bd);margin-left:2px}
-                .qf-root .inp{padding:8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;width:100%}
+                .qf-root .inp{padding:9px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:100%}
                 .qf-root .inp:focus{border-color:#1a1a18}
-                .qf-root .inp-extracted{padding:8px 12px;border-radius:var(--r);border:0.5px solid rgba(29,158,117,.4);background:var(--tel-bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tel-tx);outline:none;width:100%;font-weight:500}
-                .qf-root .sel{padding:8px 32px 8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);appearance:none;outline:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9a96'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;width:100%}
+                .qf-root .inp-extracted{padding:9px 12px;border-radius:var(--r);border:0.5px solid rgba(29,158,117,.4);background:var(--tel-bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tel-tx);outline:none;width:100%;font-weight:500}
+                .qf-root .sel{padding:9px 32px 9px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);appearance:none;outline:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9a96'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;width:100%}
                 .qf-root .sel:focus{border-color:#1a1a18}
-                .qf-root .textarea{padding:8px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;resize:vertical;min-height:70px;width:100%}
-                .qf-root .extracted-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--tel-tx);display:flex;align-items:center;gap:4px}
+                .qf-root .textarea{padding:9px 12px;border-radius:var(--r);border:0.5px solid var(--bdm);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;resize:vertical;min-height:70px;width:100%}
+                .qf-root .extracted-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--tel-tx);display:flex;align-items:center;gap:4px}
                 .qf-root .card{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden}
                 .qf-root .card-head{padding:13px 16px;border-bottom:0.5px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
-                .qf-root .card-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;color:var(--tx)}
-                .qf-root .card-title i{font-size:14px;color:var(--tx3)}
+                .qf-root .card-title{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;color:var(--tx)}
+                .qf-root .card-title i{font-size:15px;color:var(--tx3)}
                 .qf-root .card-body{padding:16px}
-                .qf-root .ci{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:0.5px solid var(--bd);font-size:12px}
+                .qf-root .ci{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:0.5px solid var(--bd);font-size:13px}
                 .qf-root .ci:last-child{border-bottom:none}
                 .qf-root .ci-ok{color:var(--grn-tx)}
                 .qf-root .ci-idle{color:var(--tx3)}
                 .qf-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px;}
-                .qf-root .err-strip{background:var(--red-bg);border:0.5px solid var(--red-bd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:var(--red-tx)}
-                .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:13px}
-                .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
+                .qf-root .err-strip{background:var(--red-bg);border:0.5px solid var(--red-bd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:14px;color:var(--red-tx)}
+                .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:14px}
+                .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
                 .qf-root .match-tbl tbody tr{border-bottom:0.5px solid var(--bd);cursor:default;transition:background .1s}
                 .qf-root .match-tbl tbody tr:last-child{border-bottom:none}
                 .qf-root .match-tbl tbody tr:hover{background:#fafaf8}
-                .qf-root .match-tbl td{padding:10px 12px;vertical-align:top}
-                .qf-root .cell-inp{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;width:100%}
+                .qf-root .match-tbl td{padding:11px 12px;vertical-align:top}
+                .qf-root .cell-inp{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:100%}
                 .qf-root .cell-inp:focus{background:var(--blu-bg);border-radius:4px;padding:2px 4px}
-                .qf-root .cell-num{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--tx);outline:none;width:60px;text-align:right}
+                .qf-root .cell-num{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:60px;text-align:right}
                 .qf-root .cell-num:focus{background:var(--blu-bg);border-radius:4px;padding:2px 4px}
-                .qf-root td.match-tfoot{padding:9px 12px;font-size:12px;background:var(--bg-s);border-top:0.5px solid var(--bdm)}
-                .qf-root .match-progress{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx2);background:var(--bg);border:0.5px solid var(--bd);padding:8px 14px;border-radius:var(--r);margin-bottom:12px}
+                .qf-root td.match-tfoot{padding:10px 12px;font-size:13px;background:var(--bg-s);border-top:0.5px solid var(--bdm)}
+                .qf-root .match-progress{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx2);background:var(--bg);border:0.5px solid var(--bd);padding:8px 14px;border-radius:var(--r);margin-bottom:12px}
                 .qf-root .mp-bar{flex:1;height:5px;background:var(--bg-t);border-radius:3px;overflow:hidden}
                 .qf-root .mp-fill{height:100%;border-radius:3px;background:#1a1a18;transition:width .3s}
-                .qf-root .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-block;white-space:nowrap}
+                .qf-root .tag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-block;white-space:nowrap}
                 .qf-root .t-new{background:var(--grn-bg);color:var(--grn-tx)}
                 .qf-root .t-match{background:var(--blu-bg);color:var(--blu-tx)}
                 .qf-root .t-replace{background:var(--amb-bg);color:var(--amb-tx)}
@@ -269,12 +269,12 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 .qf-root .rhm-item{padding:0 14px;border-right:0.5px solid var(--bd)}
                 .qf-root .rhm-item:first-child{padding-left:0}
                 .qf-root .rhm-item:last-child{border-right:none}
-                .qf-root .rhm-lbl{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
-                .qf-root .rhm-val{font-size:13px;font-weight:500}
+                .qf-root .rhm-lbl{font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+                .qf-root .rhm-val{font-size:14px;font-weight:500}
                 .qf-root .stat-mini{background:var(--bg-s);border-radius:var(--r);padding:12px 14px}
-                .qf-root .sm-lbl{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
-                .qf-root .sm-val{font-size:22px;font-weight:600;letter-spacing:-.6px;line-height:1}
-                .qf-root .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+                .qf-root .sm-lbl{font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+                .qf-root .sm-val{font-size:24px;font-weight:600;letter-spacing:-.6px;line-height:1}
+                .qf-root .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px}
                 .qf-root .pill .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
                 .qf-root .p-draft{background:var(--gry-bg);color:var(--gry-tx)}
                 .qf-root .p-draft .dot{background:var(--gry-bd)}

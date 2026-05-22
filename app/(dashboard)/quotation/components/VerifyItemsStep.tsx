@@ -21,15 +21,15 @@ const UOM_OPTIONS = ['EA', 'KG', 'LTR', 'MTR', 'PCS', 'SET', 'BOX', 'BAG', 'TON'
 
 const editableStyle: React.CSSProperties = {
     border: '0.5px solid var(--blu-bd)', background: 'var(--blu-bg)', color: 'var(--blu-tx)',
-    borderRadius: 4, padding: '2px 6px', fontFamily: 'inherit', fontSize: 11, outline: 'none', width: '100%',
+    borderRadius: 4, padding: '3px 7px', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%',
 }
 const needsInputStyle: React.CSSProperties = {
     border: '0.5px solid var(--amb-bd)', background: 'var(--amb-bg)', color: 'var(--amb-tx)',
-    borderRadius: 4, padding: '2px 6px', fontFamily: 'inherit', fontSize: 11, outline: 'none', width: '100%',
+    borderRadius: 4, padding: '3px 7px', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%',
 }
 const extractedCellStyle: React.CSSProperties = {
-    fontFamily: 'monospace', fontSize: 11, color: 'var(--tel-tx)', background: 'var(--tel-bg)',
-    border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '2px 6px', display: 'inline-block',
+    fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)',
+    border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block',
 }
 
 export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation }: VerifyItemsStepProps) {
