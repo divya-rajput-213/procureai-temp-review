@@ -510,32 +510,30 @@ export default function VendorsPage() {
 
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {!v.contracts_count && !v.quotation_count && !v.po_count && !v.invoice_count ? (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          ) : (
+                       
                             <>
-                              {!!v.contracts_count && (
+                              {/* {!!v.contracts_count && ( */}
                                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
-                                  {v.contracts_count} C
+                                  {v.contracts_count??0} C
                                 </span>
-                              )}
-                              {!!v.quotation_count && (
+                              {/* )} */}
+                              {/* {!!v.quotation_count && ( */}
                                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                  {v.quotation_count} Q
+                                  {v.quotation_count??0} Q
                                 </span>
-                              )}
-                              {!!v.po_count && (
+                              {/* )} */}
+                              {/* {!!v.po_count && ( */}
                                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  {v.po_count} PO
+                                  {v.po_count??0} PO
                                 </span>
-                              )}
-                              {!!v.invoice_count && (
+                              {/* )} */}
+                              {/* {!!v.invoice_count && ( */}
                                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                                  {v.invoice_count} INV
+                                  {v.invoice_count??0} INV
                                 </span>
-                              )}
+                              {/* )} */}
                             </>
-                          )}
+                        
                         </div>
                       </td>
 
