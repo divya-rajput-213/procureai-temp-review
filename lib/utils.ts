@@ -67,6 +67,11 @@ export function getSLAColor(percentage: number): string {
 }
 
 export const STATUS_COLORS: Record<string, string> = {
+  // Quotation statuses
+  under_evaluation: 'bg-blue-100 text-blue-700',
+  shortlisted: 'bg-teal-100 text-teal-700',
+  po_raised: 'bg-purple-100 text-purple-700',
+  not_selected: 'bg-red-100 text-red-700',
   draft: 'bg-gray-100 text-gray-700',
   pending_approval: 'bg-amber-100 text-amber-700',
   approval_required: 'bg-amber-100 text-amber-700',

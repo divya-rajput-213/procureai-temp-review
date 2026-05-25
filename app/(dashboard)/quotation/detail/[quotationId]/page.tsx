@@ -273,6 +273,9 @@ const QD_CSS = `
   .p-pending{background:var(--amb-bg);color:var(--amb-tx)}.p-pending .dot{background:var(--amb-bd)}
   .p-approved{background:var(--grn-bg);color:var(--grn-tx)}.p-approved .dot{background:var(--grn-bd)}
   .p-rejected{background:var(--red-bg);color:var(--red-tx)}.p-rejected .dot{background:var(--red-bd)}
+  .p-eval{background:#EFF6FF;color:#1D4ED8}.p-eval .dot{background:#3B82F6}
+  .p-shortlist{background:var(--tel-bg);color:var(--tel-tx)}.p-shortlist .dot{background:var(--tel-bd)}
+  .p-po{background:#F5F3FF;color:#6D28D9}.p-po .dot{background:#7C3AED}
   .tag{font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap}
   .t-new{background:var(--grn-bg);color:var(--grn-tx)}
   .t-match{background:var(--blu-bg);color:var(--blu-tx)}
@@ -321,14 +324,19 @@ function getVendorAvatar(name: string) {
 }
 
 const STATUS_PILL: Record<string, { cls: string; label: string }> = {
-  draft: { cls: 'p-draft', label: 'Draft' },
-  under_review: { cls: 'p-review', label: 'Under Review' },
-  'under review': { cls: 'p-review', label: 'Under Review' },
-  pending_approval: { cls: 'p-pending', label: 'Pending Approval' },
-  'pending approval': { cls: 'p-pending', label: 'Pending Approval' },
-  pending: { cls: 'p-pending', label: 'Pending Approval' },
-  approved: { cls: 'p-approved', label: 'Approved' },
-  rejected: { cls: 'p-rejected', label: 'Rejected' },
+  draft:            { cls: 'p-draft',     label: 'Draft' },
+  approved:         { cls: 'p-approved',  label: 'Approved' },
+  under_evaluation: { cls: 'p-eval',      label: 'Under Evaluation' },
+  shortlisted:      { cls: 'p-shortlist', label: 'Shortlisted' },
+  po_raised:        { cls: 'p-po',        label: 'PO Raised' },
+  rejected:         { cls: 'p-rejected',  label: 'Rejected' },
+  not_selected:     { cls: 'p-rejected',  label: 'Rejected' },
+  // legacy
+  under_review:     { cls: 'p-review',    label: 'Under Review' },
+  'under review':   { cls: 'p-review',    label: 'Under Review' },
+  pending_approval: { cls: 'p-pending',   label: 'Pending Approval' },
+  'pending approval':{ cls: 'p-pending',  label: 'Pending Approval' },
+  pending:          { cls: 'p-pending',   label: 'Pending Approval' },
 }
 
 function getStatusPill(status: string) {

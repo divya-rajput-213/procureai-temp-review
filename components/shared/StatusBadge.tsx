@@ -6,6 +6,11 @@ interface StatusBadgeProps {
 }
 
 const STATUS_LABELS: Record<string, string> = {
+  // Quotation-specific statuses
+  under_evaluation: 'Under Evaluation',
+  shortlisted: 'Shortlisted',
+  po_raised: 'PO Raised',
+  not_selected: 'Rejected',
   draft: 'Draft',
   pending_approval: 'Pending Approval',
   pending_finance: 'Pending Finance',
@@ -55,6 +60,10 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const DOT_COLORS: Record<string, string> = {
+  under_evaluation: 'bg-blue-500',
+  shortlisted: 'bg-teal-500',
+  po_raised: 'bg-purple-500',
+  not_selected: 'bg-red-500',
   draft: 'bg-gray-400',
   pending_approval: 'bg-amber-500',
   pending_finance: 'bg-amber-500',
