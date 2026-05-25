@@ -626,16 +626,17 @@ function QuotesStep({
 interface ProcurementFormProps {
   mode: 'add' | 'edit'
   procurementId?: string
+  initialStep?: number
 }
 
-export default function ProcurementForm({ mode, procurementId }: ProcurementFormProps) {
+export default function ProcurementForm({ mode, procurementId, initialStep = 1 }: ProcurementFormProps) {
   const isEditMode = mode === 'edit'
   const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
 
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(initialStep)
   const [selectedTracking, setSelectedTracking] = useState<any>(null)
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<number[]>([])
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null)

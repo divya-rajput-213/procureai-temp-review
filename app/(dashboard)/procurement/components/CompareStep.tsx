@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   TrendingDown,
   Info,
+  UserCheck,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
@@ -94,6 +95,7 @@ function CompareStep({
   isDisabled = false,
   prId,
   budgetRemaining = null,
+  onSelectVendor,
 }: any) {
   const [isExporting, setIsExporting] = useState(false)
   const { data, isLoading, isError } = useQuery({
@@ -130,7 +132,7 @@ function CompareStep({
   const minLanded = landedTotals.length ? Math.min(...landedTotals) : 0
   const maxLanded = landedTotals.length ? Math.max(...landedTotals) : 0
 
-  const selV = vendors.find(v => v.vendor_id === selectedVendorId) || vendors[0]
+  const selV = vendors.find(v => v.vendor_id === selectedVendorId) ?? null
 
   const itemBestVendor = (item: any): number | null => {
     const prices = Object.entries(item.vendor_prices || {}) as [string, any][]
@@ -182,22 +184,33 @@ function CompareStep({
               </p>
             )}
           </div>
-          {prId && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-[12px] h-8 gap-1.5"
-              disabled={isExporting}
-              onClick={async () => {
-                setIsExporting(true)
-                await exportPCS(prId, toast)
-                setIsExporting(false)
-              }}
-            >
-              {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-              {isExporting ? 'Exporting…' : 'Export PCS'}
-            </Button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {prId && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-[12px] h-8 gap-1.5"
+                disabled={isExporting}
+                onClick={async () => {
+                  setIsExporting(true)
+                  await exportPCS(prId, toast)
+                  setIsExporting(false)
+                }}
+              >
+                {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                {isExporting ? 'Exporting…' : 'Export PCS'}
+              </Button>
+            )}
+            {onSelectVendor && (
+              <Button
+                size="sm"
+                className="text-[12px] h-8 gap-1.5"
+                onClick={onSelectVendor}
+              >
+                <UserCheck className="w-3.5 h-3.5" /> Select Vendor
+              </Button>
+            )}
+          </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
@@ -257,25 +270,27 @@ function CompareStep({
                           </div>
                         </div>
 
-                        <div style={{
-                          marginTop: 8,
-                          fontSize: 12,
-                          padding: '4px 0',
-                          borderRadius: 6,
-                          textAlign: 'center',
-                          fontWeight: 600,
-                          background: isSel ? pal.bg : 'hsl(var(--muted))',
-                          color: isSel ? '#fff' : 'hsl(var(--muted-foreground))',
-                          width: 120,
-                          display: 'inline-block',
-                        }}>
-                          {isSel ? (
-                            <>
-                              <Check style={{ width: 10, height: 10, display: 'inline', marginRight: 3 }} />
-                              Selected
-                            </>
-                          ) : 'Select vendor'}
-                        </div>
+                        {!isDisabled && (
+                          <div style={{
+                            marginTop: 8,
+                            fontSize: 12,
+                            padding: '4px 0',
+                            borderRadius: 6,
+                            textAlign: 'center',
+                            fontWeight: 600,
+                            background: isSel ? pal.bg : 'hsl(var(--muted))',
+                            color: isSel ? '#fff' : 'hsl(var(--muted-foreground))',
+                            width: 120,
+                            display: 'inline-block',
+                          }}>
+                            {isSel ? (
+                              <>
+                                <Check style={{ width: 10, height: 10, display: 'inline', marginRight: 3 }} />
+                                Selected
+                              </>
+                            ) : 'Select vendor'}
+                          </div>
+                        )}
                       </div>
                     </th>
                   )

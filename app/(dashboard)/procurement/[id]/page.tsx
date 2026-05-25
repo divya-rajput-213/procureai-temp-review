@@ -1220,8 +1220,9 @@ export default function PRDetailPage() {
           selectedQuotationIds={quotationIds}
           selectedVendorId={selectedVendor}
           setSelectedVendorId={setSelectedVendor}
-          isDisabled={pr.status !== 'draft'}
+          isDisabled={true}
           prId={pr.id}
+          onSelectVendor={pr.status === 'draft' ? () => router.push(`/procurement/edit/${id}?step=2`) : undefined}
         />
       )}
       </div>
