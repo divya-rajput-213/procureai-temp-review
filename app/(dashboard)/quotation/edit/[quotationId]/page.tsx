@@ -35,6 +35,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
     const [showExportModal, setShowExportModal] = useState(false)
     const [exporting, setExporting] = useState(false)
     const [initialized, setInitialized] = useState(false)
+    const [verifyStepValid, setVerifyStepValid] = useState(true)
     const [financialYear, setFinancialYear] = useState<string>('')
 
     const getApiErrorMessage = (error: any, fallback: string) => {
@@ -419,6 +420,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         hideMasterMatch
                         disableAddRow
                         onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
+                        onValidationChange={(isValid) => setVerifyStepValid(isValid)}
                     />
                 )}
 
@@ -445,7 +447,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         )}
 
                         {currentStep === 1 && (
-                            <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving} className="gap-1.5">
+                            <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving || !verifyStepValid} className="gap-1.5">
                                 {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
                                 Save Changes
                             </Button>

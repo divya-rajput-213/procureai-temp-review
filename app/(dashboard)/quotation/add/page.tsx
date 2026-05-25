@@ -41,6 +41,7 @@ export default function UploadQuotationPage() {
     const [showConfirm, setShowConfirm] = useState(false)
     const [showExportModal, setShowExportModal] = useState(false)
     const [exporting, setExporting] = useState(false)
+    const [verifyStepValid, setVerifyStepValid] = useState(true)
 
     const getApiErrorMessage = (error: any, fallback: string) => {
         const data = error?.response?.data
@@ -530,6 +531,7 @@ export default function UploadQuotationPage() {
                         onContinue={handleStep1Continue}
                         onBack={() => setCurrentStep(0)}
                         onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
+                        onValidationChange={(isValid) => setVerifyStepValid(isValid)}
                     />
                 )}
 
@@ -561,7 +563,7 @@ export default function UploadQuotationPage() {
                             <Button
                                 size="sm"
                                 onClick={() => setShowConfirm(true)}
-                                disabled={isSaving}
+                                disabled={isSaving || !verifyStepValid}
                                 className="gap-1.5"
                             >
                                 {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
