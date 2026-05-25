@@ -336,16 +336,14 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
 // ─── VendorDashboard ──────────────────────────────────────────────────────────
 function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, isLoading: boolean }) {
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
-  if (!dash) return null
 
   const stats = dash?.stats ?? {}
-  const recentPOs: any[] = dash?.recent_pos ?? []
-  const recentQuotations: any[] = dash?.recent_quotations ?? []
-  const recentInvoices: any[] = dash?.recent_invoices ?? []
-  const scorecard = dash?.scorecard ?? null
+  const recentPOs: any[] = vendor?.purchase_orders ?? []
+  const recentQuotations: any[] = vendor?.quotations ?? []
+  const recentInvoices: any[] = vendor?.invoices ?? []
+  const scorecard = vendor?.score_breakdown ?? null
   const viewQuotationHref = '/quotation'
   const openInNewTab = (href: string) => window.open(href, '_blank', 'noopener,noreferrer')
-
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[70%_1fr] gap-4 min-w-0">
       {/* LEFT */}
@@ -380,10 +378,10 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       onClick={() => { if (!po?.id) return; openInNewTab(`/purchase-orders/${po.id}`) }}
                       className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-2.5 font-mono text-[11px]">{po.po_number || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{po.po_type_display || po.po_type || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{po.plant_name || '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{po.amount != null ? formatCurrency(po.amount) : '—'}</td>
+                      <td className="px-4 py-2.5 font-mono text-[11px]">{po?.po_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{po?.po_type_display || po?.po_type || '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{po?.plant_name || '—'}</td>
+                      <td className="px-4 py-2.5 text-right">{po?.total_amount != null ? formatCurrency(po?.total_amount) : '—'}</td>
                       <td className="px-4 py-2.5 text-center"><StatusBadge status={po.status} /></td>
                     </tr>
                   ))
@@ -433,9 +431,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                     >
                       <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{q.ref_no || q.pr_number || '—'}</td>
                       <td className="px-4 py-2.5 max-w-[160px] truncate">{q.quotation_no || q.title || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{q.date
-                        ? formatDate(q.date
-                        ) : '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{(q.date || q.quotation_date || q.created_at) ? formatDate(q.date || q.quotation_date || q.created_at) : '—'}</td>
                       <td className="px-4 py-2.5 text-right">{(q.total_amount ?? q.bid_amount) != null ? formatCurrency(q.total_amount ?? q.bid_amount) : '—'}</td>
                       <td className="px-4 py-2.5 text-center"><StatusBadge status={q.status} /></td>
                     </tr>
@@ -964,7 +960,7 @@ export default function VendorDetailPage() {
               { label: 'GSTIN', value: vendor.gst_number },
               { label: 'PAN', value: vendor.pan_number },
               { label: 'MSME', value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
-              { label: 'Compliance Score', value: dash?.scorecard?.compliance?.score != null ? `${dash.scorecard.compliance.score}/100` : '—' },
+              { label: 'Compliance Score', value: vendor?.score_breakdown?.compliance?.score != null ? `${vendor.score_breakdown.compliance.score}/100` : '—' },
             ].map(({ label, value }, i) => (
               <div key={label} className="vd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
                 <div className="vd-lbl">{label}</div>
