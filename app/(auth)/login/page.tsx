@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -30,7 +29,6 @@ const msalConfig: Configuration = {
 }
 
 export default function LoginPage() {
-  const router = useRouter()
   const { toast } = useToast()
   const setTokens = useAuthStore((s) => s.setTokens)
   const [loading, setLoading] = useState(false)
@@ -49,14 +47,13 @@ export default function LoginPage() {
       const resp = await login(data)
       setTokens(resp.access, resp.refresh, resp.user, resp.company)
       const redirect = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
-      router.replace(redirect)
+      window.location.replace(redirect)
     } catch (err: any) {
       toast({
         title: 'Login failed',
         description: err?.response?.data?.error || 'Invalid credentials.',
         variant: 'destructive',
       })
-    } finally {
       setLoading(false)
     }
   }
@@ -76,14 +73,13 @@ export default function LoginPage() {
       const resp = await azureCallback(result.accessToken)
       setTokens(resp.access, resp.refresh, resp.user, resp.company)
       const redirect = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
-      router.replace(redirect)
+      window.location.replace(redirect)
     } catch (err: any) {
       toast({
         title: 'Azure login failed',
         description: err?.response?.data?.error || err?.message || 'Authentication failed.',
         variant: 'destructive',
       })
-    } finally {
       setAzureLoading(false)
     }
   }
