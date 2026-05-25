@@ -944,22 +944,22 @@ export default function VendorDetailPage() {
               <div className="vd-sub">{[vendor.contact_email, vendor.contact_phone].filter(Boolean).join(' · ') || '—'}</div>
             </div>
             <div className="vd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
-              <div className="vd-lbl">Plant / Category</div>
-              <div className="vd-val">{[vendor.plant_name, vendor.category_name].filter(Boolean).join(' / ') || '—'}</div>
-            </div>
-            <div className="vd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
               <div className="vd-lbl">Vendor ID</div>
               <div className="vd-val">{vendor.vendor_code || '—'}</div>
+            </div>
+            <div className="vd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+              <div className="vd-lbl">Plant / Category</div>
+              <div className="vd-val">{[vendor.plant_name, vendor.category_name].filter(Boolean).join(' / ') || '—'}</div>
             </div>
           </div>
 
           {/* Row 3 — key metadata strip */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
             {[
-              { label: 'GSTIN', value: vendor.gst_number },
-              { label: 'PAN', value: vendor.pan_number },
+              // { label: 'GSTIN', value: vendor.gst_number },
+              // { label: 'PAN', value: vendor.pan_number },
               { label: 'MSME', value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
-              { label: 'Compliance Score', value: vendor?.score_breakdown?.compliance?.score != null ? `${vendor.score_breakdown.compliance.score}/100` : '—' },
+              // { label: 'Compliance Score', value: vendor?.score_breakdown?.compliance?.score != null ? `${vendor.score_breakdown.compliance.score}/100` : '—' },
             ].map(({ label, value }, i) => (
               <div key={label} className="vd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
                 <div className="vd-lbl">{label}</div>
