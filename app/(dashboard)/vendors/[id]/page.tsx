@@ -383,7 +383,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       <td className="px-4 py-2.5 font-mono text-[11px]">{po.po_number || '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{po.po_type_display || po.po_type || '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{po.plant_name || '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{po.total_amount != null ? formatCurrency(po.total_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 text-right">{po.amount != null ? formatCurrency(po.amount) : '—'}</td>
                       <td className="px-4 py-2.5 text-center"><StatusBadge status={po.status} /></td>
                     </tr>
                   ))
@@ -433,7 +433,9 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                     >
                       <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{q.ref_no || q.pr_number || '—'}</td>
                       <td className="px-4 py-2.5 max-w-[160px] truncate">{q.quotation_no || q.title || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{q.valid_until ? formatDate(q.valid_until) : '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{q.date
+                        ? formatDate(q.date
+                        ) : '—'}</td>
                       <td className="px-4 py-2.5 text-right">{(q.total_amount ?? q.bid_amount) != null ? formatCurrency(q.total_amount ?? q.bid_amount) : '—'}</td>
                       <td className="px-4 py-2.5 text-center"><StatusBadge status={q.status} /></td>
                     </tr>
@@ -624,12 +626,12 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               }
 
               const allItems = [
-                { label: 'GST',           docType: 'gst_certificate',  value: vendor.gst_number,  icon: FileBadge,  bg: 'bg-blue-100',   color: 'text-blue-700',   empty: 'Missing',      mono: true,  show: true },
-                { label: 'PAN',           docType: 'pan_card',         value: vendor.pan_number,  icon: CreditCard, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Missing',      mono: true,  show: true },
-                { label: 'Bank',          docType: 'bank_details',     value: vendor.bank_account ? `••${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true, show: true },
-                { label: 'MSME',          docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100',  color: 'text-green-700',  empty: '—',            mono: false, show: !!vendor.is_msme },
-                { label: 'SEZ',           docType: 'sez_certificate',  value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: '—', mono: false, show: !!vendor.is_sez },
-                { label: 'ISO / Quality', docType: 'iso_certificate',  value: docOf('iso_certificate') ? 'Uploaded' : null, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: '—', mono: false, show: !!docOf('iso_certificate') },
+                { label: 'GST', docType: 'gst_certificate', value: vendor.gst_number, icon: FileBadge, bg: 'bg-blue-100', color: 'text-blue-700', empty: 'Missing', mono: true, show: true },
+                { label: 'PAN', docType: 'pan_card', value: vendor.pan_number, icon: CreditCard, bg: 'bg-green-100', color: 'text-green-700', empty: 'Missing', mono: true, show: true },
+                { label: 'Bank', docType: 'bank_details', value: vendor.bank_account ? `••${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true, show: true },
+                { label: 'MSME', docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100', color: 'text-green-700', empty: '—', mono: false, show: !!vendor.is_msme },
+                { label: 'SEZ', docType: 'sez_certificate', value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: '—', mono: false, show: !!vendor.is_sez },
+                { label: 'ISO / Quality', docType: 'iso_certificate', value: docOf('iso_certificate') ? 'Uploaded' : null, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: '—', mono: false, show: !!docOf('iso_certificate') },
               ]
 
               return allItems.filter(item => item.show).map(item => {
@@ -752,8 +754,8 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                         const st: string = d?.status ?? 'missing'
                         const chip = st === 'verified' ? 'bg-green-50 text-green-700 border-green-200'
                           : st === 'uploaded' ? 'bg-blue-50 text-blue-600 border-blue-200'
-                          : st === 'expired'  ? 'bg-red-50 text-red-600 border-red-200'
-                          : 'bg-slate-50 text-slate-400 border-slate-200'
+                            : st === 'expired' ? 'bg-red-50 text-red-600 border-red-200'
+                              : 'bg-slate-50 text-slate-400 border-slate-200'
                         const icon = st === 'verified' ? '✓' : st === 'expired' ? '!' : st === 'uploaded' ? '↑' : '–'
                         return (
                           <span key={key} className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${chip}`}>
@@ -886,9 +888,9 @@ export default function VendorDetailPage() {
   const isLocked = ['rejected', 'blocked'].includes(vendor.status)
 
   const tabs = [
-    { key: 'overview',   label: 'Overview'   },
-    { key: 'documents',  label: 'Documents'  },
-    { key: 'approval',   label: 'Approval'   },
+    { key: 'overview', label: 'Overview' },
+    { key: 'documents', label: 'Documents' },
+    { key: 'approval', label: 'Approval' },
   ]
 
   return (
@@ -958,10 +960,10 @@ export default function VendorDetailPage() {
           {/* Row 3 — key metadata strip */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
             {[
-              { label: 'Vendor ID',  value: vendor.vendor_code },
-              { label: 'GSTIN',      value: vendor.gst_number },
-              { label: 'PAN',        value: vendor.pan_number },
-              { label: 'MSME',       value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
+              { label: 'Vendor ID', value: vendor.vendor_code },
+              { label: 'GSTIN', value: vendor.gst_number },
+              { label: 'PAN', value: vendor.pan_number },
+              { label: 'MSME', value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
               { label: 'Compliance Score', value: dash?.scorecard?.compliance?.score != null ? `${dash.scorecard.compliance.score}/100` : '—' },
             ].map(({ label, value }, i) => (
               <div key={label} className="vd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
@@ -992,9 +994,9 @@ export default function VendorDetailPage() {
                 }
               `}
             >
-              {tab.key === 'overview'  && <LayoutDashboard className="w-[14px] h-[14px]" />}
-              {tab.key === 'documents' && <FileText        className="w-[14px] h-[14px]" />}
-              {tab.key === 'approval'  && <ShieldCheck     className="w-[14px] h-[14px]" />}
+              {tab.key === 'overview' && <LayoutDashboard className="w-[14px] h-[14px]" />}
+              {tab.key === 'documents' && <FileText className="w-[14px] h-[14px]" />}
+              {tab.key === 'approval' && <ShieldCheck className="w-[14px] h-[14px]" />}
               <span>{tab.label}</span>
             </button>
           ))}
