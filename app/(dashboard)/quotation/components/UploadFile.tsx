@@ -606,6 +606,8 @@ export default function UploadFile({
                         { ok: !!vendors, label: 'Vendor extracted' },
                         { ok: !!quotation?.vendor?.quotation_no, label: 'Quotation number extracted' },
                         { ok: !!plantId, label: 'Plant selected' },
+                        { ok: !!departmentId, label: 'Department selected' },
+                        { ok: !!categoryId, label: 'Category selected' },
                     ].map(({ ok, label }) => (
                         <div key={label} className={`ci ${ok ? 'ci-ok' : 'ci-idle'}`}>
                             <i className={`ti ${ok ? 'ti-circle-check' : 'ti-circle'}`} style={{ fontSize: 14 }} />

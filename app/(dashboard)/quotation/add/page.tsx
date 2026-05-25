@@ -210,10 +210,6 @@ export default function UploadQuotationPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedFile])
 
-    useEffect(() => { if (plants.length > 0 && !plantId) setPlantId(String(plants[0].id)) }, [plants])
-    useEffect(() => { if (departments.length > 0 && !departmentId) setDepartmentId(String(departments[0].id)) }, [departments])
-    useEffect(() => { if (categories?.length > 0 && !categoryId) setCategoryId(String(categories?.[0].id)) }, [categories])
-    useEffect(() => { if (!financialYear) setFinancialYear('2025-26') }, [])
 
     useEffect(() => {
         if (lineItems.length === 0) return
@@ -554,7 +550,7 @@ export default function UploadQuotationPage() {
                         </span>
 
                         {currentStep === 0 && (
-                            <Button size="sm" onClick={handleStep0Continue} disabled={!quotation || !vendors || uploadMutation.isPending || isExtracting} className="gap-1.5">
+                            <Button size="sm" onClick={handleStep0Continue} disabled={!quotation || !vendors || !plantId || !departmentId || !categoryId || uploadMutation.isPending || isExtracting} className="gap-1.5">
 
                                 {step0ContinueLabel()}
                                 <ChevronRight style={{ width: 14, height: 14 }} />
