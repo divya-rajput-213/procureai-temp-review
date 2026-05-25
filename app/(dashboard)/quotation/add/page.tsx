@@ -42,6 +42,7 @@ export default function UploadQuotationPage() {
     const [showExportModal, setShowExportModal] = useState(false)
     const [exporting, setExporting] = useState(false)
     const [verifyStepValid, setVerifyStepValid] = useState(true)
+    const [validUntil, setValidUntil] = useState<string>('')
 
     const getApiErrorMessage = (error: any, fallback: string) => {
         const data = error?.response?.data
@@ -103,6 +104,8 @@ export default function UploadQuotationPage() {
         onSuccess: (data: any) => {
             setQuotation(data)
             setVendors(data.vendor ?? null)
+            const extractedValidUntil = data.vendor?.valid_until ?? data.valid_until ?? ''
+            if (extractedValidUntil) setValidUntil(extractedValidUntil)
             setLineItems((data.items || []).map((item: any) => ({
                 ...item,
                 createNew: item?.is_new ? true : (item?.createNew ?? false),
@@ -138,7 +141,7 @@ export default function UploadQuotationPage() {
                     place_of_supply: vendors?.place_of_supply ?? null,
                     quotation_no: vendors?.quotation_no ?? quotation?.quotation_no ?? null,
                     quotation_date: vendors?.quotation_date ?? quotation?.quotation_date ?? null,
-                    valid_until: vendors?.valid_until ?? quotation?.valid_until ?? null,
+                    valid_until: validUntil || vendors?.valid_until || quotation?.valid_until || null,
                     delivery_lead_time_days: vendors?.delivery_lead_time_days ?? null,
                     delivery_terms: vendors?.delivery_terms ?? null,
                     freight_charges: vendors?.freight_charges ?? null,
@@ -146,7 +149,7 @@ export default function UploadQuotationPage() {
                     warranty: vendors?.warranty ?? null,
                     is_new: vendors?.is_new ?? true,
                 },
-                valid_until: quotation?.vendor?.valid_until ?? quotation?.valid_until ?? null,
+                valid_until: validUntil || quotation?.vendor?.valid_until || quotation?.valid_until || null,
                 grand_total: quotation?.grand_total ?? null,
                 subtotal_amount: quotation?.subtotal_amount ?? null,
                 cgst_rate: quotation?.cgst_rate ?? null,
@@ -199,6 +202,7 @@ export default function UploadQuotationPage() {
         if (!selectedFile) {
             setQuotation(null); setVendors(null); setLineItems([])
             setCurrentStep(0); setCompletedSteps(new Set()); setIsExtracting(false)
+            setValidUntil('')
         }
     }, [selectedFile])
 
@@ -517,6 +521,8 @@ export default function UploadQuotationPage() {
                         allVendors={allApprovedVendors}
                         vendorsFetching={vendorsFetching}
                         onSelectVendor={(v: any) => setVendors((prev: any) => ({ ...v, gst_percentage: prev?.gst_percentage ?? v.gst_percentage }))}
+                        validUntil={validUntil}
+                        setValidUntil={setValidUntil}
                     />
                 )}
 

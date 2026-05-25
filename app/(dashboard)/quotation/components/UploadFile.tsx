@@ -68,6 +68,8 @@ type UploadFileProps = {
     disableUpload?: boolean
     pdfUrl?: string
     pdfName?: string
+    validUntil?: string
+    setValidUntil?: (v: string) => void
 }
 
 export default function UploadFile({
@@ -81,12 +83,25 @@ export default function UploadFile({
     quotation, vendors, isExtracting = false,
     allVendors = [], vendorsFetching = false, onSelectVendor,
     disableUpload = false, pdfUrl, pdfName,
+    validUntil, setValidUntil,
 }: UploadFileProps) {
     const [showVendorSearch, setShowVendorSearch] = useState(false)
     const [vendorQuery, setVendorQuery] = useState('')
     const [extractProgress, setExtractProgress] = useState(0)
-
     useEffect(() => { setShowVendorSearch(false); setVendorQuery('') }, [vendors])
+
+    // Sync validUntil from extracted quotation; clamp to today if past
+    useEffect(() => {
+        const extracted = quotation?.vendor?.valid_until || quotation?.valid_until || ''
+        if (extracted && !validUntil && setValidUntil) {
+            const today = new Date().toISOString().split('T')[0]
+            setValidUntil(extracted < today ? today : extracted)
+        }
+        // Clear when quotation is removed
+        if (!quotation && validUntil && setValidUntil) {
+            setValidUntil('')
+        }
+    }, [quotation?.vendor?.valid_until, quotation?.valid_until, quotation])
 
     useEffect(() => {
         if (isExtracting) {
@@ -514,19 +529,36 @@ export default function UploadFile({
                             {[
                                 { label: 'Quotation Number', value: quotation?.vendor?.quotation_no || '' },
                                 { label: 'Quote Date', value: quotation?.vendor?.quotation_date || '' },
-                                { label: 'Valid Until', value: quotation?.vendor?.valid_until || '' },
                             ].map(({ label, value }) => (
                                 <div key={label} className="fgrp">
                                     <div className="extracted-lbl">
                                         <i className="ti ti-sparkles" style={{ fontSize: 11 }} /> {label}
-                                        { value
-                                                ? <span style={{ fontSize: 9, background: 'var(--tel-bg)', color: 'var(--tel-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Auto-extracted</span>
-                                                : null
+                                        {value
+                                            ? <span style={{ fontSize: 9, background: 'var(--tel-bg)', color: 'var(--tel-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Auto-extracted</span>
+                                            : null
                                         }
                                     </div>
                                     <input readOnly className="inp-extracted" placeholder="Extract from document…" value={value} onChange={() => { }} />
                                 </div>
                             ))}
+                            <div className="fgrp">
+                                <div className="extracted-lbl">
+                                    <i className="ti ti-calendar" style={{ fontSize: 11 }} /> Valid Until
+                                 
+                                </div>
+                                <input
+                                    type="date"
+                                    className="inp"
+                                    min={new Date().toISOString().split('T')[0]}
+                                    value={validUntil || ''}
+                                    onChange={e => {
+                                        const val = e.target.value
+                                        const today = new Date().toISOString().split('T')[0]
+                                        setValidUntil?.(val && val < today ? today : val)
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                />
+                            </div>
                         </div>
 
                         {/* Plant, Department, Category */}

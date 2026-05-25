@@ -36,6 +36,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
     const [exporting, setExporting] = useState(false)
     const [initialized, setInitialized] = useState(false)
     const [verifyStepValid, setVerifyStepValid] = useState(true)
+    const [validUntil, setValidUntil] = useState<string>('')
     const [financialYear, setFinancialYear] = useState<string>('')
 
     const getApiErrorMessage = (error: any, fallback: string) => {
@@ -98,6 +99,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
         setCategoryId(quotationData.category_id ? String(quotationData.category_id) : (quotationData.category ? String(quotationData.category) : ''))
         setPrLinkId(quotationData.pr_id ? String(quotationData.pr_id) : (quotationData.pr ? String(quotationData.pr) : ''))
         setInternalNotes(quotationData.internal_notes || '')
+        const vu = quotationData.vendor?.valid_until ?? quotationData.valid_until ?? ''
+        if (vu) setValidUntil(vu)
         setInitialized(true)
     }, [quotationData, initialized])
 
@@ -123,6 +126,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 category_id: categoryId ? Number(categoryId) : null,
                 pr_id: prLinkId ? Number(prLinkId) : null,
                 internal_notes: internalNotes || null,
+                valid_until: validUntil || null,
             }
             const { data } = await apiClient.patch(`/quotations/${params.quotationId}/`, payload)
             return data
@@ -404,6 +408,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         disableUpload
                         pdfUrl={quotationData?.pdf_url}
                         pdfName={quotationData?.ref_no}
+                        validUntil={validUntil}
+                        setValidUntil={setValidUntil}
                     />
                 )}
 
