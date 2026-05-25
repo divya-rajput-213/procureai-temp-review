@@ -28,7 +28,7 @@ function statusPill(status?: string, isNew?: boolean) {
     if (!status) return { label: 'Matched', bg: 'var(--grn-bg)', tx: 'var(--grn-tx)', dot: 'var(--grn-bd)' }
     const s = status.toLowerCase()
     if (s === 'approved') return { label: 'Approved', bg: 'var(--grn-bg)', tx: 'var(--grn-tx)', dot: 'var(--grn-bd)' }
-    if (s.includes('pending')) return { label: 'Pending', bg: 'var(--amb-bg)', tx: 'var(--amb-tx)', dot: 'var(--amb-bd)' }
+    if (s.includes('pending')) return { label: 'Pending Approval', bg: 'var(--amb-bg)', tx: 'var(--amb-tx)', dot: 'var(--amb-bd)' }
     if (s === 'rejected') return { label: 'Rejected', bg: 'var(--red-bg)', tx: 'var(--red-tx)', dot: 'var(--red-bd)' }
     if (s === 'draft') return { label: 'Draft', bg: 'var(--gry-bg)', tx: 'var(--gry-tx)', dot: 'var(--gry-bd)' }
     return { label: status, bg: 'var(--gry-bg)', tx: 'var(--gry-tx)', dot: 'var(--gry-bd)' }

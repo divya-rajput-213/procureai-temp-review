@@ -597,10 +597,10 @@ export default function UploadQuotationPage() {
                 description={
                     <>
                         Submit quotation from <strong>{vendors?.company_name || 'the vendor'}</strong> with{' '}
-                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} for approval?
+                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''}?
                     </>
                 }
-                confirmLabel="Submit for Approval"
+                confirmLabel="Submit"
                 onClose={() => setShowConfirm(false)}
                 onConfirm={() => quotationSaveMutation.mutate()}
                 isPending={quotationSaveMutation.isPending}
