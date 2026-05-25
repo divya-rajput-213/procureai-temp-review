@@ -36,9 +36,11 @@ const extractedCellStyle: React.CSSProperties = {
 
 export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation, onExport, disableAddRow = false }: VerifyItemsStepProps) {
     const [addRowActive, setAddRowActive] = useState(false)
+    const [activeDropdownIdx, setActiveDropdownIdx] = useState<number | null>(null)
     const [addSearch, setAddSearch] = useState('')
     const searchInputRef = useRef<HTMLInputElement>(null)
     const searchRowRef = useRef<HTMLTableRowElement>(null)
+    const dropdownRef = useRef<HTMLDivElement>(null)
 
     const { data: inventoryItems = [], isFetching: inventoryFetching } = useQuery({
         queryKey: ['items-inventory', addSearch],
@@ -59,11 +61,25 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') { setAddRowActive(false); setAddSearch('') }
+            if (e.key === 'Escape') {
+                setAddRowActive(false)
+                setAddSearch('')
+                setActiveDropdownIdx(null)
+            }
         }
-        if (addRowActive) document.addEventListener('keydown', handler)
+        document.addEventListener('keydown', handler)
         return () => document.removeEventListener('keydown', handler)
-    }, [addRowActive])
+    }, [])
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setActiveDropdownIdx(null)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
 
     const addFromInventory = (inv: any) => {
         setLineItems(prev => [...prev, {
@@ -243,7 +259,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 onChange={e => updateItem(idx, 'hsn_code', e.target.value)}
                                                                 placeholder="Enter HSN"
                                                                 style={{ ...needsInputStyle, fontFamily: 'monospace', width: 85 }}
-                                                              />
+                                                            />
                                                         : item.hsn_code
                                                             ? <span style={extractedCellStyle}>{item.hsn_code}</span>
                                                             : <span style={{ fontSize: 13, color: 'var(--tx3)' }}>—</span>
@@ -257,7 +273,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                             onChange={e => updateItem(idx, 'quantity', Number(e.target.value))}
                                                             placeholder="1"
                                                             style={{ ...(isManual ? editableStyle : needsInputStyle), width: 48, textAlign: 'right' }}
-                                                          />
+                                                        />
                                                         : <span style={{ fontSize: 14, fontFamily: 'monospace' }}>{qty}</span>
                                                     }
                                                 </td>
@@ -269,10 +285,10 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 value={item.unit_of_measure || ''}
                                                                 onChange={e => updateItem(idx, 'unit_of_measure', e.target.value)}
                                                                 style={{ ...needsInputStyle, width: 68 }}
-                                                              >
+                                                            >
                                                                 <option value="">UOM</option>
                                                                 {UOM_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                                                              </select>
+                                                            </select>
                                                         : item.unit_of_measure
                                                             ? <span style={extractedCellStyle}>{item.unit_of_measure}</span>
                                                             : <span style={{ fontSize: 13, color: 'var(--tx3)' }}>—</span>
@@ -286,44 +302,113 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                             onChange={e => updateItem(idx, 'item_price', Number(e.target.value))}
                                                             placeholder="0"
                                                             style={{ ...editableStyle, width: 85, textAlign: 'right' }}
-                                                          />
+                                                        />
                                                         : price > 0
                                                             ? <span style={extractedCellStyle}>{fmtI(price)}</span>
                                                             : <span style={{ fontSize: 13, color: 'var(--tx3)' }}>—</span>
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 14 }}>{fmtI(qty * price)}</td>
-                                                {!hideMasterMatch && <td style={{ minWidth: isManual ? 0 : 180, maxWidth: 200 }}>
-                                                    {isManual ? null : hasSugg ? (
+                                                {!hideMasterMatch && <td style={{ minWidth: isManual ? 0 : 220, position: 'relative' }}>
+                                                    {isManual ? null : (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                                                            <select
-                                                                value={selMasterId}
-                                                                onChange={e => selectMaster(idx, e.target.value)}
-                                                                disabled={isNew}
-                                                                style={{
-                                                                    fontSize: 12, fontFamily: 'monospace', padding: '5px 8px',
-                                                                    border: `0.5px solid ${isNew ? 'var(--gry-bd)' : 'var(--blu-bd)'}`,
-                                                                    borderRadius: 5,
-                                                                    background: isNew ? 'var(--gry-bg)' : 'var(--blu-bg)',
-                                                                    color: isNew ? 'var(--gry-tx)' : 'var(--blu-tx)',
-                                                                    outline: 'none', cursor: isNew ? 'default' : 'pointer',
-                                                                    opacity: isNew ? 0.5 : 1, width: '100%',
-                                                                }}
-                                                            >
-                                                                {item.suggestions.map((s: any) => {
-                                                                    const mId = String(s.master_item_id)
-                                                                    const m = masterItems.find((x: any) => String(x.id) === mId || String(x.hash_id) === mId)
-                                                                    const lp = m ? Number(m.unit_rate ?? m.item_price ?? 0) : 0
-                                                                    const delta = lp > 0 ? (price - lp) / lp * 100 : null
-                                                                    const dStr = delta !== null ? (delta >= 0 ? `▲${Math.abs(Math.round(delta))}%` : `▼${Math.abs(Math.round(delta))}%`) : ''
-                                                                    return (
-                                                                        <option key={mId} value={mId}>
-                                                                            {mId} — {(s.description || '').substring(0, 28)}{lp > 0 ? ` (${fmtI(lp)})` : ''} {dStr}
-                                                                        </option>
-                                                                    )
-                                                                })}
-                                                            </select>
-                                                            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                                            {/* Custom Rich Dropdown */}
+                                                            <div className="relative w-full">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setActiveDropdownIdx(activeDropdownIdx === idx ? null : idx)}
+                                                                    disabled={isNew}
+                                                                    style={{
+                                                                        fontSize: 13, padding: '7px 10px',
+                                                                        border: `0.5px solid ${isNew ? 'var(--gry-bd)' : 'var(--blu-bd)'}`,
+                                                                        borderRadius: 6,
+                                                                        background: isNew ? 'var(--gry-bg)' : 'var(--bg)',
+                                                                        color: isNew ? 'var(--gry-tx)' : 'var(--tx)',
+                                                                        outline: 'none', cursor: isNew ? 'default' : 'pointer',
+                                                                        opacity: isNew ? 0.5 : 1, width: '100%',
+                                                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                                        textAlign: 'left',
+                                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                                                    }}
+                                                                >
+                                                                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                        {(() => {
+                                                                            const s = item.suggestions?.find((x: any) => String(x.master_item_id) === selMasterId)
+                                                                            if (s) return <><div style={{ fontWeight: 600, fontSize: 13, color: 'var(--blu-tx)' }}>{s.description}</div><div style={{ fontSize: 11, color: 'var(--tx3)' }}>{s.code || 'N/A'} — {fmtI(Number(s.unit_rate ?? 0))}</div></>
+                                                                            const m = masterItems.find((x: any) => String(x.id) === selMasterId || String(x.hash_id) === selMasterId)
+                                                                            if (m) return <><div style={{ fontWeight: 600, fontSize: 13, color: 'var(--blu-tx)' }}>{m.description}</div><div style={{ fontSize: 11, color: 'var(--tx3)' }}>{m.code || 'N/A'} — {fmtI(Number(m.unit_rate ?? 0))}</div></>
+                                                                            return <span style={{ color: 'var(--tx3)' }}>Select Match...</span>
+                                                                        })()}
+                                                                    </div>
+                                                                    <i className={`ti ti-chevron-down ml-2 transition-transform ${activeDropdownIdx === idx ? 'rotate-180' : ''}`} />
+                                                                </button>
+
+                                                                {activeDropdownIdx === idx && (
+                                                                    <div
+                                                                        ref={dropdownRef}
+                                                                        style={{
+                                                                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
+                                                                            marginTop: 4, background: '#fff', border: '0.5px solid var(--bdm)',
+                                                                            borderRadius: 8, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                                                                            maxHeight: 280, overflowY: 'auto'
+                                                                        }}
+                                                                    >
+                                                                        {(item.suggestions || []).map((s: any) => {
+                                                                            const mId = String(s.master_item_id)
+                                                                            const isSelected = mId === selMasterId
+                                                                            const rate = Number(s.unit_rate ?? 0)
+                                                                            return (
+                                                                                <div
+                                                                                    key={mId}
+                                                                                    onMouseDown={(e) => {
+                                                                                        e.preventDefault()
+                                                                                        selectMaster(idx, mId)
+                                                                                        setActiveDropdownIdx(null)
+                                                                                    }}
+                                                                                    style={{
+                                                                                        padding: '10px 12px', cursor: 'pointer',
+                                                                                        borderBottom: '0.5px solid var(--bd)',
+                                                                                        background: isSelected ? 'var(--blu-bg)' : 'transparent',
+                                                                                        transition: 'background 0.15s ease'
+                                                                                    }}
+                                                                                    onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'var(--bg-s)')}
+                                                                                    onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'transparent')}
+                                                                                >
+                                                                                    <div style={{ fontSize: 13, fontWeight: 600, color: isSelected ? 'var(--blu-tx)' : 'var(--tx)', marginBottom: 2 }}>
+                                                                                        {s.description}
+                                                                                    </div>
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
+                                                                                        <div style={{ color: 'var(--tx3)' }}>
+                                                                                            {s.code || 'N/A'} — <span style={{ fontStyle: 'italic' }}>{(s.description || '').substring(0, 20)}...</span>
+                                                                                        </div>
+                                                                                        <div style={{ fontWeight: 700, color: 'var(--tel-tx)' }}>
+                                                                                            {fmtI(rate)}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )
+                                                                        })}
+                                                                        {(!item.suggestions || item.suggestions.length === 0) && (
+                                                                            <div style={{ padding: '12px', fontSize: 12, color: 'var(--tx3)', textAlign: 'center' }}>
+                                                                                No AI suggestions found
+                                                                            </div>
+                                                                        )}
+                                                                        <div
+                                                                            onMouseDown={() => {
+                                                                                setAddRowActive(true)
+                                                                                setActiveDropdownIdx(null)
+                                                                            }}
+                                                                            style={{ padding: '10px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 6, borderTop: '0.5px solid var(--bd)' }}
+                                                                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-s)')}
+                                                                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                                                        >
+                                                                            <i className="ti ti-search" /> Search more in catalogue
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4 }}>
                                                                 <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--tx2)', cursor: 'pointer' }}>
                                                                     <input type="checkbox" checked={isNew} onChange={e => toggleCreateNew(idx, e.target.checked)} style={{ accentColor: 'var(--grn-bd)', width: 12, height: 12 }} />
                                                                     <span>Create New</span>
@@ -341,17 +426,6 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                         : <span style={{ color: 'var(--blu-tx)', fontWeight: 600 }}><i className="ti ti-link" style={{ fontSize: 11, marginRight: 2 }} />Using existing master item</span>
                                                                 }
                                                             </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                                                            <div style={{ fontSize: 13, color: 'var(--amb-tx)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                                <i className="ti ti-search-off" style={{ fontSize: 13 }} />No match found
-                                                            </div>
-                                                            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--tx2)', cursor: 'pointer' }}>
-                                                                <input type="checkbox" checked={isNew && !isSkip} onChange={e => toggleCreateNew(idx, e.target.checked)} style={{ accentColor: 'var(--grn-bd)', width: 12, height: 12 }} />
-                                                                <span style={{ color: 'var(--grn-tx)', fontWeight: 500 }}>Create New Master Item</span>
-                                                            </label>
-            
                                                         </div>
                                                     )}
                                                 </td>}
@@ -393,9 +467,9 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                             onClick={() => { setAddRowActive(false); setAddSearch('') }}
                                                             style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: 'var(--tx3)', fontSize: 13, lineHeight: 1, flexShrink: 0 }}
                                                             title="Cancel"
-                                                          >
+                                                        >
                                                             <i className="ti ti-x" />
-                                                          </button>
+                                                        </button>
                                                     }
                                                 </div>
 
@@ -507,8 +581,8 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                         <div className="card-title"><i className="ti ti-info-circle" /> Action Guide</div>
                     </div>
                     <div className="card-body" style={{ fontSize: 13, color: 'var(--tx2)', lineHeight: 2 }}>
-                        <div><span className="tag t-match" style={{ marginRight: 8, marginBottom:8 }}>Match</span>Link to an existing master item</div>
-                        <div><span className="tag t-new" style={{ marginRight: 8}}>New</span>Create a new master item</div>
+                        <div><span className="tag t-match" style={{ marginRight: 8, marginBottom: 8 }}>Match</span>Link to an existing master item</div>
+                        <div><span className="tag t-new" style={{ marginRight: 8 }}>New</span>Create a new master item</div>
                     </div>
                 </div>
             </div>
