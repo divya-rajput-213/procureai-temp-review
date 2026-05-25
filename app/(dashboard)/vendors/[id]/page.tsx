@@ -948,15 +948,14 @@ export default function VendorDetailPage() {
               <div className="vd-val">{[vendor.plant_name, vendor.category_name].filter(Boolean).join(' / ') || '—'}</div>
             </div>
             <div className="vd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
-              <div className="vd-lbl">Vendor Type</div>
-              <div className="vd-val">{vendor.vendor_type || '—'}</div>
+              <div className="vd-lbl">Vendor ID</div>
+              <div className="vd-val">{vendor.vendor_code || '—'}</div>
             </div>
           </div>
 
           {/* Row 3 — key metadata strip */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
             {[
-              { label: 'Vendor ID', value: vendor.vendor_code },
               { label: 'GSTIN', value: vendor.gst_number },
               { label: 'PAN', value: vendor.pan_number },
               { label: 'MSME', value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
