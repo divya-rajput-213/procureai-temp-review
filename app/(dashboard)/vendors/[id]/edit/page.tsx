@@ -1,12 +1,14 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/api/client'
 import VendorForm from '../../components/Vendorform'
 
 export default function EditVendorPage() {
   const { id } = useParams()
+  const searchParams = useSearchParams()
+  const initialStep = Number(searchParams.get('step') ?? 0)
 
   const { data: vendor, isLoading } = useQuery({
     queryKey: ['vendor', id],
@@ -62,6 +64,7 @@ export default function EditVendorPage() {
       onSuccess={undefined}
       setIsEditing={undefined}
       vendorStatus={vendor.status}
+      initialStep={initialStep}
     />
   )
 }

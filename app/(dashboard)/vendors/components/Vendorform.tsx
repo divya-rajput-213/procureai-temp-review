@@ -593,9 +593,10 @@ interface VendorFormProps {
   onSuccess?: (vendorId: string) => void
   setIsEditing?: React.Dispatch<React.SetStateAction<boolean>> | (() => void)
   vendorStatus?: string
+  initialStep?: number
 }
 
-export default function VendorForm({ vendorId: existingVendorId, initialValues, onSuccess, setIsEditing, vendorStatus }: VendorFormProps) {
+export default function VendorForm({ vendorId: existingVendorId, initialValues, onSuccess, setIsEditing, vendorStatus, initialStep = 0 }: VendorFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -605,8 +606,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const isDocReadOnly = isEdit && !['draft', 'pending_approval'].includes(vendorStatus ?? '')
   const isReadOnly = isFieldReadOnly
 
-  const [step, setStep] = useState(0)
-  const [maxStep, setMaxStep] = useState(0)
+  const [step, setStep] = useState(initialStep)
+  const [maxStep, setMaxStep] = useState(initialStep)
   const [vendorId, setVendorId] = useState<string | null>(existingVendorId ?? null)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
@@ -1399,7 +1400,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
                   {/* GST */}
                   <div style={{ border: `0.5px solid ${complianceErrors['field_gst_number'] ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)', cursor: 'pointer' }} onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, gst_certificate: !prev.gst_certificate }))}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--blu-bg)', color: 'var(--blu-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                           <i className="ti ti-file-certificate" />
@@ -1416,9 +1417,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
                         </div>
                       </div>
-                      <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, gst_certificate: !prev.gst_certificate }))} title="Toggle">
-                        <i className={`ti ti-chevron-${expandedComplianceDocs.gst_certificate ? 'up' : 'down'}`} />
-                      </button>
+                      <i className={`ti ti-chevron-${expandedComplianceDocs.gst_certificate ? 'up' : 'down'}`} style={{ fontSize: 14, color: 'var(--tx3)' }} />
                     </div>
                     {expandedComplianceDocs.gst_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
@@ -1449,7 +1448,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
                   {/* PAN */}
                   <div style={{ border: `0.5px solid ${complianceErrors['field_pan_number'] ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)', cursor: 'pointer' }} onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, pan_card: !prev.pan_card }))}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--grn-bg)', color: 'var(--grn-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                           <i className="ti ti-id" />
@@ -1466,9 +1465,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
                         </div>
                       </div>
-                      <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, pan_card: !prev.pan_card }))} title="Toggle">
-                        <i className={`ti ti-chevron-${expandedComplianceDocs.pan_card ? 'up' : 'down'}`} />
-                      </button>
+                      <i className={`ti ti-chevron-${expandedComplianceDocs.pan_card ? 'up' : 'down'}`} style={{ fontSize: 14, color: 'var(--tx3)' }} />
                     </div>
                     {expandedComplianceDocs.pan_card && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
@@ -1499,7 +1496,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
                   {/* Bank */}
                   <div style={{ border: `0.5px solid ${complianceErrors['field_bank_account'] ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)', cursor: 'pointer' }} onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, bank_details: !prev.bank_details }))}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--pur-bg)', color: 'var(--pur-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                           <i className="ti ti-building-bank" />
@@ -1516,9 +1513,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
                         </div>
                       </div>
-                      <button type="button" className="btn btn-sm" onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, bank_details: !prev.bank_details }))} title="Toggle">
-                        <i className={`ti ti-chevron-${expandedComplianceDocs.bank_details ? 'up' : 'down'}`} />
-                      </button>
+                      <i className={`ti ti-chevron-${expandedComplianceDocs.bank_details ? 'up' : 'down'}`} style={{ fontSize: 14, color: 'var(--tx3)' }} />
                     </div>
                     {expandedComplianceDocs.bank_details && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
@@ -1577,7 +1572,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                   {/* MSME */}
                   <input type="hidden" {...register('is_msme')} />
                   <div style={{ border: `0.5px solid ${errors.is_msme ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-s)' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-s)', cursor: 'pointer' }} onClick={() => { const next = !expandedComplianceDocs.msme_certificate; setExpandedComplianceDocs(prev => ({ ...prev, msme_certificate: next })); setValue('is_msme', next) }}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--grn-bg)', color: 'var(--grn-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
                         <i className="ti ti-certificate-2" />
                       </div>
@@ -1592,7 +1587,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
                       </div>
-                      <ToggleSwitch enabled={!!expandedComplianceDocs.msme_certificate} disabled={isComplianceReadOnly} onChange={next => { setExpandedComplianceDocs(prev => ({ ...prev, msme_certificate: next })); setValue('is_msme', next) }} />
+                      <div onClick={e => e.stopPropagation()}>
+                        <ToggleSwitch enabled={!!expandedComplianceDocs.msme_certificate} disabled={isComplianceReadOnly} onChange={next => { setExpandedComplianceDocs(prev => ({ ...prev, msme_certificate: next })); setValue('is_msme', next) }} />
+                      </div>
                     </div>
                     {expandedComplianceDocs.msme_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
@@ -1617,7 +1614,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                   {/* SEZ */}
                   <input type="hidden" {...register('is_sez')} />
                   <div style={{ border: `0.5px solid ${errors.is_sez ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-s)' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-s)', cursor: 'pointer' }} onClick={() => { const next = !expandedComplianceDocs.sez_certificate; setExpandedComplianceDocs(prev => ({ ...prev, sez_certificate: next })); setValue('is_sez', next) }}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--pur-bg)', color: 'var(--pur-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
                         <i className="ti ti-building-estate" />
                       </div>
@@ -1632,7 +1629,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Special Economic Zone registered unit</div>
                       </div>
-                      <ToggleSwitch enabled={!!expandedComplianceDocs.sez_certificate} disabled={isComplianceReadOnly} onChange={next => { setExpandedComplianceDocs(prev => ({ ...prev, sez_certificate: next })); setValue('is_sez', next) }} />
+                      <div onClick={e => e.stopPropagation()}>
+                        <ToggleSwitch enabled={!!expandedComplianceDocs.sez_certificate} disabled={isComplianceReadOnly} onChange={next => { setExpandedComplianceDocs(prev => ({ ...prev, sez_certificate: next })); setValue('is_sez', next) }} />
+                      </div>
                     </div>
                     {expandedComplianceDocs.sez_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>
@@ -1650,7 +1649,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                   {/* ISO / Quality Certificate — multi-row, optional */}
                   <hr className="form-divider" style={{ marginTop: 14 }} />
                   <div style={{ border: `0.5px solid ${Object.keys(complianceErrors).some(k => k.startsWith('field_iso_')) ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-s)' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-s)', cursor: 'pointer' }} onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: !prev.iso_certificate }))}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--amb-bg)', color: 'var(--amb-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
                         <i className="ti ti-award" />
                       </div>
@@ -1665,7 +1664,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--tx3)' }}>{expandedComplianceDocs.iso_certificate ? `${isoRows.length} document${isoRows.length !== 1 ? 's' : ''}` : 'Optional — enable to upload'}</div>
                       </div>
-                      <ToggleSwitch enabled={!!expandedComplianceDocs.iso_certificate} disabled={isComplianceReadOnly} onChange={next => setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: next }))} />
+                      <div onClick={e => e.stopPropagation()}>
+                        <ToggleSwitch enabled={!!expandedComplianceDocs.iso_certificate} disabled={isComplianceReadOnly} onChange={next => setExpandedComplianceDocs(prev => ({ ...prev, iso_certificate: next }))} />
+                      </div>
                     </div>
                     {expandedComplianceDocs.iso_certificate && (
                       <div style={{ padding: 16, borderTop: '0.5px solid var(--bd)' }}>

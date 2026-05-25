@@ -1018,7 +1018,7 @@ export default function VendorDetailPage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#9a9a96', textTransform: 'uppercase', letterSpacing: '.5px' }}>Compliance Documents</div>
               {canUploadDoc && (
-                <Button variant="outline" size="sm" className="text-[12px] h-7 gap-1.5" onClick={() => router.push(`/vendors/${id}/edit`)}>
+                <Button variant="outline" size="sm" className="text-[12px] h-7 gap-1.5" onClick={() => router.push(`/vendors/${id}/edit?step=1`)}>
                   <FileText className="w-[13px] h-[13px]" />
                   Upload Documents
                 </Button>
@@ -1032,7 +1032,7 @@ export default function VendorDetailPage() {
               const isOpen = expandedDocs.gst_certificate ?? !!vendor.gst_number
               return (
                 <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, gst_certificate: !isOpen }))}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                         <i className="ti ti-file-certificate" />
@@ -1049,9 +1049,7 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
                       </div>
                     </div>
-                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, gst_certificate: !isOpen }))}>
-                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                    </button>
+                    <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96' }} />
                   </div>
                   {isOpen && (
                     <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -1073,7 +1071,7 @@ export default function VendorDetailPage() {
               const isOpen = expandedDocs.pan_card ?? !!vendor.pan_number
               return (
                 <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, pan_card: !isOpen }))}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                         <i className="ti ti-id" />
@@ -1090,9 +1088,7 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
                       </div>
                     </div>
-                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, pan_card: !isOpen }))}>
-                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                    </button>
+                    <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96' }} />
                   </div>
                   {isOpen && (
                     <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -1114,7 +1110,7 @@ export default function VendorDetailPage() {
               const isOpen = expandedDocs.bank_details ?? !!vendor.bank_account
               return (
                 <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, bank_details: !isOpen }))}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                         <i className="ti ti-building-bank" />
@@ -1131,9 +1127,7 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
                       </div>
                     </div>
-                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, bank_details: !isOpen }))}>
-                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                    </button>
+                    <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96' }} />
                   </div>
                   {isOpen && (
                     <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -1169,7 +1163,7 @@ export default function VendorDetailPage() {
               const isOpen = expandedDocs.msme_certificate ?? isEnabled
               return (
                 <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, msme_certificate: !isOpen }))}>
                     <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
                       <i className="ti ti-certificate-2" />
                     </div>
@@ -1182,9 +1176,7 @@ export default function VendorDetailPage() {
                       </div>
                       <div style={{ fontSize: 11, color: '#9a9a96' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
                     </div>
-                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, msme_certificate: !isOpen }))}>
-                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                    </button>
+                    <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96', flexShrink: 0 }} />
                   </div>
                   {isOpen && (
                     <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -1208,7 +1200,7 @@ export default function VendorDetailPage() {
               const isOpen = expandedDocs.sez_certificate ?? isEnabled
               return (
                 <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, sez_certificate: !isOpen }))}>
                     <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
                       <i className="ti ti-building-estate" />
                     </div>
@@ -1221,9 +1213,7 @@ export default function VendorDetailPage() {
                       </div>
                       <div style={{ fontSize: 11, color: '#9a9a96' }}>Special Economic Zone registered unit</div>
                     </div>
-                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, sez_certificate: !isOpen }))}>
-                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                    </button>
+                    <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96', flexShrink: 0 }} />
                   </div>
                   {isOpen && (
                     <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -1243,7 +1233,7 @@ export default function VendorDetailPage() {
                 <>
                   <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)', margin: '14px 0 12px' }} />
                   <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, iso: !isOpen }))}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: '#fffbeb', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
                         <i className="ti ti-award" />
                       </div>
@@ -1251,9 +1241,7 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 13, fontWeight: 600 }}>ISO / Quality Certificates</div>
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>{isoDocs.length > 0 ? `${isoDocs.length} document${isoDocs.length !== 1 ? 's' : ''}` : 'No documents uploaded'}</div>
                       </div>
-                      <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, iso: !isOpen }))}>
-                        <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                      </button>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96', flexShrink: 0 }} />
                     </div>
                     {isOpen && (
                       <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
