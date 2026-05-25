@@ -762,7 +762,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
           </CardContent>
         </Card>
 
-        <Card className="rounded-xl border shadow-none">
+        {/* <Card className="rounded-xl border shadow-none">
           <CardHeader className="py-3 px-4 border-b">
             <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
               <Truck className="h-3.5 w-3.5" />
@@ -784,7 +784,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <p className="text-[10px] text-muted-foreground text-center mt-1">{stats.otd_pct}% on-time delivery</p>
             )}
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </div>
   )
