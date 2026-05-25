@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { AlertCircle, Loader2, X, Check, ChevronRight } from 'lucide-react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import { useToast } from '@/components/ui/use-toast'
@@ -21,6 +21,7 @@ const STEPS = [
 export default function UploadQuotationPage() {
     const { toast } = useToast()
     const router = useRouter()
+    const queryClient = useQueryClient()
 
     const [currentStep, setCurrentStep] = useState(0)
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
@@ -181,8 +182,8 @@ export default function UploadQuotationPage() {
         onSuccess: (data: any) => {
             toast({ title: 'Success', description: data?.message || 'Quotation saved successfully' })
             setShowConfirm(false)
-            const id = data?.hash_id || data?.id
-            router.push(id ? `/quotation/detail/${id}` : '/quotation')
+            queryClient.invalidateQueries({ queryKey: ['quotations'] })
+            router.push('/quotation')
         },
         onError: (error: any) => {
             const message = getApiErrorMessage(error, 'Failed to save quotation.')
@@ -447,17 +448,6 @@ export default function UploadQuotationPage() {
                         <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>Upload document · Extract &amp; match items · Submit for approval</div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        {currentStep === 1 && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setShowExportModal(true)}
-                                disabled={lineItems.length === 0}
-                                className="gap-1.5"
-                            >
-                                <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
-                            </Button>
-                        )}
                         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/quotation')}>
                             <i className="ti ti-arrow-left" /> Back
                         </Button>
@@ -543,6 +533,7 @@ export default function UploadQuotationPage() {
                         masterItems={masterItems}
                         onContinue={handleStep1Continue}
                         onBack={() => setCurrentStep(0)}
+                        onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
                     />
                 )}
 
@@ -606,10 +597,10 @@ export default function UploadQuotationPage() {
                 description={
                     <>
                         Submit quotation from <strong>{vendors?.company_name || 'the vendor'}</strong> with{' '}
-                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} for approval?
+                        <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''}?
                     </>
                 }
-                confirmLabel="Submit for Approval"
+                confirmLabel="Submit"
                 onClose={() => setShowConfirm(false)}
                 onConfirm={() => quotationSaveMutation.mutate()}
                 isPending={quotationSaveMutation.isPending}

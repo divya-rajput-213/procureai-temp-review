@@ -9,8 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, MapPin, LayoutDashboard, ShieldCheck, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt, AlertTriangle, ChevronLeft } from 'lucide-react'
-import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency } from '@/lib/utils'
+import { Loader2, CheckCircle, XCircle, Clock, SendHorizonal, Pencil, ShoppingCart, Award, MapPin, LayoutDashboard, ShieldCheck, CheckCircle2, FileBadge, CreditCard, Landmark, Building2, BadgeCheck, User, ChartNoAxesColumnIncreasing, FileText, TrendingUp, Trophy, Truck, Receipt, AlertTriangle } from 'lucide-react'
+import { formatDate, formatDateTime, getSLAPercentage, getSLAColor, formatCurrency, DOC_TYPE_LABELS } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import {
@@ -54,7 +54,7 @@ function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[];
   if (!actions?.length) return null
   return (
     <div className="px-4 py-3 bg-white border-b">
-      <p className="text-[13px] font-semibold   tracking-wide mb-2">Approval Timeline</p>
+      <p className="text-[13px] font-semibold tracking-wide mb-2">Approval Timeline</p>
       {requestedAt && (
         <p className="text-[11px] text-muted-foreground mb-2">Requested for approval: <span className="font-medium text-slate-700">{formatDateTime(requestedAt)}</span></p>
       )}
@@ -199,12 +199,12 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
 
   return (
     <div>
-   {matrices === undefined && (
-  <div className="flex items-center justify-center gap-2 w-full py-4 text-sm text-muted-foreground">
-    <Loader2 className="w-4 h-4 animate-spin" />
-    <span>Loading matrices…</span>
-  </div>
-)}
+      {matrices === undefined && (
+        <div className="flex items-center justify-center gap-2 w-full py-4 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Loading matrices…</span>
+        </div>
+      )}
       {matrices && matrixCount === 0 && (
         <p className="text-xs text-amber-600 font-medium">No active PR approval matrices configured. The system will use the default matrix.</p>
       )}
@@ -215,10 +215,10 @@ function SubmitForApprovalPanel({ vendorId, onSuccess }: { vendorId: string | st
           expandedMatrix={expandedMatrix}
           onSelect={(id) => {
             setSelectedMatrix(id)
-            setExpandedMatrix(id) // Expands the matrix when selected
+            setExpandedMatrix(id)
           }}
           onToggleExpand={(id) => {
-            setExpandedMatrix(prev => (prev === id ? null : id)) // Toggles expand/collapse
+            setExpandedMatrix(prev => (prev === id ? null : id))
           }}
         />
       )}
@@ -333,11 +333,9 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
   )
 }
 
-// ─── VendorDashboard — matches reference exactly ──────────────────────────────
+// ─── VendorDashboard ──────────────────────────────────────────────────────────
 function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, isLoading: boolean }) {
-
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
-
   if (!dash) return null
 
   const stats = dash?.stats ?? {}
@@ -345,10 +343,12 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
   const recentQuotations: any[] = dash?.recent_quotations ?? []
   const recentInvoices: any[] = dash?.recent_invoices ?? []
   const scorecard = dash?.scorecard ?? null
-
+  const viewQuotationHref = '/quotation'
+  const openInNewTab = (href: string) => window.open(href, '_blank', 'noopener,noreferrer')
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[70%_1fr] gap-4 min-w-0">      {/* LEFT */}
+    <div className="grid grid-cols-1 xl:grid-cols-[70%_1fr] gap-4 min-w-0">
+      {/* LEFT */}
       <div className="space-y-4 min-w-0 overflow-x-hidden">
         {/* Purchase Orders */}
         <Card>
@@ -357,11 +357,11 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <span><ShoppingCart className="h-3.5 w-3.5" /></span>
               Recent Purchase Orders
             </CardTitle>
-            <Link href="/purchase-orders"><Button variant="outline" size="sm" className="text-[12px] h-7">View</Button></Link>
+            <Link href="/purchase-orders" target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="text-[12px] h-7">View</Button>
+            </Link>
           </CardHeader>
-
           <CardContent className="p-0">
-
             <table className="w-full text-[12px]">
               <thead className="bg-slate-50">
                 <tr>
@@ -375,7 +375,11 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <tbody>
                 {recentPOs.length ? (
                   recentPOs.slice(0, 5).map((po: any) => (
-                    <tr key={po.id} className="border-t hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={po.id}
+                      onClick={() => { if (!po?.id) return; openInNewTab(`/purchase-orders/${po.id}`) }}
+                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-2.5 font-mono text-[11px]">{po.po_number || '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{po.po_type_display || po.po_type || '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{po.plant_name || '—'}</td>
@@ -390,9 +394,9 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 )}
               </tbody>
             </table>
-
           </CardContent>
         </Card>
+
         {/* Recent Quotations */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
           <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
@@ -400,7 +404,9 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <FileText className="h-3.5 w-3.5" />
               Recent Quotations
             </CardTitle>
-            <Link href="/quotations"><Button variant="outline" size="sm" className="text-[12px] h-7">View</Button></Link>
+            <Link href={viewQuotationHref} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="text-[12px] h-7">View</Button>
+            </Link>
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-[12px]">
@@ -416,14 +422,20 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <tbody>
                 {recentQuotations.length ? (
                   recentQuotations.slice(0, 5).map((q: any) => (
-                    <tr key={q.id ?? q.bid_id} className="border-t hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={q.id ?? q.bid_id}
+                      onClick={() => {
+                        const quotationId = q?.hash_id ?? q?.id ?? q?.bid_id
+                        if (!quotationId) return
+                        openInNewTab(`/quotation/detail/${quotationId}`)
+                      }}
+                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{q.ref_no || q.pr_number || '—'}</td>
                       <td className="px-4 py-2.5 max-w-[160px] truncate">{q.quotation_no || q.title || '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{q.valid_until ? formatDate(q.valid_until) : '—'}</td>
                       <td className="px-4 py-2.5 text-right">{(q.total_amount ?? q.bid_amount) != null ? formatCurrency(q.total_amount ?? q.bid_amount) : '—'}</td>
-                      <td className="px-4 py-2.5 text-center">
-                        <StatusBadge status={q.status} />
-                      </td>
+                      <td className="px-4 py-2.5 text-center"><StatusBadge status={q.status} /></td>
                     </tr>
                   ))
                 ) : (
@@ -435,6 +447,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </table>
           </CardContent>
         </Card>
+
         {/* Recent Invoices */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
           <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
@@ -442,7 +455,9 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <Receipt className="h-3.5 w-3.5" />
               Recent Invoices
             </CardTitle>
-            <Link href="/invoices"><Button variant="outline" size="sm" className="text-[12px] h-7">View</Button></Link>
+            <Link href="/invoices" target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="text-[12px] h-7">View</Button>
+            </Link>
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-[12px]">
@@ -459,15 +474,17 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               <tbody>
                 {recentInvoices.length ? (
                   recentInvoices.slice(0, 5).map((inv: any) => (
-                    <tr key={inv.id} className="border-t hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={inv.id}
+                      onClick={() => { if (!inv?.id) return; openInNewTab(`/invoices/${inv.id}`) }}
+                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-2.5 font-mono text-[11px]">{inv.invoice_number || '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground capitalize">{inv.invoice_type?.replace(/_/g, ' ') || '—'}</td>
                       <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{inv.po_number || '—'}</td>
                       <td className="px-4 py-2.5 text-right">{inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
-                      <td className="px-4 py-2.5 text-center">
-                        <StatusBadge status={inv.status} />
-                      </td>
+                      <td className="px-4 py-2.5 text-center"><StatusBadge status={inv.status} /></td>
                     </tr>
                   ))
                 ) : (
@@ -480,7 +497,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
           </CardContent>
         </Card>
 
-        {/* ── Charts ───────────────────────────────────────────────────────── */}
         {/* Monthly Spend Trend */}
         <Card className="rounded-xl border shadow-none">
           <CardHeader className="py-3 px-4 border-b flex-row items-center justify-between">
@@ -508,9 +524,9 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </ResponsiveContainer>
           </CardContent>
         </Card>
-        {/* Bid Win Rate + Delivery Performance side by side */}
+
+        {/* Bid Win Rate + Delivery Performance */}
         <div className="grid grid-cols-2 gap-4">
-          {/* Bid Win Rate Donut — 3 segments: won / rejected / pending */}
           <Card className="rounded-xl border shadow-none">
             <CardHeader className="py-3 px-4 border-b">
               <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
@@ -560,7 +576,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </CardContent>
           </Card>
 
-          {/* Delivery Performance — trend line over 6 months */}
           <Card className="rounded-xl border shadow-none">
             <CardHeader className="py-3 px-4 border-b">
               <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
@@ -580,20 +595,15 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 </LineChart>
               </ResponsiveContainer>
               {stats.otd_pct != null && (
-                <p className="text-[10px] text-muted-foreground text-center mt-1">
-                  {stats.otd_pct}% on-time delivery
-                </p>
+                <p className="text-[10px] text-muted-foreground text-center mt-1">{stats.otd_pct}% on-time delivery</p>
               )}
             </CardContent>
           </Card>
-
         </div>
-
       </div>
 
       {/* RIGHT SIDEBAR */}
       <div className="space-y-4 min-w-0">
-
         {/* Compliance */}
         <Card className="rounded-xl border shadow-none overflow-hidden">
           <CardHeader className="py-2 px-3 border-b">
@@ -614,12 +624,12 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               }
 
               const allItems = [
-                { label: 'GST',          docType: 'gst_certificate',  value: vendor.gst_number,  icon: FileBadge,  bg: 'bg-blue-100',   color: 'text-blue-700',   empty: 'Missing',    mono: true,  show: true },
-                { label: 'PAN',          docType: 'pan_card',         value: vendor.pan_number,  icon: CreditCard, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Missing',    mono: true,  show: true },
-                { label: 'Bank',         docType: 'bank_details',     value: vendor.bank_account ? `••${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true, show: true },
-                { label: 'MSME',         docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100',  color: 'text-green-700',  empty: '—',          mono: false, show: !!vendor.is_msme },
-                { label: 'SEZ',          docType: 'sez_certificate',  value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: '—', mono: false, show: !!vendor.is_sez },
-                { label: 'ISO / Quality',docType: 'iso_certificate',  value: docOf('iso_certificate') ? 'Uploaded' : null, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: '—', mono: false, show: !!docOf('iso_certificate') },
+                { label: 'GST',           docType: 'gst_certificate',  value: vendor.gst_number,  icon: FileBadge,  bg: 'bg-blue-100',   color: 'text-blue-700',   empty: 'Missing',      mono: true,  show: true },
+                { label: 'PAN',           docType: 'pan_card',         value: vendor.pan_number,  icon: CreditCard, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Missing',      mono: true,  show: true },
+                { label: 'Bank',          docType: 'bank_details',     value: vendor.bank_account ? `••${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true, show: true },
+                { label: 'MSME',          docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100',  color: 'text-green-700',  empty: '—',            mono: false, show: !!vendor.is_msme },
+                { label: 'SEZ',           docType: 'sez_certificate',  value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: '—', mono: false, show: !!vendor.is_sez },
+                { label: 'ISO / Quality', docType: 'iso_certificate',  value: docOf('iso_certificate') ? 'Uploaded' : null, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: '—', mono: false, show: !!docOf('iso_certificate') },
               ]
 
               return allItems.filter(item => item.show).map(item => {
@@ -636,17 +646,13 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 return (
                   <div key={item.label} className={`px-3 py-2.5 border-b last:border-0 ${expired ? 'bg-red-50/40' : expiringSoon ? 'bg-amber-50/40' : ''}`}>
                     <div className="flex items-center gap-2">
-                      {/* Icon */}
                       <div className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${item.bg}`}>
                         <Icon className={`h-3 w-3 ${item.color}`} />
                       </div>
-                      {/* Label */}
                       <span className="text-[11px] font-medium w-[68px] shrink-0">{item.label}</span>
-                      {/* Value */}
                       <span className={`text-[11px] text-slate-500 flex-1 truncate ${item.mono ? 'font-mono' : ''}`}>
                         {hasValue ? item.value : <span className="text-slate-300">{item.empty}</span>}
                       </span>
-                      {/* Verification tag */}
                       {hasValue && verified && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[9px] font-semibold shrink-0">
                           <CheckCircle2 className="h-2.5 w-2.5" />Verified
@@ -662,11 +668,8 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                           <Clock className="h-2.5 w-2.5" />No Doc
                         </span>
                       )}
-                      {!hasValue && (
-                        <XCircle className="h-3 w-3 text-slate-300 shrink-0" />
-                      )}
+                      {!hasValue && <XCircle className="h-3 w-3 text-slate-300 shrink-0" />}
                     </div>
-                    {/* Expiry row — only when set */}
                     {expiry && (
                       <div className="pl-8 mt-0.5">
                         <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${expired ? 'text-red-600' : expiringSoon ? 'text-amber-600' : 'text-slate-400'}`}>
@@ -688,50 +691,24 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
 
         {/* Contact */}
         <Card>
-
           <CardHeader className="py-3 px-4 border-b">
-
             <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-              <span><User className="h-3.5 w-3.5" /></span>
+              <User className="h-3.5 w-3.5" />
               Contact Details
             </CardTitle>
-
           </CardHeader>
-
-
           <CardContent className="p-4">
-
             <div className="flex gap-3">
-
-
               <div className="flex-1">
-
-                <div className="text-[13px] font-medium">
-                  {vendor.contact_name}
-                </div>
-
-                <div className="text-[11px] text-muted-foreground">
-                  Owner
-                </div>
-
+                <div className="text-[13px] font-medium">{vendor.contact_name}</div>
+                <div className="text-[11px] text-muted-foreground">Owner</div>
               </div>
-
-
               <div>
-
-                <div className="text-[12px]">
-                  {vendor.contact_email}                </div>
-
-                <div className="text-[11px] text-muted-foreground">
-                  {vendor.contact_phone}                </div>
-
+                <div className="text-[12px]">{vendor.contact_email}</div>
+                <div className="text-[11px] text-muted-foreground">{vendor.contact_phone}</div>
               </div>
-
-
             </div>
-
           </CardContent>
-
         </Card>
 
         {/* Vendor Scorecard */}
@@ -744,8 +721,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-
-              {/* Compliance */}
               {(() => {
                 const c = scorecard.compliance
                 const score: number = c?.score ?? 0
@@ -753,11 +728,11 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 const barColor = score >= 80 ? 'bg-green-500' : score >= 50 ? 'bg-amber-400' : 'bg-red-400'
                 const docs = c?.docs ?? {}
                 const docItems = [
-                  { key: 'gst',  label: 'GST' },
-                  { key: 'pan',  label: 'PAN' },
+                  { key: 'gst', label: 'GST' },
+                  { key: 'pan', label: 'PAN' },
                   { key: 'bank', label: 'Bank' },
                   { key: 'msme', label: 'MSME' },
-                  { key: 'iso',  label: 'ISO' },
+                  { key: 'iso', label: 'ISO' },
                 ]
                 return (
                   <div>
@@ -765,7 +740,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       <span className="text-[11px] font-semibold text-slate-600">Compliance</span>
                       <span className={`text-[13px] font-bold ${color}`}>{score}<span className="text-[10px] font-normal text-muted-foreground">/100</span></span>
                     </div>
-                    {/* Threshold bar — markers at 50 and 80 */}
                     <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
                       <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${score}%` }} />
                       <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '50%' }} />
@@ -792,7 +766,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 )
               })()}
 
-              {/* Bid Win Rate — only when data exists */}
               {scorecard.win_rate != null && (
                 <div className="border-t pt-3">
                   <div className="flex items-center justify-between mb-1.5">
@@ -801,7 +774,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       {scorecard.win_rate}<span className="text-[10px] font-normal text-muted-foreground">%</span>
                     </span>
                   </div>
-                  {/* Threshold bar — markers at 30 and 60 */}
                   <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
                     <div className={`h-full rounded-full transition-all ${scorecard.win_rate >= 60 ? 'bg-green-500' : scorecard.win_rate >= 30 ? 'bg-amber-400' : 'bg-red-400'}`}
                       style={{ width: `${scorecard.win_rate}%` }} />
@@ -812,7 +784,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                 </div>
               )}
 
-              {/* OTD — only when data exists */}
               {scorecard.otd != null && (
                 <div className="border-t pt-3">
                   <div className="flex items-center justify-between mb-1.5">
@@ -821,7 +792,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       {scorecard.otd}<span className="text-[10px] font-normal text-muted-foreground">%</span>
                     </span>
                   </div>
-                  {/* Threshold bar — markers at 60 and 85 */}
                   <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
                     <div className={`h-full rounded-full transition-all ${scorecard.otd >= 85 ? 'bg-green-500' : scorecard.otd >= 60 ? 'bg-amber-400' : 'bg-red-400'}`}
                       style={{ width: `${scorecard.otd}%` }} />
@@ -836,13 +806,49 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                   Win rate & delivery scores appear once bid activity is recorded.
                 </p>
               )}
-
             </CardContent>
           </Card>
         )}
-
       </div>
+    </div>
+  )
+}
 
+function DocFileCard({ doc }: { doc: any }) {
+  if (!doc) return (
+    <div style={{ fontSize: 12, color: '#9a9a96', padding: '10px 12px', background: '#f8f8f6', border: '0.5px dashed rgba(0,0,0,0.08)', borderRadius: 8, marginBottom: 12 }}>
+      No document uploaded
+    </div>
+  )
+  const isVerified = ['passed', 'warning'].includes(doc.ai_validation_status)
+  const isFailed = doc.ai_validation_status === 'failed'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#f8f8f6', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, marginBottom: 12 }}>
+      <div style={{ width: 32, height: 32, borderRadius: 6, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <i className="ti ti-file" style={{ fontSize: 14, color: '#2563eb' }} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {doc.original_filename || doc.title || 'Document'}
+        </div>
+        {doc.valid_till && (
+          <div style={{ fontSize: 11, color: '#9a9a96' }}>
+            Valid till {new Date(doc.valid_till).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+          </div>
+        )}
+      </div>
+      {doc.ai_validation_status && (
+        <span style={{
+          fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
+          background: isVerified ? '#dcfce7' : isFailed ? '#fee2e2' : '#f1f5f9',
+          color: isVerified ? '#166534' : isFailed ? '#991b1b' : '#64748b',
+        }}>
+          {isVerified ? '✓ Verified' : isFailed ? '✗ Failed' : '⏳ Pending'}
+        </span>
+      )}
+      {doc.file_url && (
+        <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#2563eb', fontWeight: 500, textDecoration: 'none', flexShrink: 0 }}>View</a>
+      )}
     </div>
   )
 }
@@ -854,13 +860,14 @@ export default function VendorDetailPage() {
 
   const queryClient = useQueryClient()
   const [activeTabKey, setActiveTabKey] = useState<'overview' | 'documents' | 'approval'>('overview')
+  const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({})
 
   const { data: vendor, isLoading } = useQuery({
     queryKey: ['vendor', id],
     queryFn: async () => (await apiClient.get(`/vendors/${id}/`)).data,
   })
 
-  const { data: dash, isLoading: dashLoading, } = useQuery({
+  const { data: dash, isLoading: dashLoading } = useQuery({
     queryKey: ['vendor-dashboard', id],
     queryFn: async () => (await apiClient.get(`/vendors/${id}/dashboard/`)).data,
   })
@@ -871,9 +878,6 @@ export default function VendorDetailPage() {
     enabled: activeTabKey === 'documents',
   })
 
-
-
-
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
   if (!vendor) return <div className="p-8 text-center text-muted-foreground">Vendor not found.</div>
 
@@ -882,289 +886,402 @@ export default function VendorDetailPage() {
   const isLocked = ['rejected', 'blocked'].includes(vendor.status)
 
   const tabs = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'documents', label: 'Documents' },
-    { key: 'approval', label: 'Approval' },
+    { key: 'overview',   label: 'Overview'   },
+    { key: 'documents',  label: 'Documents'  },
+    { key: 'approval',   label: 'Approval'   },
   ]
+
   return (
     <>
+      <style>{`
+        .vd-lbl{font-size:10px;font-weight:600;color:var(--tx3,#9a9a96);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+        .vd-val{font-size:13px;font-weight:500;color:#1a1a18}
+        .vd-sub{font-size:11px;color:var(--tx3,#9a9a96);margin-top:2px}
+        .vd-cell{padding:0 14px}
+        .vd-cell:first-child{padding-left:0}
+        .vd-cell:last-child{padding-right:0}
+      `}</style>
       <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
-        {/* Header */}
-        <div className="rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-white p-[22px]">
 
-          {/* Back link */}
-          <button onClick={() => router.push('/vendors')} className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors mb-3">
-            <ChevronLeft className="w-3.5 h-3.5" /> Vendors
-          </button>
 
-          {/* Top */}
-          <div className="flex justify-between items-start gap-4">
+        {/* ── Header card ── */}
+        <div style={{ background: 'var(--bg,#fff)', border: '0.5px solid var(--bd,rgba(0,0,0,0.08))', borderRadius: 'var(--rl,12px)', padding: 22, marginBottom: 4 }}>
 
-            {/* Left */}
-            <div className="flex items-center gap-[14px]">
-
-              {/* Avatar */}
-              <div className="w-[52px] h-[52px] rounded-[12px] bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                <span className="text-[17px] font-bold">
-                  {(vendor.company_name ?? '?')[0].toUpperCase()}
-                </span>
+          {/* Row 1 — Avatar + company name + status badge + location/date */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 18 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#ede9fe', color: '#7c3aed', fontSize: 17, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {(vendor.company_name ?? '?')[0].toUpperCase()}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const, marginBottom: 4 }}>
+                <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-.4px' }}>{vendor.company_name}</span>
+                <StatusBadge status={vendor.status} />
               </div>
-
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-[19px] font-semibold tracking-[-0.4px]">{vendor.company_name}</h1>
-                  <StatusBadge status={vendor.status} />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 mt-1 text-[13px] text-[#5a5a57]">
-
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-[13px] h-[13px]" />
-                    <span>
-                      {vendor.city}, {vendor.state}
-                    </span>
-                  </div>
-
-                </div>
+              <div style={{ fontSize: 13, color: 'var(--tx2,#6b6b69)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <MapPin className="w-3 h-3 shrink-0" />
+                <span>{[vendor.city, vendor.state].filter(Boolean).join(', ')}</span>
+                {vendor.created_at && (
+                  <span style={{ marginLeft: 4 }}>· Created {formatDate(vendor.created_at)}</span>
+                )}
               </div>
             </div>
+            {canFullEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-[12px] h-8 gap-1.5 shrink-0"
+                onClick={() => router.push(`/vendors/${id}/edit`)}
+              >
+                <Pencil className="w-[13px] h-[13px]" />
+                Edit
+              </Button>
+            )}
+          </div>
 
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              {canFullEdit && (
-                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
-                  <Pencil className="w-[14px] h-[14px] mr-1" />
-                  Edit
-                </Button>
-              )}
-              {canUploadDoc && !canFullEdit && (
-                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
-                  <FileText className="w-[14px] h-[14px] mr-1" />
-                  Upload Documents
-                </Button>
-              )}
-              {isLocked && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[12px] font-medium">
-                  <XCircle className="w-3.5 h-3.5" />
-                  {vendor.status === 'blocked' ? 'Vendor blocked' : 'Vendor rejected'} — read only
-                </span>
-              )}
+          {/* Row 2 — Vendor Contact | Plant / Category | Type */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14, marginBottom: 14 }}>
+            <div className="vd-cell">
+              <div className="vd-lbl">Vendor Contact</div>
+              <div className="vd-val">{vendor.contact_name || '—'}</div>
+              <div className="vd-sub">{[vendor.contact_email, vendor.contact_phone].filter(Boolean).join(' · ') || '—'}</div>
+            </div>
+            <div className="vd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+              <div className="vd-lbl">Plant / Category</div>
+              <div className="vd-val">{[vendor.plant_name, vendor.category_name].filter(Boolean).join(' / ') || '—'}</div>
+            </div>
+            <div className="vd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+              <div className="vd-lbl">Vendor Type</div>
+              <div className="vd-val">{vendor.vendor_type || '—'}</div>
             </div>
           </div>
 
-
-          {/* Divider */}
-          <div className="border-t border-[rgba(0,0,0,0.08)] my-[18px]" />
-
-
-          {/* Bottom stats */}
-          <div className="grid grid-cols-6">
-
+          {/* Row 3 — key metadata strip */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
             {[
-              ['Vendor ID', vendor.vendor_code],
-              [
-                'Plant/ Category',
-                [vendor?.plant_name, vendor?.category_name].filter(Boolean).join(' / ') || '—',
-              ],
-              ['GSTIN', vendor.gst_number],
-              ['PAN', vendor.pan_number],
-              ['Created At', formatDate(vendor.created_at)],
-              ['Compliance Score', dash?.scorecard?.compliance?.score != null ? `${dash.scorecard.compliance.score}/100` : '—'],
-            ].map(([label, value], index) => (
-              <div
-                key={label}
-                className={`${index !== 0 ? 'border-l border-[rgba(0,0,0,0.08)] pl-[18px]' : ''}`}
-              >
-                <p className="text-[11px] uppercase font-semibold tracking-[0.4px] text-[#9a9a96] mb-1">
-                  {label}
-                </p>
-
-                <p
-                  className={`
-          text-[13px] font-medium
-          ${label === 'GSTIN' || label === 'PAN'
-                      ? 'font-mono text-[#5a5a57]'
-                      : 'text-[#1a1a18]'
-                    }
-        `}
-                >
-                  {value}
-                </p>
+              { label: 'Vendor ID',  value: vendor.vendor_code },
+              { label: 'GSTIN',      value: vendor.gst_number },
+              { label: 'PAN',        value: vendor.pan_number },
+              { label: 'MSME',       value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
+              { label: 'Compliance Score', value: dash?.scorecard?.compliance?.score != null ? `${dash.scorecard.compliance.score}/100` : '—' },
+            ].map(({ label, value }, i) => (
+              <div key={label} className="vd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
+                <div className="vd-lbl">{label}</div>
+                <div className="vd-val">{value || '—'}</div>
               </div>
             ))}
-
           </div>
 
         </div>
-        {/* Tabs */}
-        <div className="flex w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
+
+        {/* ── Tabs ── */}
+        <div className="flex items-center w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => {
-                setActiveTabKey(tab.key as 'overview' | 'documents' | 'approval')
-              }}
+              onClick={() => setActiveTabKey(tab.key as 'overview' | 'documents' | 'approval')}
               className={`
-        flex items-center justify-center gap-1.5
-        px-5 py-[11px]
-        text-[13px] font-medium
-        transition-colors
-        border-b-[2.5px]
-        whitespace-nowrap
-        ${activeTabKey === tab.key
+                flex items-center justify-center gap-1.5
+                px-5 py-[11px]
+                text-[13px] font-medium
+                transition-colors
+                border-b-[2.5px]
+                whitespace-nowrap
+                ${activeTabKey === tab.key
                   ? 'text-[#042348] border-[#042348] bg-white'
                   : 'text-[#9a9a96] border-transparent hover:bg-[#f8f8f6] hover:text-[#042348]'
                 }
-      `}
+              `}
             >
-              {tab.key === 'overview' && (
-                <LayoutDashboard className="w-[14px] h-[14px]" />
-              )}
-
-              {tab.key === 'documents' && (
-                <FileText className="w-[14px] h-[14px]" />
-              )}
-
-              {tab.key === 'approval' && (
-                <ShieldCheck className="w-[14px] h-[14px]" />
-              )}
-
+              {tab.key === 'overview'  && <LayoutDashboard className="w-[14px] h-[14px]" />}
+              {tab.key === 'documents' && <FileText        className="w-[14px] h-[14px]" />}
+              {tab.key === 'approval'  && <ShieldCheck     className="w-[14px] h-[14px]" />}
               <span>{tab.label}</span>
             </button>
           ))}
+          {isLocked && (
+            <div className="ml-auto px-3">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 border border-red-200 text-red-700 text-[11px] font-medium">
+                <XCircle className="w-3 h-3" />
+                {vendor.status === 'blocked' ? 'Blocked' : 'Rejected'}
+              </span>
+            </div>
+          )}
         </div>
-        {/* Overview Tab */}
-        {activeTabKey === 'overview' && <VendorDashboard vendor={vendor} dash={dash} isLoading={dashLoading} />}
 
+        {/* ── Overview Tab ── */}
+        {activeTabKey === 'overview' && (
+          <VendorDashboard vendor={vendor} dash={dash} isLoading={dashLoading} />
+        )}
 
-
-        {/* Documents Tab */}
+        {/* ── Documents Tab ── */}
         {activeTabKey === 'documents' && (
-          <div className="space-y-4">
+          <div style={{ background: 'var(--bg-s,#fff)', border: '0.5px solid var(--bd,rgba(0,0,0,0.08))', borderRadius: 'var(--rl,12px)', padding: 20 }}>
 
-            {/* Upload button — reuse edit form (starts at compliance step) */}
-            {canUploadDoc && (
-              <div className="flex justify-end">
-                <Button variant="outline" size="sm" className="text-[13px]" onClick={() => router.push(`/vendors/${id}/edit`)}>
-                  <FileText className="w-[14px] h-[14px] mr-1" />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#9a9a96', textTransform: 'uppercase', letterSpacing: '.5px' }}>Compliance Documents</div>
+              {canUploadDoc && (
+                <Button variant="outline" size="sm" className="text-[12px] h-7 gap-1.5" onClick={() => router.push(`/vendors/${id}/edit`)}>
+                  <FileText className="w-[13px] h-[13px]" />
                   Upload Documents
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Locked notice — rejected / blocked */}
-            {isLocked && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-2 text-[13px] text-red-700">
-                <XCircle className="h-4 w-4 shrink-0" />
-                This vendor is <strong>{vendor.status}</strong>. Document uploads are disabled.
-              </div>
-            )}
+            {/* GST Certificate */}
+            {(() => {
+              const doc = vendorDocs.find((d: any) => d.doc_type === 'gst_certificate')
+              const isVerified = ['passed', 'warning'].includes(doc?.ai_validation_status)
+              const isOpen = expandedDocs.gst_certificate ?? !!vendor.gst_number
+              return (
+                <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+                        <i className="ti ti-file-certificate" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          GST Certificate <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
+                          {isVerified ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                          ) : vendor.gst_number ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                          ) : null}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
+                      </div>
+                    </div>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, gst_certificate: !isOpen }))}>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                      <DocFileCard doc={doc} />
+                      <div style={{ marginTop: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>GST Number</div>
+                        <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none', fontFamily: 'monospace' }} value={vendor.gst_number || '—'} disabled readOnly />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
-            {/* Documents table */}
-            {vendorDocs.length === 0 ? (
-              <div className="rounded-xl border bg-white p-10 text-center text-[13px] text-muted-foreground">
-                No documents uploaded yet.
-              </div>
-            ) : (
-              <div className="rounded-xl border bg-white overflow-hidden">
-                <table className="w-full text-[12px]">
-                  <thead className="bg-slate-50 border-b">
-                    <tr>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Document</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Type</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Uploaded</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-center text-muted-foreground">Verification</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-left text-muted-foreground">Valid Till</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase text-center text-muted-foreground">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vendorDocs.map((doc: any) => {
-                      const isVerified = doc.ai_validation_status === 'passed' || doc.ai_validation_status === 'warning'
-                      const isFailed = doc.ai_validation_status === 'failed'
-                      const isPending = !doc.ai_validation_status || doc.ai_validation_status === 'pending'
-                      const docLabel = (doc.doc_type ?? '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-                      const today = new Date()
-                      const days = doc.valid_till
-                        ? Math.ceil((new Date(doc.valid_till).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-                        : null
-                      const isExpired = days !== null && days < 0
-                      const isExpiringSoon = days !== null && days >= 0 && days <= 30
-                      return (
-                        <tr key={doc.id ?? doc.hash_id} className={`border-t hover:bg-slate-50 transition-colors ${isExpired ? 'bg-red-50/40' : isExpiringSoon ? 'bg-amber-50/40' : ''}`}>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="h-7 w-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
-                                <FileText className="h-3.5 w-3.5 text-blue-600" />
+            {/* PAN Card */}
+            {(() => {
+              const doc = vendorDocs.find((d: any) => d.doc_type === 'pan_card')
+              const isVerified = ['passed', 'warning'].includes(doc?.ai_validation_status)
+              const isOpen = expandedDocs.pan_card ?? !!vendor.pan_number
+              return (
+                <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+                        <i className="ti ti-id" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          PAN Card Copy <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
+                          {isVerified ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                          ) : vendor.pan_number ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                          ) : null}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
+                      </div>
+                    </div>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, pan_card: !isOpen }))}>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                      <DocFileCard doc={doc} />
+                      <div style={{ marginTop: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>PAN Number</div>
+                        <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none', fontFamily: 'monospace' }} value={vendor.pan_number || '—'} disabled readOnly />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Bank Verification Letter */}
+            {(() => {
+              const doc = vendorDocs.find((d: any) => d.doc_type === 'bank_details')
+              const isVerified = ['passed', 'warning'].includes(doc?.ai_validation_status)
+              const isOpen = expandedDocs.bank_details ?? !!vendor.bank_account
+              return (
+                <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+                        <i className="ti ti-building-bank" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          Bank Verification Letter <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
+                          {isVerified ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                          ) : vendor.bank_account ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                          ) : null}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
+                      </div>
+                    </div>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, bank_details: !isOpen }))}>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                      <DocFileCard doc={doc} />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>Account Number</div>
+                          <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none', fontFamily: 'monospace' }} value={vendor.bank_account || '—'} disabled readOnly />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>IFSC Code</div>
+                          <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none', fontFamily: 'monospace' }} value={vendor.bank_ifsc || '—'} disabled readOnly />
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>Bank Name</div>
+                          <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none' }} value={vendor.bank_name || '—'} disabled readOnly />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Certifications heading */}
+            <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)', margin: '14px 0 12px' }} />
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9a9a96', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 12 }}>Certifications</div>
+
+            {/* MSME */}
+            {(() => {
+              const doc = vendorDocs.find((d: any) => d.doc_type === 'msme_certificate')
+              const isEnabled = !!vendor.is_msme
+              const isOpen = expandedDocs.msme_certificate ?? isEnabled
+              return (
+                <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+                      <i className="ti ti-certificate-2" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        MSME Registered
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: isEnabled ? '#dcfce7' : '#f1f5f9', color: isEnabled ? '#166534' : '#64748b' }}>
+                          {isEnabled ? '✓ Enabled' : 'Not Registered'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9a9a96' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
+                    </div>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, msme_certificate: !isOpen }))}>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                      <DocFileCard doc={doc} />
+                      {vendor.msme_number && (
+                        <div style={{ marginTop: 4 }}>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 4 }}>Udyam Registration No.</div>
+                          <input style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 6, background: '#f8f8f6', color: '#1a1a18', cursor: 'default', outline: 'none', fontFamily: 'monospace' }} value={vendor.msme_number} disabled readOnly />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* SEZ */}
+            {(() => {
+              const doc = vendorDocs.find((d: any) => d.doc_type === 'sez_certificate')
+              const isEnabled = !!vendor.is_sez
+              const isOpen = expandedDocs.sez_certificate ?? isEnabled
+              return (
+                <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+                      <i className="ti ti-building-estate" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        SEZ Unit
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: isEnabled ? '#dcfce7' : '#f1f5f9', color: isEnabled ? '#166534' : '#64748b' }}>
+                          {isEnabled ? '✓ Enabled' : 'Not Applicable'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9a9a96' }}>Special Economic Zone registered unit</div>
+                    </div>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, sez_certificate: !isOpen }))}>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                      <DocFileCard doc={doc} />
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* ISO / Quality Certificates */}
+            {(() => {
+              const coreDocs = ['gst_certificate', 'pan_card', 'bank_details', 'msme_certificate', 'sez_certificate']
+              const isoDocs = vendorDocs.filter((d: any) => !coreDocs.includes(d.doc_type))
+              const isOpen = expandedDocs.iso ?? isoDocs.length > 0
+              return (
+                <>
+                  <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)', margin: '14px 0 12px' }} />
+                  <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: '#fffbeb', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+                        <i className="ti ti-award" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>ISO / Quality Certificates</div>
+                        <div style={{ fontSize: 11, color: '#9a9a96' }}>{isoDocs.length > 0 ? `${isoDocs.length} document${isoDocs.length !== 1 ? 's' : ''}` : 'No documents uploaded'}</div>
+                      </div>
+                      <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, iso: !isOpen }))}>
+                        <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
+                      </button>
+                    </div>
+                    {isOpen && (
+                      <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+                        {isoDocs.length === 0 ? (
+                          <div style={{ fontSize: 12, color: '#9a9a96', textAlign: 'center', padding: '12px 0' }}>No ISO/Quality certificates uploaded</div>
+                        ) : (
+                          isoDocs.map((doc: any, idx: number) => (
+                            <div key={doc.id ?? idx} style={idx > 0 ? { borderTop: '0.5px solid rgba(0,0,0,0.06)', paddingTop: 12, marginTop: 12 } : {}}>
+                              <div style={{ fontSize: 11, fontWeight: 500, color: '#6b6b69', marginBottom: 6 }}>
+                                {DOC_TYPE_LABELS[doc.doc_type] || (doc.doc_type ?? '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document'}
                               </div>
-                              <span className="font-medium text-[13px] max-w-[180px] truncate">{doc.original_filename || doc.title || '—'}</span>
+                              <DocFileCard doc={doc} />
                             </div>
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground text-[12px]">{docLabel}</td>
-                          <td className="px-4 py-3 text-muted-foreground text-[12px]">
-                            {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex flex-col items-center gap-0.5">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                                isVerified ? 'bg-green-100 text-green-700' :
-                                isFailed ? 'bg-red-100 text-red-700' :
-                                'bg-slate-100 text-slate-500'
-                              }`}>
-                                {isVerified
-                                  ? <><CheckCircle2 className="h-3 w-3" /> Verified</>
-                                  : isFailed
-                                    ? <><XCircle className="h-3 w-3" /> Failed</>
-                                    : <><Clock className="h-3 w-3" /> {isPending ? 'Pending' : 'Not Verified'}</>
-                                }
-                              </span>
-                              {doc.ai_validation_notes && (
-                                <span className="text-[9px] text-muted-foreground max-w-[120px] truncate" title={doc.ai_validation_notes}>
-                                  {doc.ai_validation_notes}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            {doc.valid_till ? (
-                              <div className="flex flex-col gap-0.5">
-                                <span className={`text-[12px] font-medium ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-amber-600' : 'text-slate-700'}`}>
-                                  {new Date(doc.valid_till).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </span>
-                                {isExpired && (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-red-600">
-                                    <AlertTriangle className="h-2.5 w-2.5" />
-                                    Expired {Math.abs(days!)}d ago
-                                  </span>
-                                )}
-                                {isExpiringSoon && (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
-                                    <AlertTriangle className="h-2.5 w-2.5" />
-                                    Expiring in {days}d
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-[12px] text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center text-[13px]">
-                            {doc.file_url ? (
-                              <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-[12px] text-blue-600 hover:underline font-medium">View</a>
-                            ) : '—'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
+
           </div>
         )}
 
-        {/* Approval Tab */}
+        {/* ── Approval Tab ── */}
         {activeTabKey === 'approval' && (
           <div>
             {vendor.status !== 'draft' && (
@@ -1187,6 +1304,5 @@ export default function VendorDetailPage() {
 
       </div>
     </>
-
   )
 }

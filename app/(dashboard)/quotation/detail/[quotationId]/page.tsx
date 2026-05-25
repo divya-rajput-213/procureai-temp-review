@@ -542,13 +542,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             <i className="ti ti-eye" /> Preview PDF
           </button>
 
-          <button
-            className="qd-btn"
-            onClick={() => setShowExportModal(true)}
-            disabled={items.length === 0}
-          >
-            <i className="ti ti-file-spreadsheet" /> Export Excel
-          </button>
         </div>
       </div>
 
@@ -802,20 +795,6 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         })()}
 
       </div>
-
-      <CommonConfirmModal
-        isOpen={showExportModal}
-        title="Export Line Items"
-        description={
-          <>
-            Export <strong>{items.length}</strong> line item{items.length !== 1 ? 's' : ''} from this quotation as an Excel sheet?
-          </>
-        }
-        confirmLabel="Export Excel"
-        onClose={() => setShowExportModal(false)}
-        onConfirm={handleExportExcel}
-        isPending={exporting}
-      />
 
     </div>
   )

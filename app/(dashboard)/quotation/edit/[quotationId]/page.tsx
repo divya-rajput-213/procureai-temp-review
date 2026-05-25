@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { AlertCircle, Loader2, X, Check, ChevronRight } from 'lucide-react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import apiClient from '@/lib/api/client'
 import { useToast } from '@/components/ui/use-toast'
@@ -19,6 +19,7 @@ const STEPS = [
 export default function EditQuotationPage({ params }: Readonly<{ params: { quotationId: string } }>) {
     const { toast } = useToast()
     const router = useRouter()
+    const queryClient = useQueryClient()
 
     const [currentStep, setCurrentStep] = useState(0)
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
@@ -84,16 +85,18 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
 
     useEffect(() => {
         if (!quotationData || initialized) return
-        setVendors(quotationData.vendor ?? null)
+        const vendorObj = quotationData.vendor ?? null
+        setVendors(vendorObj ? { ...vendorObj, id: vendorObj.id ?? quotationData.vendor_id } : null)
         setLineItems((quotationData.items || []).map((item: any) => ({
             ...item,
             createNew: !item.master_item_matched,
             selectedMasterId: item.master_item_matched && item.master_item_id ? String(item.master_item_id) : '',
         })))
-        setPlantId(quotationData.plant ? String(quotationData.plant) : '')
-        setDepartmentId(quotationData.department ? String(quotationData.department) : '')
-        setCategoryId(quotationData.category ? String(quotationData.category) : '')
-        setPrLinkId(quotationData.pr_no ? String(quotationData.pr_no) : '')
+        setPlantId(quotationData.plant_id ? String(quotationData.plant_id) : (quotationData.plant ? String(quotationData.plant) : ''))
+        setDepartmentId(quotationData.department_id ? String(quotationData.department_id) : (quotationData.department ? String(quotationData.department) : ''))
+        setCategoryId(quotationData.category_id ? String(quotationData.category_id) : (quotationData.category ? String(quotationData.category) : ''))
+        setPrLinkId(quotationData.pr_id ? String(quotationData.pr_id) : (quotationData.pr ? String(quotationData.pr) : ''))
+        setInternalNotes(quotationData.internal_notes || '')
         setInitialized(true)
     }, [quotationData, initialized])
 
@@ -113,43 +116,12 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
     const quotationSaveMutation = useMutation({
         mutationFn: async () => {
             const payload = {
-                vendor: {
-                    company_name: vendors?.company_name,
-                    contact_name: vendors?.contact_name,
-                    contact_email: vendors?.contact_email,
-                    contact_phone: vendors?.contact_phone,
-                    address: vendors?.address,
-                    city: vendors?.city,
-                    state: vendors?.state,
-                    pincode: vendors?.pincode,
-                    country: vendors?.country ?? null,
-                    gst_number: vendors?.gst_number,
-                    pan_number: vendors?.pan_number ?? null,
-                    bank_account: vendors?.bank_account ?? null,
-                    bank_ifsc: vendors?.bank_ifsc ?? null,
-                    bank_name: vendors?.bank_name ?? null,
-                    gst_percentage: vendors?.gst_percentage ?? null,
-                    is_new: vendors?.is_new ?? false,
-                },
+                vendor_id: vendors?.id ? Number(vendors.id) : null,
                 plant_id: plantId ? Number(plantId) : null,
                 department_id: departmentId ? Number(departmentId) : null,
                 category_id: categoryId ? Number(categoryId) : null,
                 pr_id: prLinkId ? Number(prLinkId) : null,
                 internal_notes: internalNotes || null,
-                items: lineItems.map((item: any) => ({
-                    item_code: item.item_code ?? item.code ?? null,
-                    item_name: item.item_name,
-                    item_price: item.item_price,
-                    quantity: item.quantity || 1,
-                    unit_of_measure: item.unit_of_measure ?? item.uom,
-                    hsn_code: item.hsn_code ?? null,
-                    create_new_item: item.createNew ?? false,
-                    is_new: item.is_new ?? false,
-                    is_duplicate: item.is_duplicate ?? false,
-                    suggestions: item.createNew || !item.selectedMasterId
-                        ? []
-                        : [{ master_item_id: Number(item.selectedMasterId) }],
-                })),
             }
             const { data } = await apiClient.patch(`/quotations/${params.quotationId}/`, payload)
             return data
@@ -157,7 +129,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
         onSuccess: () => {
             toast({ title: 'Saved', description: 'Quotation updated successfully' })
             setShowConfirm(false)
-            router.push(`/quotation/detail/${params.quotationId}`)
+            queryClient.invalidateQueries({ queryKey: ['quotations'] })
+            router.push('/quotation')
         },
         onError: (error: any) => {
             const message = getApiErrorMessage(error, 'Failed to update quotation.')
@@ -358,17 +331,6 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        {currentStep === 1 && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setShowExportModal(true)}
-                                disabled={lineItems.length === 0}
-                                className="gap-1.5"
-                            >
-                                <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
-                            </Button>
-                        )}
                         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push(`/quotation/detail/${params.quotationId}`)}>
                             <i className="ti ti-arrow-left" /> Back
                         </Button>
@@ -455,6 +417,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         onContinue={goNext}
                         onBack={() => setCurrentStep(0)}
                         hideMasterMatch
+                        disableAddRow
+                        onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
                     />
                 )}
 

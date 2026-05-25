@@ -6,12 +6,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
+import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { AddressAutocomplete } from '@/components/shared/AddressAutocomplete'
 import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import apiClient from '@/lib/api/client'
 import { COMPANY_NAME_ALLOWED, ALPHA_SPACE_ONLY, ADDRESS_ALLOWED, COMPANY_NAME_ALLOWED_PARTIAL, ADDRESS_ALLOWED_PARTIAL, ALPHA_SPACE_PARTIAL } from '@/lib/utils'
-import { DOC_CONFIG, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY } from '@/lib/utils'
+import { DOC_CONFIG, PHONE_PREFIX, PHONE_ALLOWED_CHARS, DIGITS_ONLY, PINCODE_DIGITS_ONLY, getSLAPercentage, getSLAColor, formatDateTime } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { CommonConfirmModal } from '@/components/shared/CommonModal'
@@ -64,11 +65,11 @@ const STEP0_FIELDS: (keyof VendorForm)[] = [
 const schema = z.object({
   company_name: z.string()
     .min(2, 'Company name is required')
-    .regex(COMPANY_NAME_ALLOWED, 'Company name can contain only letters, numbers, spaces, &, ., ,, -, and _.')
+    .regex(COMPANY_NAME_ALLOWED, 'Company name contains an invalid character.')
     .max(150, 'Company name must be at most 150 characters'),
   contact_name: z.string()
     .min(2, 'Contact person is required')
-    .regex(ALPHA_SPACE_ONLY, 'Contact person can contain only letters, & and spaces..'),
+    .regex(ALPHA_SPACE_ONLY, 'Contact person name can contain only letters, spaces, &, and .'),
   contact_email: z.string().email('Valid email required'),
   contact_phone: z.string()
     .refine(v => PHONE_ALLOWED_CHARS.test(v), 'Contact phone must contain only numbers')
@@ -116,10 +117,6 @@ const AVATAR_COLORS = [
   { bg: '#FAEEDA', tx: '#854F0B' },
   { bg: '#EAF3DE', tx: '#3B6D11' },
 ]
-
-function colorForName(name: string) {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
-}
 
 /* ─── ToggleSwitch ────────────────────────────────────────────────────────── */
 function ToggleSwitch({ enabled, onChange, disabled }: Readonly<{ enabled: boolean; onChange: (v: boolean) => void; disabled?: boolean }>) {
@@ -363,6 +360,226 @@ function FormChecklist({ values, isMsme }: { values: Partial<VendorForm>; isMsme
   )
 }
 
+/* ─── Approval panel sub-components (shown in step 2 when read-only) ─────── */
+
+function actionStepClass(action: string) {
+  if (action === 'approved') return 'bg-green-50 border-green-200 text-green-700'
+  if (action === 'rejected') return 'bg-red-50 border-red-200 text-red-700'
+  if (action === 'held') return 'bg-amber-50 border-amber-200 text-amber-700'
+  return 'bg-slate-50 border-slate-200 text-slate-500'
+}
+
+function approvalLevelBubbleClass(action: string, isCurrent: boolean): string {
+  if (action === 'approved') return 'bg-green-100 text-green-700'
+  if (action === 'rejected') return 'bg-red-100 text-red-700'
+  if (action === 'held') return 'bg-amber-100 text-amber-700'
+  if (isCurrent) return 'bg-amber-200 text-amber-800'
+  return 'bg-slate-100 text-slate-500'
+}
+
+function approvalActionLabel(action: string): string {
+  if (action === 'approved') return 'Approved'
+  if (action === 'rejected') return 'Rejected'
+  if (action === 'held') return 'On Hold'
+  return 'Pending'
+}
+
+function ApprovalSteps({ actions, currentLevel, requestedAt }: { actions: any[]; currentLevel?: number; requestedAt?: string }) {
+  if (!actions?.length) return null
+  return (
+    <div className="px-4 py-3 bg-white border-b">
+      <p className="text-[13px] font-semibold tracking-wide mb-2">Approval Timeline</p>
+      {requestedAt && (
+        <p className="text-[11px] text-muted-foreground mb-2">
+          Requested: <span className="font-medium text-slate-700">{formatDateTime(requestedAt)}</span>
+        </p>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs" style={{ minWidth: 560 }}>
+          <thead>
+            <tr className="text-muted-foreground border-b">
+              <th className="text-left px-3 py-2 font-medium w-12">Level</th>
+              <th className="text-left px-3 py-2 font-medium">Approver</th>
+              <th className="text-left px-3 py-2 font-medium w-28">Status</th>
+              <th className="text-left px-3 py-2 font-medium whitespace-nowrap">Due Date</th>
+              <th className="text-left px-3 py-2 font-medium whitespace-nowrap">Acted At</th>
+              <th className="text-left px-3 py-2 font-medium">Comments</th>
+            </tr>
+          </thead>
+          <tbody>
+            {actions.map((a: any) => {
+              const isPending = !a.action || a.action === 'pending'
+              const isCurrent = isPending && a.level_number === currentLevel
+              const effectiveAction = a.action ?? 'pending'
+              return (
+                <tr key={a.id} className={`border-t ${isCurrent ? 'bg-amber-50' : ''}`}>
+                  <td className="px-3 py-2.5">
+                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full font-bold ${approvalLevelBubbleClass(effectiveAction, isCurrent)}`}>
+                      {a.level_number}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap">
+                    {a.approver_name ?? '—'}
+                    {isCurrent && (
+                      <span className="ml-1.5 text-xs font-normal text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">awaiting</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${actionStepClass(effectiveAction)}`}>
+                      {effectiveAction === 'approved' ? <CheckCircle className="w-3 h-3" /> : effectiveAction === 'rejected' ? <XCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                      {approvalActionLabel(effectiveAction)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{a.sla_deadline ? formatDateTime(a.sla_deadline) : '—'}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{a.acted_at ? formatDateTime(a.acted_at) : '—'}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground italic max-w-[180px] truncate" title={a.comments || undefined}>
+                    {a.comments ? `"${a.comments}"` : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function MyActionPanel({ pendingAction, onProcess, onReleaseHold }: {
+  pendingAction: any; onProcess: (action: string, comments: string) => void; onReleaseHold: () => void
+}) {
+  const [comments, setComments] = useState('')
+  const [loading, setLoading] = useState('')
+  const isHeld = pendingAction?.action_status === 'held'
+
+  const handle = async (action: string) => {
+    setLoading(action)
+    onProcess(action, comments)
+    setLoading('')
+    setComments('')
+  }
+
+  if (isHeld) {
+    return (
+      <div className="px-4 py-3 bg-white space-y-2">
+        <p className="text-xs font-medium text-amber-700">On hold (Level {pendingAction.level})</p>
+        <Button size="sm" variant="outline" className="gap-1" onClick={onReleaseHold} disabled={!!loading}>
+          <Clock className="w-3.5 h-3.5" /> Release Hold
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-4 py-3 bg-white space-y-2">
+      <p className="text-xs font-medium text-muted-foreground">Your action required (Level {pendingAction.level})</p>
+      <div>
+        <label className="text-xs font-medium">Comments <span className="text-red-500">*</span></label>
+        <textarea className="mt-1 w-full border rounded-md p-2 text-sm resize-none h-16" placeholder="Add your comments…"
+          value={comments} onChange={e => setComments(e.target.value)} />
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => handle('approved')} disabled={!!loading || !comments.trim()}>
+          {loading === 'approved' ? <Clock className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />} Approve
+        </Button>
+        <Button size="sm" variant="destructive" className="gap-1" onClick={() => handle('rejected')} disabled={!!loading || !comments.trim()}>
+          {loading === 'rejected' ? <Clock className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Reject
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1 text-amber-600 border-amber-300" onClick={() => handle('held')} disabled={!!loading || !comments.trim()}>
+          <Clock className="w-3.5 h-3.5" /> Hold
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function ApprovalProgressPanel({ vendorId, onStatusChange }: { vendorId: string; onStatusChange: () => void }) {
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+
+  const { data: approvalRequest, isLoading: loadingRequest } = useQuery({
+    queryKey: ['vendor-approval', vendorId],
+    queryFn: async () => {
+      const res = await apiClient.get('/approvals/requests/', { params: { entity_type: 'vendor', object_id: vendorId } })
+      const list = res.data.results ?? res.data
+      return list.find((r: any) => ['pending', 'in_progress'].includes(r.status)) ?? (list[0] ?? null)
+    },
+  })
+
+  const { data: myPendingAction } = useQuery({
+    queryKey: ['pending-mine'],
+    queryFn: async () => (await apiClient.get('/approvals/requests/pending-mine/')).data,
+    select: (data: any[]) => data.find((a: any) => a.entity_type === 'vendor' && String(a.object_id) === String(vendorId)),
+  })
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['vendor', vendorId] })
+    queryClient.invalidateQueries({ queryKey: ['vendor-approval', vendorId] })
+    queryClient.invalidateQueries({ queryKey: ['pending-mine'] })
+    onStatusChange()
+  }
+
+  const processAction = async (action: string, comments: string) => {
+    if (!myPendingAction) return
+    const labels: Record<string, string> = { approved: 'Approved', rejected: 'Rejected', held: 'Held' }
+    try {
+      await apiClient.patch(`/approvals/actions/${myPendingAction.action_id}/`, { action, comments })
+      toast({ title: `${labels[action] ?? action} successfully.` })
+      invalidateAll()
+    } catch (err: any) {
+      toast({ title: 'Action failed', description: err?.response?.data?.error, variant: 'destructive' })
+    }
+  }
+
+  const releaseHold = async () => {
+    if (!myPendingAction) return
+    try {
+      await apiClient.post(`/approvals/actions/${myPendingAction.action_id}/release-hold/`)
+      toast({ title: 'Hold released.' })
+      invalidateAll()
+    } catch (err: any) {
+      toast({ title: 'Failed to release hold', description: err?.response?.data?.error, variant: 'destructive' })
+    }
+  }
+
+  const pct = myPendingAction ? getSLAPercentage(myPendingAction.sla_deadline) : 100
+  const slaLabel = pct <= 0 ? 'SLA Breached' : `SLA: ${Math.round(pct)}% remaining`
+  const reqStatus = approvalRequest?.status
+
+  let levelLabel = 'Pending Approval'
+  if (loadingRequest) levelLabel = 'Loading approval status…'
+  else if (reqStatus === 'approved') levelLabel = 'Approved'
+  else if (reqStatus === 'rejected') levelLabel = 'Rejected'
+  else if (approvalRequest) levelLabel = `Pending — Level ${approvalRequest.current_level} of ${approvalRequest.actions?.length ?? '?'}`
+
+  let headerBg = 'bg-amber-50', headerTextCls = 'text-amber-800', headerSubCls = 'text-amber-600'
+  let StatusIcon = <Clock className="w-4 h-4 text-amber-600" />
+  if (reqStatus === 'approved') {
+    headerBg = 'bg-green-50'; headerTextCls = 'text-green-800'; headerSubCls = 'text-green-600'
+    StatusIcon = <CheckCircle className="w-4 h-4 text-green-600" />
+  } else if (reqStatus === 'rejected') {
+    headerBg = 'bg-red-50'; headerTextCls = 'text-red-800'; headerSubCls = 'text-red-600'
+    StatusIcon = <XCircle className="w-4 h-4 text-red-600" />
+  }
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div className={`px-4 py-3 border-b flex items-center justify-between gap-3 flex-wrap ${headerBg}`}>
+        <div className="flex items-center gap-2">
+          {StatusIcon}
+          <span className={`text-sm font-medium ${headerTextCls}`}>{levelLabel}</span>
+          {approvalRequest && <span className={`text-xs ${headerSubCls}`}>via {approvalRequest.matrix_name}</span>}
+        </div>
+        {myPendingAction && (
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getSLAColor(pct)}`}>{slaLabel}</span>
+        )}
+      </div>
+      <ApprovalSteps actions={approvalRequest?.actions ?? []} currentLevel={approvalRequest?.current_level} requestedAt={approvalRequest?.created_at} />
+      {myPendingAction && <MyActionPanel pendingAction={myPendingAction} onProcess={processAction} onReleaseHold={releaseHold} />}
+    </div>
+  )
+}
+
 /* ─── Main VendorForm component ──────────────────────────────────────────── */
 
 interface VendorFormProps {
@@ -387,6 +604,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const isReadOnly = isFieldReadOnly
 
   const [step, setStep] = useState(0)
+  const [maxStep, setMaxStep] = useState(0)
   const [vendorId, setVendorId] = useState<string | null>(existingVendorId ?? null)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
@@ -592,6 +810,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
       setVendorId(vendor.hash_id ?? vendor.id)
       queryClient.invalidateQueries({ queryKey: ['vendors'] })
       setStep(1)
+      setMaxStep(prev => Math.max(prev, 1))
     },
     onError: (err: any) => {
       if (applyServerFieldErrors(err)) return
@@ -613,7 +832,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         is_final: true,
       })
     },
-    onSuccess: () => setStep(2),
+    onSuccess: () => { setStep(2); setMaxStep(prev => Math.max(prev, 2)) },
     onError: (err: any) => {
       if (applyServerFieldErrors(err)) return
       toast({ title: 'Save failed', description: apiErrorMsg(err), variant: 'destructive' })
@@ -643,7 +862,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const handleStep0Next = async () => {
     const valid = await trigger(STEP0_FIELDS)
     if (!valid) return
-    handleSubmit(data => step0Mutation.mutate(data))()
+    step0Mutation.mutate(getValues())
   }
 
   const handleStep1Next = async () => {
@@ -654,8 +873,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     }
     step1Mutation.mutate(getValues())
   }
-
-  const handleSaveAsDraft = () => { setSubmitError(''); submitMutation.mutate({ mode: 'draft' }) }
 
   const handleSubmitForApproval = () => {
     setSubmitError('')
@@ -717,7 +934,6 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     <>
       <style>{`
         *,*::before,*::after{box-sizing:border-box}
-        .vf-root{font-family:'DM Sans',sans-serif;color:var(--tx,#1a1a18)}
         :root{
           --bg:#fff;--bg-s:#f8f8f6;--bg-t:#f2f1ee;
           --tx:#1a1a18;--tx2:#5a5a57;--tx3:#9a9a96;
@@ -967,8 +1183,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
         {/* Step bar */}
         <div className="step-bar">
-          {steps.map((s, i) => isReadOnly && i === 2 ? null : (
-            <button key={s} type="button" className={stepClass(i)} onClick={() => i < step && setStep(i)}>
+          {steps.map((s, i) =>  (
+            <button key={s} type="button" className={stepClass(i)} onClick={() => i !== step && i <= maxStep && setStep(i)}>
               <div className="step-num">{stepNum(i)}</div>
               <div>
                 <div className="step-label">{s}</div>
@@ -1003,7 +1219,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             onChange: (e) => {
                               const raw = String(e.target.value ?? '')
                               if (!COMPANY_NAME_ALLOWED_PARTIAL.test(raw)) {
-                                setError('company_name', { type: 'manual', message: 'Company name can contain only letters, numbers, spaces, &, ., ,, -, and _.' })
+                                setError('company_name', { type: 'manual', message: 'Company name contains an invalid character.' })
                                 return
                               }
                               if (errors.company_name?.type === 'manual') clearErrors('company_name')
@@ -1150,7 +1366,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                                   onChange: (e) => {
                                     const raw = String(e.target.value ?? '')
                                     if (!ALPHA_SPACE_PARTIAL.test(raw)) {
-                                      setError('contact_name', { type: 'manual', message: 'Contact person can contain only letters, & and spaces.' })
+                                      setError('contact_name', { type: 'manual', message: 'Contact person name can contain only letters, spaces, &, and .' })
                                       return
                                     }
                                     if (errors.contact_name?.type === 'manual') clearErrors('contact_name')
@@ -1464,7 +1680,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             <div className="form-group" style={{ marginBottom: 12 }}>
                               <label className="form-label">Document Type</label>
                               <select className="form-select" disabled={isComplianceReadOnly} value={row.standard} onChange={(e) => { updateIsoRow(idx, 'standard', e.target.value); if (e.target.value !== 'other') updateIsoRow(idx, 'custom', '') }}>
-                                <option value="" disabled>Select type</option>
+                                <option value="">— Select type —</option>
                                 <option value="ISO 9001:2015">ISO 9001:2015 – Quality Management</option>
                                 <option value="ISO 14001:2015">ISO 14001:2015 – Environmental Management</option>
                                 <option value="ISO 45001:2018">ISO 45001:2018 – Occupational Health &amp; Safety</option>
@@ -1504,35 +1720,44 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
               </div>
             )}
 
-            {/* ══ STEP 2: Submit for Approval ══ */}
-            {step === 2 && !isReadOnly && (
+            {/* ══ STEP 2: Submit for Approval / Approval Status ══ */}
+            {step === 2 && (
               <div className="form-section" style={{ border: 'none', background: 'transparent' }}>
                 <div style={{ padding: '16px 0' }}>
-                  {/* Matrix selector */}
-                  {matrices === undefined && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--tx3)', padding: '8px 0' }}>
-                      <span className="parse-dot" /> Loading matrices…
-                    </div>
-                  )}
-                  {matrices && matrices.length === 0 && (
-                    <p style={{ fontSize: 12, color: 'var(--amb-tx)', background: 'var(--amb-bg)', border: '0.5px solid rgba(186,117,23,.25)', borderRadius: 'var(--r)', padding: '10px 14px' }}>
-                      No active vendor onboarding matrices configured. You can still save as draft and submit later.
-                    </p>
-                  )}
-                  {matrices && matrices.length > 0 && (
-                    <MatrixSelectorTable
-                      matrices={matrices}
-                      selectedMatrix={selectedMatrix}
-                      expandedMatrix={expandedMatrix}
-                      onSelect={(id) => { setSelectedMatrix(id); setExpandedMatrix(id) }}
-                      onToggleExpand={(id) => setExpandedMatrix(prev => prev === id ? null : id)}
+                  {isReadOnly ? (
+                    /* Vendor is not draft — show live approval progress */
+                    <ApprovalProgressPanel
+                      vendorId={vendorId ?? ''}
+                      onStatusChange={() => {}}
                     />
-                  )}
-
-                  {submitError && (
-                    <div style={{ marginTop: 12, fontSize: 12, color: 'var(--red-tx)', background: 'var(--red-bg)', border: '0.5px solid rgba(226,75,74,.25)', borderRadius: 'var(--r)', padding: '10px 14px' }}>
-                      {submitError}
-                    </div>
+                  ) : (
+                    /* Draft — show matrix selector for submission */
+                    <>
+                      {matrices === undefined && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--tx3)', padding: '8px 0' }}>
+                          <span className="parse-dot" /> Loading matrices…
+                        </div>
+                      )}
+                      {matrices && matrices.length === 0 && (
+                        <p style={{ fontSize: 12, color: 'var(--amb-tx)', background: 'var(--amb-bg)', border: '0.5px solid rgba(186,117,23,.25)', borderRadius: 'var(--r)', padding: '10px 14px' }}>
+                          No active vendor onboarding matrices configured. You can still save as draft and submit later.
+                        </p>
+                      )}
+                      {matrices && matrices.length > 0 && (
+                        <MatrixSelectorTable
+                          matrices={matrices}
+                          selectedMatrix={selectedMatrix}
+                          expandedMatrix={expandedMatrix}
+                          onSelect={(id) => { setSelectedMatrix(id); setExpandedMatrix(id) }}
+                          onToggleExpand={(id) => setExpandedMatrix(prev => prev === id ? null : id)}
+                        />
+                      )}
+                      {submitError && (
+                        <div style={{ marginTop: 12, fontSize: 12, color: 'var(--red-tx)', background: 'var(--red-bg)', border: '0.5px solid rgba(226,75,74,.25)', borderRadius: 'var(--r)', padding: '10px 14px' }}>
+                          {submitError}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1578,7 +1803,16 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
               </Button>
             )}
             {step === 2 && (
-              <>
+              isReadOnly ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => router.push(`/vendors/${vendorId}`)}
+                >
+                  <i className="ti ti-arrow-left" /> Back to Vendor
+                </Button>
+              ) : (
                 <Button
                   className="gap-1.5"
                   size="sm"
@@ -1587,7 +1821,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                 >
                   {submitMutation.isPending ? 'Submitting…' : <><i className="ti ti-send" /> Submit for Approval</>}
                 </Button>
-              </>
+              )
             )}
           </div>
         </div>

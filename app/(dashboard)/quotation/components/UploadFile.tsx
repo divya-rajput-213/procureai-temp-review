@@ -28,7 +28,7 @@ function statusPill(status?: string, isNew?: boolean) {
     if (!status) return { label: 'Matched', bg: 'var(--grn-bg)', tx: 'var(--grn-tx)', dot: 'var(--grn-bd)' }
     const s = status.toLowerCase()
     if (s === 'approved') return { label: 'Approved', bg: 'var(--grn-bg)', tx: 'var(--grn-tx)', dot: 'var(--grn-bd)' }
-    if (s.includes('pending')) return { label: 'Pending', bg: 'var(--amb-bg)', tx: 'var(--amb-tx)', dot: 'var(--amb-bd)' }
+    if (s.includes('pending')) return { label: 'Pending Approval', bg: 'var(--amb-bg)', tx: 'var(--amb-tx)', dot: 'var(--amb-bd)' }
     if (s === 'rejected') return { label: 'Rejected', bg: 'var(--red-bg)', tx: 'var(--red-tx)', dot: 'var(--red-bd)' }
     if (s === 'draft') return { label: 'Draft', bg: 'var(--gry-bg)', tx: 'var(--gry-tx)', dot: 'var(--gry-bd)' }
     return { label: status, bg: 'var(--gry-bg)', tx: 'var(--gry-tx)', dot: 'var(--gry-bd)' }
@@ -563,13 +563,13 @@ export default function UploadFile({
                                     {PRs.map((p: any) => <option key={p.id} value={p.id}>{p.pr_number || p.id}</option>)}
                                 </select>
                             </div>
-                            <div className="fgrp">
+                            {/* <div className="fgrp">
                                 <label className="lbl">Financial Year</label>
                                 <select className="sel" value={financialYear} onChange={e => setFinancialYear(e.target.value)}>
                                     <option value="">— Not specified —</option>
                                     {financialYears.map(y => <option key={y.value} value={y.value}>{y.label}</option>)}
                                 </select>
-                            </div>
+                            </div> */}
                         </div>
 
                         {/* Internal Notes */}
@@ -625,8 +625,6 @@ export default function UploadFile({
                             { icon: 'ti-circle-check', c: 'var(--grn-tx)', t: 'Quotation number' },
                             { icon: 'ti-circle-check', c: 'var(--grn-tx)', t: 'Quote & validity dates' },
                             { icon: 'ti-circle-check', c: 'var(--grn-tx)', t: 'All line items with qty & price' },
-                            { icon: 'ti-circle-check', c: 'var(--grn-tx)', t: 'GST rates per item' },
-                            { icon: 'ti-alert-circle', c: 'var(--amb-tx)', t: 'Part numbers (best effort)' },
                         ].map(({ icon, c, t }) => (
                             <div key={t}><i className={`ti ${icon}`} style={{ color: c, marginRight: 4 }} />{t}</div>
                         ))}
