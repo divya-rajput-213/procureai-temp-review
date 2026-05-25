@@ -260,9 +260,11 @@ function DocUploadWidget({
           {doc.file_url && (
             <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--blu-tx)', flexShrink: 0 }}>View</a>
           )}
-          {!isReadOnly && !isVerified && (
-            <button type="button" className="ufile-del" onClick={remove} disabled={deleting} title="Remove">
-              {deleting ? <i className="ti ti-loader" style={{ animation: 'spin 1s linear infinite' }} /> : <i className="ti ti-x" />}
+          {!isReadOnly && (
+            <button type="button" className="ufile-del" onClick={remove} disabled={deleting} title="Remove document">
+              {deleting
+                ? <i className="ti ti-loader" style={{ animation: 'spin 1s linear infinite' }} />
+                : <i className="ti ti-trash" />}
             </button>
           )}
         </div>
