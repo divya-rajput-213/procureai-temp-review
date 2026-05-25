@@ -625,8 +625,6 @@ export default function UploadFile({
                             { icon: 'ti-circle-check', c: 'var(--grn-tx)', t: 'Quotation number' },
                             { icon: 'ti-circle-check', c: 'var(--grn-tx)', t: 'Quote & validity dates' },
                             { icon: 'ti-circle-check', c: 'var(--grn-tx)', t: 'All line items with qty & price' },
-                            { icon: 'ti-circle-check', c: 'var(--grn-tx)', t: 'GST rates per item' },
-                            { icon: 'ti-alert-circle', c: 'var(--amb-tx)', t: 'Part numbers (best effort)' },
                         ].map(({ icon, c, t }) => (
                             <div key={t}><i className={`ti ${icon}`} style={{ color: c, marginRight: 4 }} />{t}</div>
                         ))}
