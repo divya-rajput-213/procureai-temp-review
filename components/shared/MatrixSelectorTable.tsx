@@ -40,18 +40,18 @@ export function MatrixSelectorTable({
   }
 
   return (
-    <div style={{ border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: 8, overflow: 'hidden', fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}>
-        <thead style={{ background: '#f8f8f6', borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}>
+    <div className="border border-border rounded-lg overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 border-b border-border bg-slate-50">
           <tr>
-            <th style={{ width: 36, padding: '8px 12px' }} />
-            <th style={thSt}>Matrix Name</th>
-            <th style={{ ...thSt, display: 'none' }} className="sm:table-cell">Plant</th>
-            <th style={thSt}>Levels</th>
-            <th style={{ width: 36, padding: '8px 12px' }} />
+            <th className="w-8 px-3 py-2.5" />
+            <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Matrix Name</th>
+            <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Plant</th>
+            <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Levels</th>
+            <th className="w-8 px-3 py-2.5" />
           </tr>
         </thead>
-        <tbody style={{ background: '#fff' }}>
+        <tbody className="divide-y divide-border bg-white">
           {matrices.map((m) => {
             const levelCount = m.levels?.length ?? 0
             const isSelected = selectedMatrix === m.id
@@ -64,8 +64,8 @@ export function MatrixSelectorTable({
                   style={{ background: isSelected ? 'hsl(var(--primary) / 0.05)' : '#fff', transition: 'background .12s' }}
                   className={isSelected ? '' : 'hover:bg-slate-50'}
                 >
-                  <td style={{ ...tdBase, width: 36, textAlign: 'center' }}>
-                    <label htmlFor={`matrix-radio-${m.id}`} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <td className="px-3 py-2.5 text-center">
+                    <label htmlFor={`matrix-radio-${m.id}`} className="cursor-pointer flex items-center justify-center">
                       <input
                         type="radio"
                         id={`matrix-radio-${m.id}`}
@@ -79,51 +79,46 @@ export function MatrixSelectorTable({
                   <td style={{ ...tdBase, fontWeight: 500, color: '#1a1a18' }} onClick={() => onSelect(m.id)}>
                     {m.name}
                   </td>
-                  <td style={{ ...tdBase, color: 'hsl(var(--muted-foreground))' }} className="hidden sm:table-cell" onClick={() => onSelect(m.id)}>
-                    {m.plant_name || 'All Plants'}
+                  <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell cursor-pointer" onClick={() => onSelect(m.id)}>                    {m.plant_name || 'All Plants'}
                   </td>
-                  <td style={tdBase} onClick={() => onSelect(m.id)}>
-                    <span style={{ fontSize: 12, background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: 99 }}>
+                  <td className="px-3 py-2.5 cursor-pointer" onClick={() => onSelect(m.id)}>
+                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
                       {levelCount} level{levelCount === 1 ? '' : 's'}
                     </span>
                   </td>
-                  <td style={{ ...tdBase, width: 36, textAlign: 'center' }}>
+                  <td className="px-3 py-2.5 text-center">
                     <button
                       type="button"
                       onClick={() => onToggleExpand(m.id)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center' }}
-                    >
+                      className="text-muted-foreground hover:text-foreground transition-colors"                    >
                       {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     </button>
                   </td>
                 </tr>
                 {isExpanded && (
                   <tr key={`${m.id}-levels`}>
-                    <td colSpan={5} style={{ padding: 0 }}>
-                      <div style={{ background: 'hsl(var(--muted)/0.3)', borderTop: '0.5px solid rgba(0,0,0,0.08)', padding: '10px 16px 10px 28px' }}>
+                      <td colSpan={5} className="p-0">
+                      <div className="bg-muted/30 border-t border-border px-6 py-3">
                         {levelCount === 0 ? (
-                          <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', padding: '2px 0' }}>No levels configured.</p>
-                        ) : (
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Sans',sans-serif", fontSize: 12 }}>
-                            <thead>
-                              <tr style={{ color: 'hsl(var(--muted-foreground))' }}>
-                                <th style={{ textAlign: 'left', padding: '4px 16px 4px 0', fontWeight: 700, width: 48 }}>Level</th>
-                                <th style={{ textAlign: 'left', padding: '4px 16px 4px 0', fontWeight: 700 }}>Approver</th>
-                                <th style={{ textAlign: 'left', padding: '4px 16px 4px 0', fontWeight: 700 }}>Role</th>
-                                <th style={{ textAlign: 'right', padding: '4px 0', fontWeight: 700, width: 56 }}>SLA</th>
-                              </tr>
-                            </thead>
+                          <p className="text-xs text-muted-foreground py-1">No levels configured.</p>) : (
+                          <table className="w-full text-xs">                            <thead>
+                            <tr className="text-muted-foreground">
+                              <th className="text-left py-1.5 pr-4 font-semibold w-12">Level</th>
+                              <th className="text-left py-1.5 pr-4 font-semibold">Approver</th>
+                              <th className="text-left py-1.5 pr-4 font-semibold">Role</th>
+                              <th className="text-right py-1.5 font-semibold w-16">SLA</th>
+                            </tr>
+                          </thead>
                             <tbody>
                               {(m.levels ?? []).map((lv) => (
-                                <tr key={lv.id} style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)' }}>
-                                  <td style={{ padding: '5px 16px 5px 0' }}>
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', fontWeight: 700, fontSize: 11 }}>
+                                <tr key={lv.id} className="border-t border-border/60">
+                                  <td className="py-1.5 pr-4">
+                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs">
                                       {lv.level_number}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '5px 16px 5px 0', fontWeight: 500, color: '#1a1a18' }}>{lv.user_name ?? '—'}</td>
-                                  <td style={{ padding: '5px 16px 5px 0', color: 'hsl(var(--muted-foreground))' }}>{lv.role_name ?? '—'}</td>
-                                  <td style={{ padding: '5px 0', textAlign: 'right', color: 'hsl(var(--muted-foreground))' }}>{lv.sla_hours ? `${lv.sla_hours}h` : '—'}</td>
+                                    </span>                                 </td>
+                                  <td className="py-1.5 pr-4 font-medium text-foreground">{lv.user_name ?? '—'}</td>
+                                  <td className="py-1.5 pr-4 text-muted-foreground">{lv.role_name ?? '—'}</td>
+                                  <td className="py-1.5 text-right text-muted-foreground">{lv.sla_hours ? `${lv.sla_hours}h` : '—'}</td>
                                 </tr>
                               ))}
                             </tbody>
