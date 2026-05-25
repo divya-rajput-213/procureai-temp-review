@@ -355,17 +355,7 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess, selectedVendor }
 
   return (
     <>
-      <Card className="shadow-sm">
-        <CardHeader className="pb-4 border-b">
-          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Select Approval Matrix
-          </CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">
-            Choose the approval workflow for this budget request.
-          </p>
-        </CardHeader>
-
-        <CardContent className="pt-5">
+        <div>
           {matrices === undefined && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
@@ -392,17 +382,17 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess, selectedVendor }
               }}
             />
           )}
-        </CardContent>
+        </div>
 
         {/* Footer — same as first design */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>
+        <div className="flex items-center justify-end ">
+          {/* <Button variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
-          </Button>
+          </Button> */}
 
           <Button
             onClick={submit}
-            disabled={submitting}
+            disabled={submitting || !selectedMatrix}
             className="gap-2 min-w-[160px]"
           >
             {submitting ? (
@@ -413,7 +403,6 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess, selectedVendor }
             Submit for Approval
           </Button>
         </div>
-      </Card>
     </>
 
   )
@@ -812,60 +801,92 @@ export default function PRDetailPage() {
     { key: 'approval' as const, label: 'Approval' },
   ]
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-start gap-3 flex-wrap">
+    <>
+      <style>{`
+        .prd-lbl{font-size:10px;font-weight:600;color:var(--tx3,#9a9a96);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+        .prd-val{font-size:13px;font-weight:500;color:#1a1a18}
+        .prd-cell{padding:0 14px}
+        .prd-cell:first-child{padding-left:0}
+        .prd-cell:last-child{padding-right:0}
+      `}</style>
+      <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-lg font-semibold truncate">{pr.pr_number}</h1>
-            <StatusBadge status={pr.status} />
+        {/* ── Hero card ── */}
+        <div style={{ background: 'var(--bg,#fff)', border: '0.5px solid var(--bd,rgba(0,0,0,0.08))', borderRadius: 'var(--rl,12px)', padding: 22, marginBottom: 4 }}>
+
+          {/* Row 1 — icon + PR number + status + action buttons */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 18 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#dbeafe', color: '#1e40af', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <i className="ti ti-clipboard-list" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const, marginBottom: 4 }}>
+                <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-.4px' }}>{pr.pr_number}</span>
+                <StatusBadge status={pr.status} />
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--tx2,#6b6b69)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const }}>
+                <span>Created {formatDate(pr.created_at)}{pr.created_by_name ? ` · ${pr.created_by_name}` : ''}</span>
+                {pr.tracking_code && <span style={{ fontFamily: 'monospace', fontSize: 12 }}>· {pr.tracking_code}</span>}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              {activeTab === 'comparison' && (
+                <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={() => handleExport(pr.id)} disabled={isExporting || !pr.id}>
+                  {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  {isExporting ? 'Exporting…' : 'Export PCS'}
+                </Button>
+              )}
+              <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={() => exportPRPDF(pr, activeTaxes)}>
+                <Download className="w-3.5 h-3.5" /> PDF
+              </Button>
+            
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Created {formatDate(pr.created_at)}
-            {pr.created_by_name && ` by ${pr.created_by_name}`}
-            {pr.tracking_code && ` · Tracking: ${pr.tracking_code}`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {activeTab === "comparison" && <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 text-xs"
-            onClick={() => handleExport(pr.id)}
-            disabled={isExporting || !pr.id}
-          >
-            {isExporting
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <Download className="w-3.5 h-3.5" />
-            }
-            {isExporting ? 'Exporting…' : 'Export PCS'}
-          </Button>}
-          <Button variant="outline" size="sm" onClick={() => exportPRPDF(pr, activeTaxes)} className="gap-1.5">
-            <Download className="w-3.5 h-3.5" /> PDF
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => router.push('/procurement')} className="gap-1 shrink-0">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </Button>
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex border-b gap-1">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === t.key
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+          {/* Row 2 — metadata strip */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
+            {[
+              { label: 'Tracking ID', value: pr.budget_info
+?.                tracking_code, mono: true },
+              { label: 'Plant', value: pr.plant_name },
+              { label: 'Department', value: pr.department_name },
+              { label: 'Selected Vendor', value: pr.selected_vendor_name },
+              { label: 'Total Amount', value: formatCurrency(pr.total_amount, pr.currency_code) },
+            ].map(({ label, value, mono }, i) => (
+              <div key={label} className="prd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
+                <div className="prd-lbl">{label}</div>
+                <div className="prd-val" style={mono ? { fontFamily: 'monospace' } : {}}>{value || '—'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Tabs ── */}
+        <div className="flex items-center w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
+          {TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`
+                flex items-center justify-center gap-1.5
+                px-5 py-[11px]
+                text-[13px] font-medium
+                transition-colors
+                border-b-[2.5px]
+                whitespace-nowrap
+                ${activeTab === tab.key
+                  ? 'text-[#042348] border-[#042348] bg-white'
+                  : 'text-[#9a9a96] border-transparent hover:bg-[#f8f8f6] hover:text-[#042348]'
+                }
+              `}
+            >
+              {tab.key === 'details' && <i className="ti ti-layout-list" style={{ fontSize: 14 }} />}
+              {tab.key === 'comparison' && <i className="ti ti-table-column" style={{ fontSize: 14 }} />}
+              {tab.key === 'approval' && <i className="ti ti-shield-check" style={{ fontSize: 14 }} />}
+              {tab.label}
+            </button>
+          ))}
+        </div>
       {activeTab === 'details' && (
         <div >
           {/* LEFT */}
@@ -1196,7 +1217,7 @@ export default function PRDetailPage() {
       )}
 
       {/* ── Comparison Tab ── */}
-      {activeTab === 'comparison' && <>
+      {activeTab === 'comparison' && (
         <CompareStep
           selectedQuotationIds={quotationIds}
           selectedVendorId={selectedVendor}
@@ -1204,7 +1225,8 @@ export default function PRDetailPage() {
           isDisabled={pr.status !== 'draft'}
           prId={pr.id}
         />
-      </>}
-    </div>
+      )}
+      </div>
+    </>
   )
 }

@@ -8,13 +8,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast, useToast } from '@/components/ui/use-toast'
 import {
   ArrowLeft, Loader2, Search, X,
   AlertTriangle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown, Sparkles, Plus, Building2,
-  Download,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
@@ -22,6 +19,12 @@ import { useSettingsStore } from '@/lib/stores/settings.store'
 import ApprovalMatrix from '../components/ApprovalMatrix'
 import CompareStep from '../components/CompareStep'
 import Link from 'next/link'
+
+const PR_STEPS = [
+  { label: 'Quotes', sub: 'Select quotations to compare' },
+  { label: 'Compare & Select', sub: 'Pick the winning vendor' },
+  { label: 'Approval', sub: 'Submit for approval' },
+]
 
 // ─── Error flattener ─────────────────────────────────────────────────────────
 
@@ -91,151 +94,6 @@ function VendorDot({ name, color, size = 28 }: { name: string; color?: string; s
   )
 }
 
-// ─── Step Indicator ───────────────────────────────────────────────────────────
-
-function StepIndicator({ step, toast, prId }: any) {
-  const [isExporting, setIsExporting] = useState(false)
-
-  const steps = ['Quotes', 'Compare & select', 'Approval matrix']
-  const handleExport = async (prId: any) => {
-    if (!prId) return
-    setIsExporting(true)
-    try {
-      const res = await apiClient.get(
-        `/procurement/${prId}/export-pcs/`,
-        { responseType: 'blob' }
-      )
-
-      const disposition = res.headers?.['content-disposition'] || ''
-      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
-      const filename = match ? match[1].replace(/['"]/g, '') : `PCS-${prId}.xlsx`
-
-      const blob = new Blob([res.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (err: any) {
-      let message = 'Could not download the PCS sheet. Please try again.'
-
-      const blob: Blob = err?.response?.data
-      if (blob instanceof Blob) {
-        try {
-          const text = await blob.text()
-          const json = JSON.parse(text)
-          message = json.error || json.detail || message
-        } catch {
-          // not JSON, keep default message
-        }
-      }
-
-      console.error('Export failed', err)
-      toast({ title: 'Export failed', description: message, variant: 'destructive' })
-    } finally {
-      setIsExporting(false)
-    }
-  }
-  return (
-    <div
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      borderBottom: '1px solid hsl(var(--border))',
-      padding: '12px 20px',
-    }}
-  >
-    <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-      {steps.map((s, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
-          {i > 0 && (
-            <div
-              style={{
-                width: 48,
-                height: 1,
-                margin: '0 4px',
-                background:
-                  i < step
-                    ? 'hsl(var(--primary))'
-                    : 'hsl(var(--border))',
-              }}
-            />
-          )}
-  
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: '50%',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 16,
-                fontWeight: 700,
-                flexShrink: 0,
-                background:
-                  i < step - 1
-                    ? '#10b981'
-                    : i === step - 1
-                    ? 'hsl(var(--primary))'
-                    : 'hsl(var(--muted))',
-                color:
-                  i <= step - 1
-                    ? 'hsl(var(--primary-foreground))'
-                    : 'hsl(var(--muted-foreground))',
-              }}
-            >
-              {i < step - 1 ? (
-                <Check style={{ width: 10, height: 10 }} />
-              ) : (
-                i + 1
-              )}
-            </span>
-  
-            <span
-              style={{
-                fontSize: 16,
-                fontWeight: i === step - 1 ? 600 : 400,
-                color:
-                  i === step - 1
-                    ? 'hsl(var(--foreground))'
-                    : 'hsl(var(--muted-foreground))',
-              }}
-            >
-              {s}
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  
-    {step === 2 && (
-      <Button
-        size="sm"
-        variant="outline"
-        className="gap-1.5 text-xs"
-        onClick={() => handleExport(prId)}
-        disabled={isExporting || !prId}
-      >
-        {isExporting ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        ) : (
-          <Download className="w-3.5 h-3.5" />
-        )}
-  
-        {isExporting ? 'Exporting…' : 'Export PCS'}
-      </Button>
-    )}
-  </div>
-  )
-}
 
 // ─── TrackingIdSearch ─────────────────────────────────────────────────────────
 // Self-contained: owns search state, debounce (400 ms), and the API query.
@@ -286,7 +144,8 @@ function TrackingIdSearch({
             setOpen(true)
           }}
           onFocus={() => { if (search.trim().length > 0) setOpen(true) }}
-          className="pl-8 text-sm"
+          className="pl-8"
+          style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}
         />
         {/* Spinner while debounced fetch is in flight */}
         {isFetching && !value && (
@@ -304,7 +163,7 @@ function TrackingIdSearch({
       </div>
 
       {showDropdown && (
-        <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-64 overflow-auto">
+        <div className="absolute z-[200] w-full mt-1 bg-background border rounded-md shadow-lg max-h-64 overflow-auto">
           {/* Debounce hasn't fired yet — user is still typing */}
           {debouncedSearch.length === 0 ? (
             <div className="px-3 py-2.5 text-sm text-muted-foreground">Type to search…</div>
@@ -397,6 +256,7 @@ function QuotesStep({
   const [vendorFilter, setVendorFilter] = useState('')
   const [budgetFilter, setBudgetFilter] = useState<'all' | 'within' | 'exceeds'>('all')
   const [quoteDate, setQuoteDate] = useState('')
+  const [textSearch, setTextSearch] = useState('')
 
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -417,6 +277,13 @@ function QuotesStep({
 
   // ── Filter ───────────────────────────────────────────────────────────
   const filtered = (quotations as any[]).filter((q: any) => {
+    if (textSearch) {
+      const s = textSearch.toLowerCase()
+      const matchVendor = (q.vendor_name || '').toLowerCase().includes(s)
+      const matchRef = (q.ref_no || '').toLowerCase().includes(s)
+      const matchQuoteNo = (q.quotation_no || '').toLowerCase().includes(s)
+      if (!matchVendor && !matchRef && !matchQuoteNo) return false
+    }
     if (vendorFilter && q.vendor_name !== vendorFilter) return false
     if (budgetFilter === 'within' && budgetRemaining !== null && Number(q.total_amount) > budgetRemaining) return false
     if (budgetFilter === 'exceeds' && (budgetRemaining === null || Number(q.total_amount) <= budgetRemaining)) return false
@@ -473,6 +340,7 @@ function QuotesStep({
   }
 
   const activeFilterCount =
+    (textSearch ? 1 : 0) +
     (vendorFilter ? 1 : 0) +
     (budgetFilter !== 'all' ? 1 : 0) +
     (quoteDate ? 1 : 0)
@@ -480,19 +348,15 @@ function QuotesStep({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      {/* ── Procurement details card (unchanged) ── */}
-      <Card className="shadow-sm">
-        <CardHeader className="pb-3 border-b">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold">Procurement details</CardTitle>
-            <span className="text-xs text-muted-foreground">Step 1 of 3</span>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-4 space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Tracking ID <span className="text-destructive">*</span>
-            </Label>
+      {/* ── Procurement details card ── */}
+      <div className="form-sec">
+        <div className="form-sec-head">
+          <span className="fsh-title">Procurement details</span>
+          <span style={{ fontSize: 11, color: '#9a9a96' }}>Step 1 of 3</span>
+        </div>
+        <div className="form-body">
+          <div>
+            <label className="lbl">Tracking ID <span className="req">*</span></label>
             <TrackingIdSearch
               value={selectedTracking}
               onChange={(t) => {
@@ -516,105 +380,105 @@ function QuotesStep({
               onSelect={() => { }}
             />
             {errors.tracking_id && (
-              <p className="text-xs text-destructive">{errors.tracking_id.message}</p>
+              <p style={{ fontSize: 12, color: '#E24B4A', marginTop: 4 }}>{errors.tracking_id.message}</p>
             )}
           </div>
 
           {trackingDetail && (
             <>
-              <div className="rounded-lg border bg-muted/30 px-3 py-2.5">
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Title</span>
-                    <p className="font-semibold text-foreground truncate max-w-[220px]">{trackingDetail.title || '—'}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <Building2 className="w-3 h-3" />Plant
-                    </span>
-                    <p className="font-medium">{trackingDetail.plant_name}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Department</span>
-                    <p className="font-medium">{trackingDetail.department_name}</p>
-                  </div>
-                  <div className="ml-auto text-right">
-                    <span className="text-muted-foreground">Priority</span>
-                    <p className="font-semibold capitalize">{trackingDetail.priority || 'Normal'}</p>
-                  </div>
+              <div style={{ background: '#f8f8f6', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, padding: '10px 14px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px', marginBottom: 10 }}>
+                  {[
+                    { label: 'Title', value: trackingDetail.title },
+                    { label: 'Plant', value: trackingDetail.plant_name },
+                    { label: 'Department', value: trackingDetail.department_name },
+                    { label: 'Priority', value: trackingDetail.priority || 'Normal' },
+                  ].map(({ label, value }) => (
+                    <div key={label}>
+                      <div className="info-row">{label}</div>
+                      <div className="info-val">{value || '—'}</div>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="mt-2.5 pt-2.5 border-t flex items-center gap-4">
-                  <div className="flex-1">
-                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.08)', paddingTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9a9a96', marginBottom: 4 }}>
                       <span>Budget consumed</span>
-                      <span className="font-medium text-foreground">
+                      <span style={{ fontWeight: 600, color: '#1a1a18' }}>
                         {formatCurrency(trackingDetail.consumed_amount)} / {formatCurrency(trackingDetail.approved_amount)}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{
-                          width: `${Math.min(100, (Number(trackingDetail.consumed_amount) / Number(trackingDetail.approved_amount)) * 100)}%`,
-                        }}
-                      />
+                    <div style={{ height: 5, borderRadius: 3, background: '#e8e8e4', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 3, background: '#1a1a18', transition: 'width .3s',
+                        width: `${Math.min(100, (Number(trackingDetail.consumed_amount) / Number(trackingDetail.approved_amount)) * 100)}%`,
+                      }} />
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-[10px] text-muted-foreground">Remaining</span>
-                    <p className={`text-sm font-bold tabular-nums ${Number(trackingDetail.remaining_amount) > 0 ? 'text-emerald-700' : 'text-destructive'}`}>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: '#9a9a96' }}>Remaining</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans',sans-serif", color: Number(trackingDetail.remaining_amount) > 0 ? '#3B6D11' : '#A32D2D' }}>
                       {formatCurrency(trackingDetail.remaining_amount)}
-                    </p>
+                    </div>
                   </div>
                 </div>
-
-                {/* {grandTotal > 0 && budgetExceeded && (
-                  <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive font-medium bg-destructive/10 px-2 py-1.5 rounded-md">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    This PR exceeds remaining budget by {formatCurrency(grandTotal - budgetRemaining)}
-                  </div>
-                )} */}
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Description{' '}
-                  <span className="font-normal normal-case text-muted-foreground">(optional)</span>
-                </Label>
+              <div>
+                <label className="lbl">Description <span style={{ fontWeight: 400, color: '#9a9a96' }}>(optional)</span></label>
                 <textarea
                   {...register('description')}
                   rows={2}
                   placeholder="Brief description of what is being procured…"
-                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
+                  className="pr-textarea"
                 />
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* ── Quotations card ── */}
       {watchedTrackingId && (
-        <Card className="shadow-sm">
-          <CardHeader className="pb-3 border-b">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-semibold">Pick quotations to compare</CardTitle>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {selectedQuotationIds.length}/5 selected · auto-aligns line items across vendors
-                </p>
+        <div className="form-sec">
+          <div className="form-sec-head">
+            <div style={{ flex: 1 }}>
+              <div className="fsh-title">Pick quotations to compare</div>
+              <div style={{ fontSize: 12, color: '#9a9a96', marginTop: 2 }}>
+                {selectedQuotationIds.length}/5 selected · auto-aligns line items across vendors
               </div>
-              <Link href="/quotation/new">
-                <Button type="button" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  New Quotation
-                </Button>
-              </Link>
             </div>
+            <Link href="/quotation/new">
+              <Button type="button" size="sm" className="gap-1.5">
+                <Plus className="h-3.5 w-3.5" />
+                New Quotation
+              </Button>
+            </Link>
+          </div>
 
             {/* ── Filter bar ── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', flexWrap: 'wrap', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+              {/* Text search */}
+              <div style={{ position: 'relative', minWidth: 200, flex: 1, maxWidth: 320 }}>
+                <Search style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#9a9a96', pointerEvents: 'none' }} />
+                <input
+                  type="text"
+                  placeholder="Search vendor or quote no…"
+                  value={textSearch}
+                  onChange={(e) => setTextSearch(e.target.value)}
+                  style={{
+                    width: '100%', height: 32, paddingLeft: 28, paddingRight: textSearch ? 28 : 10,
+                    borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.14)', background: '#fff',
+                    fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: '#1a1a18', outline: 'none',
+                  }}
+                />
+                {textSearch && (
+                  <button type="button" onClick={() => setTextSearch('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#9a9a96', display: 'flex' }}>
+                    <X style={{ width: 12, height: 12 }} />
+                  </button>
+                )}
+              </div>
+
               {budgetRemaining !== null && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Budget</span>
@@ -645,11 +509,10 @@ function QuotesStep({
               {activeFilterCount > 0 && (
                 <button
                   type="button"
-                  onClick={() => { setVendorFilter(''); setBudgetFilter('all'); setQuoteDate('') }}
+                  onClick={() => { setTextSearch(''); setVendorFilter(''); setBudgetFilter('all'); setQuoteDate('') }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4,
-                    fontSize: 12, // increased from 11 → 12
-                    color: 'hsl(var(--muted-foreground))',
+                    fontSize: 12, color: 'hsl(var(--muted-foreground))',
                     background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px',
                   }}
                 >
@@ -662,10 +525,9 @@ function QuotesStep({
                 {processedQuotations.length} of {(quotations as any[]).length}
               </span>
             </div>
-          </CardHeader>
 
-          <div className="max-h-[520px] overflow-auto rounded-b-xl" style={{ scrollbarWidth: 'thin' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}> {/* increased from 13 → 14 */}
+          <div className="max-h-[520px] overflow-auto" style={{ scrollbarWidth: 'thin', borderRadius: '0 0 12px 12px', overflow: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'hsl(var(--background))' }}>
                 <tr style={{ background: 'hsl(var(--muted) / 0.7)', borderBottom: '1px solid hsl(var(--border))' }}>
                   <th style={{ width: 36, padding: '8px 12px' }} />
@@ -730,14 +592,14 @@ function QuotesStep({
 
                       <td style={{ padding: '10px 12px' }}>
                         <span style={{
-                          fontSize: 13, // increased from 12 → 13
+                          fontSize: 12,
                           fontWeight: 600,
                           color: isSelected ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
                         }}>
                           {q.ref_no}
                         </span>
                         {q.quotation_no && (
-                          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}> {/* increased from 10 → 11 */}
+                          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
                             {q.quotation_no}
                           </div>
                         )}
@@ -749,7 +611,7 @@ function QuotesStep({
                           <div>
                             <span style={{ fontWeight: 500 }}>{q.vendor_name}</span>
                             {q.vendor_gstin && (
-                              <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}> {/* increased from 10 → 11 */}
+                              <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
                                 {q.vendor_gstin}
                               </div>
                             )}
@@ -783,10 +645,10 @@ function QuotesStep({
                         </td>
                       )}
 
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: 14 }}> {/* added fontSize */}
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: 13 }}>
                         {formatCurrency(q.total_amount)}
                         {exceedsBudget && (
-                          <div className="text-[11px] text-destructive font-medium"> {/* increased from 10 → 11 */}
+                          <div className="text-[11px] text-destructive font-medium">
                             Exceeds budget
                           </div>
                         )}
@@ -797,7 +659,7 @@ function QuotesStep({
               </tbody>
             </table>
           </div>
-        </Card>
+        </div>
       )}
     </div>
   )
@@ -925,112 +787,152 @@ export default function NewPRPage() {
         : [...prev, id]
     )
   }
+
+
   // ─── Render ───────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-0">
-      {/* <div className="flex items-start justify-between px-1 pb-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">New Purchase Requisition</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Create a purchase requisition in 3 steps.</p>
+    <>
+      <style>{`
+        *,*::before,*::after{box-sizing:border-box}
+
+        /* ── root ── */
+        .pr-root{font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18}
+
+        /* ── stepper ── */
+        .pr-root .pr-stepper{display:flex;background:#fff;border:0.5px solid rgba(0,0,0,0.08);border-radius:12px;overflow:hidden;margin-bottom:20px}
+        .pr-root .pr-step-item{flex:1;padding:14px 16px;display:flex;align-items:center;gap:10px;border-right:0.5px solid rgba(0,0,0,0.08);background:transparent;border-top:none;border-left:none;border-bottom:none;cursor:default}
+        .pr-root .pr-step-item:last-child{border-right:none}
+        .pr-root .pr-step-item.prs-done{background:#f8f8f6}
+        .pr-root .pr-step-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+        .pr-root .psn-idle{background:#f2f1ee;color:#9a9a96}
+        .pr-root .psn-act{background:#1a1a18;color:#fff}
+        .pr-root .psn-done{background:#EAF3DE;color:#3B6D11}
+        .pr-root .pr-step-lbl{font-size:13px;font-weight:600;color:#9a9a96}
+        .pr-root .pr-step-item.prs-active .pr-step-lbl{color:#1a1a18}
+        .pr-root .pr-step-item.prs-done .pr-step-lbl{color:#5a5a57}
+        .pr-root .pr-step-sub{font-size:12px;color:#9a9a96}
+
+        /* ── form sections ── */
+        .pr-root .form-sec{background:#fff;border:0.5px solid rgba(0,0,0,0.08);border-radius:12px;}
+        .pr-root .form-sec-head{padding:12px 16px;border-bottom:0.5px solid rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:space-between;gap:10px}
+        .pr-root .fsh-title{font-size:14px;font-weight:600;color:#1a1a18;font-family:'DM Sans',sans-serif}
+        .pr-root .form-body{padding:16px;display:flex;flex-direction:column;gap:14px}
+        .pr-root .lbl{font-size:12px;font-weight:600;color:#5a5a57;display:block;margin-bottom:5px;font-family:'DM Sans',sans-serif}
+        .pr-root .req{color:#E24B4A;margin-left:2px}
+        .pr-root .inp{padding:8px 11px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.14);background:#fff;font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18;outline:none;width:100%}
+        .pr-root .inp:focus{border-color:#1a1a18}
+        .pr-root .inp::placeholder{color:#9a9a96}
+        .pr-root .pr-textarea{padding:8px 11px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.14);background:#fff;font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18;outline:none;width:100%;resize:vertical;min-height:60px}
+        .pr-root .pr-textarea:focus{border-color:#1a1a18}
+        .pr-root .pr-textarea::placeholder{color:#9a9a96}
+        .pr-root .info-row{font-size:12px;color:#5a5a57;font-family:'DM Sans',sans-serif}
+        .pr-root .info-val{font-size:13px;font-weight:600;color:#1a1a18;margin-top:1px;font-family:'DM Sans',sans-serif}
+
+        /* ── layout ── */
+        .pr-root .pr-content{padding-bottom:72px}
+        .pr-root .pr-sticky{background:#fff;border-top:0.5px solid rgba(0,0,0,0.14);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;gap:8px}
+      `}</style>
+
+      <div className="pr-root relative">
+        {/* Page header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.4px' }}>New Purchase Requisition</div>
+            <div style={{ fontSize: 13, color: 'var(--tx2,#5a5a57)', marginTop: 2 }}>Select quotations · Compare &amp; select vendor · Submit for approval</div>
+          </div>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/procurement')}>
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
+          </Button>
         </div>
-        <Button type="button" variant="outline" onClick={() => router.push('/procurement')} className="gap-1.5">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
-      </div> */}
 
-      <StepIndicator
-        step={step}
-        toast={toast}
-        prId={prId}
-      />
+        {/* Stepper */}
+        <div className="pr-stepper">
+          {PR_STEPS.map((s, i) => {
+            const stepNum = i + 1
+            const isDone = step > stepNum
+            const isActive = step === stepNum
+            return (
+              <div key={i} className={`pr-step-item${isActive ? ' prs-active' : ''}${isDone ? ' prs-done' : ''}`}>
+                <div className={`pr-step-num ${isDone ? 'psn-done' : isActive ? 'psn-act' : 'psn-idle'}`}>
+                  {isDone ? <Check style={{ width: 10, height: 10 }} /> : stepNum}
+                </div>
+                <div>
+                  <div className="pr-step-lbl">{s.label}</div>
+                  <div className="pr-step-sub">{s.sub}</div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
 
-      <div className="pt-5">
-        {step === 1 && (
-          <QuotesStep
-            trackingDetail={trackingDetail}
-            selectedTracking={selectedTracking}
-            onSelectTracking={setSelectedTracking}
-            setValue={setValue}
-            watchedTrackingId={watchedTrackingId}
-            errors={errors}
-            register={register}
-            quotations={quotations}
-            qLoading={qLoading}
-            selectedQuotationIds={selectedQuotationIds}
-            toggleQuotation={toggleQuotation}
-            grandTotal={grandTotal}
-            budgetRemaining={budgetRemaining}
-            budgetExceeded={budgetExceeded}
-            setSelectedQuotationIds={setSelectedQuotationIds}
-          />
-        )}
+        {/* Content */}
+        <div className="pr-content">
+          {step === 1 && (
+            <QuotesStep
+              trackingDetail={trackingDetail}
+              selectedTracking={selectedTracking}
+              onSelectTracking={setSelectedTracking}
+              setValue={setValue}
+              watchedTrackingId={watchedTrackingId}
+              errors={errors}
+              register={register}
+              quotations={quotations}
+              qLoading={qLoading}
+              selectedQuotationIds={selectedQuotationIds}
+              toggleQuotation={toggleQuotation}
+              grandTotal={grandTotal}
+              budgetRemaining={budgetRemaining}
+              budgetExceeded={budgetExceeded}
+              setSelectedQuotationIds={setSelectedQuotationIds}
+            />
+          )}
 
-        {step === 2 && (
-          <CompareStep
-            selectedQuotationIds={selectedQuotationIds}
-            selectedVendorId={selectedVendorId}
-            setSelectedVendorId={setSelectedVendorId}
-            prId={prId}
-          />
-        )}
+          {step === 2 && (
+            <CompareStep
+              selectedQuotationIds={selectedQuotationIds}
+              selectedVendorId={selectedVendorId}
+              setSelectedVendorId={setSelectedVendorId}
+              prId={prId}
+              budgetRemaining={budgetRemaining}
+            />
+          )}
 
-        {step === 3 && (
-          <ApprovalMatrix
-            open={showApprovalModal}
-            onOpenChange={setShowApprovalModal}
-            prId={savedPrId || ''}
-            onClose={() => setShowApprovalModal(false)}
-            onSuccess={() => {
-              queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
-              toast({ title: 'PR submitted for approval.' })
-              router.push('/procurement')
-            }}
-            selectedVendor={selectedVendorId}
-            setStep={setStep}
-            step={step}
-          />
+          {step === 3 && (
+            <ApprovalMatrix
+              open={showApprovalModal}
+              onOpenChange={setShowApprovalModal}
+              prId={savedPrId || ''}
+              onClose={() => setShowApprovalModal(false)}
+              onSuccess={() => {
+                queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
+                toast({ title: 'PR submitted for approval.' })
+                router.push('/procurement')
+              }}
+              selectedVendor={selectedVendorId}
+              setStep={setStep}
+              step={step}
+            />
+          )}
+        </div>
+
+        {/* Sticky action bar */}
+        {step <= 2 && (
+          <div className="pr-sticky rounded-b-xl">
+            <div>
+              {step > 1 && (
+                <Button variant="outline" size="sm" onClick={() => setStep(step - 1)} className="gap-1">
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back
+                </Button>
+              )}
+            </div>
+            <Button size="sm" onClick={handleContinue} disabled={isSaving} className="gap-1">
+              {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Next {!isSaving && <ChevronRight className="w-3.5 h-3.5" />}
+            </Button>
+          </div>
         )}
       </div>
-      {step <= 2 && (
-  <div
-    style={{
-      borderTop: '1px solid hsl(var(--border))',
-      padding: '12px 24px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 8,
-      marginTop: '10px',
-    }}
-  >
-    {step > 1 && (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setStep(step - 1)}
-        className="gap-1"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        Back
-      </Button>
-    )}
-
-    {step !== 3 && (
-      <Button
-        size="sm"
-        onClick={handleContinue}
-        disabled={isSaving}
-        className="gap-1"
-        style={{ marginLeft: 'auto' }}
-      >
-        {isSaving && (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        )}
-        Next {!isSaving && <ChevronRight className="w-3.5 h-3.5" />}
-      </Button>
-    )}
-  </div>
-)}
-    </div>
+    </>
   )
 }
