@@ -141,7 +141,40 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
     const toggleCreateNew = (idx: number, checked: boolean) => {
         setLineItems(prev => {
             const u = [...prev]
-            u[idx] = { ...u[idx], createNew: checked, is_new: checked, replaceExisting: false, skipItem: false }
+            const item = u[idx]
+
+            if (checked && item.selectedMasterId) {
+                // Find the master item's data so the new item is based on it
+                const selId = String(item.selectedMasterId)
+                const suggestion = (item.suggestions || []).find((s: any) => String(s.master_item_id) === selId)
+                const masterItem = masterItems.find((m: any) => String(m.id) === selId || String(m.hash_id) === selId)
+                const src = suggestion || masterItem
+
+                u[idx] = {
+                    ...item,
+                    createNew: true,
+                    is_new: true,
+                    replaceExisting: false,
+                    skipItem: false,
+                    selectedMasterId: '',
+                    ...(src && {
+                        item_name: src.description || item.item_name,
+                        item_code: src.code || item.item_code,
+                        hsn_code: src.hsn_code || item.hsn_code,
+                        unit_of_measure: src.unit_of_measure || item.unit_of_measure,
+                        gst_percentage: src.gst_percentage ?? item.gst_percentage,
+                    }),
+                }
+            } else {
+                u[idx] = {
+                    ...item,
+                    createNew: checked,
+                    is_new: checked,
+                    replaceExisting: false,
+                    skipItem: false,
+                    selectedMasterId: checked ? '' : item.selectedMasterId,
+                }
+            }
             return u
         })
     }
