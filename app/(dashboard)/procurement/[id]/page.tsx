@@ -849,7 +849,7 @@ export default function PRDetailPage() {
               { label: 'Plant', value: pr.plant_name },
               { label: 'Department', value: pr.department_name },
               { label: 'Selected Vendor', value: pr.selected_vendor_name },
-              { label: 'Total Amount', value: formatCurrency(pr.total_amount, pr.currency_code) },
+              // { label: 'Total Amount', value: formatCurrency(pr.total_amount, pr.currency_code) },
             ].map(({ label, value, mono }, i) => (
               <div key={label} className="prd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
                 <div className="prd-lbl">{label}</div>
@@ -946,7 +946,7 @@ export default function PRDetailPage() {
             </div>
 
             {/* PROCUREMENT DETAILS */}
-            <Card className="overflow-hidden rounded-xl shadow-sm">
+            {/* <Card className="overflow-hidden rounded-xl shadow-sm">
               <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
                 <div className="flex h-full items-center justify-between">
                   <CardTitle className="text-sm font-semibold">
@@ -1017,7 +1017,7 @@ export default function PRDetailPage() {
                   ))}
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
 
             {/* QUOTATIONS */}
             <Card className="overflow-hidden rounded-xl shadow-sm">
