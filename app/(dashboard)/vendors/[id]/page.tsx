@@ -336,16 +336,14 @@ function ApprovalProgressPanel({ vendorId, onStatusChange }: {
 // ─── VendorDashboard ──────────────────────────────────────────────────────────
 function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, isLoading: boolean }) {
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>
-  if (!dash) return null
 
   const stats = dash?.stats ?? {}
-  const recentPOs: any[] = dash?.recent_pos ?? []
-  const recentQuotations: any[] = dash?.recent_quotations ?? []
-  const recentInvoices: any[] = dash?.recent_invoices ?? []
-  const scorecard = dash?.scorecard ?? null
+  const recentPOs: any[] = vendor?.purchase_orders ?? []
+  const recentQuotations: any[] = vendor?.quotations ?? []
+  const recentInvoices: any[] = vendor?.invoices ?? []
+  const scorecard = vendor?.score_breakdown ?? null
   const viewQuotationHref = '/quotation'
   const openInNewTab = (href: string) => window.open(href, '_blank', 'noopener,noreferrer')
-
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[70%_1fr] gap-4 min-w-0">
       {/* LEFT */}
@@ -380,10 +378,10 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       onClick={() => { if (!po?.id) return; openInNewTab(`/purchase-orders/${po.id}`) }}
                       className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-2.5 font-mono text-[11px]">{po.po_number || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{po.po_type_display || po.po_type || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{po.plant_name || '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{po.total_amount != null ? formatCurrency(po.total_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 font-mono text-[11px]">{po?.po_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{po?.po_type_display || po?.po_type || '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{po?.plant_name || '—'}</td>
+                      <td className="px-4 py-2.5 text-right">{po?.total_amount != null ? formatCurrency(po?.total_amount) : '—'}</td>
                       <td className="px-4 py-2.5 text-center"><StatusBadge status={po.status} /></td>
                     </tr>
                   ))
@@ -433,7 +431,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                     >
                       <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{q.ref_no || q.pr_number || '—'}</td>
                       <td className="px-4 py-2.5 max-w-[160px] truncate">{q.quotation_no || q.title || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{q.valid_until ? formatDate(q.valid_until) : '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{(q.date || q.quotation_date || q.created_at) ? formatDate(q.date || q.quotation_date || q.created_at) : '—'}</td>
                       <td className="px-4 py-2.5 text-right">{(q.total_amount ?? q.bid_amount) != null ? formatCurrency(q.total_amount ?? q.bid_amount) : '—'}</td>
                       <td className="px-4 py-2.5 text-center"><StatusBadge status={q.status} /></td>
                     </tr>
@@ -624,12 +622,12 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               }
 
               const allItems = [
-                { label: 'GST',           docType: 'gst_certificate',  value: vendor.gst_number,  icon: FileBadge,  bg: 'bg-blue-100',   color: 'text-blue-700',   empty: 'Missing',      mono: true,  show: true },
-                { label: 'PAN',           docType: 'pan_card',         value: vendor.pan_number,  icon: CreditCard, bg: 'bg-green-100',  color: 'text-green-700',  empty: 'Missing',      mono: true,  show: true },
-                { label: 'Bank',          docType: 'bank_details',     value: vendor.bank_account ? `••${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true, show: true },
-                { label: 'MSME',          docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100',  color: 'text-green-700',  empty: '—',            mono: false, show: !!vendor.is_msme },
-                { label: 'SEZ',           docType: 'sez_certificate',  value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: '—', mono: false, show: !!vendor.is_sez },
-                { label: 'ISO / Quality', docType: 'iso_certificate',  value: docOf('iso_certificate') ? 'Uploaded' : null, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: '—', mono: false, show: !!docOf('iso_certificate') },
+                { label: 'GST', docType: 'gst_certificate', value: vendor.gst_number, icon: FileBadge, bg: 'bg-blue-100', color: 'text-blue-700', empty: 'Missing', mono: true, show: true },
+                { label: 'PAN', docType: 'pan_card', value: vendor.pan_number, icon: CreditCard, bg: 'bg-green-100', color: 'text-green-700', empty: 'Missing', mono: true, show: true },
+                { label: 'Bank', docType: 'bank_details', value: vendor.bank_account ? `••${vendor.bank_account.slice(-4)}` : null, icon: Landmark, bg: 'bg-purple-100', color: 'text-purple-700', empty: 'Not provided', mono: true, show: true },
+                { label: 'MSME', docType: 'msme_certificate', value: vendor.msme_number, icon: BadgeCheck, bg: 'bg-green-100', color: 'text-green-700', empty: '—', mono: false, show: !!vendor.is_msme },
+                { label: 'SEZ', docType: 'sez_certificate', value: vendor.is_sez ? 'Registered' : null, icon: Building2, bg: 'bg-purple-100', color: 'text-purple-700', empty: '—', mono: false, show: !!vendor.is_sez },
+                { label: 'ISO / Quality', docType: 'iso_certificate', value: docOf('iso_certificate') ? 'Uploaded' : null, icon: Award, bg: 'bg-amber-100', color: 'text-amber-700', empty: '—', mono: false, show: !!docOf('iso_certificate') },
               ]
 
               return allItems.filter(item => item.show).map(item => {
@@ -752,8 +750,8 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                         const st: string = d?.status ?? 'missing'
                         const chip = st === 'verified' ? 'bg-green-50 text-green-700 border-green-200'
                           : st === 'uploaded' ? 'bg-blue-50 text-blue-600 border-blue-200'
-                          : st === 'expired'  ? 'bg-red-50 text-red-600 border-red-200'
-                          : 'bg-slate-50 text-slate-400 border-slate-200'
+                            : st === 'expired' ? 'bg-red-50 text-red-600 border-red-200'
+                              : 'bg-slate-50 text-slate-400 border-slate-200'
                         const icon = st === 'verified' ? '✓' : st === 'expired' ? '!' : st === 'uploaded' ? '↑' : '–'
                         return (
                           <span key={key} className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${chip}`}>
@@ -886,9 +884,9 @@ export default function VendorDetailPage() {
   const isLocked = ['rejected', 'blocked'].includes(vendor.status)
 
   const tabs = [
-    { key: 'overview',   label: 'Overview'   },
-    { key: 'documents',  label: 'Documents'  },
-    { key: 'approval',   label: 'Approval'   },
+    { key: 'overview', label: 'Overview' },
+    { key: 'documents', label: 'Documents' },
+    { key: 'approval', label: 'Approval' },
   ]
 
   return (
@@ -946,23 +944,22 @@ export default function VendorDetailPage() {
               <div className="vd-sub">{[vendor.contact_email, vendor.contact_phone].filter(Boolean).join(' · ') || '—'}</div>
             </div>
             <div className="vd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
-              <div className="vd-lbl">Plant / Category</div>
-              <div className="vd-val">{[vendor.plant_name, vendor.category_name].filter(Boolean).join(' / ') || '—'}</div>
+              <div className="vd-lbl">Vendor ID</div>
+              <div className="vd-val">{vendor.vendor_code || '—'}</div>
             </div>
             <div className="vd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
-              <div className="vd-lbl">Vendor Type</div>
-              <div className="vd-val">{vendor.vendor_type || '—'}</div>
+              <div className="vd-lbl">Plant / Category</div>
+              <div className="vd-val">{[vendor.plant_name, vendor.category_name].filter(Boolean).join(' / ') || '—'}</div>
             </div>
           </div>
 
           {/* Row 3 — key metadata strip */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
             {[
-              { label: 'Vendor ID',  value: vendor.vendor_code },
-              { label: 'GSTIN',      value: vendor.gst_number },
-              { label: 'PAN',        value: vendor.pan_number },
-              { label: 'MSME',       value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
-              { label: 'Compliance Score', value: dash?.scorecard?.compliance?.score != null ? `${dash.scorecard.compliance.score}/100` : '—' },
+              // { label: 'GSTIN', value: vendor.gst_number },
+              // { label: 'PAN', value: vendor.pan_number },
+              { label: 'MSME', value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
+              // { label: 'Compliance Score', value: vendor?.score_breakdown?.compliance?.score != null ? `${vendor.score_breakdown.compliance.score}/100` : '—' },
             ].map(({ label, value }, i) => (
               <div key={label} className="vd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
                 <div className="vd-lbl">{label}</div>
@@ -992,9 +989,9 @@ export default function VendorDetailPage() {
                 }
               `}
             >
-              {tab.key === 'overview'  && <LayoutDashboard className="w-[14px] h-[14px]" />}
-              {tab.key === 'documents' && <FileText        className="w-[14px] h-[14px]" />}
-              {tab.key === 'approval'  && <ShieldCheck     className="w-[14px] h-[14px]" />}
+              {tab.key === 'overview' && <LayoutDashboard className="w-[14px] h-[14px]" />}
+              {tab.key === 'documents' && <FileText className="w-[14px] h-[14px]" />}
+              {tab.key === 'approval' && <ShieldCheck className="w-[14px] h-[14px]" />}
               <span>{tab.label}</span>
             </button>
           ))}
@@ -1020,7 +1017,7 @@ export default function VendorDetailPage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#9a9a96', textTransform: 'uppercase', letterSpacing: '.5px' }}>Compliance Documents</div>
               {canUploadDoc && (
-                <Button variant="outline" size="sm" className="text-[12px] h-7 gap-1.5" onClick={() => router.push(`/vendors/${id}/edit`)}>
+                <Button variant="outline" size="sm" className="text-[12px] h-7 gap-1.5" onClick={() => router.push(`/vendors/${id}/edit?step=1`)}>
                   <FileText className="w-[13px] h-[13px]" />
                   Upload Documents
                 </Button>
@@ -1034,7 +1031,7 @@ export default function VendorDetailPage() {
               const isOpen = expandedDocs.gst_certificate ?? !!vendor.gst_number
               return (
                 <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, gst_certificate: !isOpen }))}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                         <i className="ti ti-file-certificate" />
@@ -1051,9 +1048,7 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
                       </div>
                     </div>
-                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, gst_certificate: !isOpen }))}>
-                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                    </button>
+                    <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96' }} />
                   </div>
                   {isOpen && (
                     <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -1075,7 +1070,7 @@ export default function VendorDetailPage() {
               const isOpen = expandedDocs.pan_card ?? !!vendor.pan_number
               return (
                 <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, pan_card: !isOpen }))}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                         <i className="ti ti-id" />
@@ -1092,9 +1087,7 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
                       </div>
                     </div>
-                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, pan_card: !isOpen }))}>
-                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                    </button>
+                    <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96' }} />
                   </div>
                   {isOpen && (
                     <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -1116,7 +1109,7 @@ export default function VendorDetailPage() {
               const isOpen = expandedDocs.bank_details ?? !!vendor.bank_account
               return (
                 <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, bank_details: !isOpen }))}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
                         <i className="ti ti-building-bank" />
@@ -1133,9 +1126,7 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
                       </div>
                     </div>
-                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96' }} onClick={() => setExpandedDocs(p => ({ ...p, bank_details: !isOpen }))}>
-                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                    </button>
+                    <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96' }} />
                   </div>
                   {isOpen && (
                     <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -1171,7 +1162,7 @@ export default function VendorDetailPage() {
               const isOpen = expandedDocs.msme_certificate ?? isEnabled
               return (
                 <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, msme_certificate: !isOpen }))}>
                     <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
                       <i className="ti ti-certificate-2" />
                     </div>
@@ -1184,9 +1175,7 @@ export default function VendorDetailPage() {
                       </div>
                       <div style={{ fontSize: 11, color: '#9a9a96' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
                     </div>
-                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, msme_certificate: !isOpen }))}>
-                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                    </button>
+                    <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96', flexShrink: 0 }} />
                   </div>
                   {isOpen && (
                     <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -1210,7 +1199,7 @@ export default function VendorDetailPage() {
               const isOpen = expandedDocs.sez_certificate ?? isEnabled
               return (
                 <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, sez_certificate: !isOpen }))}>
                     <div style={{ width: 28, height: 28, borderRadius: 6, background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
                       <i className="ti ti-building-estate" />
                     </div>
@@ -1223,9 +1212,7 @@ export default function VendorDetailPage() {
                       </div>
                       <div style={{ fontSize: 11, color: '#9a9a96' }}>Special Economic Zone registered unit</div>
                     </div>
-                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, sez_certificate: !isOpen }))}>
-                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                    </button>
+                    <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96', flexShrink: 0 }} />
                   </div>
                   {isOpen && (
                     <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -1245,7 +1232,7 @@ export default function VendorDetailPage() {
                 <>
                   <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)', margin: '14px 0 12px' }} />
                   <div style={{ border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden', marginBottom: 10, background: '#fff' }}>
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6' }}>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#f8f8f6', cursor: 'pointer' }} onClick={() => setExpandedDocs(p => ({ ...p, iso: !isOpen }))}>
                       <div style={{ width: 28, height: 28, borderRadius: 6, background: '#fffbeb', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
                         <i className="ti ti-award" />
                       </div>
@@ -1253,9 +1240,7 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 13, fontWeight: 600 }}>ISO / Quality Certificates</div>
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>{isoDocs.length > 0 ? `${isoDocs.length} document${isoDocs.length !== 1 ? 's' : ''}` : 'No documents uploaded'}</div>
                       </div>
-                      <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#9a9a96', flexShrink: 0 }} onClick={() => setExpandedDocs(p => ({ ...p, iso: !isOpen }))}>
-                        <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14 }} />
-                      </button>
+                      <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#9a9a96', flexShrink: 0 }} />
                     </div>
                     {isOpen && (
                       <div style={{ padding: 16, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
