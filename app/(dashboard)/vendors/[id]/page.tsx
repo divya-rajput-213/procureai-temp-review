@@ -523,81 +523,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
           </CardContent>
         </Card>
 
-        {/* Bid Win Rate + Delivery Performance */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="rounded-xl border shadow-none">
-            <CardHeader className="py-3 px-4 border-b">
-              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-                <Trophy className="h-3.5 w-3.5" />
-                Bid Win Rate
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 flex flex-col items-center gap-2">
-              {stats.total_bids === 0 ? (
-                <div className="h-[120px] flex items-center justify-center text-[12px] text-muted-foreground">No bids yet</div>
-              ) : (
-                <>
-                  <div className="relative">
-                    <ResponsiveContainer width={120} height={120}>
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: 'Won', value: stats.accepted_bids ?? 0 },
-                            { name: 'Rejected', value: stats.rejected_bids ?? 0 },
-                            { name: 'Pending', value: stats.pending_bids ?? 0 },
-                          ]}
-                          cx={55} cy={55} innerRadius={36} outerRadius={52}
-                          startAngle={90} endAngle={-270}
-                          dataKey="value" strokeWidth={0}
-                        >
-                          <Cell fill="#2563eb" />
-                          <Cell fill="#ef4444" />
-                          <Cell fill="#e2e8f0" />
-                        </Pie>
-                        <Tooltip formatter={(v: any, name: any) => [v, name]} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[18px] font-bold text-slate-800">{stats.win_rate}%</span>
-                    </div>
-                  </div>
-                  <div className="text-center space-y-1">
-                    <div className="text-[11px] text-muted-foreground">{stats.accepted_bids} of {stats.total_bids} bids won</div>
-                    <div className="flex items-center justify-center gap-3 text-[10px]">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#2563eb] inline-block" />Won</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ef4444] inline-block" />Rejected</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#e2e8f0] inline-block" />Pending</span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl border shadow-none">
-            <CardHeader className="py-3 px-4 border-b">
-              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-                <Truck className="h-3.5 w-3.5" />
-                Delivery Performance
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <ResponsiveContainer width="100%" height={120}>
-                <LineChart data={dash.delivery_trend ?? []} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(v: any, name: any) => [`${v} days`, name === 'actual' ? 'Actual' : 'Target']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                  <Line type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-                  <Line type="monotone" dataKey="target" stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-              {stats.otd_pct != null && (
-                <p className="text-[10px] text-muted-foreground text-center mt-1">{stats.otd_pct}% on-time delivery</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
       {/* RIGHT SIDEBAR */}
@@ -687,27 +612,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
           </CardContent>
         </Card>
 
-        {/* Contact */}
-        <Card>
-          <CardHeader className="py-3 px-4 border-b">
-            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-              <User className="h-3.5 w-3.5" />
-              Contact Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <div className="text-[13px] font-medium">{vendor.contact_name}</div>
-                <div className="text-[11px] text-muted-foreground">Owner</div>
-              </div>
-              <div>
-                <div className="text-[12px]">{vendor.contact_email}</div>
-                <div className="text-[11px] text-muted-foreground">{vendor.contact_phone}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Vendor Scorecard */}
         {scorecard && (
@@ -807,6 +711,80 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </CardContent>
           </Card>
         )}
+
+        {/* Bid Win Rate + Delivery Performance */}
+        <Card className="rounded-xl border shadow-none">
+          <CardHeader className="py-3 px-4 border-b">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <Trophy className="h-3.5 w-3.5" />
+              Bid Win Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 flex flex-col items-center gap-2">
+            {stats.total_bids === 0 ? (
+              <div className="h-[120px] flex items-center justify-center text-[12px] text-muted-foreground">No bids yet</div>
+            ) : (
+              <>
+                <div className="relative">
+                  <ResponsiveContainer width={120} height={120}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Won', value: stats.accepted_bids ?? 0 },
+                          { name: 'Rejected', value: stats.rejected_bids ?? 0 },
+                          { name: 'Pending', value: stats.pending_bids ?? 0 },
+                        ]}
+                        cx={55} cy={55} innerRadius={36} outerRadius={52}
+                        startAngle={90} endAngle={-270}
+                        dataKey="value" strokeWidth={0}
+                      >
+                        <Cell fill="#2563eb" />
+                        <Cell fill="#ef4444" />
+                        <Cell fill="#e2e8f0" />
+                      </Pie>
+                      <Tooltip formatter={(v: any, name: any) => [v, name]} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-[18px] font-bold text-slate-800">{stats.win_rate}%</span>
+                  </div>
+                </div>
+                <div className="text-center space-y-1">
+                  <div className="text-[11px] text-muted-foreground">{stats.accepted_bids} of {stats.total_bids} bids won</div>
+                  <div className="flex items-center justify-center gap-3 text-[10px]">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#2563eb] inline-block" />Won</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ef4444] inline-block" />Rejected</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#e2e8f0] inline-block" />Pending</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border shadow-none">
+          <CardHeader className="py-3 px-4 border-b">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <Truck className="h-3.5 w-3.5" />
+              Delivery Performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <ResponsiveContainer width="100%" height={120}>
+              <LineChart data={dash.delivery_trend ?? []} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v: any, name: any) => [`${v} days`, name === 'actual' ? 'Actual' : 'Target']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                <Line type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                <Line type="monotone" dataKey="target" stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+            {stats.otd_pct != null && (
+              <p className="text-[10px] text-muted-foreground text-center mt-1">{stats.otd_pct}% on-time delivery</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
@@ -953,20 +931,6 @@ export default function VendorDetailPage() {
             </div>
           </div>
 
-          {/* Row 3 — key metadata strip */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
-            {[
-              // { label: 'GSTIN', value: vendor.gst_number },
-              // { label: 'PAN', value: vendor.pan_number },
-              { label: 'MSME', value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
-              // { label: 'Compliance Score', value: vendor?.score_breakdown?.compliance?.score != null ? `${vendor.score_breakdown.compliance.score}/100` : '—' },
-            ].map(({ label, value }, i) => (
-              <div key={label} className="vd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
-                <div className="vd-lbl">{label}</div>
-                <div className="vd-val">{value || '—'}</div>
-              </div>
-            ))}
-          </div>
 
         </div>
 
