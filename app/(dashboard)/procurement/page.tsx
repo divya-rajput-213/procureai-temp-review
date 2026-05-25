@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, X, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Search, X, Trash2, Loader2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -174,16 +174,26 @@ export default function ProcurementPage() {
                       <td className="px-4 py-3"><StatusBadge status={pr.status} /></td>
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(pr.created_at)}</td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-1">
                           {pr.status === 'draft' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={e => { e.stopPropagation(); setDeletingPR(pr) }}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                onClick={e => { e.stopPropagation(); router.push(`/procurement/edit/${pr.hash_id}`) }}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={e => { e.stopPropagation(); setDeletingPR(pr) }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </td>

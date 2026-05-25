@@ -186,7 +186,7 @@ function CompareStep({
             <Button
               size="sm"
               variant="outline"
-              className="gap-1.5 shrink-0"
+              className="text-[12px] h-8 gap-1.5"
               disabled={isExporting}
               onClick={async () => {
                 setIsExporting(true)

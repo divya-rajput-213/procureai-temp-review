@@ -830,16 +830,14 @@ export default function PRDetailPage() {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              {activeTab === 'comparison' && (
-                <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={() => handleExport(pr.id)} disabled={isExporting || !pr.id}>
-                  {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                  {isExporting ? 'Exporting…' : 'Export PCS'}
-                </Button>
-              )}
               <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={() => exportPRPDF(pr, activeTaxes)}>
                 <Download className="w-3.5 h-3.5" /> PDF
               </Button>
-            
+              {pr.status === 'draft' && (
+                <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={() => router.push(`/procurement/edit/${id}`)}>
+                  <Pencil className="w-3.5 h-3.5" /> Edit
+                </Button>
+              )}
             </div>
           </div>
 
