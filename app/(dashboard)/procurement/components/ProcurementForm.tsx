@@ -639,7 +639,7 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
   const [step, setStep] = useState(initialStep)
   const [selectedTracking, setSelectedTracking] = useState<any>(null)
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<number[]>([])
-  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null)
+  const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null)
   const [showApprovalModal, setShowApprovalModal] = useState(false)
   const [savedPrId, setSavedPrId] = useState<string | null>(isEditMode ? (procurementId ?? null) : null)
   const [prId, setPrId] = useState<string | null>(null)
@@ -753,7 +753,7 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
         },
       })
     } else if (step === 2) {
-      if (!selectedVendorId) {
+      if (!selectedQuotationId) {
         toast({ title: 'No vendor selected', description: 'Please select a vendor to proceed.', variant: 'destructive' })
         return
       }
@@ -881,8 +881,8 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
           {step === 2 && (
             <CompareStep
               selectedQuotationIds={selectedQuotationIds}
-              selectedVendorId={selectedVendorId}
-              setSelectedVendorId={setSelectedVendorId}
+              selectedQuotationId={selectedQuotationId}
+              setSelectedQuotationId={setSelectedQuotationId}
               prId={prId}
               budgetRemaining={budgetRemaining}
             />
@@ -903,7 +903,7 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
                 toast({ title: 'PR submitted for approval.' })
                 router.push('/procurement')
               }}
-              selectedVendor={selectedVendorId}
+              selectedVendor={selectedQuotationId}
               setStep={setStep}
               step={step}
             />

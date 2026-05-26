@@ -90,8 +90,8 @@ const thBase: React.CSSProperties = {
 
 function CompareStep({
   selectedQuotationIds,
-  selectedVendorId,
-  setSelectedVendorId,
+  selectedQuotationId,
+  setSelectedQuotationId,
   isDisabled = false,
   prId,
   budgetRemaining = null,
@@ -132,7 +132,7 @@ function CompareStep({
   const minLanded = landedTotals.length ? Math.min(...landedTotals) : 0
   const maxLanded = landedTotals.length ? Math.max(...landedTotals) : 0
 
-  const selV = vendors.find(v => v.vendor_id === selectedVendorId) ?? null
+  const selV = vendors.find(v => v.quotation_id === selectedQuotationId) ?? null
 
   const itemBestVendor = (item: any): number | null => {
     const prices = Object.entries(item.vendor_prices || {}) as [string, any][]
@@ -228,14 +228,14 @@ function CompareStep({
                 </th>
 
                 {vendors.map((v) => {
-                  const isSel = v.vendor_id === selectedVendorId
+                  const isSel = v.quotation_id === selectedQuotationId
                   const pal = SELECTED_COLOR
                   const isAiPick = aiRecommended?.vendor_id === v.vendor_id
 
                   return (
                     <th
                       key={v.vendor_id}
-                      onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
+                      onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                       style={{
                         padding: 0,
                         minWidth: 180,
@@ -331,7 +331,7 @@ function CompareStep({
 
                     {vendors.map((v) => {
                       const pal = SELECTED_COLOR
-                      const isSel = v.vendor_id === selectedVendorId
+                      const isSel = v.quotation_id === selectedQuotationId
                       const priceInfo = item.vendor_prices?.[v.vendor_id]
                       const isBest = v.vendor_id === bestVid
                       const isWorst = v.vendor_id === worstVid && vendors.length > 1
@@ -342,7 +342,7 @@ function CompareStep({
                       return (
                         <td
                           key={v.vendor_id}
-                          onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
+                          onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                           style={{
                             padding: '9px 12px',
                             textAlign: 'right',
@@ -420,11 +420,11 @@ function CompareStep({
                   </td>
                   {vendors.map((v) => {
                     const pal = SELECTED_COLOR
-                    const isSel = v.vendor_id === selectedVendorId
+                    const isSel = v.quotation_id === selectedQuotationId
                     return (
                       <td
                         key={v.vendor_id}
-                        onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
+                        onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                         style={{
                           padding: '8px 12px', textAlign: 'right', cursor: 'pointer',
                           fontWeight: 500, fontSize: 13,
@@ -448,12 +448,12 @@ function CompareStep({
                 </td>
                 {vendors.map((v, i) => {
                   const pal = SELECTED_COLOR
-                  const isSel = v.vendor_id === selectedVendorId
+                  const isSel = v.quotation_id === selectedQuotationId
                   const t = totals[i]
                   return (
                     <td
                       key={v.vendor_id}
-                      onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
+                      onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                       style={{
                         padding: '8px 12px', textAlign: 'right', fontWeight: 700, fontSize: 13,
                         cursor: 'pointer',
@@ -476,12 +476,12 @@ function CompareStep({
                 </td>
                 {vendors.map((v) => {
                   const pal = SELECTED_COLOR
-                  const isSel = v.vendor_id === selectedVendorId
+                  const isSel = v.quotation_id === selectedQuotationId
                   const gst = gstAmount(v, Number(v.total_amount))
                   return (
                     <td
                       key={v.vendor_id}
-                      onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
+                      onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                       style={{
                         padding: '7px 12px', textAlign: 'right', fontSize: 12,
                         cursor: 'pointer',
@@ -507,14 +507,14 @@ function CompareStep({
                 </td>
                 {vendors.map((v, i) => {
                   const pal = SELECTED_COLOR
-                  const isSel = v.vendor_id === selectedVendorId
+                  const isSel = v.quotation_id === selectedQuotationId
                   const lt = landedTotals[i]
                   const isBestL = lt === minLanded
                   const isWorstL = lt === maxLanded && vendors.length > 1
                   return (
                     <td
                       key={v.vendor_id}
-                      onClick={() => !isDisabled && setSelectedVendorId(v.vendor_id)}
+                      onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                       style={{
                         padding: '10px 12px', textAlign: 'right',
                         fontWeight: 700, fontSize: 14,

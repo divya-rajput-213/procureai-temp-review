@@ -1208,8 +1208,8 @@ export default function PRDetailPage() {
       {activeTab === 'comparison' && (
         <CompareStep
           selectedQuotationIds={quotationIds}
-          selectedVendorId={selectedVendor}
-          setSelectedVendorId={setSelectedVendor}
+          selectedQuotationId={selectedVendor}
+          setSelectedQuotationId={setSelectedVendor}
           isDisabled={true}
           prId={pr.id}
           onSelectVendor={pr.status === 'draft' ? () => router.push(`/procurement/edit/${id}?step=2`) : undefined}
