@@ -834,7 +834,7 @@ export default function PRDetailPage() {
                 <Download className="w-3.5 h-3.5" /> PDF
               </Button>
               {pr.status === 'draft' && (
-                <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={() => router.push(`/procurement/edit/${id}`)}>
+                <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={() => router.push(`/procurement/edit/${pr.id}`)}>
                   <Pencil className="w-3.5 h-3.5" /> Edit
                 </Button>
               )}

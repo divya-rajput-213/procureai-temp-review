@@ -32,7 +32,6 @@ const ApprovalMatrix = ({
     step
 }: ApprovalMatrixProps) => {
     const { toast } = useToast()
-
     const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
     const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
     const [submitting, setSubmitting] = useState(false)

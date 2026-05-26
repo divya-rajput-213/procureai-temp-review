@@ -648,7 +648,6 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
   const { register, watch, setValue, trigger, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
-
   const watchedTrackingId = watch('tracking_id')
 
   // ─── Fetch existing PR in edit mode ───────────────────────────────────
@@ -889,7 +888,7 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
             <ApprovalMatrix
               open={showApprovalModal}
               onOpenChange={setShowApprovalModal}
-              prId={savedPrId || ''}
+              prId={(isEditMode? procurementId:savedPrId) || ''}
               onClose={() => setShowApprovalModal(false)}
               onSuccess={() => {
                 queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
