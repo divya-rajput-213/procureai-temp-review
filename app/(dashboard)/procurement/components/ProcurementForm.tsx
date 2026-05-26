@@ -5,15 +5,15 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useDebounce } from 'use-debounce'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
 import {
   ArrowLeft, Loader2, Search, X,
-  Check, ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown, Plus, Lock,
+  Check, ChevronDown, ChevronRight, ChevronLeft, ChevronUp, ChevronsUpDown, Plus, Lock,
 } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, PAGE_SIZE } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import ApprovalMatrix from './ApprovalMatrix'
@@ -63,14 +63,6 @@ function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => voi
   }, [ref, onOutside])
 }
 
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState<T>(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return debounced
-}
 
 function VendorDot({ name, color, size = 28 }: { name: string; color?: string; size?: number }) {
   const colors = ['#042348', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316']
@@ -98,7 +90,7 @@ function TrackingIdSearch({
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const debouncedSearch = useDebounce(search.trim(), 400)
+  const [debouncedSearch] = useDebounce(search.trim(), 400)
 
   useClickOutside(wrapperRef, () => setOpen(false))
 
@@ -208,10 +200,12 @@ function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: Sort
   )
 }
 
+const Q_PAGE_SIZE = 10
+
 function QuotesStep({
   trackingDetail, selectedTracking, onSelectTracking,
   setValue, watchedTrackingId, errors, register,
-  quotations, qLoading, selectedQuotationIds, toggleQuotation,
+  selectedQuotationIds, toggleQuotation,
   grandTotal, budgetRemaining, budgetExceeded,
   setSelectedQuotationIds, isEditMode,
 }: any) {
@@ -225,68 +219,48 @@ function QuotesStep({
 
   const [sortKey, setSortKey] = useState<SortKey>('ref_no')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const [vendorFilter, setVendorFilter] = useState('')
   const [budgetFilter, setBudgetFilter] = useState<'all' | 'within' | 'exceeds'>('all')
-  const [quoteDate, setQuoteDate] = useState('')
-  const [textSearch, setTextSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
+  const [search] = useDebounce(searchInput, 400)
 
-  function handleSort(key: SortKey) {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortKey(key); setSortDir('asc') }
-  }
+  // reset page when search changes
+  useEffect(() => { setPage(1) }, [search])
+
+  const ordering = sortDir === 'asc' ? sortKey : `-${sortKey}`
+
+  const { data: qData, isLoading: qLoading } = useQuery({
+    queryKey: ['quotations-pick', search, page, ordering],
+    queryFn: async () => {
+      const params: Record<string, string> = { page: String(page), page_size: String(Q_PAGE_SIZE), ordering }
+      if (search) params.search = search
+      const { data } = await apiClient.get('/quotations/', { params })
+      return data
+    },
+    enabled: !!watchedTrackingId,
+    placeholderData: (prev: any) => prev,
+  })
+
+  const quotations: any[] = qData?.results ?? (Array.isArray(qData) ? qData : [])
+  const totalCount: number = qData?.count ?? quotations.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / Q_PAGE_SIZE))
+  const qLoaded = !qLoading
 
   const hasDate = quotations.some((q: any) => q?.quotation_date)
   const hasValidity = quotations.some((q: any) => q?.valid_until)
   const hasUploadedBy = quotations.some((q: any) => q?.uploaded_by)
 
-  const selectedDateRange = (() => {
-    if (!hasDate || !quoteDate) return null
-    const from = new Date(`${quoteDate}T00:00:00`).getTime()
-    const to = new Date(`${quoteDate}T23:59:59`).getTime()
-    if (Number.isNaN(from) || Number.isNaN(to)) return null
-    return { from, to }
-  })()
-
-  const filtered = (quotations as any[]).filter((q: any) => {
-    if (textSearch) {
-      const s = textSearch.toLowerCase()
-      const matchVendor = (q.vendor_name || '').toLowerCase().includes(s)
-      const matchRef = (q.ref_no || '').toLowerCase().includes(s)
-      const matchQuoteNo = (q.quotation_no || '').toLowerCase().includes(s)
-      if (!matchVendor && !matchRef && !matchQuoteNo) return false
-    }
-    if (vendorFilter && q.vendor_name !== vendorFilter) return false
+  const processedQuotations = quotations.filter((q: any) => {
     if (budgetFilter === 'within' && budgetRemaining !== null && Number(q.total_amount) > budgetRemaining) return false
     if (budgetFilter === 'exceeds' && (budgetRemaining === null || Number(q.total_amount) <= budgetRemaining)) return false
-    if (selectedDateRange) {
-      const qt = q?.quotation_date ? new Date(q.quotation_date).getTime() : NaN
-      if (Number.isNaN(qt)) return false
-      if (qt < selectedDateRange.from || qt > selectedDateRange.to) return false
-    }
     return true
   })
 
-  const processedQuotations = [...filtered].sort((a, b) => {
-    const aSelected = selectedQuotationIds.includes(a.id)
-    const bSelected = selectedQuotationIds.includes(b.id)
-
-    if (aSelected && !bSelected) return -1
-    if (!aSelected && bSelected) return 1
-
-    let aVal: any = a[sortKey] ?? ''
-    let bVal: any = b[sortKey] ?? ''
-    if (sortKey === 'total_amount' || sortKey === 'items_count') {
-      aVal = Number(aVal); bVal = Number(bVal)
-    } else if (sortKey === 'quotation_date' || sortKey === 'valid_until') {
-      aVal = aVal ? new Date(aVal).getTime() : 0
-      bVal = bVal ? new Date(bVal).getTime() : 0
-    } else {
-      aVal = String(aVal).toLowerCase(); bVal = String(bVal).toLowerCase()
-    }
-    if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
-    if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
-    return 0
-  })
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+    setPage(1)
+  }
 
   function Th({ col, label, style }: { col: SortKey; label: string; style?: React.CSSProperties }) {
     return (
@@ -302,11 +276,7 @@ function QuotesStep({
     )
   }
 
-  const activeFilterCount =
-    (textSearch ? 1 : 0) +
-    (vendorFilter ? 1 : 0) +
-    (budgetFilter !== 'all' ? 1 : 0) +
-    (quoteDate ? 1 : 0)
+  const activeFilterCount = (searchInput ? 1 : 0) + (budgetFilter !== 'all' ? 1 : 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -439,16 +409,16 @@ function QuotesStep({
               <input
                 type="text"
                 placeholder="Search vendor or quote no…"
-                value={textSearch}
-                onChange={(e) => setTextSearch(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 style={{
-                  width: '100%', height: 32, paddingLeft: 28, paddingRight: textSearch ? 28 : 10,
+                  width: '100%', height: 32, paddingLeft: 28, paddingRight: searchInput ? 28 : 10,
                   borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.14)', background: '#fff',
                   fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: '#1a1a18', outline: 'none',
                 }}
               />
-              {textSearch && (
-                <button type="button" onClick={() => setTextSearch('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#9a9a96', display: 'flex' }}>
+              {searchInput && (
+                <button type="button" onClick={() => setSearchInput('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#9a9a96', display: 'flex' }}>
                   <X style={{ width: 12, height: 12 }} />
                 </button>
               )}
@@ -469,22 +439,10 @@ function QuotesStep({
               </div>
             )}
 
-            {hasDate && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Date</span>
-                <Input
-                  type="date"
-                  value={quoteDate}
-                  onChange={(e) => setQuoteDate(e.target.value)}
-                  className="h-8 w-[160px] text-xs"
-                />
-              </div>
-            )}
-
             {activeFilterCount > 0 && (
               <button
                 type="button"
-                onClick={() => { setTextSearch(''); setVendorFilter(''); setBudgetFilter('all'); setQuoteDate('') }}
+                onClick={() => { setSearchInput(''); setBudgetFilter('all') }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 4,
                   fontSize: 12, color: 'hsl(var(--muted-foreground))',
@@ -497,7 +455,7 @@ function QuotesStep({
             )}
 
             <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginLeft: 'auto' }}>
-              {processedQuotations.length} of {(quotations as any[]).length}
+              {qLoading ? '…' : `${processedQuotations.length} of ${totalCount}`}
             </span>
           </div>
 
@@ -611,6 +569,46 @@ function QuotesStep({
               </tbody>
             </table>
           </div>
+
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderTop: '0.5px solid rgba(0,0,0,0.06)', flexWrap: 'wrap', gap: 8 }}>
+              <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                Page {page} of {totalPages}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.14)', background: '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.5 : 1, fontSize: 12 }}
+                >
+                  <ChevronLeft style={{ width: 14, height: 14 }} />
+                </button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const start = Math.max(1, Math.min(page - 2, totalPages - 4))
+                  const p = start + i
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPage(p)}
+                      style={{ padding: '4px 8px', minWidth: 30, borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.14)', background: p === page ? 'hsl(var(--primary))' : '#fff', color: p === page ? '#fff' : '#1a1a18', cursor: 'pointer', fontSize: 12, fontWeight: p === page ? 600 : 400 }}
+                    >
+                      {p}
+                    </button>
+                  )
+                })}
+                <button
+                  type="button"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.14)', background: '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.5 : 1, fontSize: 12 }}
+                >
+                  <ChevronRight style={{ width: 14, height: 14 }} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
