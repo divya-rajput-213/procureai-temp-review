@@ -1700,14 +1700,14 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                                 <input className="form-input" disabled={isComplianceReadOnly} value={row.custom} onChange={e => updateIsoRow(idx, 'custom', e.target.value)} placeholder="e.g. Trade Licence, NDA, Warranty…" />
                               </div>
                             )}
-                            <DocUploadWidget vendorId={vendorId} docType={isoDocType(idx)} doc={docOf(isoDocType(idx))} onRefresh={refreshDocs} dropLabel="Drag &amp; drop document here" hint="PDF, JPG or PNG · max 5 MB" isReadOnly={isDocReadOnly} setFieldError={setDocError(isoDocType(idx))} onValidTillChange={setDocValidTill(isoDocType(idx))} />
-                            <ValidTillChip docType={isoDocType(idx)} />
+                            <DocUploadWidget vendorId={vendorId} docType={row.standard === 'other' ? 'other' : isoDocType(idx)} doc={docOf(row.standard === 'other' ? 'other' : isoDocType(idx))} onRefresh={refreshDocs} dropLabel="Drag &amp; drop document here" hint="PDF, JPG or PNG · max 5 MB" isReadOnly={isDocReadOnly} setFieldError={setDocError(row.standard === 'other' ? 'other' : isoDocType(idx))} onValidTillChange={setDocValidTill(row.standard === 'other' ? 'other' : isoDocType(idx))} />
+                            <ValidTillChip docType={row.standard === 'other' ? 'other' : isoDocType(idx)} />
                             {complianceErrors[`field_iso_${idx}`] && (
                               <div className="field-err" style={{ marginTop: 6 }}>{complianceErrors[`field_iso_${idx}`]}</div>
                             )}
-                            {docUploadErrors[isoDocType(idx)] && (
+                            {docUploadErrors[row.standard === 'other' ? 'other' : isoDocType(idx)] && (
                               <div style={{ fontSize: 11, color: 'var(--red-tx)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors[isoDocType(idx)]}
+                                <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />{docUploadErrors[row.standard === 'other' ? 'other' : isoDocType(idx)]}
                               </div>
                             )}
                           </div>
