@@ -3,14 +3,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, X, Trash2, Loader2, Pencil } from 'lucide-react'
+import { Plus, Search, X, Trash2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { CommonConfirmModal } from '@/components/shared/CommonModal'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, PAGE_SIZE } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 
 function StatusSummary({ total, counts }: { total: number; counts: Record<string, number> }) {
@@ -35,10 +35,13 @@ export default function ProcurementPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [trackingFilter, setTrackingFilter] = useState('')
+  const [page, setPage] = useState(1)
   const [deletingPR, setDeletingPR] = useState<any>(null)
   const router = useRouter()
   const queryClient = useQueryClient()
   const { toast } = useToast()
+
+  const resetPage = () => setPage(1)
 
   const deleteMutation = useMutation({
     mutationFn: async (hashId: string) => apiClient.delete(`/procurement/${hashId}/`),
@@ -54,25 +57,26 @@ export default function ProcurementPage() {
   })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['purchase-requisitions', search, statusFilter],
+    queryKey: ['purchase-requisitions', search, statusFilter, trackingFilter, page],
     queryFn: async () => {
-      const params = new URLSearchParams()
-      if (search) params.set('search', search)
-      if (statusFilter) params.set('status', statusFilter)
-      const { data } = await apiClient.get(`/procurement/?${params}`)
-      return data.results || data
+      const params: Record<string, string> = { page: String(page), page_size: String(PAGE_SIZE) }
+      if (search) params.search = search
+      if (statusFilter) params.status = statusFilter
+      if (trackingFilter) params.tracking_code = trackingFilter
+      const { data } = await apiClient.get('/procurement/', { params })
+      return data
     },
+    placeholderData: (prev) => prev,
     staleTime: 0,
   })
 
-  const allPrs: any[] = data || []
-  const prs = trackingFilter.trim()
-    ? allPrs.filter(pr => (pr.tracking_code ?? '').toLowerCase().includes(trackingFilter.toLowerCase()))
-    : allPrs
+  const prs: any[] = data?.results ?? (Array.isArray(data) ? data : [])
+  const totalCount: number = data?.count ?? prs.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
   const hasFilters = !!(search || statusFilter || trackingFilter)
 
-  const statusCounts = allPrs.reduce((acc: Record<string, number>, pr: any) => {
+  const statusCounts = prs.reduce((acc: Record<string, number>, pr: any) => {
     acc[pr.status] = (acc[pr.status] ?? 0) + 1
     return acc
   }, {})
@@ -84,16 +88,16 @@ export default function ProcurementPage() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px] max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search PRs…" className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input placeholder="Search PRs…" className="pl-9 h-9" value={search} onChange={e => { setSearch(e.target.value); resetPage() }} />
         </div>
         <div className="relative min-w-[160px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Tracking ID…" className="pl-9 h-9" value={trackingFilter} onChange={e => setTrackingFilter(e.target.value)} />
+          <Input placeholder="Tracking ID…" className="pl-9 h-9" value={trackingFilter} onChange={e => { setTrackingFilter(e.target.value); resetPage() }} />
         </div>
         <select
           className="h-9 border rounded-md px-3 text-sm bg-background shrink-0 min-w-[140px]"
           value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
+          onChange={e => { setStatusFilter(e.target.value); resetPage() }}
         >
           <option value="">All Statuses</option>
           <option value="draft">Draft</option>
@@ -106,7 +110,7 @@ export default function ProcurementPage() {
         </select>
         {hasFilters && (
           <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground"
-            onClick={() => { setSearch(''); setStatusFilter(''); setTrackingFilter('') }}>
+            onClick={() => { setSearch(''); setStatusFilter(''); setTrackingFilter(''); resetPage() }}>
             <X className="w-3.5 h-3.5" /> Clear
           </Button>
         )}
@@ -115,7 +119,7 @@ export default function ProcurementPage() {
       {/* Summary + New PR button */}
       {!isLoading && (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <StatusSummary total={allPrs.length} counts={statusCounts} />
+          <StatusSummary total={totalCount} counts={statusCounts} />
           <Button size="sm" className="gap-1.5 ml-auto" onClick={() => router.push('/procurement/new')}>
             <Plus className="w-4 h-4" /> New PR
           </Button>
@@ -194,15 +198,39 @@ export default function ProcurementPage() {
                   ))}
                 </tbody>
               </table>
-              {trackingFilter && allPrs.length !== prs.length && (
-                <div className="px-4 py-3 border-t text-xs text-muted-foreground">
-                  {prs.length} of {allPrs.length} records
-                </div>
-              )}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {!isLoading && totalCount > 0 && (
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            Showing {Math.min((page - 1) * PAGE_SIZE + 1, totalCount)}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} PR{totalCount === 1 ? '' : 's'}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1} className="h-8 w-8 p-0 text-xs hidden sm:flex items-center justify-center">«</Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="h-8 w-8 p-0">
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const start = Math.max(1, Math.min(page - 2, totalPages - 4))
+              const p = start + i
+              if (p > totalPages) return null
+              return (
+                <Button key={p} variant={p === page ? 'default' : 'outline'} size="sm" onClick={() => setPage(p)} className="h-8 w-8 p-0 text-xs">
+                  {p}
+                </Button>
+              )
+            })}
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="h-8 w-8 p-0">
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(totalPages)} disabled={page === totalPages} className="h-8 w-8 p-0 text-xs hidden sm:flex items-center justify-center">»</Button>
+          </div>
+        </div>
+      )}
 
       <CommonConfirmModal
         isOpen={!!deletingPR}

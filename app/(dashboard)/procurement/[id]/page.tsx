@@ -702,7 +702,7 @@ export default function PRDetailPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<'approval' | 'comparison' | 'details'>('comparison')
+  const [activeTab, setActiveTab] = useState<'approval' | 'comparison' | 'details'>('details')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
   const initialTabSet = useRef(false)
@@ -712,6 +712,7 @@ export default function PRDetailPage() {
   const { data: pr, isLoading } = useQuery({
     queryKey: ['pr', id],
     queryFn: async () => (await apiClient.get(`/procurement/${id}/`)).data,
+    refetchOnMount: 'always',
   })
   const subtotal = (pr?.line_items ?? []).reduce(
     (sum: any, item: any) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
@@ -772,12 +773,8 @@ export default function PRDetailPage() {
     if (selectedQuotation) setExpandedQuotationId(selectedQuotation.id)
   }, [selectedQuotation?.id])
   useEffect(() => {
-    if (pr?.status === 'draft') {
-      setActiveTab('comparison')
-    } else if (pr && !initialTabSet.current) {
       initialTabSet.current = true
       setActiveTab('details')
-    }
   }, [pr])
 
   const invalidatePR = () => queryClient.invalidateQueries({ queryKey: ['pr', id] })

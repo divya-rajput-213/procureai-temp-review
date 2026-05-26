@@ -744,6 +744,10 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
           setSavedPrId(pr.hash_id ?? pr.id)
           if (!prId) setPrId(pr.id)
           queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
+          if (isEditMode && procurementId) {
+            queryClient.invalidateQueries({ queryKey: ['pr', procurementId] })
+            queryClient.invalidateQueries({ queryKey: ['procurement-edit', procurementId] })
+          }
           toast({ title: isEditMode ? 'PR updated.' : 'PR saved as draft.' })
           setStep(2)
         },
@@ -892,6 +896,10 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
               onClose={() => setShowApprovalModal(false)}
               onSuccess={() => {
                 queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
+                if (isEditMode && procurementId) {
+                  queryClient.invalidateQueries({ queryKey: ['pr', procurementId] })
+                  queryClient.invalidateQueries({ queryKey: ['procurement-edit', procurementId] })
+                }
                 toast({ title: 'PR submitted for approval.' })
                 router.push('/procurement')
               }}
