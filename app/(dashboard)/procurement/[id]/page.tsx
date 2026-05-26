@@ -723,7 +723,6 @@ export default function PRDetailPage() {
   const selectedQuotation = pr?.linked_quotations?.find((q: any) => q.id === pr?.selected_quotation
   ) ?? null
   const [expandedQuotationId, setExpandedQuotationId] = useState<number | null>(null)
-
   const handleExport = async (prId: any) => {
     if (!prId) return
     setIsExporting(true)
@@ -805,6 +804,25 @@ export default function PRDetailPage() {
         .prd-cell{padding:0 14px}
         .prd-cell:first-child{padding-left:0}
         .prd-cell:last-child{padding-right:0}
+        @media(max-width:900px){
+          .prd-hero-meta{grid-template-columns:repeat(3,1fr)!important;gap:12px!important;padding-top:12px!important}
+          .prd-hero-meta .prd-cell{border-left:none!important;padding:0!important;border-bottom:0.5px solid rgba(0,0,0,0.07);padding-bottom:10px!important}
+          .prd-hero-meta .prd-cell:nth-child(odd){border-right:0.5px solid rgba(0,0,0,0.07);padding-right:12px!important}
+        }
+        @media(max-width:768px){
+          .prd-hero-meta{grid-template-columns:repeat(2,1fr)!important}
+          .prd-hero-row1{flex-wrap:wrap;gap:10px!important}
+          .prd-hero-actions{width:100%!important}
+          .prd-hero-icon{width:36px!important;height:36px!important;font-size:16px!important}
+          .prd-kpi-grid{grid-template-columns:repeat(2,1fr)!important}
+          .prd-tabs-bar{overflow-x:auto!important;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+          .prd-tabs-bar::-webkit-scrollbar{display:none}
+        }
+        @media(max-width:480px){
+          .prd-hero-meta{grid-template-columns:1fr 1fr!important;gap:10px!important}
+          .prd-hero-meta .prd-cell:nth-child(odd){border-right:0.5px solid rgba(0,0,0,0.07)!important;padding-right:10px!important}
+          .prd-kpi-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+        }
       `}</style>
       <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
 
@@ -812,8 +830,8 @@ export default function PRDetailPage() {
         <div style={{ background: 'var(--bg,#fff)', border: '0.5px solid var(--bd,rgba(0,0,0,0.08))', borderRadius: 'var(--rl,12px)', padding: 22, marginBottom: 4 }}>
 
           {/* Row 1 — icon + PR number + status + action buttons */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 18 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#dbeafe', color: '#1e40af', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div className="prd-hero-row1" style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 18 }}>
+            <div className="prd-hero-icon" style={{ width: 48, height: 48, borderRadius: 12, background: '#dbeafe', color: '#1e40af', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <i className="ti ti-clipboard-list" />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -826,7 +844,7 @@ export default function PRDetailPage() {
                 {pr.tracking_code && <span style={{ fontFamily: 'monospace', fontSize: 12 }}>· {pr.tracking_code}</span>}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div className="prd-hero-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={() => exportPRPDF(pr, activeTaxes)}>
                 <Download className="w-3.5 h-3.5" /> PDF
               </Button>
@@ -838,26 +856,55 @@ export default function PRDetailPage() {
             </div>
           </div>
 
+          {/* Description */}
+          {pr.description && (
+            <div style={{ fontSize: 13, color: 'var(--tx2,#6b6b69)', lineHeight: 1.55, marginBottom: 14, paddingBottom: 14, borderBottom: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+              {pr.description}
+            </div>
+          )}
+
           {/* Row 2 — metadata strip */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
+          <div className="prd-hero-meta" style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: pr.description ? 'none' : '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
             {[
-              { label: 'Tracking ID', value: pr.budget_info
-?.                tracking_code, mono: true },
+              { label: 'Tracking ID', value: pr.budget_info?.tracking_code, mono: true },
               { label: 'Plant', value: pr.plant_name },
               { label: 'Department', value: pr.department_name },
-              { label: 'Selected Vendor', value: pr.selected_vendor_name },
-              // { label: 'Total Amount', value: formatCurrency(pr.total_amount, pr.currency_code) },
             ].map(({ label, value, mono }, i) => (
               <div key={label} className="prd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
                 <div className="prd-lbl">{label}</div>
                 <div className="prd-val" style={mono ? { fontFamily: 'monospace' } : {}}>{value || '—'}</div>
               </div>
             ))}
+            {/* Selected Vendor — contact from invited_vendors_detail */}
+            {(() => {
+              const selVendor = selectedQuotation
+                ? (pr.invited_vendors_detail ?? []).find((v: any) => v.id === selectedQuotation.vendor_id)
+                : null
+              return (
+                <div className="prd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+                  <div className="prd-lbl">Selected Vendor</div>
+                  {selVendor ? (
+                    <div>
+                      <div style={{ fontSize: 11 }}>
+                        {selVendor.contact_email}
+                      </div>
+                      {(selVendor.city || selVendor.state) && (
+                        <div style={{ fontSize: 11, color: 'var(--tx3,#9a9a96)' }}>
+                          {[selVendor.city, selVendor.state].filter(Boolean).join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="prd-val">—</div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex items-center w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
+        <div className="prd-tabs-bar flex items-center w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
           {TABS.map(tab => (
             <button
               key={tab.key}
@@ -887,41 +934,41 @@ export default function PRDetailPage() {
           {/* LEFT */}
           <div className="space-y-4 min-w-0">
             {/* KPI ROW */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+            <div className="prd-kpi-grid grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
                 <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
                   Awarded Value
                 </div>
-                <div className="flex items-end gap-1.5 mt-2">
-                  <div className="text-[30px] leading-none font-semibold tracking-tight">
+                <div className="flex items-baseline gap-1.5 mt-2">
+                  <div className="text-xl font-bold tracking-tight leading-tight truncate">
                     {selectedQuotation ? formatCurrency(selectedQuotation.total_amount, pr.currency_code) : formatCurrency(pr.total_amount, pr.currency_code)}
                   </div>
-                  <span className="text-xs text-muted-foreground mb-1">excl. GST</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0">excl. GST</span>
                 </div>
                 {selectedQuotation && (
                   <div className="mt-1.5 text-xs text-muted-foreground truncate">{selectedQuotation.vendor_name}</div>
                 )}
               </div>
 
-              <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+              <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
                 <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
                   Budget Util.
                 </div>
-                <div className="text-[30px] leading-none font-semibold tracking-tight mt-2">
+                <div className="text-xl font-bold tracking-tight leading-tight mt-2">
                   {pr.budget_info?.approved_amount
                     ? `${Math.round((Number(pr.total_amount) / Number(pr.budget_info.approved_amount)) * 100)}%`
                     : '—'}
                 </div>
-                <div className="mt-1.5 text-xs text-muted-foreground">
+                <div className="mt-1.5 text-xs text-muted-foreground truncate">
                   {pr.budget_info ? `${formatCurrency(pr.budget_info.consumed_amount)} of ${formatCurrency(pr.budget_info.approved_amount)}` : '—'}
                 </div>
               </div>
 
-              <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+              <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
                 <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
                   Remaining Budget
                 </div>
-                <div className={`text-[30px] leading-none font-semibold tracking-tight mt-2 ${Number(pr.budget_info?.remaining_amount) > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                <div className={`text-xl font-bold tracking-tight leading-tight mt-2 ${Number(pr.budget_info?.remaining_amount) > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
                   {pr.budget_info?.remaining_amount ? formatCurrency(pr.budget_info.remaining_amount) : '—'}
                 </div>
                 <div className="mt-1.5 text-xs text-muted-foreground">
@@ -929,11 +976,11 @@ export default function PRDetailPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+              <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
                 <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
                   Quotations
                 </div>
-                <div className="text-[30px] leading-none font-semibold tracking-tight mt-2">
+                <div className="text-xl font-bold tracking-tight leading-tight mt-2">
                   {pr.linked_quotations?.length ?? 0}
                 </div>
                 <div className="mt-1.5 text-xs text-muted-foreground">

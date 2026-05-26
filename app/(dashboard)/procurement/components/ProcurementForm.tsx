@@ -436,7 +436,7 @@ function QuotesStep({
             </Link>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', flexWrap: 'wrap', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', flexWrap: 'wrap', borderBottom: '0.5px solid rgba(0,0,0,0.06)', rowGap: 6 }}>
             <div style={{ position: 'relative', minWidth: 200, flex: 1, maxWidth: 320 }}>
               <Search style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#9a9a96', pointerEvents: 'none' }} />
               <input
@@ -820,10 +820,18 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
         .pr-root .info-val{font-size:13px;font-weight:600;color:#1a1a18;margin-top:1px;font-family:'DM Sans',sans-serif}
         .pr-root .pr-content{padding-bottom:72px}
         .pr-root .pr-sticky{background:#fff;border-top:0.5px solid rgba(0,0,0,0.14);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;gap:8px}
+        @media(max-width:640px){
+          .pr-root .pr-stepper{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+          .pr-root .pr-stepper::-webkit-scrollbar{display:none}
+          .pr-root .pr-step-item{padding:10px 12px;gap:6px;min-width:0;flex-shrink:0}
+          .pr-root .pr-step-sub{display:none}
+          .pr-root .pr-step-lbl{font-size:12px;white-space:nowrap}
+          .pr-root .pr-step-num{width:22px;height:22px;font-size:11px}
+        }
       `}</style>
 
       <div className="pr-root relative">
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.4px' }}>
               {isEditMode ? 'Edit Purchase Requisition' : 'New Purchase Requisition'}

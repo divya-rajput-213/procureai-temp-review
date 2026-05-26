@@ -175,7 +175,7 @@ function CompareStep({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       <div style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, overflow: 'hidden', fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#1a1a18' }}>
-        <div style={{ padding: '12px 16px', borderBottom: '0.5px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ padding: '12px 16px', borderBottom: '0.5px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a18', fontFamily: "'DM Sans',sans-serif" }}>Quotation comparison</div>
             {!isDisabled && (
@@ -566,6 +566,7 @@ function CompareStep({
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 14px', borderTop: '1px solid hsl(var(--border))',
                 background: pal.light, fontFamily: "'DM Sans', sans-serif",
+                flexWrap: 'wrap',
               }}>
                 <VendorDot name={selV.vendor_name} paletteIdx={pi} size={28} />
                 <div>
@@ -587,7 +588,7 @@ function CompareStep({
                     {selV.performance_score != null && ` · score ${selV.performance_score}/100`}
                   </span>
                 </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 20 }}>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 16, flexShrink: 0 }}>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'hsl(var(--muted-foreground))' }}>
                       Saving vs worst
@@ -613,7 +614,7 @@ function CompareStep({
 
       {/* AI Recommendation + Risk */}
       {(aiRecommended || keyTakeaways.length > 0 || riskIndicators.length > 0) && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 14 }}>
 
           {/* AI card */}
           <div style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, overflow: 'hidden', fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#1a1a18' }}>

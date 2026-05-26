@@ -86,16 +86,16 @@ export default function ProcurementPage() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[220px] max-w-xl">
+        <div className="relative flex-1 min-w-[160px] max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Search PRs…" className="pl-9 h-9" value={search} onChange={e => { setSearch(e.target.value); resetPage() }} />
         </div>
-        <div className="relative min-w-[160px]">
+        <div className="relative min-w-[140px] flex-1 max-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Tracking ID…" className="pl-9 h-9" value={trackingFilter} onChange={e => { setTrackingFilter(e.target.value); resetPage() }} />
         </div>
         <select
-          className="h-9 border rounded-md px-3 text-sm bg-background shrink-0 min-w-[140px]"
+          className="h-9 border rounded-md px-3 text-sm bg-background shrink-0 min-w-[130px]"
           value={statusFilter}
           onChange={e => { setStatusFilter(e.target.value); resetPage() }}
         >
@@ -141,7 +141,7 @@ export default function ProcurementPage() {
           )}
           {!isLoading && prs.length > 0 && (
             <div className="w-full overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm" style={{ minWidth: 640 }}>
                 <thead className="bg-slate-50 border-b">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">PR Number</th>
@@ -205,11 +205,11 @@ export default function ProcurementPage() {
 
       {/* Pagination */}
       {!isLoading && totalCount > 0 && (
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
             Showing {Math.min((page - 1) * PAGE_SIZE + 1, totalCount)}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} PR{totalCount === 1 ? '' : 's'}
           </p>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 ml-auto">
             <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1} className="h-8 w-8 p-0 text-xs hidden sm:flex items-center justify-center">«</Button>
             <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="h-8 w-8 p-0">
               <ChevronLeft className="w-4 h-4" />
@@ -219,7 +219,7 @@ export default function ProcurementPage() {
               const p = start + i
               if (p > totalPages) return null
               return (
-                <Button key={p} variant={p === page ? 'default' : 'outline'} size="sm" onClick={() => setPage(p)} className="h-8 w-8 p-0 text-xs">
+                <Button key={p} variant={p === page ? 'default' : 'outline'} size="sm" onClick={() => setPage(p)} className="h-8 w-8 p-0 text-xs hidden sm:flex items-center justify-center">
                   {p}
                 </Button>
               )
