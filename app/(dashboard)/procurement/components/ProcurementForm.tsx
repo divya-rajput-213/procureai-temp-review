@@ -269,13 +269,9 @@ function QuotesStep({
   const processedQuotations = [...filtered].sort((a, b) => {
     const aSelected = selectedQuotationIds.includes(a.id)
     const bSelected = selectedQuotationIds.includes(b.id)
-    const aExceeds = budgetRemaining !== null && Number(a.total_amount) > budgetRemaining
-    const bExceeds = budgetRemaining !== null && Number(b.total_amount) > budgetRemaining
 
     if (aSelected && !bSelected) return -1
     if (!aSelected && bSelected) return 1
-    if (aExceeds && !bExceeds) return 1
-    if (!aExceeds && bExceeds) return -1
 
     let aVal: any = a[sortKey] ?? ''
     let bVal: any = b[sortKey] ?? ''
@@ -539,17 +535,16 @@ function QuotesStep({
                   return (
                     <tr
                       key={q.id}
-                      onClick={() => !exceedsBudget && toggleQuotation(q.id)}
+                      onClick={() => toggleQuotation(q.id)}
                       style={{
                         background: isSelected ? 'hsl(var(--primary) / 0.05)' : 'transparent',
                         borderBottom: '1px solid hsl(var(--border))',
                         borderLeft: isSelected
                           ? '3px solid hsl(var(--primary))'
                           : exceedsBudget
-                            ? '3px solid hsl(var(--destructive) / 0.25)'
+                            ? '3px solid hsl(var(--destructive) / 0.4)'
                             : '3px solid transparent',
-                        cursor: exceedsBudget ? 'not-allowed' : 'pointer',
-                        opacity: exceedsBudget ? 0.5 : 1,
+                        cursor: 'pointer',
                         transition: 'background .12s',
                       }}
                       className="hover:bg-muted/20"
@@ -818,8 +813,9 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
         .pr-root .pr-textarea::placeholder{color:#9a9a96}
         .pr-root .info-row{font-size:12px;color:#5a5a57;font-family:'DM Sans',sans-serif}
         .pr-root .info-val{font-size:13px;font-weight:600;color:#1a1a18;margin-top:1px;font-family:'DM Sans',sans-serif}
-        .pr-root .pr-content{padding-bottom:72px}
-        .pr-root .pr-sticky{background:#fff;border-top:0.5px solid rgba(0,0,0,0.14);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;gap:8px}
+        .pr-root{display:flex;flex-direction:column;min-height:calc(100vh - 90px)}
+        .pr-root .pr-content{flex:1}
+        .pr-root .pr-sticky{background:#fff;border-top:0.5px solid rgba(0,0,0,0.14);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:0 0 12px 12px}
         @media(max-width:640px){
           .pr-root .pr-stepper{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
           .pr-root .pr-stepper::-webkit-scrollbar{display:none}
@@ -830,7 +826,7 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
         }
       `}</style>
 
-      <div className="pr-root relative">
+      <div className="pr-root">
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.4px' }}>
