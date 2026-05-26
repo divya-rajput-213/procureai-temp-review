@@ -1071,14 +1071,7 @@ export default function PRDetailPage() {
                                 {formatCurrency(q.total_amount, pr.currency_code)}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap">
-                                <span className={cn(
-                                  'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
-                                  q.status === 'approved' ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                    : q.status === 'rejected' ? 'border-red-200 bg-red-50 text-red-700'
-                                      : 'border-slate-200 bg-slate-50 text-slate-600'
-                                )}>
-                                  {q.status}
-                                </span>
+                                <StatusBadge status={q.status} />
                               </td>
                               <td className="px-4 py-3">
                                 {isSelected ? (
