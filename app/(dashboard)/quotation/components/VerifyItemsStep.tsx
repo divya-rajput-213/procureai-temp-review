@@ -282,7 +282,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                         <th style={{ width: 72 }}>UOM</th>
                                         <th style={{ width: 96, textAlign: 'right' }}>Unit Price</th>
                                         <th style={{ width: 106, textAlign: 'right' }}>Total</th>
-                                        {!hideMasterMatch && <th style={{ width: 200 }}>Master Item Match</th>}
+                                         <th style={{ width: 200 }}>Master Item Match</th>
                                         <th style={{ width: 28 }} />
                                     </tr>
                                 </thead>
@@ -364,7 +364,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 14 }}>{fmtI(qty * price)}</td>
-                                                {!hideMasterMatch && <td style={{ minWidth: isManual ? 0 : 220, position: 'relative' }}>
+                                                { <td style={{ minWidth: isManual ? 0 : 220, position: 'relative' }}>
                                                     {isManual ? null : (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                             {/* Custom Rich Dropdown */}
@@ -372,7 +372,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setActiveDropdownIdx(activeDropdownIdx === idx ? null : idx)}
-                                                                    disabled={isNew}
+                                                                    disabled={isNew || hideMasterMatch}
                                                                     style={{
                                                                         fontSize: 13, padding: '7px 10px',
                                                                         border: `0.5px solid ${isNew ? 'var(--gry-bd)' : 'var(--blu-bd)'}`,
@@ -465,7 +465,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
 
                                                             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4 }}>
                                                                 <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--tx2)', cursor: 'pointer' }}>
-                                                                    <input type="checkbox" checked={isNew} onChange={e => toggleCreateNew(idx, e.target.checked)} style={{ accentColor: 'var(--grn-bd)', width: 12, height: 12 }} />
+                                                                    <input type="checkbox" checked={isNew} onChange={e => toggleCreateNew(idx, e.target.checked)} style={{ accentColor: 'var(--grn-bd)', width: 12, height: 12 }} disabled={hideMasterMatch} />
                                                                     <span>Create New</span>
                                                                 </label>
                    
@@ -568,29 +568,24 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colSpan={7} className="match-tfoot" style={{ fontWeight: 600, color: 'var(--tx2)', textAlign: 'right' }}>Sub Total</td>
+                                        <td colSpan={8} className="match-tfoot" style={{ fontWeight: 600, color: 'var(--tx2)', textAlign: 'right' }}>Sub Total</td>
                                         <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{fmtI(subtotal)}</td>
-                                        <td colSpan={2} className="match-tfoot" />
                                     </tr>
                                     <tr>
-                                        <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
+                                        <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
                                         <td className="match-tfoot" style={{ textAlign: 'right', color: cgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>{cgstAmount != null ? fmtI(cgstAmount) : '—'}</td>
-                                        <td colSpan={2} className="match-tfoot" />
                                     </tr>
                                     <tr>
-                                        <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
+                                        <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
                                         <td className="match-tfoot" style={{ textAlign: 'right', color: sgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>{sgstAmount != null ? fmtI(sgstAmount) : '—'}</td>
-                                        <td colSpan={2} className="match-tfoot" />
                                     </tr>
                                     <tr>
-                                        <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
+                                        <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
                                         <td className="match-tfoot" style={{ textAlign: 'right', color: igst > 0 ? 'var(--tx2)' : 'var(--tx3)' }}>{igst > 0 ? fmtI(igst) : '—'}</td>
-                                        <td colSpan={2} className="match-tfoot" />
                                     </tr>
                                     <tr style={{ background: 'var(--bg-t)' }}>
-                                        <td colSpan={7} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>Grand Total (incl. GST)</td>
+                                        <td colSpan={8} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>Grand Total (incl. GST)</td>
                                         <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{fmtI(grandTotal)}</td>
-                                        <td colSpan={2} style={{ borderTop: '0.5px solid var(--bdm)' }} />
                                     </tr>
                                 </tfoot>
                             </table>
