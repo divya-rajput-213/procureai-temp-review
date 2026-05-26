@@ -1410,7 +1410,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         </div>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            GST Certificate {!docVerified('gst_certificate') &&<span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>}
+                            GST Certificate <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>
                             {docVerified('gst_certificate') ? (
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Uploaded</span>
                             ) : allValues.gst_number ? (
@@ -1458,7 +1458,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         </div>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            PAN Card Copy {!docVerified('pan_card') &&<span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>}
+                            PAN Card Copy <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>
                             {docVerified('pan_card') ? (
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Uploaded</span>
                             ) : allValues.pan_number ? (
@@ -1506,7 +1506,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         </div>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            Bank Verification Letter {!docVerified('bank_details') &&<span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>}
+                            Bank Verification Letter <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>
                             {docVerified('bank_details') ? (
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Uploaded</span>
                             ) : allValues.bank_account ? (
