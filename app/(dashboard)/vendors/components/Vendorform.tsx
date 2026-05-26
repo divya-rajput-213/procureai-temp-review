@@ -974,7 +974,8 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         .vf-root .step.active .step-label{color:var(--tx);font-weight:600}
         .vf-root .step.done .step-label{color:var(--tx2)}
         .vf-root .step-sub{font-size:11px;color:var(--tx3)}
-        .vf-root .form-layout{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+        .vf-root{display:flex;flex-direction:column;min-height:calc(100vh - 90px)}
+        .vf-root .form-layout{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start;flex:1}
         @media(max-width:900px){.vf-root .form-layout{grid-template-columns:1fr}}
         .vf-root .form-section{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:16px}
         .vf-root .form-section-head{padding:14px 20px;border-bottom:0.5px solid var(--bd);display:flex;align-items:center;gap:10px}
@@ -1021,7 +1022,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
         .vf-root .cl-prog-bar{height:5px;background:var(--bg-t);border-radius:10px;flex:1;overflow:hidden}
         .vf-root .cl-prog-fill{height:100%;background:var(--grn-bd,#639922);border-radius:10px;transition:width .3s}
         .vf-root .cl-prog-txt{font-size:11px;font-weight:600;color:var(--tx3);white-space:nowrap}
-	        .vf-root .form-actions{background:var(--bg);border-top:0.5px solid var(--bd);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:40;margin-top:16px;border-radius:0 0 var(--rl) var(--rl)}
+	        .vf-root .form-actions{background:var(--bg);border-top:0.5px solid var(--bd);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;margin-top:auto;border-radius:0 0 var(--rl) var(--rl)}
         .vf-root .tog-card{border:0.5px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
         .vf-root .tog-card-head{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;background:var(--bg-s)}
         .vf-root .tog-card-body{padding:16px;border-top:0.5px solid var(--bd);background:var(--bg)}

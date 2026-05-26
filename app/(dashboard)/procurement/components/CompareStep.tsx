@@ -234,7 +234,7 @@ function CompareStep({
 
                   return (
                     <th
-                      key={v.vendor_id}
+                      key={v.quotation_id ?? v.vendor_id}
                       onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                       style={{
                         padding: 0,
@@ -341,7 +341,7 @@ function CompareStep({
 
                       return (
                         <td
-                          key={v.vendor_id}
+                          key={v.quotation_id ?? v.vendor_id}
                           onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                           style={{
                             padding: '9px 12px',
@@ -423,7 +423,7 @@ function CompareStep({
                     const isSel = v.quotation_id === selectedQuotationId
                     return (
                       <td
-                        key={v.vendor_id}
+                        key={v.quotation_id ?? v.vendor_id}
                         onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                         style={{
                           padding: '8px 12px', textAlign: 'right', cursor: 'pointer',
@@ -452,7 +452,7 @@ function CompareStep({
                   const t = totals[i]
                   return (
                     <td
-                      key={v.vendor_id}
+                      key={v.quotation_id ?? v.vendor_id}
                       onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                       style={{
                         padding: '8px 12px', textAlign: 'right', fontWeight: 700, fontSize: 13,
@@ -480,7 +480,7 @@ function CompareStep({
                   const gst = gstAmount(v, Number(v.total_amount))
                   return (
                     <td
-                      key={v.vendor_id}
+                      key={v.quotation_id ?? v.vendor_id}
                       onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                       style={{
                         padding: '7px 12px', textAlign: 'right', fontSize: 12,
@@ -513,7 +513,7 @@ function CompareStep({
                   const isWorstL = lt === maxLanded && vendors.length > 1
                   return (
                     <td
-                      key={v.vendor_id}
+                      key={v.quotation_id ?? v.vendor_id}
                       onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
                       style={{
                         padding: '10px 12px', textAlign: 'right',
@@ -717,7 +717,7 @@ function CompareStep({
               {vendors.map((v) => {
                 const pi = vendorIdx[v.vendor_id]
                 return (
-                  <div key={v.vendor_id} style={{ borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.08)', background: 'hsl(var(--muted)/0.3)', padding: 12 }}>
+                  <div key={v.quotation_id ?? v.vendor_id} style={{ borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.08)', background: 'hsl(var(--muted)/0.3)', padding: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <VendorDot name={v.vendor_name} paletteIdx={pi} size={22} />
                       <span style={{ fontSize: 13, fontWeight: 600 }}>{v.vendor_name}</span>

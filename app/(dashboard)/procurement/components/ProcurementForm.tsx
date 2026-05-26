@@ -88,11 +88,12 @@ function VendorDot({ name, color, size = 28 }: { name: string; color?: string; s
 }
 
 function TrackingIdSearch({
-  onSelect, value, onChange,
+  onSelect, value, onChange, hasError,
 }: {
   onSelect: (t: any) => void
   value: any | null
   onChange: (t: any | null) => void
+  hasError?: boolean
 }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
@@ -118,8 +119,8 @@ function TrackingIdSearch({
   return (
     <div ref={wrapperRef} className="relative">
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-        <Input
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" style={{ color: '#9a9a96' }} />
+        <input
           placeholder="Search tracking code or title…"
           value={value ? value.tracking_code : search}
           onChange={(e) => {
@@ -128,8 +129,7 @@ function TrackingIdSearch({
             setOpen(true)
           }}
           onFocus={() => { if (search.trim().length > 0) setOpen(true) }}
-          className="pl-8"
-          style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}
+          className={`pr-search-input${hasError ? ' inp-error' : ''}`}
         />
         {isFetching && !value && (
           <Loader2 className="absolute right-8 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />
@@ -335,6 +335,7 @@ function QuotesStep({
             ) : (
               <TrackingIdSearch
                 value={selectedTracking}
+                hasError={!!errors.tracking_id}
                 onChange={(t) => {
                   if (!t) {
                     onSelectTracking(null)
@@ -805,12 +806,17 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
         .pr-root .form-body{padding:16px;display:flex;flex-direction:column;gap:14px}
         .pr-root .lbl{font-size:12px;font-weight:600;color:#5a5a57;display:block;margin-bottom:5px;font-family:'DM Sans',sans-serif}
         .pr-root .req{color:#E24B4A;margin-left:2px}
-        .pr-root .inp{padding:8px 11px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.14);background:#fff;font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18;outline:none;width:100%}
-        .pr-root .inp:focus{border-color:#1a1a18}
+        .pr-root .inp{padding:8px 11px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.14);background:#fff;font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18;outline:none;width:100%;transition:border-color 0.15s}
+        .pr-root .inp:focus{border-color:hsl(var(--primary))}
+        .pr-root .inp.inp-error{border-color:#E24B4A!important}
         .pr-root .inp::placeholder{color:#9a9a96}
-        .pr-root .pr-textarea{padding:8px 11px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.14);background:#fff;font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18;outline:none;width:100%;resize:vertical;min-height:60px}
-        .pr-root .pr-textarea:focus{border-color:#1a1a18}
+        .pr-root .pr-textarea{padding:8px 11px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.14);background:#fff;font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18;outline:none;width:100%;resize:vertical;min-height:60px;transition:border-color 0.15s}
+        .pr-root .pr-textarea:focus{border-color:hsl(var(--primary))}
         .pr-root .pr-textarea::placeholder{color:#9a9a96}
+        .pr-root .pr-search-input{padding:8px 11px 8px 32px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.14);background:#fff;font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18;outline:none;width:100%;transition:border-color 0.15s;height:36px}
+        .pr-root .pr-search-input:focus{border-color:hsl(var(--primary))}
+        .pr-root .pr-search-input.inp-error{border-color:#E24B4A!important}
+        .pr-root .pr-search-input::placeholder{color:#9a9a96}
         .pr-root .info-row{font-size:12px;color:#5a5a57;font-family:'DM Sans',sans-serif}
         .pr-root .info-val{font-size:13px;font-weight:600;color:#1a1a18;margin-top:1px;font-family:'DM Sans',sans-serif}
         .pr-root{display:flex;flex-direction:column;min-height:calc(100vh - 90px)}
