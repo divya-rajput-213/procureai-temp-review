@@ -87,12 +87,8 @@ const ApprovalMatrix = ({
     }
 
     return (
-        <div style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, overflow: 'hidden', fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#1a1a18' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a18' }}>Select approval matrix</div>
-            <div style={{ fontSize: 12, color: '#9a9a96', marginTop: 2 }}>Choose the approval workflow for this purchase requisition</div>
-          </div>
-
+        <div style={{ borderRadius: 12, overflow: 'hidden', fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#1a1a18' }}>
+    
           <div style={{ padding: '16px' }}>
             {matrices === undefined && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#9a9a96', padding: '4px 0' }}>
@@ -122,7 +118,7 @@ const ApprovalMatrix = ({
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '13px 16px', borderTop: '0.5px solid rgba(0,0,0,0.08)', background: '#f8f8f6' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '13px 16px', borderTop: '0.5px solid rgba(0,0,0,0.08)', background: '#fff' }}>
             <Button variant="outline" size="sm" onClick={() => setStep(step - 1)} className="gap-1">
               <ArrowLeft className="w-3.5 h-3.5" /> Back
             </Button>
