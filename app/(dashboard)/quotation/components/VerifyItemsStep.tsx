@@ -229,7 +229,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
         const orig = origRef.current[idx]
         // HSN: trusted if backend provided it; user-entered must be 6 digits
         const hsnFromBackend = !item._manuallyAdded && orig?.hsn != null
-        const hsnOk = hsnFromBackend || /^\d{6}$/.test(String(item.hsn_code || '').trim())
+        const hsnOk = hsnFromBackend || /^\d{8}$/.test(String(item.hsn_code || '').trim())
         return !hsnOk || !item.unit_of_measure || !(Number(item.item_price) > 0)
     })
     const isBlocked = incompleteItems.length > 0
@@ -318,13 +318,13 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                         : <input
                                                             value={item.hsn_code || ''}
                                                             onChange={e => {
-                                                                const v = e.target.value.replace(/\D/g, '').slice(0, 6)
+                                                                const v = e.target.value.replace(/\D/g, '').slice(0, 8)
                                                                 updateItem(idx, 'hsn_code', v)
                                                             }}
-                                                            placeholder="6-digit HSN"
-                                                            maxLength={6}
+                                                            placeholder="8-digit HSN"
+                                                            maxLength={8}
                                                             inputMode="numeric"
-                                                            style={{ ...(/^\d{6}$/.test(String(item.hsn_code || '')) ? editableStyle : needsInputStyle), fontFamily: 'monospace', width: 85 }}
+                                                            style={{ ...(/^\d{8}$/.test(String(item.hsn_code || '')) ? editableStyle : needsInputStyle), fontFamily: 'monospace', width: 95 }}
                                                         />
                                                     }
                                                 </td>
