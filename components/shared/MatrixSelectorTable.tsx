@@ -36,7 +36,7 @@ export function MatrixSelectorTable({
   const thSt: React.CSSProperties = {
     textAlign: 'left', padding: '8px 12px', fontSize: 11, fontWeight: 700,
     textTransform: 'uppercase', letterSpacing: '.05em',
-    color: 'hsl(var(--muted-foreground))', fontFamily: "'DM Sans',sans-serif", whiteSpace: 'nowrap',
+    color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap',
   }
 
   return (
@@ -56,7 +56,7 @@ export function MatrixSelectorTable({
             const levelCount = m.levels?.length ?? 0
             const isSelected = selectedMatrix === m.id
             const isExpanded = expandedMatrix === m.id
-            const tdBase: React.CSSProperties = { padding: '9px 12px', fontFamily: "'DM Sans',sans-serif", fontSize: 13, borderBottom: '0.5px solid rgba(0,0,0,0.06)', cursor: 'pointer' }
+            const tdBase: React.CSSProperties = { padding: '9px 12px', fontSize: 13, borderBottom: '0.5px solid rgba(0,0,0,0.06)', cursor: 'pointer' }
             return (
               <>
                 <tr

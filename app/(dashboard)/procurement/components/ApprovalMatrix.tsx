@@ -88,7 +88,7 @@ const ApprovalMatrix = ({
     return (
         <div style={{ borderRadius: 12, overflow: 'hidden', fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#1a1a18' }}>
     
-          <div style={{ padding: '16px' }}>
+          <div className='mb-4'>
             {matrices === undefined && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#9a9a96', padding: '4px 0' }}>
                 <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
