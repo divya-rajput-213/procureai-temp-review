@@ -1409,9 +1409,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                             GST Certificate <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>
                             {docVerified('gst_certificate') ? (
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Uploaded</span>
                             ) : allValues.gst_number ? (
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                             ) : null}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
@@ -1457,9 +1457,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                             PAN Card Copy <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>
                             {docVerified('pan_card') ? (
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Uploaded</span>
                             ) : allValues.pan_number ? (
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                             ) : null}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
@@ -1505,9 +1505,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                             Bank Verification Letter <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)' }}>Required</span>
                             {docVerified('bank_details') ? (
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Uploaded</span>
                             ) : allValues.bank_account ? (
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                             ) : null}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--tx3)' }}>PDF, JPG or PNG</div>
@@ -1580,9 +1580,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           MSME Registered
                           {docVerified('msme_certificate') ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Uploaded</span>
                           ) : expandedComplianceDocs.msme_certificate ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                           ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Micro, Small &amp; Medium Enterprise (Udyam) certificate</div>
@@ -1622,9 +1622,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           SEZ Unit
                           {docVerified('sez_certificate') ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Uploaded</span>
                           ) : expandedComplianceDocs.sez_certificate ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                           ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--tx3)' }}>Special Economic Zone registered unit</div>
@@ -1657,9 +1657,9 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           ISO / Quality Certificate
                           {docVerified('iso_certificate') ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}>✓ Uploaded</span>
                           ) : expandedComplianceDocs.iso_certificate ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                           ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--tx3)' }}>{expandedComplianceDocs.iso_certificate ? `${isoRows.length} document${isoRows.length !== 1 ? 's' : ''}` : 'Optional — enable to upload'}</div>

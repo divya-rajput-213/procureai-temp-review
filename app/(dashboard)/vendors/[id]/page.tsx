@@ -578,12 +578,12 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       </span>
                       {hasValue && verified && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[9px] font-semibold shrink-0">
-                          <CheckCircle2 className="h-2.5 w-2.5" />Verified
+                          <CheckCircle2 className="h-2.5 w-2.5" />Uploaded
                         </span>
                       )}
                       {hasValue && !verified && hasDoc && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-semibold shrink-0">
-                          <AlertTriangle className="h-2.5 w-2.5" />Not Verified
+                          <AlertTriangle className="h-2.5 w-2.5" />Not Uploaded
                         </span>
                       )}
                       {hasValue && !hasDoc && (
@@ -819,7 +819,7 @@ function DocFileCard({ doc }: { doc: any }) {
           background: isVerified ? '#dcfce7' : isFailed ? '#fee2e2' : '#f1f5f9',
           color: isVerified ? '#166534' : isFailed ? '#991b1b' : '#64748b',
         }}>
-          {isVerified ? '✓ Verified' : isFailed ? '✗ Failed' : '⏳ Pending'}
+          {isVerified ? '✓ Uploaded' : isFailed ? '✗ Failed' : '⏳ Pending'}
         </span>
       )}
       {doc.file_url && (
@@ -1004,9 +1004,9 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                           GST Certificate <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
                           {isVerified ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Uploaded</span>
                           ) : vendor.gst_number ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                           ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
@@ -1043,9 +1043,9 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                           PAN Card Copy <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
                           {isVerified ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Uploaded</span>
                           ) : vendor.pan_number ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                           ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
@@ -1082,9 +1082,9 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                           Bank Verification Letter <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
                           {isVerified ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Uploaded</span>
                           ) : vendor.bank_account ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                           ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
