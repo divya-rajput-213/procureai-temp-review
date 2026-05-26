@@ -247,9 +247,9 @@ function DocUploadWidget({
             <div className="ufile-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.original_filename}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <div className="ufile-size" style={isFailed ? { color: 'var(--red-tx)' } : isVerified ? { color: 'var(--grn-tx)' } : {}}>
-                {isFailed ? 'Validation failed' : 
-                // isVerified ? 'Verified ✓' : 
-                'Uploaded'}
+                {/* {isFailed ? 'Validation failed' : 
+                isVerified ? 'Verified ✓' : 
+                'Uploaded'} */}
               </div>
               {/* {expiryLabel && (
                 <span style={{ fontSize: 10, fontWeight: 600, color: expiryColor, display: 'flex', alignItems: 'center', gap: 3 }}>
