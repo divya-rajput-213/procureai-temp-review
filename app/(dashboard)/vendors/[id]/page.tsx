@@ -593,7 +593,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       )}
                       {!hasValue && <XCircle className="h-3 w-3 text-slate-300 shrink-0" />}
                     </div>
-                    {expiry && (
+                    {/* {expiry && (
                       <div className="pl-8 mt-0.5">
                         <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${expired ? 'text-red-600' : expiringSoon ? 'text-amber-600' : 'text-slate-400'}`}>
                           {(expired || expiringSoon) && <AlertTriangle className="h-2.5 w-2.5" />}
@@ -604,7 +604,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                               : `Valid till ${new Date(expiry).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
                         </span>
                       </div>
-                    )}
+                    )} */}
                   </div>
                 )
               })
