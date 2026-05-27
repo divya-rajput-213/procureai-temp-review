@@ -261,7 +261,7 @@ function CompareStep({
                                 <Sparkles style={{ width: 12, height: 12 }} />
                               </span>
                             )}  {v.vendor_name}
-                            {v.vendor_status && <StatusBadge status={v.vendor_status} />}
+                            {v.vendor_approval_status && <StatusBadge status={v.vendor_approval_status} />}
                           </div>
                           {(v.city || v.state) && (
                             <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
@@ -568,7 +568,7 @@ function CompareStep({
                     <span style={{ fontSize: 11, fontWeight: 600, background: pal.bg, color: '#fff', borderRadius: 4, padding: '2px 7px' }}>
                       Selected vendor
                     </span>
-                    {selV.vendor_status && <StatusBadge status={selV.vendor_status} />}
+                    {selV.vendor_approval_status && <StatusBadge status={selV.vendor_approval_status} />}
                   </div>
                   <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
                     Landed {formatCurrency(selLand)}

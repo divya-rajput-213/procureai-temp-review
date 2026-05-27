@@ -641,7 +641,7 @@ function QuotesStep({
             )}
 
             <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginLeft: 'auto' }}>
-              {qLoading ? '…' : `${processedQuotations.length} of ${totalCount}`}
+              {qLoading ? '…' : `${quotations.length} of ${totalCount}`}
             </span>
           </div>
 
@@ -672,13 +672,13 @@ function QuotesStep({
                       <Loader2 className="inline w-4 h-4 animate-spin mr-1" /> Loading quotations…
                     </td>
                   </tr>
-                ) : processedQuotations.length === 0 ? (
+                ) : quotations.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="text-center py-5 text-sm text-muted-foreground">
                       {activeFilterCount > 0 ? 'No quotations match the current filters.' : 'No quotations found'}
                     </td>
                   </tr>
-                ) : processedQuotations.map((q: any) => {
+                ) : quotations?.map((q: any) => {
                   const isSelected = selectedQuotationIds.includes(q.id)
                   const exceedsBudget = budgetRemaining !== null && Number(q.total_amount) > budgetRemaining
                   const vc = vendorColor(q.vendor_name || 'V')
