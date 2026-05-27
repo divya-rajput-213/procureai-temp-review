@@ -146,10 +146,14 @@ function CompareStep({
     return Number(prices.sort((a, b) => b[1].unit_price - a[1].unit_price)[0][0])
   }
 
-  const aiRanking: any[] = aiRec.ranking || []
-  const aiRecommended = aiRec.recommended
-  const keyTakeaways: string[] = aiRec.key_takeaways || []
-  const riskIndicators: string[] = aiRec.risk_indicators || []
+  const aiRankings: any[] = aiRec.rankings || []
+  const aiRecommendedVendorId: number | null = aiRec.recommended_vendor_id ?? null
+  const aiRecommendedQuotationId: number | null = aiRec.recommended_quotation_id ?? null
+  const aiSummary: string = aiRec.summary || ''
+  const aiRisks: string[] = aiRec.risks || []
+  const aiNotes: string[] = aiRec.notes || []
+  const hasAI = !!(aiSummary || aiRankings.length || aiRisks.length || aiNotes.length)
+  const aiRecommendedVendor = vendors.find(v => v.vendor_id === aiRecommendedVendorId) ?? null
 
 
   if (isLoading) {
@@ -230,7 +234,7 @@ function CompareStep({
                 {vendors.map((v) => {
                   const isSel = v.quotation_id === selectedQuotationId
                   const pal = SELECTED_COLOR
-                  const isAiPick = aiRecommended?.vendor_id === v.vendor_id
+                  const isAiPick = aiRecommendedVendorId === v.vendor_id
 
                   return (
                     <th
@@ -261,13 +265,11 @@ function CompareStep({
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
-                            {[
-                              v.delivery_lead_time_days ? `${v.delivery_lead_time_days}d` : null,
-                              v.payment_terms_display || v.payment_terms || null,
-                              v.performance_score != null ? `${v.performance_score}/100` : null,
-                            ].filter(Boolean).join(' · ') || v.city || '—'}
-                          </div>
+                          {(v.city || v.state) && (
+                            <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                              {[v.city, v.state].filter(s => s && s !== 'N/A').join(', ')}
+                            </div>
+                          )}
                         </div>
 
                         {!isDisabled && (
@@ -390,56 +392,45 @@ function CompareStep({
                 )
               })}
 
-              {/* soft factors section header */}
+              {/* Previous POs row */}
               <tr style={{ background: 'hsl(var(--muted)/0.5)', borderBottom: '1px solid hsl(var(--border))', borderTop: '2px solid hsl(var(--border))' }}>
-                <td colSpan={3 + vendors.length} style={{
-                  padding: '5px 12px', fontSize: 10, fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: '.08em',
-                  color: 'hsl(var(--muted-foreground))',
-                }}>
-                  Soft factors
+                <td colSpan={3} style={{ padding: '8px 12px', borderRight: '2px solid hsl(var(--border))' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                    <Info style={{ width: 11, height: 11 }} />Previous POs
+                  </span>
                 </td>
+                {vendors.map((v) => {
+                  const isSel = v.quotation_id === selectedQuotationId
+                  return (
+                    <td key={v.quotation_id ?? v.vendor_id} onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
+                      style={{ padding: '8px 12px', textAlign: 'right', cursor: 'pointer', fontWeight: 500, fontSize: 13, background: isSel ? SELECTED_COLOR.light : 'transparent', borderLeft: isSel ? `2px solid ${SELECTED_COLOR.bg}` : '2px solid transparent', borderRight: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }}>
+                      {v.previous_po_count ?? '—'}
+                    </td>
+                  )
+                })}
               </tr>
 
-              {[
-                { label: 'Lead time', icon: <Truck style={{ width: 11, height: 11 }} />, render: (v: any) => v.delivery_lead_time_days != null ? `${v.delivery_lead_time_days}d` : '—' },
-                { label: 'Payment terms', icon: <CreditCard style={{ width: 11, height: 11 }} />, render: (v: any) => v.payment_terms_display || v.payment_terms || '—' },
-                { label: 'Vendor score', icon: <Star style={{ width: 11, height: 11 }} />, render: (v: any) => v.performance_score != null ? `${v.performance_score}/100` : '—' },
-                { label: 'Risk score (lower=better)', icon: <ShieldAlert style={{ width: 11, height: 11 }} />, render: (v: any) => v.risk_score != null ? String(v.risk_score) : '—' },
-                { label: 'Previous POs', icon: <Info style={{ width: 11, height: 11 }} />, render: (v: any) => String(v.previous_po_count ?? '—') },
-                {
-                  label: 'GST', icon: null, render: (v: any) =>
-                    v.igst_rate > 0 ? `IGST ${v.igst_rate}%` : `CGST ${v.cgst_rate}% + SGST ${v.sgst_rate}%`
-                },
-              ].map(({ label, icon, render }) => (
-                <tr key={label} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
-                  <td colSpan={3} style={{ padding: '8px 12px', borderRight: '2px solid hsl(var(--border))' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
-                      {icon}{label}
-                    </span>
-                  </td>
-                  {vendors.map((v) => {
-                    const pal = SELECTED_COLOR
-                    const isSel = v.quotation_id === selectedQuotationId
-                    return (
-                      <td
-                        key={v.quotation_id ?? v.vendor_id}
-                        onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
-                        style={{
-                          padding: '8px 12px', textAlign: 'right', cursor: 'pointer',
-                          fontWeight: 500, fontSize: 13,
-                          background: isSel ? pal.light : 'transparent',
-                          borderLeft: isSel ? `2px solid ${pal.bg}` : '2px solid transparent',
-                          borderRight: '1px solid hsl(var(--border))',
-                          color: 'hsl(var(--foreground))',
-                        }}
-                      >
-                        {render(v)}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
+              {/* GST row (inline, before subtotal) */}
+              <tr style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+                <td colSpan={3} style={{ padding: '8px 12px', borderRight: '2px solid hsl(var(--border))' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                    GST
+                  </span>
+                </td>
+                {vendors.map((v) => {
+                  const isSel = v.quotation_id === selectedQuotationId
+                  const igst = Number(v.igst_rate) || 0
+                  const cgst = Number(v.cgst_rate) || 0
+                  const sgst = Number(v.sgst_rate) || 0
+                  const gstLabel = igst > 0 ? `IGST ${igst}%` : cgst > 0 || sgst > 0 ? `CGST ${cgst}% + SGST ${sgst}%` : '—'
+                  return (
+                    <td key={v.quotation_id ?? v.vendor_id} onClick={() => !isDisabled && setSelectedQuotationId(v.quotation_id)}
+                      style={{ padding: '8px 12px', textAlign: 'right', cursor: 'pointer', fontWeight: 500, fontSize: 13, background: isSel ? SELECTED_COLOR.light : 'transparent', borderLeft: isSel ? `2px solid ${SELECTED_COLOR.bg}` : '2px solid transparent', borderRight: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }}>
+                      {gstLabel}
+                    </td>
+                  )
+                })}
+              </tr>
 
               {/* subtotal row */}
               <tr style={{ background: 'hsl(var(--muted)/0.5)', borderTop: '2px solid hsl(var(--border))', borderBottom: '1px solid hsl(var(--border))' }}>
@@ -491,10 +482,14 @@ function CompareStep({
                         color: 'hsl(var(--muted-foreground))',
                       }}
                     >
-                      {formatCurrency(gst)}
-                      <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 1 }}>
-                        {v.igst_rate > 0 ? `IGST ${v.igst_rate}%` : `${(v.cgst_rate || 0) + (v.sgst_rate || 0)}%`}
-                      </div>
+                      {gst > 0 ? (
+                        <>
+                          {formatCurrency(gst)}
+                          <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 1 }}>
+                            {Number(v.igst_rate) > 0 ? `IGST ${v.igst_rate}%` : `${(Number(v.cgst_rate) || 0) + (Number(v.sgst_rate) || 0)}%`}
+                          </div>
+                        </>
+                      ) : <span style={{ color: 'hsl(var(--muted-foreground))' }}>—</span>}
                     </td>
                   )
                 })}
@@ -585,7 +580,6 @@ function CompareStep({
                     Landed {formatCurrency(selLand)}
                     {selV.delivery_lead_time_days != null && ` · ${selV.delivery_lead_time_days}d lead`}
                     {(selV.payment_terms_display || selV.payment_terms) && ` · ${selV.payment_terms_display || selV.payment_terms}`}
-                    {selV.performance_score != null && ` · score ${selV.performance_score}/100`}
                   </span>
                 </div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 16, flexShrink: 0 }}>
@@ -612,144 +606,178 @@ function CompareStep({
         })()}
       </div>
 
-      {/* AI Recommendation + Risk */}
-      {(aiRecommended || keyTakeaways.length > 0 || riskIndicators.length > 0) && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 14 }}>
+      {/* AI Recommendation */}
+      {hasAI && (() => {
+        const recVIdx = vendors.findIndex(v => v.vendor_id === aiRecommendedVendorId)
+        const recRankEntry = aiRankings.find(r => r.vendor_id === aiRecommendedVendorId)
+        const recLanded = aiRecommendedVendor ? landedTotal(aiRecommendedVendor) : null
+        const maxLandedAI = landedTotals.length ? Math.max(...landedTotals) : 0
+        const recSavings = recLanded != null && maxLandedAI > recLanded ? maxLandedAI - recLanded : 0
+        const RANK_COLORS = [
+          { bg: '#f59e0b', text: '#fff' },
+          { bg: '#94a3b8', text: '#fff' },
+          { bg: '#b45309', text: '#fff' },
+        ]
+        const rankColor = (rank: number) => RANK_COLORS[rank - 1] ?? { bg: '#e5e7eb', text: '#6b7280' }
 
-          {/* AI card */}
-          <div style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, overflow: 'hidden', fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#1a1a18' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '0.5px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a18', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
-                AI recommendation
-              </div>
-              {aiRecommended && (() => {
-                const rank = aiRanking.find(r => r.vendor_id === aiRecommended.vendor_id)
-                const score = rank?.overall_score
-                return score != null ? (
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.1)', borderRadius: 4, padding: '2px 6px' }}>
-                    {score}/100
-                  </span>
-                ) : null
-              })()}
-            </div>
-            <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {aiRecommended?.summary && (
-                <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', lineHeight: 1.6, fontFamily: "'DM Sans',sans-serif" }}>
-                  {aiRecommended.summary}
-                </p>
-              )}
+        return (
+          <div style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.09)', borderRadius: 12, overflow: 'hidden', fontFamily: "'DM Sans',sans-serif" }}>
 
-              {keyTakeaways.length > 0 && (
-                <div>
-                  <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>
-                    Key takeaways
-                  </p>
-                  <ul style={{ display: 'flex', flexDirection: 'column', gap: 6, listStyle: 'none', padding: 0, margin: 0 }}>
-                    {keyTakeaways.map((t, i) => (
-                      <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>
-                        <TrendingDown className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" />
-                        {t}
-                      </li>
-                    ))}
-                  </ul>
+            {/* Header */}
+            <div style={{ padding: '10px 16px', borderBottom: '0.5px solid rgba(0,0,0,0.07)', background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <div style={{ width: 26, height: 26, borderRadius: 7, background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Sparkles style={{ width: 13, height: 13, color: '#7c3aed' }} />
                 </div>
-              )}
-
-              {aiRanking.length > 0 && aiRanking[0]?.key_factors && (
-                <div>
-                  <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>
-                    Factor analysis
-                  </p>
-                  {aiRanking.map((r) => {
-                    const vIdx = vendors.findIndex(v => v.vendor_id === r.vendor_id)
-                    return (
-                      <div key={r.vendor_id} style={{ marginBottom: 10 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <VendorDot name={r.vendor_name} paletteIdx={vIdx >= 0 ? vIdx : 0} size={18} />
-                          <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans',sans-serif" }}>{r.vendor_name}</span>
-                          {r.overall_tag && (
-                            <span style={{
-                              fontSize: 11, fontWeight: 600, borderRadius: 4, padding: '1px 6px',
-                              background: r.overall_tag.toLowerCase().includes('risk') ? '#fee2e2' : '#d1fae5',
-                              color: r.overall_tag.toLowerCase().includes('risk') ? '#991b1b' : '#065f46',
-                            }}>
-                              {r.overall_tag}
-                            </span>
-                          )}
-                        </div>
-                        {Object.entries(r.key_factors || {}).map(([factor, desc]) => (
-                          <div key={factor} style={{ marginLeft: 20, fontSize: 12, color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
-                            <span style={{ fontWeight: 500, textTransform: 'capitalize', color: '#1a1a18' }}>{factor.replace(/_/g, ' ')}: </span>
-                            {String(desc)}
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Risk card */}
-          <div style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, overflow: 'hidden', fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#1a1a18' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a18', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                Risk indicators
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a18' }}>AI Analysis &amp; Recommendation</span>
               </div>
+              <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>Price · Risk · Vendor profile</span>
             </div>
-            <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {riskIndicators.length > 0 ? (
-                <ul style={{ display: 'flex', flexDirection: 'column', gap: 8, listStyle: 'none', padding: 0, margin: 0 }}>
-                  {riskIndicators.map((r, i) => (
-                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13 }}>
-                      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-500" />
-                      <span style={{ color: 'hsl(var(--muted-foreground))' }}>{r}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>No risk indicators flagged.</p>
-              )}
 
-              {vendors.map((v) => {
-                const pi = vendorIdx[v.vendor_id]
-                return (
-                  <div key={v.quotation_id ?? v.vendor_id} style={{ borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.08)', background: 'hsl(var(--muted)/0.3)', padding: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <VendorDot name={v.vendor_name} paletteIdx={pi} size={22} />
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{v.vendor_name}</span>
-                      {v.vendor_status === 'new' && (
-                        <span style={{ fontSize: 11, fontWeight: 600, background: '#fef3c7', color: '#92400e', borderRadius: 4, padding: '1px 6px' }}>
-                          New
-                        </span>
-                      )}
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Recommended vendor card */}
+              {aiRecommendedVendor && (
+                <div style={{ borderRadius: 9, border: '1px solid #e9d5ff', background: '#faf5ff', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Star style={{ width: 16, height: 16, color: '#7c3aed' }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: '#9333ea', marginBottom: 3 }}>AI Recommended</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <VendorDot name={aiRecommendedVendor.vendor_name} paletteIdx={recVIdx >= 0 ? recVIdx : 0} size={22} />
+                      {aiRecommendedVendor.vendor_name}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 14px', fontSize: 13 }}>
-                      {[
-                        { label: 'Previous POs', value: v.previous_po_count ?? '—' },
-                        { label: 'Perf. score', value: v.performance_score != null ? `${v.performance_score}/100` : '—' },
-                        { label: 'Risk score', value: v.risk_score != null ? v.risk_score : '—' },
-                        { label: 'GST no.', value: v.gst_number || '—' },
-                        { label: 'Location', value: [v.city, v.state].filter(Boolean).join(', ') || '—' },
-                        { label: 'MSME', value: v.is_msme ? (v.is_msme_certified ? 'Certified' : 'Yes') : 'No' },
-                      ].map(({ label, value }) => (
-                        <div key={label}>
-                          <span style={{ color: 'hsl(var(--muted-foreground))' }}>{label}: </span>
-                          <span style={{ fontWeight: 500 }}>{value}</span>
-                        </div>
-                      ))}
+                    {(aiRecommendedVendor.city || aiRecommendedVendor.state) && (
+                      <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>
+                        {[aiRecommendedVendor.city, aiRecommendedVendor.state].filter(s => s && s !== 'N/A').join(', ')}
+                      </div>
+                    )}
+                    {recRankEntry?.rationale && (
+                      <div style={{ fontSize: 12, color: '#4b5563', marginTop: 6, lineHeight: 1.55 }}>{recRankEntry.rationale}</div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 18, flexShrink: 0, flexWrap: 'wrap' }}>
+                    {recLanded != null && (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: '#9ca3af', fontWeight: 600 }}>Landed total</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#111', lineHeight: 1.3, marginTop: 2 }}>{formatCurrency(recLanded)}</div>
+                      </div>
+                    )}
+                    {recSavings > 0 && (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: '#9ca3af', fontWeight: 600 }}>Saves vs worst</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#15803d', lineHeight: 1.3, marginTop: 2 }}>+{formatCurrency(recSavings)}</div>
+                      </div>
+                    )}
+                    {recRankEntry?.score != null && (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: '#9ca3af', fontWeight: 600 }}>AI score</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#6d28d9', lineHeight: 1.3, marginTop: 2 }}>{recRankEntry.score}<span style={{ fontSize: 11, fontWeight: 500, color: '#a78bfa' }}>/100</span></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Summary */}
+              {aiSummary && (
+                <div style={{ display: 'flex', gap: 9, padding: '10px 13px', background: '#f9fafb', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.07)' }}>
+                  <Info style={{ width: 13, height: 13, color: '#9ca3af', flexShrink: 0, marginTop: 2 }} />
+                  <p style={{ fontSize: 12.5, color: '#4b5563', lineHeight: 1.75, margin: 0 }}>{aiSummary}</p>
+                </div>
+              )}
+
+              {/* Rankings — exclude recommended vendor since it's shown in the hero card above */}
+              {(() => {
+                const otherRankings = [...aiRankings]
+                  .filter(r => r.vendor_id !== aiRecommendedVendorId)
+                  .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))
+                if (!otherRankings.length) return null
+                return (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: '#9ca3af', marginBottom: 8 }}>
+                      Other vendors · {otherRankings.length}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {otherRankings.map((r) => {
+                        const vIdx = vendors.findIndex(v => v.vendor_id === r.vendor_id)
+                        const vInfo = vendors.find(v => v.vendor_id === r.vendor_id)
+                        const vLanded = vInfo ? landedTotal(vInfo) : null
+                        const pct = r.score != null ? Math.min(100, Number(r.score)) : 0
+                        return (
+                          <div key={r.vendor_id} style={{ borderRadius: 8, overflow: 'hidden', border: '0.5px solid rgba(0,0,0,0.07)', background: '#f9fafb' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px' }}>
+                              <div style={{ width: 22, height: 22, borderRadius: 5, background: '#f1f5f9', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                                {r.rank}
+                              </div>
+                              <VendorDot name={vInfo?.vendor_name || ''} paletteIdx={vIdx >= 0 ? vIdx : 0} size={22} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a18' }}>{vInfo?.vendor_name || `Vendor ${r.vendor_id}`}</span>
+                                <div style={{ marginTop: 5, height: 4, borderRadius: 99, background: '#e5e7eb', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: '#cbd5e1', transition: 'width .4s' }} />
+                                </div>
+                              </div>
+                              <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{r.score != null ? `${r.score}/100` : '—'}</div>
+                                {vLanded != null && (
+                                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{formatCurrency(vLanded)}</div>
+                                )}
+                              </div>
+                            </div>
+                            {r.rationale && (
+                              <div style={{ padding: '0 12px 9px 44px', fontSize: 11.5, color: '#6b7280', lineHeight: 1.55 }}>{r.rationale}</div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )
-              })}
+              })()}
+
+              {/* Risks & Notes */}
+              {(aiRisks.length > 0 || aiNotes.length > 0) && (
+                <div style={{ display: 'grid', gridTemplateColumns: aiRisks.length > 0 && aiNotes.length > 0 ? '1fr 1fr' : '1fr', gap: 10 }}>
+                  {aiRisks.length > 0 && (
+                    <div style={{ background: '#fffbeb', border: '0.5px solid #fde68a', borderRadius: 8, padding: '11px 13px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 9 }}>
+                        <AlertTriangle style={{ width: 12, height: 12, color: '#d97706' }} />
+                        <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#92400e' }}>Risks · {aiRisks.length}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {aiRisks.map((r, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+                            <div style={{ width: 4, height: 4, borderRadius: 99, background: '#d97706', flexShrink: 0, marginTop: 6 }} />
+                            <span style={{ fontSize: 12, color: '#78350f', lineHeight: 1.6 }}>{r}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {aiNotes.length > 0 && (
+                    <div style={{ background: '#f0f9ff', border: '0.5px solid #bae6fd', borderRadius: 8, padding: '11px 13px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 9 }}>
+                        <Info style={{ width: 12, height: 12, color: '#0284c7' }} />
+                        <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#075985' }}>Notes · {aiNotes.length}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {aiNotes.map((n, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+                            <div style={{ width: 4, height: 4, borderRadius: 99, background: '#38bdf8', flexShrink: 0, marginTop: 6 }} />
+                            <span style={{ fontSize: 12, color: '#0c4a6e', lineHeight: 1.6 }}>{n}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           </div>
-
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
