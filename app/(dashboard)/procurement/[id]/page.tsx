@@ -719,7 +719,7 @@ export default function PRDetailPage() {
     (sum: any, item: any) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
     0,
   )
-  const quotationIds = pr?.linked_quotations.map((quotation: any) => quotation?.id) ?? []
+  const quotationIds = pr?.quotation_ids ?? []
   {/* KPI ROW */ }
   const selectedQuotation = pr?.linked_quotations?.find((q: any) => q.id === pr?.selected_quotation
   ) ?? null

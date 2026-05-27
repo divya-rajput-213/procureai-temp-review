@@ -329,7 +329,7 @@ function FormChecklist({ values, isMsme }: { values: Partial<VendorForm>; isMsme
     { label: 'GST Certificate', done: !!values.gst_number, req: true },
     { label: 'PAN Card', done: !!values.pan_number, req: true },
     { label: 'Bank Verification', done: !!(values.bank_account && values.bank_ifsc && values.bank_name), req: true },
-    ...(isMsme ? [{ label: 'MSME Certificate', done: !!values.msme_number, req: true }] : []),
+    ...(isMsme ? [{ label: 'MSME Certificate', done: !!values.msme_number, req: false }] : []),
   ]
 
   const reqItems = items.filter((x): x is { label: string; done: boolean; req: boolean } => 'req' in x && x.req === true)
@@ -755,15 +755,11 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
     // Bank Name: alphabets and spaces only
     if (!data.bank_name?.trim()) errs['field_bank_name'] = 'Bank Name is required'
     else if (!/^[a-zA-Z\s]+$/.test(data.bank_name.trim())) errs['field_bank_name'] = 'Bank Name should contain only alphabets and spaces'
-    // MSME: Udyam format — UDYAM-XX-00-0000000
-    if (data.is_msme) {
-      const msme = data.msme_number?.trim().toUpperCase() ?? ''
-      if (!msme) errs['field_msme_number'] = 'MSME (Udyam) Number is required'
-      else if (!/^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/.test(msme)) errs['field_msme_number'] = 'Enter a valid Udyam number (e.g. UDYAM-MH-01-0000001)'
+    // MSME: validate format only if a number has been entered (optional field)
+    if (data.is_msme && data.msme_number?.trim()) {
+      const msme = data.msme_number.trim().toUpperCase()
+      if (!/^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/.test(msme)) errs['field_msme_number'] = 'Enter a valid Udyam number (e.g. UDYAM-MH-01-0000001)'
     }
-    isoRows.forEach((row, idx) => {
-      if (row.standard.trim() && !docOf(isoDocType(idx))) errs[`field_iso_${idx}`] = 'Document upload is required'
-    })
     setComplianceErrors(errs)
     return Object.keys(errs).length === 0
   }
