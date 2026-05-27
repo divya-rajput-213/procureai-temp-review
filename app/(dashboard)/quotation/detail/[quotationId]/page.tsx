@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { FolderOpen, History, LayoutDashboard, List, Loader2, ScrollText } from 'lucide-react'
 import apiClient from '@/lib/api/client'
@@ -93,6 +94,7 @@ type Quotation = {
   category_name: string
   confidence_score?: number | null
   pr_no?: string
+  pr_hash_id?: string | null
   buyer_details?: any
   category?: any
 }
@@ -232,6 +234,7 @@ function mapQuotation(raw: any): Quotation {
     department_name: raw.department_name ?? '',
     category_id: raw.category ?? null,
     pr_no: raw.pr_no ?? '',
+    pr_hash_id: raw.pr_hash_id ?? raw.pr_id ?? null,
     category_name: raw.category_name ?? '',
     buyer_details: raw.buyer_details ?? null,
     confidence_score: nullableNumber(raw.confidence_score ?? raw.ai_confidence ?? raw.confidence),
@@ -626,7 +629,10 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           </div>
           <div style={{ padding: '0 14px' }}>
             <div className="rhm-lbl">PR Linked</div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{quotation.pr_no || '—'}</div>
+            {quotation.pr_hash_id
+              ? <Link href={`/procurement/${quotation.pr_hash_id}`} style={{ fontSize: 14, fontWeight: 500, color: 'hsl(var(--primary))', textDecoration: 'none' }}>{quotation.pr_no || quotation.pr_hash_id}</Link>
+              : <div style={{ fontSize: 14, fontWeight: 500 }}>{quotation.pr_no || '—'}</div>
+            }
           </div>
         </div>
       </div>
