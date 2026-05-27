@@ -120,8 +120,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
     }, [quotationData])
 
     const quotationSaveMutation = useMutation({
-        mutationFn: async () => {
-            const payload = {
+        mutationFn: async ({ status }: { status?: string } = {}) => {
+            const payload: Record<string, any> = {
                 vendor_id: vendors?.id ? Number(vendors.id) : null,
                 plant_id: plantId ? Number(plantId) : null,
                 department_id: departmentId ? Number(departmentId) : null,
@@ -129,7 +129,26 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 pr_id: prLinkId ? Number(prLinkId) : null,
                 internal_notes: internalNotes || null,
                 valid_until: validUntil || null,
+                items: lineItems.map((item: any) => {
+                    const selectedSuggestion = item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))
+                    return {
+                        item_code: item.item_code ?? item.code,
+                        item_name: item.item_name,
+                        item_price: item.item_price,
+                        quantity: item.quantity || 1,
+                        unit_of_measure: item.unit_of_measure ?? item.uom,
+                        hsn_code: item.hsn_code ?? selectedSuggestion?.hsn_code ?? null,
+                        create_new_item: item.createNew,
+                        is_new: item?.is_new || false,
+                        is_duplicate: item?.is_duplicate || false,
+                        suggestions: item.createNew ? [] : selectedSuggestion ? [selectedSuggestion] : [],
+                        is_manual_hsn: item.is_manual_hsn ?? false,
+                        is_manual_unit_price: item.is_manual_unit_price ?? false,
+                        is_manual_uom: item.is_manual_uom ?? false,
+                    }
+                }),
             }
+            if (status) payload.status = status
             const { data } = await apiClient.patch(`/quotations/${params.quotationId}/`, payload)
             return data
         },
@@ -453,6 +472,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         onBack={() => setCurrentStep(0)}
                         hideMasterMatch
                         disableAddRow
+                        unlockAll
                         onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
                         onValidationChange={(isValid) => { setVerifyStepValid(isValid); if (isValid) setShowVerifyErrors(false) }}
                         showValidationErrors={showVerifyErrors}
@@ -481,12 +501,29 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                             </Button>
                         )}
 
-                        {currentStep === 1 && (
-                            <Button size="sm" onClick={() => { if (!verifyStepValid) { setShowVerifyErrors(true); return }; setShowConfirm(true) }} disabled={isSaving} className="gap-1.5">
+                        {currentStep === 1 && (<>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    if (!verifyStepValid) { setShowVerifyErrors(true); return }
+                                    quotationSaveMutation.mutate({ status: 'draft' })
+                                }}
+                                disabled={isSaving}
+                                className="gap-1.5"
+                            >
                                 {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
-                                Save Changes
+                                Save as Draft
                             </Button>
-                        )}
+                            <Button
+                                size="sm"
+                                onClick={() => { if (!verifyStepValid) { setShowVerifyErrors(true); return }; setShowConfirm(true) }}
+                                disabled={isSaving}
+                                className="gap-1.5"
+                            >
+                                Submit
+                            </Button>
+                        </>)}
 
                     </div>
                 </div>
@@ -520,9 +557,9 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} will be updated. This will overwrite the existing data.
                     </>
                 }
-                confirmLabel="Save Changes"
+                confirmLabel="Submit"
                 onClose={() => setShowConfirm(false)}
-                onConfirm={() => quotationSaveMutation.mutate()}
+                onConfirm={() => quotationSaveMutation.mutate({ status: 'submitted' })}
                 isPending={quotationSaveMutation.isPending}
             />
         </>

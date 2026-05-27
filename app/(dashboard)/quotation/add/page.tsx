@@ -126,7 +126,7 @@ export default function UploadQuotationPage() {
     })
 
     const quotationSaveMutation = useMutation({
-        mutationFn: async () => {
+        mutationFn: async ({ status }: { status?: string } = {}) => {
             const { data } = await apiClient.post('/quotations/save/', {
                 vendor: {
                     company_name: vendors?.company_name, contact_name: vendors?.contact_name,
@@ -169,6 +169,7 @@ export default function UploadQuotationPage() {
                 category_id: categoryId ? Number(categoryId) : null,
                 pr_id: prLinkId ? Number(prLinkId) : null,
                 file_key: quotation?.file_key ?? null,
+                ...(status ? { status } : {}),
                 items: lineItems.map((item: any) => {
                     const selectedSuggestion = item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))
                     const selectedMaster = masterItems?.find((m: any) => String(m.id) === String(item.selectedMasterId))
@@ -180,6 +181,9 @@ export default function UploadQuotationPage() {
                         create_new_item: item.createNew, is_new: item?.is_new || false,
                         is_duplicate: item?.is_duplicate || false,
                         suggestions: item.createNew ? [] : selectedSuggestion ? [selectedSuggestion] : [],
+                        is_manual_hsn: item.is_manual_hsn ?? false,
+                        is_manual_unit_price: item.is_manual_unit_price ?? false,
+                        is_manual_uom: item.is_manual_uom ?? false,
                     }
                 }),
             })
@@ -589,7 +593,21 @@ export default function UploadQuotationPage() {
                             </Button>
                         )}
 
-                        {currentStep === 1 && (
+                        {currentStep === 1 && (<>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    if (!verifyStepValid) { setShowVerifyErrors(true); return }
+                                    setShowVerifyErrors(false)
+                                    quotationSaveMutation.mutate({ status: 'draft' })
+                                }}
+                                disabled={isSaving}
+                                className="gap-1.5"
+                            >
+                                {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
+                                Save as Draft
+                            </Button>
                             <Button
                                 size="sm"
                                 onClick={() => {
@@ -600,10 +618,9 @@ export default function UploadQuotationPage() {
                                 disabled={isSaving}
                                 className="gap-1.5"
                             >
-                                {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
                                 Submit
                             </Button>
-                        )}
+                        </>)}
                     </div>
                 </div>
             </div>
@@ -637,7 +654,7 @@ export default function UploadQuotationPage() {
                 }
                 confirmLabel="Submit"
                 onClose={() => setShowConfirm(false)}
-                onConfirm={() => quotationSaveMutation.mutate()}
+                onConfirm={() => quotationSaveMutation.mutate({ status: 'submitted' })}
                 isPending={quotationSaveMutation.isPending}
             />
         </>

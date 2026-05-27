@@ -17,6 +17,7 @@ interface VerifyItemsStepProps {
     disableAddRow?: boolean
     onValidationChange?: (isValid: boolean, incompleteCount: number) => void
     showValidationErrors?: boolean
+    unlockAll?: boolean
 }
 
 const fmtI = (v: number) => '₹' + (isNaN(v) ? 0 : Math.round(v)).toLocaleString('en-IN')
@@ -36,7 +37,7 @@ const errorInputStyle: React.CSSProperties = {
     borderRadius: 4, padding: '3px 7px', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%',
 }
 
-export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation, onExport, disableAddRow = false, onValidationChange, showValidationErrors = false }: VerifyItemsStepProps) {
+export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation, onExport, disableAddRow = false, onValidationChange, showValidationErrors = false, unlockAll = false }: VerifyItemsStepProps) {
     const [addRowActive, setAddRowActive] = useState(false)
     const [activeDropdownIdx, setActiveDropdownIdx] = useState<number | null>(null)
     const [addSearch, setAddSearch] = useState('')
@@ -134,6 +135,10 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
 
     const updateItem = useCallback((idx: number, field: string, value: any) => {
         setLineItems(prev => { const u = [...prev]; u[idx] = { ...u[idx], [field]: value }; return u })
+    }, [setLineItems])
+
+    const updateItemFields = useCallback((idx: number, fields: Record<string, any>) => {
+        setLineItems(prev => { const u = [...prev]; u[idx] = { ...u[idx], ...fields }; return u })
     }, [setLineItems])
 
     const selectMaster = (idx: number, masterId: string) => {
@@ -303,11 +308,18 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                         const isManual = !!item._manuallyAdded
 
                                         const orig = origRef.current[idx]
-                                        // Fields locked to read-only if the backend originally provided them (non-manual items)
-                                        const hsnLocked = !isManual && orig?.hsn != null
-                                        const uomLocked = !isManual && orig?.uom != null
+                                        // In add flow: lock if backend provided the value
+                                        // In edit flow (unlockAll): lock unless the field was previously marked is_manual by backend
+                                        const hsnLocked = unlockAll
+                                            ? !isManual && !item.is_manual_hsn
+                                            : !isManual && orig?.hsn != null
+                                        const uomLocked = unlockAll
+                                            ? !isManual && !item.is_manual_uom
+                                            : !isManual && orig?.uom != null
                                         const qtyLocked = !isManual && (orig?.qty ?? 0) > 0
-                                        const priceLocked = !isManual && orig?.price != null && orig.price > 0
+                                        const priceLocked = unlockAll
+                                            ? !isManual && !item.is_manual_unit_price
+                                            : !isManual && orig?.price != null && orig.price > 0
 
                                         const hsnValid = hsnLocked || /^\d{8}$/.test(String(item.hsn_code || '').replace(/\s+/g, ''))
                                         const uomValid = uomLocked || !!item.unit_of_measure
@@ -331,7 +343,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 value={item.hsn_code || ''}
                                                                 onChange={e => {
                                                                     const v = e.target.value.replace(/\D/g, '').slice(0, 8)
-                                                                    updateItem(idx, 'hsn_code', v)
+                                                                    updateItemFields(idx, { hsn_code: v, is_manual_hsn: true })
                                                                 }}
                                                                 placeholder="8-digit HSN"
                                                                 maxLength={8}
@@ -364,7 +376,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                         : <>
                                                             <select
                                                                 value={item.unit_of_measure || ''}
-                                                                onChange={e => updateItem(idx, 'unit_of_measure', e.target.value)}
+                                                                onChange={e => updateItemFields(idx, { unit_of_measure: e.target.value, is_manual_uom: true })}
                                                                 style={{ ...(showErr && !uomValid ? errorInputStyle : item.unit_of_measure ? editableStyle : needsInputStyle), width: 68 }}
                                                             >
                                                                 <option value="">UOM</option>
@@ -385,7 +397,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 step="any"
                                                                 onChange={e => {
                                                                     const v = Math.abs(Number(e.target.value) || 0)
-                                                                    updateItem(idx, 'item_price', v)
+                                                                    updateItemFields(idx, { item_price: v, is_manual_unit_price: true })
                                                                 }}
                                                                 placeholder="0.00"
                                                                 style={{ ...(showErr && !priceValid ? errorInputStyle : price > 0 ? editableStyle : needsInputStyle), width: 90, textAlign: 'right' }}
@@ -403,7 +415,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setActiveDropdownIdx(activeDropdownIdx === idx ? null : idx)}
-                                                                    disabled={isNew || hideMasterMatch}
+                                                                    disabled={isNew || (hideMasterMatch && !unlockAll)}
                                                                     style={{
                                                                         fontSize: 13, padding: '7px 10px',
                                                                         border: `0.5px solid ${isNew ? 'var(--gry-bd)' : 'var(--blu-bd)'}`,
@@ -496,7 +508,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
 
                                                             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4 }}>
                                                                 <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--tx2)', cursor: 'pointer' }}>
-                                                                    <input type="checkbox" checked={isNew} onChange={e => toggleCreateNew(idx, e.target.checked)} style={{ accentColor: 'var(--grn-bd)', width: 12, height: 12 }} disabled={hideMasterMatch} />
+                                                                    <input type="checkbox" checked={isNew} onChange={e => toggleCreateNew(idx, e.target.checked)} style={{ accentColor: 'var(--grn-bd)', width: 12, height: 12 }} disabled={hideMasterMatch && !unlockAll} />
                                                                     <span>Create New</span>
                                                                 </label>
                    

@@ -18,6 +18,7 @@ import {
   UserCheck,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import apiClient from '@/lib/api/client'
 import { useQuery } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/use-toast'
@@ -259,11 +260,8 @@ function CompareStep({
                               <span style={{ fontSize: 11, fontWeight: 600, background: '#ede9fe', color: '#6d28d9', borderRadius: 4, display: 'inline-flex', alignItems: 'start', gap: 3 }}>
                                 <Sparkles style={{ width: 12, height: 12 }} />
                               </span>
-                            )}  {v.vendor_name}     {v.vendor_status === 'new' && (
-                              <span style={{ fontSize: 11, fontWeight: 600, background: '#fef3c7', color: '#92400e', borderRadius: 4, padding: '2px 6px' }}>
-                                New
-                              </span>
-                            )}
+                            )}  {v.vendor_name}
+                            {v.vendor_status && <StatusBadge status={v.vendor_status} />}
                           </div>
                           {(v.city || v.state) && (
                             <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
@@ -570,11 +568,7 @@ function CompareStep({
                     <span style={{ fontSize: 11, fontWeight: 600, background: pal.bg, color: '#fff', borderRadius: 4, padding: '2px 7px' }}>
                       Selected vendor
                     </span>
-                    {selV.vendor_status === 'new' && (
-                      <span style={{ fontSize: 11, fontWeight: 600, background: '#fef3c7', color: '#92400e', borderRadius: 4, padding: '2px 7px' }}>
-                        New vendor
-                      </span>
-                    )}
+                    {selV.vendor_status && <StatusBadge status={selV.vendor_status} />}
                   </div>
                   <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
                     Landed {formatCurrency(selLand)}
@@ -672,39 +666,19 @@ function CompareStep({
    
               {/* Risks & Notes */}
               {(aiRisks.length > 0 || aiNotes.length > 0) && (
-                <div style={{ display: 'grid', gridTemplateColumns: aiRisks.length > 0 && aiNotes.length > 0 ? '1fr 1fr' : '1fr', gap: 10 }}>
-                  {aiRisks.length > 0 && (
-                    <div style={{ background: '#fffbeb', border: '0.5px solid #fde68a', borderRadius: 8, padding: '11px 13px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 9 }}>
-                        <AlertTriangle style={{ width: 12, height: 12, color: '#d97706' }} />
-                        <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#92400e' }}>Risks · {aiRisks.length}</span>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {aiRisks.map((r, i) => (
-                          <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
-                            <div style={{ width: 4, height: 4, borderRadius: 99, background: '#d97706', flexShrink: 0, marginTop: 6 }} />
-                            <span style={{ fontSize: 12, color: '#78350f', lineHeight: 1.6 }}>{r}</span>
-                          </div>
-                        ))}
-                      </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {aiRisks.map((r, i) => (
+                    <div key={`risk-${i}`} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: '#4b5563', lineHeight: 1.6 }}>
+                      <AlertTriangle style={{ width: 12, height: 12, color: '#d97706', flexShrink: 0, marginTop: 3 }} />
+                      <span>{r}</span>
                     </div>
-                  )}
-                  {aiNotes.length > 0 && (
-                    <div style={{ background: '#f0f9ff', border: '0.5px solid #bae6fd', borderRadius: 8, padding: '11px 13px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 9 }}>
-                        <Info style={{ width: 12, height: 12, color: '#0284c7' }} />
-                        <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#075985' }}>Notes · {aiNotes.length}</span>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {aiNotes.map((n, i) => (
-                          <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
-                            <div style={{ width: 4, height: 4, borderRadius: 99, background: '#38bdf8', flexShrink: 0, marginTop: 6 }} />
-                            <span style={{ fontSize: 12, color: '#0c4a6e', lineHeight: 1.6 }}>{n}</span>
-                          </div>
-                        ))}
-                      </div>
+                  ))}
+                  {aiNotes.map((n, i) => (
+                    <div key={`note-${i}`} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: '#4b5563', lineHeight: 1.6 }}>
+                      <Info style={{ width: 12, height: 12, color: '#0284c7', flexShrink: 0, marginTop: 3 }} />
+                      <span>{n}</span>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
 

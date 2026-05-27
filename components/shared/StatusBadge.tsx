@@ -108,6 +108,7 @@ const DOT_COLORS: Record<string, string> = {
 }
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
+  console.log('DOT_COLORS[status]', DOT_COLORS[status])
   return (
     <span
       className={cn(
