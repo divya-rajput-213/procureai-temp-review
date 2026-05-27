@@ -249,12 +249,11 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                         {onExport && (() => {
                             const hasNewItems = lineItems.some(item => !item.skipItem && (item.createNew || item.is_new))
                             return (
-                                <span title={!hasNewItems ? 'No new items to export' : undefined} style={{ flexShrink: 0 }}>
+                                <span style={{ flexShrink: 0 }}>
                                     <button
                                         type="button"
-                                        onClick={hasNewItems ? onExport : undefined}
-                                        disabled={!hasNewItems}
-                                        style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, padding: '5px 12px', border: '0.5px solid var(--bd)', borderRadius: 6, background: 'white', whiteSpace: 'nowrap', cursor: hasNewItems ? 'pointer' : 'not-allowed', opacity: hasNewItems ? 1 : 0.45, pointerEvents: hasNewItems ? 'auto' : 'none' }}
+                                        onClick={onExport}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, padding: '5px 12px', border: '0.5px solid var(--bd)', borderRadius: 6, background: 'white', whiteSpace: 'nowrap' }}
                                     >
                                         <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
                                     </button>

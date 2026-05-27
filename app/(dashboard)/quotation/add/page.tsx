@@ -615,7 +615,7 @@ export default function UploadQuotationPage() {
                     <>
                         {(() => {
                             const newCount = lineItems.filter(i => !i.skipItem && (i.createNew || i.is_new)).length
-                            return <>Only <strong>{newCount}</strong> new item{newCount !== 1 ? 's' : ''} will be exported — existing catalogue matches are excluded.</>
+                            return <><strong>{newCount}</strong> new item{newCount !== 1 ? 's' : ''} will be exported — existing catalogue matches are excluded.</>
                         })()}
                     </>
                 }
