@@ -61,7 +61,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const DOT_COLORS: Record<string, string> = {
   under_evaluation: 'bg-blue-500',
-  shortlisted: 'bg-teal-500',
+  shortlisted: 'bg-green-500',
   po_raised: 'bg-purple-500',
   not_selected: 'bg-red-500',
   draft: 'bg-gray-400',
