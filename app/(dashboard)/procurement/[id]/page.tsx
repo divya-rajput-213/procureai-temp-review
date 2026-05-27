@@ -722,6 +722,13 @@ export default function PRDetailPage() {
   {/* KPI ROW */ }
   const selectedQuotation = pr?.linked_quotations?.find((q: any) => q.id === pr?.selected_quotation
   ) ?? null
+
+  const { data: selectedQuotationDetail } = useQuery({
+    queryKey: ['quotation-detail', selectedQuotation?.id],
+    queryFn: async () => (await apiClient.get(`/quotations/${selectedQuotation!.id}/`)).data,
+    enabled: !!selectedQuotation?.id,
+    staleTime: 5 * 60 * 1000,
+  })
   const [expandedQuotationId, setExpandedQuotationId] = useState<number | null>(null)
   const handleExport = async (prId: any) => {
     if (!prId) return
@@ -1148,6 +1155,7 @@ export default function PRDetailPage() {
                             <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">#</th>
                             <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Item Code</th>
                             <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Description</th>
+                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">HSN</th>
                             <th className="px-3 py-2 text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Qty</th>
                             <th className="px-3 py-2 text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">UOM</th>
                             <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Unit Price</th>
@@ -1158,20 +1166,54 @@ export default function PRDetailPage() {
                           {selectedQuotation.items.map((item: any, idx: number) => (
                             <tr key={item.id} className={cn('border-b last:border-0', idx % 2 === 1 && 'bg-muted/20')}>
                               <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
-                              <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{item.item_code}</td>
+                              <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{item.item_code ?? '—'}</td>
                               <td className="px-3 py-2 font-medium">{item.item_name}</td>
+                              <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{String(item.hsn_code ?? item.hsn_sac ?? '—').replace(/\s+/g, '')}</td>
                               <td className="px-3 py-2 text-center">{item.quantity}</td>
-                              <td className="px-3 py-2 text-center text-muted-foreground">{item.unit_of_measure}</td>
+                              <td className="px-3 py-2 text-center text-muted-foreground">{item.unit_of_measure ?? '—'}</td>
                               <td className="px-3 py-2 text-right">{formatCurrency(item.item_price, pr.currency_code)}</td>
                               <td className="px-3 py-2 text-right font-semibold">{formatCurrency(item.line_total, pr.currency_code)}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
-                          <tr className="border-t-2 bg-muted/30">
-                            <td colSpan={6} className="px-3 py-2 text-right font-semibold text-muted-foreground">Total</td>
-                            <td className="px-3 py-2 text-right font-bold">{formatCurrency(selectedQuotation.total_amount, pr.currency_code)}</td>
-                          </tr>
+                          {(() => {
+                            const detail = selectedQuotationDetail ?? selectedQuotation
+                            const taxes = detail?.vendor ?? detail
+                            const cgstRate = taxes?.cgst_rate ?? detail?.cgst_rate ?? null
+                            const sgstRate = taxes?.sgst_rate ?? detail?.sgst_rate ?? null
+                            const igstRate = taxes?.igst_rate ?? detail?.igst_rate ?? null
+                            const cgstAmt = taxes?.cgst_amount ?? detail?.cgst_amount ?? null
+                            const sgstAmt = taxes?.sgst_amount ?? detail?.sgst_amount ?? null
+                            const igstAmt = taxes?.igst_amount ?? detail?.igst_amount ?? null
+                            const grandTotal = taxes?.grand_total ?? detail?.grand_total ?? selectedQuotation.total_amount
+                            const subtotal = taxes?.subtotal_amount ?? detail?.subtotal_amount ?? selectedQuotation.total_amount
+                            const fmtAmt = (v: number | null) => v != null && v > 0 ? formatCurrency(v, pr.currency_code) : '—'
+                            return (
+                              <>
+                                <tr className="border-t bg-muted/10">
+                                  <td colSpan={7} className="px-3 py-1.5 text-right text-[10px] text-muted-foreground font-semibold">Sub Total</td>
+                                  <td className="px-3 py-1.5 text-right font-semibold">{formatCurrency(subtotal, pr.currency_code)}</td>
+                                </tr>
+                                <tr className="bg-muted/10">
+                                  <td colSpan={7} className="px-3 py-1 text-right text-[10px] text-muted-foreground">CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
+                                  <td className="px-3 py-1 text-right text-[11px] text-muted-foreground">{fmtAmt(cgstAmt)}</td>
+                                </tr>
+                                <tr className="bg-muted/10">
+                                  <td colSpan={7} className="px-3 py-1 text-right text-[10px] text-muted-foreground">SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
+                                  <td className="px-3 py-1 text-right text-[11px] text-muted-foreground">{fmtAmt(sgstAmt)}</td>
+                                </tr>
+                                <tr className="bg-muted/10">
+                                  <td colSpan={7} className="px-3 py-1 text-right text-[10px] text-muted-foreground">IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
+                                  <td className="px-3 py-1 text-right text-[11px] text-muted-foreground">{fmtAmt(igstAmt)}</td>
+                                </tr>
+                                <tr className="border-t-2 bg-muted/30">
+                                  <td colSpan={7} className="px-3 py-2 text-right font-semibold text-muted-foreground">Grand Total (incl. GST)</td>
+                                  <td className="px-3 py-2 text-right font-bold">{formatCurrency(grandTotal, pr.currency_code)}</td>
+                                </tr>
+                              </>
+                            )
+                          })()}
                         </tfoot>
                       </table>
                     </div>

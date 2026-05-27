@@ -39,13 +39,14 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
     const searchRowRef = useRef<HTMLTableRowElement>(null)
     const dropdownRef = useRef<HTMLDivElement>(null)
     // Snapshot which fields were non-null in the original backend response (set once per item index)
-    const origRef = useRef<Record<number, { hsn: string | null; uom: string | null; qty: number }>>({})
+    const origRef = useRef<Record<number, { hsn: string | null; uom: string | null; qty: number; price: number | null }>>({})
     lineItems.forEach((item, idx) => {
         if (!item._manuallyAdded && origRef.current[idx] === undefined) {
             origRef.current[idx] = {
                 hsn: item.hsn_code ?? null,
                 uom: item.unit_of_measure ?? null,
                 qty: Number(item.quantity) || 0,
+                price: item.item_price != null ? Number(item.item_price) : null,
             }
         }
     })
@@ -289,6 +290,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                         const hsnLocked = !isManual && orig?.hsn != null
                                         const uomLocked = !isManual && orig?.uom != null
                                         const qtyLocked = !isManual && (orig?.qty ?? 0) > 0
+                                        const priceLocked = !isManual && orig?.price != null && orig.price > 0
 
                                         return (
                                             <tr key={idx} style={{ opacity: isSkip ? 0.45 : 1 }}>
@@ -345,9 +347,20 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
-                                                    {price > 0
+                                                    {priceLocked
                                                         ? <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)', border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block' }}>{fmtI(price)}</span>
-                                                        : <span style={{ fontSize: 13, color: 'var(--tx3)' }}>—</span>
+                                                        : <input
+                                                            type="number"
+                                                            value={price || ''}
+                                                            min={0.01}
+                                                            step="any"
+                                                            onChange={e => {
+                                                                const v = Math.abs(Number(e.target.value) || 0)
+                                                                updateItem(idx, 'item_price', v)
+                                                            }}
+                                                            placeholder="0.00"
+                                                            style={{ ...(price > 0 ? editableStyle : needsInputStyle), width: 90, textAlign: 'right' }}
+                                                        />
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 14 }}>{fmtI(qty * price)}</td>

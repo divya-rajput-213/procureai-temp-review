@@ -62,6 +62,7 @@ export default function NewBudgetPage() {
 
   const [showApprovalPanel, setShowApprovalPanel] = useState(true)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
+  const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
   const { data: plants } = useQuery({
     queryKey: ['plants'],
     queryFn: async () => { const r = await apiClient.get('/users/plants/'); return r.data.results ?? r.data },
