@@ -242,7 +242,7 @@ export default function UploadFile({
                     <div className="form-body">
                         {/* VENDOR CARD */}
                         <div className="fgrp" style={{ marginBottom: 14 }}>
-                            <div className="extracted-lbl" style={{ marginBottom: 6 }}>
+                            {vendors?.company_name&&<div className="extracted-lbl" style={{ marginBottom: 6 }}>
                                 <i className="ti ti-sparkles" style={{ fontSize: 11 }} /> Vendor  {isExtracting
                                     ? <span style={{ fontSize: 9, background: 'var(--blu-bg)', color: 'var(--blu-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Extracting…</span>
                                     : vendors
@@ -250,7 +250,7 @@ export default function UploadFile({
                                         : null
                                 }
                                 
-                            </div>
+                            </div>}
 
                             {/* State 1: Placeholder */}
                             {/* {!vendors && !isExtracting && (
