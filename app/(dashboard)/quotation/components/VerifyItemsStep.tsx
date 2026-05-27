@@ -24,11 +24,11 @@ const fmtI = (v: number) => '₹' + (isNaN(v) ? 0 : Math.round(v)).toLocaleStrin
 const UOM_OPTIONS = ['EA', 'KG', 'LTR', 'MTR', 'PCS', 'SET', 'BOX', 'BAG', 'TON', 'NOS']
 
 const editableStyle: React.CSSProperties = {
-    border: '0.5px solid var(--blu-bd)', background: 'var(--blu-bg)', color: 'var(--blu-tx)',
+    border: '0.5px solid var(--bdm)', background: 'var(--bg)', color: 'var(--tx)',
     borderRadius: 4, padding: '3px 7px', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%',
 }
 const needsInputStyle: React.CSSProperties = {
-    border: '0.5px solid var(--amb-bd)', background: 'var(--amb-bg)', color: 'var(--amb-tx)',
+    border: '0.5px solid var(--bdm)', background: 'var(--bg)', color: 'var(--tx)',
     borderRadius: 4, padding: '3px 7px', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%',
 }
 const errorInputStyle: React.CSSProperties = {

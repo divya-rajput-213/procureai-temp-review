@@ -78,8 +78,8 @@ const schema = z.object({
     .min(5, 'Address is required')
     .regex(ADDRESS_ALLOWED, 'Address can contain only letters, numbers, spaces, and /, #, -, ., ,, _, (, ).')
     .max(250, 'Address must be at most 250 characters'),
-  city: z.string().min(1, 'City is required').max(50).regex(ALPHA_SPACE_ONLY, 'City can contain only letters and spaces.'),
-  state: z.string().min(1, 'State is required').max(50).regex(ALPHA_SPACE_ONLY, 'State can contain only letters and spaces.'),
+  city: z.string().min(1, 'City is required').max(50).regex(ALPHA_SPACE_ONLY, 'City should contain only alphabets and spaces.'),
+  state: z.string().min(1, 'State is required').max(50).regex(ALPHA_SPACE_ONLY, 'State should contain only alphabets and spaces.'),
   country: z.string().default('India').refine(v => v.trim().toLowerCase() === 'india', { message: 'Country must be India.' }),
   pincode: z.string().min(1, 'PIN Code is required').regex(DIGITS_ONLY, 'PIN Code must contain only numbers').length(6, 'PIN Code must be 6 digits'),
   category: z.number({ required_error: 'Category is required' }),
@@ -248,8 +248,8 @@ function DocUploadWidget({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <div className="ufile-size" style={isFailed ? { color: 'var(--red-tx)' } : isVerified ? { color: 'var(--grn-tx)' } : {}}>
                 {isFailed ? 'Validation failed' : 
-                isVerified ? 'Verified ✓' : 
-                'Uploaded'}
+                isVerified ? '✓ Uploaded' : 
+                ''}
               </div>
               {expiryLabel && (
                 <span style={{ fontSize: 10, fontWeight: 600, color: expiryColor, display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -324,7 +324,7 @@ function FormChecklist({ values, isMsme }: { values: Partial<VendorForm>; isMsme
     { label: 'City & state', done: !!(values.city && values.state), req: true },
     { label: 'Contact person', done: !!values.contact_name, req: true },
     { label: 'Contact email', done: !!values.contact_email, req: true },
-    { label: 'Contact phone', done: !!values.contact_phone, req: true },
+    { label: 'Contact phone', done: !!(values.contact_phone && /^\+91\d{10}$/.test((values.contact_phone || '').replace(/\s/g, ''))), req: true },
     { group: 'Step 2 — Documents' },
     { label: 'GST Certificate', done: !!values.gst_number, req: true },
     { label: 'PAN Card', done: !!values.pan_number, req: true },
@@ -696,7 +696,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const { register, handleSubmit, setValue, watch, trigger, getValues, setError, clearErrors, formState: { errors } } =
     useForm<VendorForm>({
       resolver: zodResolver(schema),
-      mode: 'onChange',
+      mode: 'onTouched',
       reValidateMode: 'onChange',
       defaultValues: {
         contact_phone: PHONE_PREFIX,
@@ -736,10 +736,31 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const validateCompliancePairs = (): boolean => {
     const data = getValues()
     const errs: Record<string, string> = {}
-    if (!data.gst_number?.trim()) errs['field_gst_number'] = 'GST Number is required'
-    if (!data.pan_number?.trim()) errs['field_pan_number'] = 'PAN Number is required'
-    if (!data.bank_account?.trim() || !data.bank_ifsc?.trim() || !data.bank_name?.trim()) errs['field_bank_account'] = 'Bank Account, IFSC and Bank Name are required'
-    if (data.is_msme && !data.msme_number?.trim()) errs['field_msme_number'] = 'MSME Number is required'
+    // GST: Indian format — 2 digits state code + 5 alpha PAN chars + 4 digits + 1 alpha + 1 entity + Z + 1 checksum
+    const gst = data.gst_number?.trim().toUpperCase() ?? ''
+    if (!gst) errs['field_gst_number'] = 'GST Number is required'
+    else if (!/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst)) errs['field_gst_number'] = 'Enter a valid 15-character Indian GST Number (e.g. 27AAAAA0000A1Z5)'
+    // PAN: Indian format — 5 alpha + 4 digits + 1 alpha
+    const pan = data.pan_number?.trim().toUpperCase() ?? ''
+    if (!pan) errs['field_pan_number'] = 'PAN Number is required'
+    else if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) errs['field_pan_number'] = 'Enter a valid 10-character Indian PAN Number (e.g. AAAAA9999A)'
+    // Bank Account: 9–18 digits
+    const acct = data.bank_account?.trim() ?? ''
+    if (!acct) errs['field_bank_account'] = 'Account Number is required'
+    else if (!/^\d{9,18}$/.test(acct)) errs['field_bank_account'] = 'Account Number must be 9–18 digits'
+    // IFSC: Indian format — 4 alpha + 0 + 6 alphanumeric
+    const ifsc = data.bank_ifsc?.trim().toUpperCase() ?? ''
+    if (!ifsc) errs['field_bank_ifsc'] = 'IFSC Code is required'
+    else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) errs['field_bank_ifsc'] = 'Enter a valid 11-character IFSC Code (e.g. HDFC0001234)'
+    // Bank Name: alphabets and spaces only
+    if (!data.bank_name?.trim()) errs['field_bank_name'] = 'Bank Name is required'
+    else if (!/^[a-zA-Z\s]+$/.test(data.bank_name.trim())) errs['field_bank_name'] = 'Bank Name should contain only alphabets and spaces'
+    // MSME: Udyam format — UDYAM-XX-00-0000000
+    if (data.is_msme) {
+      const msme = data.msme_number?.trim().toUpperCase() ?? ''
+      if (!msme) errs['field_msme_number'] = 'MSME (Udyam) Number is required'
+      else if (!/^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/.test(msme)) errs['field_msme_number'] = 'Enter a valid Udyam number (e.g. UDYAM-MH-01-0000001)'
+    }
     isoRows.forEach((row, idx) => {
       if (row.standard.trim() && !docOf(isoDocType(idx))) errs[`field_iso_${idx}`] = 'Document upload is required'
     })
@@ -873,10 +894,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
 
   const handleStep1Next = async () => {
     setValidationTriggered(true)
-    if (!validateCompliancePairs()) {
-      toast({ title: 'Validation failed', description: 'Complete required fields before proceeding.', variant: 'destructive' })
-      return
-    }
+    if (!validateCompliancePairs()) return
     step1Mutation.mutate(getValues())
   }
 
@@ -1311,21 +1329,13 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             {...register(name as keyof VendorForm,
                               name === 'pincode' ? {
                                 onChange: (e) => {
-                                  const raw = String(e.target.value ?? '')
-                                  if (!PINCODE_DIGITS_ONLY.test(raw)) { setError('pincode', { type: 'manual', message: 'PIN Code must contain only numbers' }); return }
-                                  if (raw.length > 6) return
-                                  if (errors.pincode?.type === 'manual') clearErrors('pincode')
+                                  const raw = e.target.value.replace(/\D/g, '').slice(0, 6)
                                   setValue('pincode', raw, { shouldValidate: true })
                                 },
                               }
                                 : (name === 'city' || name === 'state') ? {
                                   onChange: (e) => {
-                                    const raw = String(e.target.value ?? '')
-                                    if (!ALPHA_SPACE_PARTIAL.test(raw)) {
-                                      setError(name as 'city' | 'state', { type: 'manual', message: `${label} can contain only letters and spaces.` })
-                                      return
-                                    }
-                                    if ((errors[name as 'city' | 'state'] as any)?.type === 'manual') clearErrors(name as 'city' | 'state')
+                                    const raw = e.target.value.replace(/[^a-zA-Z\s]/g, '')
                                     setValue(name as 'city' | 'state', raw, { shouldValidate: true })
                                   },
                                 }
@@ -1359,24 +1369,16 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                               name === 'contact_phone' ? {
                                 onChange: (e) => {
                                   const raw = String(e.target.value ?? '')
-                                  if (!PHONE_ALLOWED_CHARS.test(raw)) { setError('contact_phone', { type: 'manual', message: 'Contact phone must contain only numbers' }); return }
-                                  let digits = raw
-                                  if (digits.startsWith(PHONE_PREFIX)) digits = digits.slice(PHONE_PREFIX.length)
-                                  else digits = digits.replace(/^\+?91\s*/g, '')
-                                  digits = digits.replace(/\D/g, '').slice(0, 10)
-                                  const next = `${PHONE_PREFIX}${digits}`
-                                  if (errors.contact_phone?.type === 'manual') clearErrors('contact_phone')
-                                  setValue('contact_phone', next, { shouldValidate: true })
+                                  const afterPrefix = raw.startsWith(PHONE_PREFIX)
+                                    ? raw.slice(PHONE_PREFIX.length)
+                                    : raw.replace(/^\+?91\s*/g, '')
+                                  const digits = afterPrefix.replace(/\D/g, '').slice(0, 10)
+                                  setValue('contact_phone', `${PHONE_PREFIX}${digits}`, { shouldValidate: true })
                                 },
                               }
                                 : name === 'contact_name' ? {
                                   onChange: (e) => {
-                                    const raw = String(e.target.value ?? '')
-                                    if (!ALPHA_SPACE_PARTIAL.test(raw)) {
-                                      setError('contact_name', { type: 'manual', message: 'Contact person name can contain only letters, spaces, &, and .' })
-                                      return
-                                    }
-                                    if (errors.contact_name?.type === 'manual') clearErrors('contact_name')
+                                    const raw = e.target.value.replace(/[^A-Za-z &.]/g, '')
                                     setValue('contact_name', raw, { shouldValidate: true })
                                   },
                                 }
@@ -1438,9 +1440,16 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             <input
                               className="form-input"
                               placeholder="e.g. 27AAAAA0000A1Z5"
+                              maxLength={15}
                               disabled={isComplianceReadOnly}
-                              style={(complianceErrors['field_gst_number'] || errors.gst_number) ? { borderColor: 'var(--red-bd)' } : {}}
-                              {...register('gst_number')}
+                              style={{ fontFamily: 'var(--mono)', fontSize: 13, textTransform: 'uppercase', ...(complianceErrors['field_gst_number'] || errors.gst_number ? { borderColor: 'var(--red-bd)' } : {}) }}
+                              {...register('gst_number', {
+                                onChange: (e) => {
+                                  const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 15)
+                                  setValue('gst_number', val)
+                                  if (validationTriggered) validateCompliancePairs()
+                                }
+                              })}
                             />
                             {complianceErrors['field_gst_number'] && <span className="field-err">{complianceErrors['field_gst_number']}</span>}
                             {errors.gst_number && <span className="field-err">{errors.gst_number.message}</span>}
@@ -1486,9 +1495,16 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             <input
                               className="form-input"
                               placeholder="e.g. AAAAA9999A"
+                              maxLength={10}
                               disabled={isComplianceReadOnly}
-                              style={(complianceErrors['field_pan_number'] || errors.pan_number) ? { borderColor: 'var(--red-bd)' } : {}}
-                              {...register('pan_number')}
+                              style={{ fontFamily: 'var(--mono)', fontSize: 13, textTransform: 'uppercase', ...(complianceErrors['field_pan_number'] || errors.pan_number ? { borderColor: 'var(--red-bd)' } : {}) }}
+                              {...register('pan_number', {
+                                onChange: (e) => {
+                                  const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 10)
+                                  setValue('pan_number', val)
+                                  if (validationTriggered) validateCompliancePairs()
+                                }
+                              })}
                             />
                             {complianceErrors['field_pan_number'] && <span className="field-err">{complianceErrors['field_pan_number']}</span>}
                             {errors.pan_number && <span className="field-err">{errors.pan_number.message}</span>}
@@ -1499,7 +1515,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                   </div>
 
                   {/* Bank */}
-                  <div style={{ border: `0.5px solid ${complianceErrors['field_bank_account'] ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
+                  <div style={{ border: `0.5px solid ${(complianceErrors['field_bank_account'] || complianceErrors['field_bank_ifsc'] || complianceErrors['field_bank_name']) ? 'var(--red-bd)' : 'var(--bd)'}`, borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
                     <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-s)', cursor: 'pointer' }} onClick={() => setExpandedComplianceDocs(prev => ({ ...prev, bank_details: !prev.bank_details }))}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--pur-bg)', color: 'var(--pur-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
@@ -1534,10 +1550,19 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                             <input
                               className="form-input"
                               placeholder="e.g. 50100123456789"
+                              maxLength={18}
+                              inputMode="numeric"
                               disabled={isComplianceReadOnly}
-                              style={(complianceErrors['field_bank_account'] || errors.bank_account) ? { borderColor: 'var(--red-bd)' } : {}}
-                              {...register('bank_account')}
+                              style={{ fontFamily: 'var(--mono)', fontSize: 13, ...(complianceErrors['field_bank_account'] || errors.bank_account ? { borderColor: 'var(--red-bd)' } : {}) }}
+                              {...register('bank_account', {
+                                onChange: (e) => {
+                                  const val = e.target.value.replace(/\D/g, '').slice(0, 18)
+                                  setValue('bank_account', val)
+                                  if (validationTriggered) validateCompliancePairs()
+                                }
+                              })}
                             />
+                            {complianceErrors['field_bank_account'] && <span className="field-err">{complianceErrors['field_bank_account']}</span>}
                             {errors.bank_account && <span className="field-err">{errors.bank_account.message}</span>}
                           </div>
                           <div className="form-group">
@@ -1546,9 +1571,16 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                               className="form-input"
                               placeholder="e.g. HDFC0001234"
                               disabled={isComplianceReadOnly}
-                              style={(complianceErrors['field_bank_account'] || errors.bank_ifsc) ? { borderColor: 'var(--red-bd)' } : {}}
-                              {...register('bank_ifsc')}
+                              style={{ fontFamily: 'var(--mono)', fontSize: 13, textTransform: 'uppercase', ...(complianceErrors['field_bank_ifsc'] || errors.bank_ifsc ? { borderColor: 'var(--red-bd)' } : {}) }}
+                              {...register('bank_ifsc', {
+                                onChange: (e) => {
+                                  const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 11)
+                                  setValue('bank_ifsc', val)
+                                  if (validationTriggered) validateCompliancePairs()
+                                }
+                              })}
                             />
+                            {complianceErrors['field_bank_ifsc'] && <span className="field-err">{complianceErrors['field_bank_ifsc']}</span>}
                             {errors.bank_ifsc && <span className="field-err">{errors.bank_ifsc.message}</span>}
                           </div>
                           <div className="form-group full">
@@ -1557,10 +1589,15 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                               className="form-input"
                               placeholder="e.g. HDFC Bank Ltd"
                               disabled={isComplianceReadOnly}
-                              style={(complianceErrors['field_bank_account'] || errors.bank_name) ? { borderColor: 'var(--red-bd)' } : {}}
-                              {...register('bank_name')}
+                              style={(complianceErrors['field_bank_name'] || errors.bank_name) ? { borderColor: 'var(--red-bd)' } : {}}
+                              {...register('bank_name', {
+                                onChange: (e) => {
+                                  const val = e.target.value.replace(/[^a-zA-Z\s]/g, '')
+                                  setValue('bank_name', val)
+                                }
+                              })}
                             />
-                            {complianceErrors['field_bank_account'] && <span className="field-err">{complianceErrors['field_bank_account']}</span>}
+                            {complianceErrors['field_bank_name'] && <span className="field-err">{complianceErrors['field_bank_name']}</span>}
                             {errors.bank_name && <span className="field-err">{errors.bank_name.message}</span>}
                           </div>
                         </div>
@@ -1607,7 +1644,27 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                         <div className="form-grid" style={{ marginTop: 12 }}>
                           <div className="form-group">
                             <label className="form-label">Udyam Registration No. <span className="req">*</span></label>
-                            <input className="form-input" placeholder="e.g. UDYAM-MH-00-0000000" disabled={isComplianceReadOnly} style={{ fontFamily: 'var(--mono)', fontSize: 12, ...(complianceErrors['field_msme_number'] ? { borderColor: 'var(--red-bd)' } : {}) }} {...register('msme_number')} />
+                            <input
+                              className="form-input"
+                              placeholder="e.g. UDYAM-MH-01-0000001"
+                              maxLength={19}
+                              disabled={isComplianceReadOnly}
+                              style={{ fontFamily: 'var(--mono)', fontSize: 13, textTransform: 'uppercase', ...(complianceErrors['field_msme_number'] ? { borderColor: 'var(--red-bd)' } : {}) }}
+                              {...register('msme_number', {
+                                onChange: (e) => {
+                                  // Auto-format: UDYAM-XX-00-0000000
+                                  const raw = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+                                  const parts = [
+                                    raw.slice(0, 5),   // UDYAM
+                                    raw.slice(5, 7),   // state code XX
+                                    raw.slice(7, 9),   // 2-digit number
+                                    raw.slice(9, 16),  // 7-digit number
+                                  ].filter(Boolean)
+                                  setValue('msme_number', parts.join('-'))
+                                  if (validationTriggered) validateCompliancePairs()
+                                }
+                              })}
+                            />
                             {complianceErrors['field_msme_number'] && <span className="field-err">{complianceErrors['field_msme_number']}</span>}
                           </div>
                         </div>
