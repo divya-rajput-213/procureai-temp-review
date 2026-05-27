@@ -360,14 +360,14 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </Link>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">PO Number</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Type</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Plant</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
+            <table className="w-full text-[12px] table-fixed">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">PO Number</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Type</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Plant</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Amount</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -376,18 +376,18 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                     <tr
                       key={po.id}
                       onClick={() => { if (!po?.id) return; openInNewTab(`/purchase-orders/${po.id}`) }}
-                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-2.5 font-mono text-[11px]">{po?.po_number || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{po?.po_type_display || po?.po_type || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{po?.plant_name || '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{po?.total_amount != null ? formatCurrency(po?.total_amount) : '—'}</td>
-                      <td className="px-4 py-2.5 text-center"><StatusBadge status={po.status} /></td>
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-slate-700 truncate">{po?.po_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-muted-foreground truncate">{po?.po_type_display || po?.po_type || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-muted-foreground truncate">{po?.plant_name || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-left font-medium truncate">{po?.total_amount != null ? formatCurrency(po?.total_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 text-left"><StatusBadge status={po.status} /></td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-[12px] text-muted-foreground">No purchase orders yet</td>
+                    <td colSpan={5} className="py-10 text-center text-[12px] text-muted-foreground">No purchase orders yet</td>
                   </tr>
                 )}
               </tbody>
@@ -407,14 +407,14 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </Link>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Ref No</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Quotation No</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Valid Until</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
+            <table className="w-full text-[12px] table-fixed">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Ref No</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Quotation No</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Valid Until</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Amount</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -427,18 +427,18 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                         if (!quotationId) return
                         openInNewTab(`/quotation/detail/${quotationId}`)
                       }}
-                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{q.ref_no || q.pr_number || '—'}</td>
-                      <td className="px-4 py-2.5 max-w-[160px] truncate">{q.quotation_no || q.title || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{(q.date || q.quotation_date || q.created_at) ? formatDate(q.date || q.quotation_date || q.created_at) : '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{(q.total_amount ?? q.bid_amount) != null ? formatCurrency(q.total_amount ?? q.bid_amount) : '—'}</td>
-                      <td className="px-4 py-2.5 text-center"><StatusBadge status={q.status} /></td>
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground truncate">{q.ref_no || q.pr_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] truncate">{q.quotation_no || q.title || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-muted-foreground truncate">{(q.date || q.quotation_date || q.created_at) ? formatDate(q.date || q.quotation_date || q.created_at) : '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-left font-medium truncate">{(q.total_amount ?? q.bid_amount) != null ? formatCurrency(q.total_amount ?? q.bid_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 text-left"><StatusBadge status={q.status} /></td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-[12px] text-muted-foreground">No quotations yet</td>
+                    <td colSpan={5} className="py-10 text-center text-[12px] text-muted-foreground">No quotations yet</td>
                   </tr>
                 )}
               </tbody>
@@ -458,15 +458,15 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </Link>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Invoice #</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Type</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">PO Ref</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Due Date</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
+            <table className="w-full text-[12px] table-fixed">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th style={{ width: '17%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Invoice #</th>
+                  <th style={{ width: '17%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Type</th>
+                  <th style={{ width: '17%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">PO Ref</th>
+                  <th style={{ width: '17%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Amount</th>
+                  <th style={{ width: '17%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Due Date</th>
+                  <th style={{ width: '15%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -475,19 +475,19 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                     <tr
                       key={inv.id}
                       onClick={() => { if (!inv?.id) return; openInNewTab(`/invoices/${inv.id}`) }}
-                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-2.5 font-mono text-[11px]">{inv.invoice_number || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground capitalize">{inv.invoice_type?.replace(/_/g, ' ') || '—'}</td>
-                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{inv.po_number || '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
-                      <td className="px-4 py-2.5 text-center"><StatusBadge status={inv.status} /></td>
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-slate-700 truncate">{inv.invoice_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-muted-foreground capitalize truncate">{inv.invoice_type?.replace(/_/g, ' ') || '—'}</td>
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground truncate">{inv.po_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-left font-medium truncate">{inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-muted-foreground truncate">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
+                      <td className="px-4 py-2.5 text-left"><StatusBadge status={inv.status} /></td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-[12px] text-muted-foreground">No invoices yet</td>
+                    <td colSpan={6} className="py-10 text-center text-[12px] text-muted-foreground">No invoices yet</td>
                   </tr>
                 )}
               </tbody>
@@ -915,7 +915,7 @@ export default function VendorDetailPage() {
           </div>
 
           {/* Row 2 — Vendor Contact | Plant / Category | Type */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
             <div className="vd-cell">
               <div className="vd-lbl">Vendor Contact</div>
               <div className="vd-val">{vendor.contact_name || '—'}</div>

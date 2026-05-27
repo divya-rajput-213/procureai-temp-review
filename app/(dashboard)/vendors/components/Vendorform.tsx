@@ -639,7 +639,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   const { data: vendorDocs } = useQuery({
     queryKey: ['vendor-docs', vendorId],
     queryFn: async () => { const r = await apiClient.get(`/vendors/${vendorId}/documents/`); return r.data.results ?? r.data },
-    enabled: !!vendorId && step >= 1,
+    enabled: !!vendorId && (isEdit || step >= 1),
   })
 
   const refreshDocs = async () => {
@@ -781,6 +781,28 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
   }, [validationTriggered, complianceErrors])
 
   useEffect(() => { if (step !== 1) setValidationTriggered(false) }, [step])
+
+  useEffect(() => {
+    if (!vendorDocs?.length) return
+    const CORE = ['gst_certificate', 'pan_card', 'bank_details', 'msme_certificate', 'sez_certificate']
+    const nonCoreDocs: any[] = vendorDocs.filter((d: any) => !CORE.includes(d.doc_type))
+    setExpandedComplianceDocs(prev => ({
+      ...prev,
+      gst_certificate: prev.gst_certificate || vendorDocs.some((d: any) => d.doc_type === 'gst_certificate'),
+      pan_card: prev.pan_card || vendorDocs.some((d: any) => d.doc_type === 'pan_card'),
+      bank_details: prev.bank_details || vendorDocs.some((d: any) => d.doc_type === 'bank_details'),
+      msme_certificate: prev.msme_certificate || vendorDocs.some((d: any) => d.doc_type === 'msme_certificate'),
+      sez_certificate: prev.sez_certificate || vendorDocs.some((d: any) => d.doc_type === 'sez_certificate'),
+      iso_certificate: prev.iso_certificate || nonCoreDocs.length > 0,
+    }))
+    if (nonCoreDocs.length > 0) {
+      setIsoRows(prev => {
+        const isDefault = prev.length === 1 && !prev[0].standard && !prev[0].custom
+        if (!isDefault) return prev
+        return nonCoreDocs.map((d: any) => ({ standard: 'other', custom: d.title || '' }))
+      })
+    }
+  }, [vendorDocs])
 
   const apiErrorMsg = (err: any): string => {
     const d = err?.response?.data
