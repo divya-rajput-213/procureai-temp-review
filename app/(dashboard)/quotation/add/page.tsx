@@ -401,7 +401,7 @@ export default function UploadQuotationPage() {
                 .qf-root .match-tbl tbody tr{border-bottom:0.5px solid var(--bd);cursor:default;transition:background .1s}
                 .qf-root .match-tbl tbody tr:last-child{border-bottom:none}
                 .qf-root .match-tbl tbody tr:hover{background:#fafaf8}
-                .qf-root .match-tbl td{padding:10px 12px;vertical-align:middle;white-space:nowrap;overflow:hidden}
+                .qf-root .match-tbl td{padding:10px 12px;vertical-align:top;white-space:nowrap;overflow:visible}
                 .qf-root .cell-inp{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:100%}
                 .qf-root .cell-inp:focus{background:var(--blu-bg);border-radius:4px;padding:2px 4px}
                 .qf-root .cell-num{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:60px;text-align:right}
