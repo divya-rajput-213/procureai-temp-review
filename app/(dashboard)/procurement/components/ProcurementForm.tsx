@@ -217,6 +217,13 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: {
   const [hover, setHover] = useState<Date | null>(null)
   const [pendingStart, setPendingStart] = useState<Date | null>(null)
 
+  useEffect(() => {
+    if (!dateFrom && !dateTo) {
+      setPendingStart(null)
+      setSelecting('start')
+    }
+  }, [dateFrom, dateTo])
+
   const startDate = dateFrom ? parseISO(dateFrom) : null
   const endDate = dateTo ? parseISO(dateTo) : null
 
@@ -281,7 +288,7 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: {
           {hasValue && (
             <span
               role="button"
-              onClick={(e) => { e.stopPropagation(); onChange('', ''); setPendingStart(null); setSelecting('start') }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onChange('', ''); setPendingStart(null); setSelecting('start'); setOpen(false) }}
               style={{ marginLeft: 2, display: 'flex', color: '#9a9a96' }}
             >
               <X style={{ width: 11, height: 11 }} />
