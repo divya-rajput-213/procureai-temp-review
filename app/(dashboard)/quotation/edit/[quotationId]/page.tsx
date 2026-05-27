@@ -32,6 +32,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
     const [prLinkId, setPrLinkId] = useState<string>('')
     const [errorMessage, setErrorMessage] = useState('')
     const [showConfirm, setShowConfirm] = useState(false)
+    const [showDraftConfirm, setShowDraftConfirm] = useState(false)
     const [showExportModal, setShowExportModal] = useState(false)
     const [exporting, setExporting] = useState(false)
     const [initialized, setInitialized] = useState(false)
@@ -507,7 +508,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                                 size="sm"
                                 onClick={() => {
                                     if (!verifyStepValid) { setShowVerifyErrors(true); return }
-                                    quotationSaveMutation.mutate({ status: 'draft' })
+                                    setShowDraftConfirm(true)
                                 }}
                                 disabled={isSaving}
                                 className="gap-1.5"
@@ -545,6 +546,17 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 onClose={() => setShowExportModal(false)}
                 onConfirm={handleExportExcel}
                 isPending={exporting}
+            />
+
+            {/* ── Draft confirm modal ── */}
+            <CommonConfirmModal
+                isOpen={showDraftConfirm}
+                title="Save as Draft"
+                description="Are you sure you want to save this quotation as a draft?"
+                confirmLabel="Save as Draft"
+                onClose={() => setShowDraftConfirm(false)}
+                onConfirm={() => quotationSaveMutation.mutate({ status: 'draft' })}
+                isPending={quotationSaveMutation.isPending}
             />
 
             {/* ── Confirm modal — outside qf-root so Tailwind styles are not overridden ── */}
