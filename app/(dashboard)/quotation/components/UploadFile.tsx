@@ -144,15 +144,7 @@ export default function UploadFile({
             <div>
                 {/* Upload section */}
                 <div className="form-sec">
-                    <div className="form-sec-head">
-                        <div className="fsh-ic" style={{ background: 'var(--blu-bg)', color: 'var(--blu-tx)' }}>
-                            <i className="ti ti-upload" />
-                        </div>
-                        <div>
-                            <div className="fsh-title">Upload Quotation Document</div>
-                            <div className="fsh-sub">{disableUpload ? 'Original uploaded PDF — cannot be changed here' : 'PDF. max 20 MB · vendor details extracted automatically'}</div>
-                        </div>
-                    </div>
+            
                     <div className="form-body">
                         {disableUpload ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg-s)', borderRadius: 'var(--r)', border: '0.5px solid var(--bd)' }}>
@@ -261,12 +253,12 @@ export default function UploadFile({
                             </div>
 
                             {/* State 1: Placeholder */}
-                            {!vendors && !isExtracting && (
+                            {/* {!vendors && !isExtracting && (
                                 <div style={{ border: `1.5px dashed ${fieldErrors.vendor ? '#E24B4A' : 'var(--bdm)'}`, borderRadius: 'var(--r)', padding: 16, background: fieldErrors.vendor ? '#fff5f5' : 'var(--bg-s)', display: 'flex', alignItems: 'center', gap: 12, color: fieldErrors.vendor ? '#E24B4A' : 'var(--tx3)' }}>
                                     <i className="ti ti-building-store" style={{ fontSize: 22, flexShrink: 0 }} />
                                     <div style={{ fontSize: 13 }}>{fieldErrors.vendor ?? 'Vendor will be extracted and matched automatically after document upload'}</div>
                                 </div>
-                            )}
+                            )} */}
 
                             {/* Extracting */}
                             {isExtracting && (
