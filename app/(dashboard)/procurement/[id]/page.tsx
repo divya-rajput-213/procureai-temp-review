@@ -945,7 +945,7 @@ export default function PRDetailPage() {
             {/* LEFT */}
             <div className="space-y-4 min-w-0">
               {/* KPI ROW */}
-              <div className="prd-kpi-grid grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="prd-kpi-grid grid grid-cols-2 lg:grid-cols-3 gap-3">
                 <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
                   <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
                     Awarded Value
@@ -955,20 +955,6 @@ export default function PRDetailPage() {
                       {selectedQuotation ? formatCurrency(selectedQuotation.total_amount, pr.currency_code) : formatCurrency(pr.total_amount, pr.currency_code)}
                     </div>
                     <span className="text-[11px] text-muted-foreground shrink-0">excl. GST</span>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
-                  <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
-                    Budget Util
-                  </div>
-                  <div className="text-xl font-bold tracking-tight leading-tight mt-2">
-                    {pr.budget_info?.approved_amount
-                      ? `${Math.round((Number(pr.total_amount) / Number(pr.budget_info.approved_amount)) * 100)}%`
-                      : '—'}
-                  </div>
-                  <div className="mt-1.5 text-xs text-muted-foreground truncate">
-                    {pr.budget_info ? `${formatCurrency(pr.budget_info.consumed_amount)} of ${formatCurrency(pr.budget_info.approved_amount)}` : '—'}
                   </div>
                 </div>
 
