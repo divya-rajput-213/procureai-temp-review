@@ -222,8 +222,16 @@ export default function VendorsPage() {
       if (ctx?.snapshot) {
         for (const [key, data] of ctx.snapshot as any[]) queryClient.setQueryData(key, data)
       }
-      const msg = err?.response?.data?.error ?? 'Failed to delete vendor'
-      toast({ title: msg, variant: 'destructive' })
+      const data = err?.response?.data
+      let msg = 'Failed to delete vendor.'
+      if (typeof data === 'string') msg = data
+      else if (data?.detail) msg = data.detail
+      else if (data?.error) msg = data.error
+      if (msg.toLowerCase().includes('protected') || msg.toLowerCase().includes('quotation')) {
+        msg = 'This vendor cannot be deleted because they have linked quotations.'
+      }
+      toast({ title: 'Cannot delete vendor', description: msg, variant: 'destructive' })
+      setDeletingVendor(null)
     },
     onSuccess: () => {
       toast({ title: 'Vendor deleted' })
