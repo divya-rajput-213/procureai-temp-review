@@ -11,8 +11,13 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import {
   ArrowLeft, Loader2, Search, X,
-  Check, ChevronDown, ChevronRight, ChevronLeft, ChevronUp, ChevronsUpDown, Plus, Lock,
+  Check, ChevronDown, ChevronRight, ChevronLeft, ChevronUp, ChevronsUpDown, Plus, Lock, Calendar,
 } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay,
+  isWithinInterval, isBefore, addMonths, subMonths, getDay, parseISO,
+} from 'date-fns'
 import { formatCurrency, PAGE_SIZE } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { useSettingsStore } from '@/lib/stores/settings.store'
@@ -202,12 +207,152 @@ function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: Sort
 
 const Q_PAGE_SIZE = 10
 
+function DateRangePicker({ dateFrom, dateTo, onChange }: {
+  dateFrom: string; dateTo: string
+  onChange: (from: string, to: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [viewDate, setViewDate] = useState(new Date())
+  const [selecting, setSelecting] = useState<'start' | 'end'>('start')
+  const [hover, setHover] = useState<Date | null>(null)
+  const [pendingStart, setPendingStart] = useState<Date | null>(null)
+
+  const startDate = dateFrom ? parseISO(dateFrom) : null
+  const endDate = dateTo ? parseISO(dateTo) : null
+
+  // While picking end date, use pendingStart for range display; otherwise use confirmed startDate
+  const effectiveStart = selecting === 'end' ? (pendingStart ?? startDate) : startDate
+
+  const monthStart = startOfMonth(viewDate)
+  const monthEnd = endOfMonth(viewDate)
+  const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
+  const leadingBlanks = getDay(monthStart) // 0=Sun
+
+  const isInRange = (day: Date) => {
+    if (!effectiveStart) return false
+    const end = selecting === 'end' && hover ? hover : endDate
+    if (!end) return false
+    const [s, e] = isBefore(effectiveStart, end) ? [effectiveStart, end] : [end, effectiveStart]
+    return isWithinInterval(day, { start: s, end: e })
+  }
+
+  const handleDay = (day: Date) => {
+    if (selecting === 'start') {
+      // Store start locally — do NOT call onChange yet (no API call until both selected)
+      setPendingStart(day)
+      setSelecting('end')
+    } else {
+      const s = pendingStart ?? startDate
+      if (!s) { setPendingStart(day); setSelecting('end'); return }
+      const [from, to] = isBefore(s, day) ? [s, day] : [day, s]
+      onChange(format(from, 'yyyy-MM-dd'), format(to, 'yyyy-MM-dd'))
+      setPendingStart(null)
+      setSelecting('start')
+      setOpen(false)
+    }
+  }
+
+  const displayStart = selecting === 'end' ? pendingStart : startDate
+  const label = displayStart && endDate
+    ? `${format(displayStart, 'dd MMM yy')} – ${format(endDate, 'dd MMM yy')}`
+    : displayStart
+    ? `${format(displayStart, 'dd MMM yy')} – ?`
+    : 'Date range'
+
+  const hasValue = !!(dateFrom || dateTo)
+
+  const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+
+  return (
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setSelecting('start'); setPendingStart(null); setHover(null) } }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px',
+            minWidth: 190,
+            borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.14)', background: '#fff',
+            fontFamily: "'DM Sans',sans-serif", fontSize: 12,
+            color: hasValue ? '#1a1a18' : '#9a9a96', cursor: 'pointer', whiteSpace: 'nowrap',
+          }}
+        >
+          <Calendar style={{ width: 13, height: 13, flexShrink: 0 }} />
+          {label}
+          {hasValue && (
+            <span
+              role="button"
+              onClick={(e) => { e.stopPropagation(); onChange('', ''); setPendingStart(null); setSelecting('start') }}
+              style={{ marginLeft: 2, display: 'flex', color: '#9a9a96' }}
+            >
+              <X style={{ width: 11, height: 11 }} />
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" style={{ width: 'auto', padding: 12 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <button type="button" onClick={() => setViewDate(subMonths(viewDate, 1))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4, color: '#1a1a18', display: 'flex' }}>
+            <ChevronLeft style={{ width: 14, height: 14 }} />
+          </button>
+          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 600 }}>
+            {format(viewDate, 'MMMM yyyy')}
+          </span>
+          <button type="button" onClick={() => setViewDate(addMonths(viewDate, 1))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4, color: '#1a1a18', display: 'flex' }}>
+            <ChevronRight style={{ width: 14, height: 14 }} />
+          </button>
+        </div>
+        {/* Day names */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,32px)', gap: 2, marginBottom: 4 }}>
+          {DAY_NAMES.map(d => (
+            <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 600, color: '#9a9a96', fontFamily: "'DM Sans',sans-serif" }}>{d}</div>
+          ))}
+        </div>
+        {/* Days grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,32px)', gap: 2 }}>
+          {Array.from({ length: leadingBlanks }).map((_, i) => <div key={`b${i}`} />)}
+          {days.map(day => {
+            const isStart = !!(effectiveStart && isSameDay(day, effectiveStart))
+            const isEnd = !!(endDate && isSameDay(day, endDate))
+            const inRange = isInRange(day)
+            const isEdge = isStart || isEnd
+            return (
+              <button
+                key={day.toISOString()}
+                type="button"
+                onClick={() => handleDay(day)}
+                onMouseEnter={() => selecting === 'end' && setHover(day)}
+                onMouseLeave={() => setHover(null)}
+                style={{
+                  width: 32, height: 32, borderRadius: isEdge ? 8 : inRange ? 0 : 8,
+                  border: 'none', cursor: 'pointer',
+                  background: isEdge ? 'hsl(var(--primary))' : inRange ? 'hsl(var(--primary)/0.12)' : 'transparent',
+                  color: isEdge ? '#fff' : '#1a1a18',
+                  fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: isEdge ? 700 : 400,
+                  transition: 'background .1s',
+                }}
+              >
+                {format(day, 'd')}
+              </button>
+            )
+          })}
+        </div>
+        {startDate && !endDate && (
+          <p style={{ marginTop: 8, fontSize: 11, color: '#9a9a96', fontFamily: "'DM Sans',sans-serif" }}>
+            Click a second date to set range end
+          </p>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function QuotesStep({
   trackingDetail, selectedTracking, onSelectTracking,
   setValue, watchedTrackingId, errors, register,
   selectedQuotationIds, toggleQuotation,
   grandTotal, budgetRemaining, budgetExceeded,
-  setSelectedQuotationIds, isEditMode,
+  setSelectedQuotationIds, isEditMode, currentPrId,
 }: any) {
   const vendorColors: Record<string, string> = {}
   const colorPalette = ['#042348', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#3b82f6']
@@ -223,17 +368,28 @@ function QuotesStep({
   const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(1)
   const [search] = useDebounce(searchInput, 400)
+  const [vendorFilter, setVendorFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
-  // reset page when search changes
-  useEffect(() => { setPage(1) }, [search])
+  // reset page when filters change
+  useEffect(() => { setPage(1) }, [search, vendorFilter, dateFrom, dateTo])
 
   const ordering = sortDir === 'asc' ? sortKey : `-${sortKey}`
 
-  const { data: qData, isLoading: qLoading } = useQuery({
-    queryKey: ['quotations-pick', search, page, ordering],
+  const { data: vendorsList = [] } = useQuery({
+    queryKey: ['vendors-list-pick'],
+    queryFn: async () => { const r = await apiClient.get('/vendors/?page_size=200&ordering=company_name'); return r.data?.results ?? r.data ?? [] },
+  })
+
+  const { data: qData, isLoading: qLoading, isFetching: qFetching } = useQuery({
+    queryKey: ['quotations-pick', search, page, ordering, vendorFilter, dateFrom, dateTo],
     queryFn: async () => {
       const params: Record<string, string> = { page: String(page), page_size: String(Q_PAGE_SIZE), ordering }
       if (search) params.search = search
+      if (vendorFilter) params.vendor_id = vendorFilter
+      if (dateFrom) params.date_from = dateFrom
+      if (dateTo) params.date_to = dateTo
       const { data } = await apiClient.get('/quotations/', { params })
       return data
     },
@@ -251,6 +407,8 @@ function QuotesStep({
   const hasUploadedBy = quotations.some((q: any) => q?.uploaded_by)
 
   const processedQuotations = quotations.filter((q: any) => {
+    // Exclude quotations already linked to a different PR
+    if (q.pr_id !== null && q.pr_id !== undefined && String(q.pr_id) !== String(currentPrId ?? '')) return false
     if (budgetFilter === 'within' && budgetRemaining !== null && Number(q.total_amount) > budgetRemaining) return false
     if (budgetFilter === 'exceeds' && (budgetRemaining === null || Number(q.total_amount) <= budgetRemaining)) return false
     return true
@@ -276,7 +434,7 @@ function QuotesStep({
     )
   }
 
-  const activeFilterCount = (searchInput ? 1 : 0) + (budgetFilter !== 'all' ? 1 : 0)
+  const activeFilterCount = (searchInput ? 1 : 0) + (budgetFilter !== 'all' ? 1 : 0) + (vendorFilter ? 1 : 0) + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -404,11 +562,12 @@ function QuotesStep({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', flexWrap: 'wrap', borderBottom: '0.5px solid rgba(0,0,0,0.06)', rowGap: 6 }}>
-            <div style={{ position: 'relative', minWidth: 200, flex: 1, maxWidth: 320 }}>
+            {/* Search */}
+            <div style={{ position: 'relative', minWidth: 180, flex: 1, maxWidth: 260 }}>
               <Search style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#9a9a96', pointerEvents: 'none' }} />
               <input
                 type="text"
-                placeholder="Search vendor or quote no…"
+                placeholder="Search quote no…"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 style={{
@@ -424,6 +583,26 @@ function QuotesStep({
               )}
             </div>
 
+            {/* Vendor filter */}
+            <select
+              value={vendorFilter}
+              onChange={(e) => setVendorFilter(e.target.value)}
+              style={{ height: 32, borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.14)', background: '#fff', fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: vendorFilter ? '#1a1a18' : '#9a9a96', padding: '0 8px', outline: 'none', minWidth: 140 }}
+            >
+              <option value="">All vendors</option>
+              {(vendorsList as any[]).map((v: any) => (
+                <option key={v.id} value={v.id}>{v.company_name}</option>
+              ))}
+            </select>
+
+            {/* Date range picker */}
+            <DateRangePicker
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onChange={(from, to) => { setDateFrom(from); setDateTo(to) }}
+            />
+
+            {/* Budget filter */}
             {budgetRemaining !== null && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Budget</span>
@@ -442,7 +621,7 @@ function QuotesStep({
             {activeFilterCount > 0 && (
               <button
                 type="button"
-                onClick={() => { setSearchInput(''); setBudgetFilter('all') }}
+                onClick={() => { setSearchInput(''); setBudgetFilter('all'); setVendorFilter(''); setDateFrom(''); setDateTo('') }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 4,
                   fontSize: 12, color: 'hsl(var(--muted-foreground))',
@@ -459,6 +638,12 @@ function QuotesStep({
             </span>
           </div>
 
+          <div style={{ position: 'relative' }}>
+            {qFetching && !qLoading && (
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.6)', zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '0 0 12px 12px' }}>
+                <Loader2 style={{ width: 18, height: 18, color: 'hsl(var(--primary))' }} className="animate-spin" />
+              </div>
+            )}
           <div className="max-h-[520px] overflow-auto" style={{ scrollbarWidth: 'thin', borderRadius: '0 0 12px 12px', overflow: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'hsl(var(--background))' }}>
@@ -609,6 +794,7 @@ function QuotesStep({
               </div>
             </div>
           )}
+          </div>{/* end position:relative loader wrapper */}
         </div>
       )}
     </div>
@@ -635,9 +821,16 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<number[]>([])
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null)
   const [showApprovalModal, setShowApprovalModal] = useState(false)
-  const [savedPrId, setSavedPrId] = useState<string | null>(isEditMode ? (procurementId ?? null) : null)
+  // Use a ref so mutationFn always reads the latest ID without stale-closure issues
+  const savedPrIdRef = useRef<string | null>(isEditMode ? (procurementId ?? null) : null)
+  const [savedPrId, _setSavedPrId] = useState<string | null>(isEditMode ? (procurementId ?? null) : null)
+  const setSavedPrId = (id: string | null) => { savedPrIdRef.current = id; _setSavedPrId(id) }
+
   const [prId, setPrId] = useState<string | null>(null)
   const [prefilled, setPrefilled] = useState(false)
+  const lastSavedTrackingIdRef = useRef<string | null>(null)
+  const [lastSavedTrackingId, _setLastSavedTrackingId] = useState<string | null>(null)
+  const setLastSavedTrackingId = (id: string | null) => { lastSavedTrackingIdRef.current = id; _setLastSavedTrackingId(id) }
 
   const { register, watch, setValue, trigger, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -671,6 +864,7 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
       department: existingPR.department,
       department_name: existingPR.department_name,
     })
+    setLastSavedTrackingId(String(existingPR.tracking_id ?? ''))
     setPrefilled(true)
   }, [existingPR, isEditMode, prefilled])
 
@@ -702,12 +896,14 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
 
   // ─── Mutations ────────────────────────────────────────────────────────
 
+  // Reads savedPrIdRef so it always sees the latest ID regardless of closure timing
   const saveDraftMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ forceNew }: { forceNew: boolean }) => {
+      const currentId = savedPrIdRef.current
       const data = watch()
       const payload = { ...data, quotation_ids: selectedQuotationIds, status: 'draft' }
-      if (savedPrId) {
-        const { data: pr } = await apiClient.patch(`/procurement/${savedPrId}/`, payload)
+      if (currentId && !forceNew) {
+        const { data: pr } = await apiClient.patch(`/procurement/${currentId}/`, payload)
         return pr
       }
       const { data: pr } = await apiClient.post('/procurement/', payload)
@@ -733,10 +929,16 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
         toast({ title: 'No quotations selected', description: 'Please select at least one quotation to compare.', variant: 'destructive' })
         return
       }
-      saveDraftMutation.mutate(undefined, {
+
+      const currentTrackingId = String(watch('tracking_id') ?? '')
+      // Force new PR only if tracking_id changed from what was last saved
+      const forceNew = !savedPrIdRef.current || (lastSavedTrackingIdRef.current !== null && currentTrackingId !== lastSavedTrackingIdRef.current)
+
+      saveDraftMutation.mutate({ forceNew }, {
         onSuccess: (pr) => {
-          setSavedPrId(pr.hash_id ?? pr.id)
-          if (!prId) setPrId(pr.id)
+          const newId = pr?.id ? String(pr.id) : null
+          if (newId) { setSavedPrId(newId); setPrId(newId) }
+          setLastSavedTrackingId(currentTrackingId)
           queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] })
           if (isEditMode && procurementId) {
             queryClient.invalidateQueries({ queryKey: ['pr', procurementId] })
@@ -883,6 +1085,7 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
               budgetExceeded={budgetExceeded}
               setSelectedQuotationIds={setSelectedQuotationIds}
               isEditMode={isEditMode}
+              currentPrId={savedPrId}
             />
           )}
 
