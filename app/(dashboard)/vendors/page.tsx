@@ -192,16 +192,45 @@ export default function VendorsPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
+  const vendorKey = (v: any) => String(v?.hash_id ?? v?.id ?? '')
+
+  const removeVendorFromVendorsCache = (idOrHash: string | number) => {
+    const target = String(idOrHash)
+    queryClient.setQueriesData({ queryKey: ['vendors'] }, (old: any) => {
+      if (!old) return old
+      if (Array.isArray(old)) return old.filter((v: any) => vendorKey(v) !== target)
+      const results = Array.isArray(old?.results) ? old.results : null
+      if (!results) return old
+      const nextResults = results.filter((v: any) => vendorKey(v) !== target)
+      const nextCount =
+        typeof old?.count === 'number'
+          ? Math.max(0, old.count - (results.length - nextResults.length))
+          : old?.count
+      return { ...old, results: nextResults, ...(typeof nextCount === 'number' ? { count: nextCount } : {}) }
+    })
+  }
+
   const deleteMutation = useMutation({
     mutationFn: async (hashId: string) => apiClient.delete(`/vendors/${hashId}/`),
+    onMutate: async (hashId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['vendors'] })
+      const snapshot = queryClient.getQueriesData({ queryKey: ['vendors'] })
+      removeVendorFromVendorsCache(hashId)
+      return { snapshot }
+    },
+    onError: (err: any, _hashId: string, ctx: any) => {
+      if (ctx?.snapshot) {
+        for (const [key, data] of ctx.snapshot as any[]) queryClient.setQueryData(key, data)
+      }
+      const msg = err?.response?.data?.error ?? 'Failed to delete vendor'
+      toast({ title: msg, variant: 'destructive' })
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendors'] })
       toast({ title: 'Vendor deleted' })
       setDeletingVendor(null)
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error ?? 'Failed to delete vendor'
-      toast({ title: msg, variant: 'destructive' })
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] })
     },
   })
 
@@ -576,7 +605,7 @@ export default function VendorsPage() {
         }
         confirmLabel="Delete"
         onClose={() => setDeletingVendor(null)}
-        onConfirm={() => deletingVendor && deleteMutation.mutate(deletingVendor.id)}
+        onConfirm={() => deletingVendor && deleteMutation.mutate(vendorKey(deletingVendor))}
         isPending={deleteMutation.isPending}
       />
 
