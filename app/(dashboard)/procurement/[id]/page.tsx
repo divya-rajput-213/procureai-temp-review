@@ -17,7 +17,6 @@ import {
 } from 'lucide-react'
 import {
   formatCurrency, formatDate, formatDateTime, getSLAPercentage, getSLAColor,
-  cn,
 } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { useSettingsStore } from '@/lib/stores/settings.store'
@@ -26,12 +25,6 @@ import CompareStep from '../components/CompareStep'
 
 // ─── Approval Timeline ─────────────────────────────────────────────────────────
 
-function stepStyle(action: string) {
-  if (action === 'approved') return { dot: 'bg-green-500', badge: 'bg-green-100 text-green-700' }
-  if (action === 'rejected') return { dot: 'bg-red-500', badge: 'bg-red-100 text-red-700' }
-  if (action === 'held') return { dot: 'bg-amber-400', badge: 'bg-amber-100 text-amber-700' }
-  return { dot: 'bg-slate-300', badge: 'bg-slate-100 text-slate-600' }
-}
 
 function actionStepClass(action: string) {
   if (action === 'approved') return 'bg-green-50 border-green-200 text-green-700'
@@ -73,8 +66,7 @@ function ApprovalTimeline({ actions, currentLevel, requestedAt }: { actions: any
             </tr>
           </thead>
           <tbody>
-            {actions.map((a: any, idx: number) => {
-              const s = stepStyle(a.action);
+            {actions.map((a: any) => {
               const isPending = !a.action || a.action === 'pending';
               const isCurrent = isPending && a.level_number === currentLevel;
               const effectiveAction = a.action ?? 'pending';
@@ -424,7 +416,6 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
   const currency = pr.currency_code ?? 'INR'
   const fmt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const dateStr = (d: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
-  const dateTimeStr = (d: string) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 
   // ── Status badge ─────────────────────────────────────────────────────────────
 
@@ -701,77 +692,18 @@ export default function PRDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const queryClient = useQueryClient()
-  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<'approval' | 'comparison' | 'details'>('details')
-  const [showSubmitModal, setShowSubmitModal] = useState(false)
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
   const initialTabSet = useRef(false)
   const [selectedVendor, setSelectedVendor] = useState<any>("")
-  const [isExporting, setIsExporting] = useState(false)
 
   const { data: pr, isLoading } = useQuery({
     queryKey: ['pr', id],
     queryFn: async () => (await apiClient.get(`/procurement/${id}/`)).data,
     refetchOnMount: 'always',
   })
-  const subtotal = (pr?.line_items ?? []).reduce(
-    (sum: any, item: any) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
-    0,
-  )
   const quotationIds = pr?.quotation_ids ?? []
-  {/* KPI ROW */ }
-  const selectedQuotation = pr?.linked_quotations?.find((q: any) => q.id === pr?.selected_quotation
-  ) ?? null
 
-  const [expandedQuotationId, setExpandedQuotationId] = useState<number | null>(null)
-  const handleExport = async (prId: any) => {
-    if (!prId) return
-    setIsExporting(true)
-    try {
-      const res = await apiClient.get(
-        `/procurement/${prId}/export-pcs/`,
-        { responseType: 'blob' }
-      )
-
-      const disposition = res.headers?.['content-disposition'] || ''
-      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
-      const filename = match ? match[1].replace(/['"]/g, '') : `PCS-${prId}.xlsx`
-
-      const blob = new Blob([res.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (err: any) {
-      let message = 'Could not download the PCS sheet. Please try again.'
-
-      const blob: Blob = err?.response?.data
-      if (blob instanceof Blob) {
-        try {
-          const text = await blob.text()
-          const json = JSON.parse(text)
-          message = json.error || json.detail || message
-        } catch {
-          // not JSON, keep default message
-        }
-      }
-
-      console.error('Export failed', err)
-      toast({ title: 'Export failed', description: message, variant: 'destructive' })
-    } finally {
-      setIsExporting(false)
-    }
-  }
-  // Auto-expand the selected quotation on load
-  useEffect(() => {
-    if (selectedQuotation) setExpandedQuotationId(selectedQuotation.id)
-  }, [selectedQuotation?.id])
   useEffect(() => {
     initialTabSet.current = true
     setActiveTab('details')
@@ -1026,13 +958,10 @@ export default function PRDetailPage() {
                     <table className="w-full border-collapse text-sm">
                       <thead className="bg-muted/30 border-b">
                         <tr>
-                          {['Ref No', 'Vendor', 'Items', 'Total', 'Status', 'Selected'].map((head, i) => (
+                          {['Ref No', 'Vendor', 'Items', 'Total', 'Status', 'Selected'].map((head) => (
                             <th
                               key={head}
-                              className={cn(
-                                'py-3 text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold whitespace-nowrap',
-                                i === 3 ? 'px-4 text-right' : 'px-4 text-left'
-                              )}
+                              className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold whitespace-nowrap"
                             >
                               {head}
                             </th>
@@ -1078,7 +1007,7 @@ export default function PRDetailPage() {
                                   )}
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">{q.items_count} item{q.items_count !== 1 ? 's' : ''}</td>
-                                <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
+                                <td className="px-4 py-3 font-semibold whitespace-nowrap">
                                   {formatCurrency(q.total_amount, pr.currency_code)}
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
@@ -1165,7 +1094,7 @@ export default function PRDetailPage() {
               <SubmitForApprovalModal
                 pr={pr}
                 prId={id!}
-                onClose={() => setShowSubmitModal(false)}
+                onClose={() => {}}
                 onSuccess={invalidatePR}
                 selectedVendor={selectedVendor}
               />
