@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -810,6 +809,8 @@ export default function PRDetailPage() {
         .prd-lbl{font-size:10px;font-weight:600;color:var(--tx3,#9a9a96);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
         .prd-val{font-size:13px;font-weight:500;color:#1a1a18}
         .prd-cell{padding:0 14px}
+        .vendor-link-cell{all:unset;display:block;cursor:pointer;text-align:left;padding:0 14px;transition:background .15s}
+        .vendor-link-cell:hover{background:var(--bg-s,#f8f8f6)}
         .prd-cell:first-child{padding-left:0}
         .prd-cell:last-child{padding-right:0}
         @media(max-width:900px){
@@ -873,17 +874,34 @@ export default function PRDetailPage() {
 
           {/* Row 2 — metadata strip */}
           <div className="prd-hero-meta" style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: pr.description ? 'none' : '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
+            {/* Tracking ID */}
+            {pr?.tracking_id ? (
+              <button
+                type="button"
+                className="vendor-link-cell"
+                onClick={() => window.open(`/budget/${pr.tracking_id}`, '_blank')}
+                title="Open budget in new tab"
+              >
+                <div className="prd-lbl" style={{ display: 'flex', alignItems: 'start', gap: 4 }}>
+                  Tracking ID <i className="ti ti-arrow-up-right" style={{ fontSize: 9, opacity: 0.7 }} />
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: 'var(--blu-tx)' }}>
+                  {pr.budget_info?.tracking_code || pr.budget_info?.hash_id || '—'}
+                </div>
+              </button>
+            ) : (
+              <div className="prd-cell">
+                <div className="prd-lbl">Tracking ID</div>
+                <div className="prd-val" style={{ fontFamily: 'monospace' }}>{pr.budget_info?.tracking_code || '—'}</div>
+              </div>
+            )}
             {[
-              { label: 'Tracking ID', value: pr.budget_info?.tracking_code, mono: true, hash_id: pr.budget_info?.hash_id },
               { label: 'Plant', value: pr.plant_name },
               { label: 'Department', value: pr.department_name },
-            ].map(({ label, value, mono, hash_id }: { label: string; value?: string; mono?: boolean; hash_id?: string }, i) => (
-              <div key={label} className="prd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
+            ].map(({ label, value }) => (
+              <div key={label} className="prd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
                 <div className="prd-lbl">{label}</div>
-                {pr?.tracking_id
-                  ? <Link href={`/budget/${pr?.tracking_id}`} target="_blank" rel="noopener noreferrer" className="prd-val" style={{ fontFamily: 'monospace', color: 'hsl(var(--primary))', textDecoration: 'none', cursor: 'pointer' }}>{value || hash_id}</Link>
-                  : <div className="prd-val" style={mono ? { fontFamily: 'monospace' } : {}}>{value || '—'}</div>
-                }
+                <div className="prd-val">{value || '—'}</div>
               </div>
             ))}
             {/* Selected Vendor — contact from invited_vendors_detail */}
