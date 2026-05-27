@@ -298,8 +298,11 @@ export default function UsersPage() {
           {/* Users Table */}
           <Card>
             <CardContent className="p-0">
-              {isLoading ? (
-                <div className="p-8 text-center text-muted-foreground">Loading users...</div>
+            {isLoading ? (
+            <div className="flex items-center justify-center gap-2 w-full py-8 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading users...
+            </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">

@@ -70,7 +70,10 @@ const schema = z.object({
   contact_name: z.string()
     .min(2, 'Contact person is required')
     .regex(ALPHA_SPACE_ONLY, 'Contact person name can contain only letters, spaces, &, and .'),
-  contact_email: z.string().email('Valid email required'),
+  contact_email: z.string()
+    .min(1, 'Contact email is required')
+    // Allow '+' in local-part (e.g. john+1@acme.com)
+    .regex(/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, 'Enter a valid email address.'),
   contact_phone: z.string()
     .refine(v => PHONE_ALLOWED_CHARS.test(v), 'Contact phone must contain only numbers')
     .refine(v => /^\+91\d{10}$/.test(v.replace(/\s/g, '')), 'Contact phone must be +91 followed by 10 digits'),
@@ -1379,9 +1382,10 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                           <input
                             className={`form-input${extractedFields?.[name] ? ' ai-fill' : ''}`}
                             placeholder={placeholder}
+                            type={name === 'contact_email' ? 'email' : 'text'}
                             pattern={pattern}
                             maxLength={maxLength}
-                            inputMode={name === 'contact_phone' ? 'tel' : undefined}
+                            inputMode={name === 'contact_phone' ? 'tel' : name === 'contact_email' ? 'email' : undefined}
                             style={errors[name as keyof VendorForm] ? { borderColor: 'var(--red-bd)' } : {}}
                             {...register(name as keyof VendorForm,
                               name === 'contact_phone' ? {
