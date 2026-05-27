@@ -317,7 +317,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
 
                                         return (
                                             <tr key={idx} style={{ opacity: isSkip ? 0.45 : 1 }}>
-                                                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)', padding: '10px 4px', textAlign: 'center' }}>{idx + 1}</td>
+                                                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)', padding: '10px 4px', textAlign: 'center' }}>{String(idx + 1).padStart(2, '0')}</td>
                                                 <td style={{ textOverflow: 'ellipsis' }} title={!isManual ? (item.item_name || '') : undefined}>
                                                     {isManual
                                                         ? <input className="cell-inp" value={item.item_name || ''} onChange={e => updateItem(idx, 'item_name', e.target.value)} style={{ fontWeight: 500 }} />
