@@ -139,7 +139,7 @@ export default function QuotationPage() {
   })
   const { data: vendors = [] } = useQuery({
     queryKey: ['vendors-list'],
-    queryFn: async () => { const r = await apiClient.get('/vendors/?page_size=200&ordering=company_name'); return r.data?.results ?? r.data ?? [] },
+    queryFn: async () => { const r = await apiClient.get('/vendors/?ordering=company_name'); return r.data?.results ?? r.data ?? [] },
   })
 
   const hasFilters = !!(search || statusFilter || departmentFilter || vendorFilter)

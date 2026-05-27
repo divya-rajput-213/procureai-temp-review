@@ -379,7 +379,7 @@ function QuotesStep({
 
   const { data: vendorsList = [] } = useQuery({
     queryKey: ['vendors-list-pick'],
-    queryFn: async () => { const r = await apiClient.get('/vendors/?page_size=200&ordering=company_name'); return r.data?.results ?? r.data ?? [] },
+    queryFn: async () => { const r = await apiClient.get('/vendors/?ordering=company_name'); return r.data?.results ?? r.data ?? [] },
   })
 
   const { data: qData, isLoading: qLoading, isFetching: qFetching } = useQuery({
