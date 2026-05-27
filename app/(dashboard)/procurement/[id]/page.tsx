@@ -952,14 +952,11 @@ export default function PRDetailPage() {
                   </div>
                   <span className="text-[11px] text-muted-foreground shrink-0">excl. GST</span>
                 </div>
-                {selectedQuotation && (
-                  <div className="mt-1.5 text-xs text-muted-foreground truncate">{selectedQuotation.vendor_name}</div>
-                )}
               </div>
 
               <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
                 <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
-                  Budget Util.
+                  Budget Util
                 </div>
                 <div className="text-xl font-bold tracking-tight leading-tight mt-2">
                   {pr.budget_info?.approved_amount
@@ -977,9 +974,6 @@ export default function PRDetailPage() {
                 </div>
                 <div className={`text-xl font-bold tracking-tight leading-tight mt-2 ${Number(pr.budget_info?.remaining_amount) > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
                   {pr.budget_info?.remaining_amount ? formatCurrency(pr.budget_info.remaining_amount) : '—'}
-                </div>
-                <div className="mt-1.5 text-xs text-muted-foreground">
-                  Tracking: {pr.budget_info?.tracking_code ?? '—'}
                 </div>
               </div>
 
@@ -1147,7 +1141,7 @@ export default function PRDetailPage() {
                     <div className="px-6 py-3">
                       <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 flex items-center gap-1.5">
                         <Check className="w-3 h-3 text-emerald-600" />
-                        Line items · {selectedQuotation.vendor_name}
+                        Line items
                       </p>
                       <table className="w-full border-collapse text-xs">
                         <thead>

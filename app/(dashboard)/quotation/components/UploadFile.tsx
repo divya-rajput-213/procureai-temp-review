@@ -70,6 +70,8 @@ type UploadFileProps = {
     pdfName?: string
     validUntil?: string
     setValidUntil?: (v: string) => void
+    fieldErrors?: Record<string, string>
+    onFieldChange?: (field: string) => void
 }
 
 export default function UploadFile({
@@ -84,6 +86,7 @@ export default function UploadFile({
     allVendors = [], vendorsFetching = false, onSelectVendor,
     disableUpload = false, pdfUrl, pdfName,
     validUntil, setValidUntil,
+    fieldErrors = {}, onFieldChange,
 }: UploadFileProps) {
     const [showVendorSearch, setShowVendorSearch] = useState(false)
     const [vendorQuery, setVendorQuery] = useState('')
@@ -259,9 +262,9 @@ export default function UploadFile({
 
                             {/* State 1: Placeholder */}
                             {!vendors && !isExtracting && (
-                                <div style={{ border: '1.5px dashed var(--bdm)', borderRadius: 'var(--r)', padding: 16, background: 'var(--bg-s)', display: 'flex', alignItems: 'center', gap: 12, color: 'var(--tx3)' }}>
+                                <div style={{ border: `1.5px dashed ${fieldErrors.vendor ? '#E24B4A' : 'var(--bdm)'}`, borderRadius: 'var(--r)', padding: 16, background: fieldErrors.vendor ? '#fff5f5' : 'var(--bg-s)', display: 'flex', alignItems: 'center', gap: 12, color: fieldErrors.vendor ? '#E24B4A' : 'var(--tx3)' }}>
                                     <i className="ti ti-building-store" style={{ fontSize: 22, flexShrink: 0 }} />
-                                    <div style={{ fontSize: 13 }}>Vendor will be extracted and matched automatically after document upload</div>
+                                    <div style={{ fontSize: 13 }}>{fieldErrors.vendor ?? 'Vendor will be extracted and matched automatically after document upload'}</div>
                                 </div>
                             )}
 
@@ -565,24 +568,30 @@ export default function UploadFile({
                         <div className="g3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                             <div className="fgrp">
                                 <label className="lbl">Plant / Location <span className="req">*</span></label>
-                                <select className="sel" value={plantId} onChange={e => setPlantId(e.target.value)}>
+                                <select className="sel" value={plantId} onChange={e => { setPlantId(e.target.value); onFieldChange?.('plant') }}
+                                    style={fieldErrors.plant ? { borderColor: '#E24B4A' } : undefined}>
                                     <option value="">Select plant</option>
                                     {plants.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                                 </select>
+                                {fieldErrors.plant && <p style={{ fontSize: 11, color: '#E24B4A', marginTop: 3 }}>{fieldErrors.plant}</p>}
                             </div>
                             <div className="fgrp">
                                 <label className="lbl">Department <span className="req">*</span></label>
-                                <select className="sel" value={departmentId} onChange={e => setDepartmentId(e.target.value)}>
+                                <select className="sel" value={departmentId} onChange={e => { setDepartmentId(e.target.value); onFieldChange?.('department') }}
+                                    style={fieldErrors.department ? { borderColor: '#E24B4A' } : undefined}>
                                     <option value="">Select department</option>
                                     {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
                                 </select>
+                                {fieldErrors.department && <p style={{ fontSize: 11, color: '#E24B4A', marginTop: 3 }}>{fieldErrors.department}</p>}
                             </div>
                             <div className="fgrp">
                                 <label className="lbl">Category <span className="req">*</span></label>
-                                <select className="sel" value={categoryId} onChange={e => setCategoryId(e.target.value)}>
+                                <select className="sel" value={categoryId} onChange={e => { setCategoryId(e.target.value); onFieldChange?.('category') }}
+                                    style={fieldErrors.category ? { borderColor: '#E24B4A' } : undefined}>
                                     <option value="">Select category</option>
                                     {categories?.map((c: any) => <option key={c?.id} value={c?.id}>{c?.name}</option>)}
                                 </select>
+                                {fieldErrors.category && <p style={{ fontSize: 11, color: '#E24B4A', marginTop: 3 }}>{fieldErrors.category}</p>}
                             </div>
                         </div>
 

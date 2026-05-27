@@ -180,8 +180,20 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
             link.remove()
             window.URL.revokeObjectURL(url)
             setShowExportModal(false)
-        } catch (e) {
-            console.error(e)
+        } catch (e: any) {
+            let message = 'Export failed. Please try again.'
+            try {
+                const blob: Blob = e?.response?.data
+                if (blob instanceof Blob) {
+                    const text = await blob.text()
+                    const json = JSON.parse(text)
+                    message = json.error ?? json.detail ?? json.message ?? message
+                } else if (e?.response?.data?.error) {
+                    message = e.response.data.error
+                }
+            } catch {}
+            toast({ title: 'Export failed', description: message, variant: 'destructive' })
+            setShowExportModal(false)
         } finally {
             setExporting(false)
         }

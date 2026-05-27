@@ -43,6 +43,8 @@ export default function UploadQuotationPage() {
     const [exporting, setExporting] = useState(false)
     const [verifyStepValid, setVerifyStepValid] = useState(true)
     const [validUntil, setValidUntil] = useState<string>('')
+    const [step0Errors, setStep0Errors] = useState<Record<string, string>>({})
+    const [showVerifyErrors, setShowVerifyErrors] = useState(false)
 
     const getApiErrorMessage = (error: any, fallback: string) => {
         const data = error?.response?.data
@@ -244,7 +246,14 @@ export default function UploadQuotationPage() {
     }
 
     const handleStep0Continue = () => {
-        if (!quotation || !vendors) return
+        const errs: Record<string, string> = {}
+        if (!quotation) errs.file = 'Please upload a quotation PDF first.'
+        if (!vendors) errs.vendor = 'Vendor details are required.'
+        if (!plantId) errs.plant = 'Plant is required.'
+        if (!departmentId) errs.department = 'Department is required.'
+        if (!categoryId) errs.category = 'Category is required.'
+        setStep0Errors(errs)
+        if (Object.keys(errs).length > 0) return
         setCompletedSteps(prev => { const u = new Set(prev); u.add(0); return u })
         setCurrentStep(1)
     }
@@ -292,8 +301,20 @@ export default function UploadQuotationPage() {
             link.remove()
             window.URL.revokeObjectURL(url)
             setShowExportModal(false)
-        } catch (e) {
-            console.error(e)
+        } catch (e: any) {
+            let message = 'Export failed. Please try again.'
+            try {
+                const blob: Blob = e?.response?.data
+                if (blob instanceof Blob) {
+                    const text = await blob.text()
+                    const json = JSON.parse(text)
+                    message = json.error ?? json.detail ?? json.message ?? message
+                } else if (e?.response?.data?.error) {
+                    message = e.response.data.error
+                }
+            } catch {}
+            toast({ title: 'Export failed', description: message, variant: 'destructive' })
+            setShowExportModal(false)
         } finally {
             setExporting(false)
         }
@@ -489,6 +510,8 @@ export default function UploadQuotationPage() {
                 {/* ── STEP 0: Upload Document ── */}
                 {currentStep === 0 && (
                     <UploadFile
+                        fieldErrors={step0Errors}
+                        onFieldChange={(field) => setStep0Errors(prev => { const n = { ...prev }; delete n[field]; return n })}
                         selectedFile={selectedFile}
                         setSelectedFile={setSelectedFile}
                         handleRemoveTagState={() => {
@@ -538,7 +561,8 @@ export default function UploadQuotationPage() {
                         onContinue={handleStep1Continue}
                         onBack={() => setCurrentStep(0)}
                         onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
-                        onValidationChange={(isValid) => setVerifyStepValid(isValid)}
+                        onValidationChange={(isValid) => { setVerifyStepValid(isValid); if (isValid) setShowVerifyErrors(false) }}
+                        showValidationErrors={showVerifyErrors}
                     />
                 )}
 
@@ -559,8 +583,7 @@ export default function UploadQuotationPage() {
                         </span>
 
                         {currentStep === 0 && (
-                            <Button size="sm" onClick={handleStep0Continue} disabled={!quotation || !vendors || !plantId || !departmentId || !categoryId || uploadMutation.isPending || isExtracting} className="gap-1.5">
-
+                            <Button size="sm" onClick={handleStep0Continue} disabled={uploadMutation.isPending || isExtracting} className="gap-1.5">
                                 {step0ContinueLabel()}
                                 <ChevronRight style={{ width: 14, height: 14 }} />
                             </Button>
@@ -569,8 +592,12 @@ export default function UploadQuotationPage() {
                         {currentStep === 1 && (
                             <Button
                                 size="sm"
-                                onClick={() => setShowConfirm(true)}
-                                disabled={isSaving || !verifyStepValid}
+                                onClick={() => {
+                                    if (!verifyStepValid) { setShowVerifyErrors(true); return }
+                                    setShowVerifyErrors(false)
+                                    setShowConfirm(true)
+                                }}
+                                disabled={isSaving}
                                 className="gap-1.5"
                             >
                                 {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}

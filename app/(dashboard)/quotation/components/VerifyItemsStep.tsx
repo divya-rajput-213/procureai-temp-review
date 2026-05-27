@@ -16,6 +16,7 @@ interface VerifyItemsStepProps {
     onExport?: () => void
     disableAddRow?: boolean
     onValidationChange?: (isValid: boolean, incompleteCount: number) => void
+    showValidationErrors?: boolean
 }
 
 const fmtI = (v: number) => '₹' + (isNaN(v) ? 0 : Math.round(v)).toLocaleString('en-IN')
@@ -30,8 +31,12 @@ const needsInputStyle: React.CSSProperties = {
     border: '0.5px solid var(--amb-bd)', background: 'var(--amb-bg)', color: 'var(--amb-tx)',
     borderRadius: 4, padding: '3px 7px', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%',
 }
+const errorInputStyle: React.CSSProperties = {
+    border: '1px solid #E24B4A', background: '#fff5f5', color: '#1a1a18',
+    borderRadius: 4, padding: '3px 7px', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%',
+}
 
-export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation, onExport, disableAddRow = false, onValidationChange }: VerifyItemsStepProps) {
+export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation, onExport, disableAddRow = false, onValidationChange, showValidationErrors = false }: VerifyItemsStepProps) {
     const [addRowActive, setAddRowActive] = useState(false)
     const [activeDropdownIdx, setActiveDropdownIdx] = useState<number | null>(null)
     const [addSearch, setAddSearch] = useState('')
@@ -241,17 +246,30 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                 <div className="fsh-sub">Edit extracted values · choose an action for each item · pick a master match if available</div>
                             </div>
                         </div>
-                        {onExport && (
-                            <button
-                                type="button"
-                                onClick={onExport}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, padding: '5px 12px', border: '0.5px solid var(--bd)', borderRadius: 6, background: 'white', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
-                            >
-                                <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
-                            </button>
-                        )}
+                        {onExport && (() => {
+                            const hasNewItems = lineItems.some(item => !item.skipItem && (item.createNew || item.is_new))
+                            return (
+                                <span title={!hasNewItems ? 'No new items to export' : undefined} style={{ flexShrink: 0 }}>
+                                    <button
+                                        type="button"
+                                        onClick={hasNewItems ? onExport : undefined}
+                                        disabled={!hasNewItems}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, padding: '5px 12px', border: '0.5px solid var(--bd)', borderRadius: 6, background: 'white', whiteSpace: 'nowrap', cursor: hasNewItems ? 'pointer' : 'not-allowed', opacity: hasNewItems ? 1 : 0.45, pointerEvents: hasNewItems ? 'auto' : 'none' }}
+                                    >
+                                        <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
+                                    </button>
+                                </span>
+                            )
+                        })()}
                     </div>
                     <div className="form-body" style={{ padding: 14 }}>
+                        {/* HSN info — only when any item is missing a valid 8-digit HSN */}
+                        {lineItems.some(item => !item.skipItem && !/^\d{8}$/.test(String(item.hsn_code || '').replace(/\s+/g, ''))) && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#92540a', background: '#fef3c7', border: '0.5px solid #f59e0b', borderRadius: 6, padding: '7px 12px', marginBottom: 10 }}>
+                                <i className="ti ti-info-circle" style={{ fontSize: 14, flexShrink: 0 }} />
+                                <span>HSN code must be <strong>8 digits</strong> — required before submission.</span>
+                            </div>
+                        )}
                         {/* Extraction notice */}
                         <div style={{ background: 'var(--grn-bg)', border: '0.5px solid rgba(99,153,34,.3)', borderRadius: 'var(--r)', padding: '9px 13px', display: 'flex', alignItems: 'center', gap: 9, marginBottom: 12, fontSize: 12, color: 'var(--grn-tx)' }}>
                             <i className="ti ti-sparkles" style={{ fontSize: 14, flexShrink: 0 }} />
@@ -292,6 +310,11 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                         const qtyLocked = !isManual && (orig?.qty ?? 0) > 0
                                         const priceLocked = !isManual && orig?.price != null && orig.price > 0
 
+                                        const hsnValid = hsnLocked || /^\d{6,8}$/.test(String(item.hsn_code || '').replace(/\s+/g, ''))
+                                        const uomValid = uomLocked || !!item.unit_of_measure
+                                        const priceValid = priceLocked || Number(item.item_price) > 0
+                                        const showErr = showValidationErrors && !isSkip
+
                                         return (
                                             <tr key={idx} style={{ opacity: isSkip ? 0.45 : 1 }}>
                                                 <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)', padding: '10px 4px', textAlign: 'center' }}>{idx + 1}</td>
@@ -304,17 +327,20 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                 <td>
                                                     {hsnLocked
                                                         ? <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)', border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block' }}>{String(item.hsn_code || '').replace(/\s+/g, '')}</span>
-                                                        : <input
-                                                            value={item.hsn_code || ''}
-                                                            onChange={e => {
-                                                                const v = e.target.value.replace(/\D/g, '').slice(0, 8)
-                                                                updateItem(idx, 'hsn_code', v)
-                                                            }}
-                                                            placeholder="8-digit HSN"
-                                                            maxLength={8}
-                                                            inputMode="numeric"
-                                                            style={{ ...(/^\d{8}$/.test(String(item.hsn_code || '')) ? editableStyle : needsInputStyle), fontFamily: 'monospace', width: 95 }}
-                                                        />
+                                                        : <>
+                                                            <input
+                                                                value={item.hsn_code || ''}
+                                                                onChange={e => {
+                                                                    const v = e.target.value.replace(/\D/g, '').slice(0, 8)
+                                                                    updateItem(idx, 'hsn_code', v)
+                                                                }}
+                                                                placeholder="8-digit HSN"
+                                                                maxLength={8}
+                                                                inputMode="numeric"
+                                                                style={{ ...(showErr && !hsnValid ? errorInputStyle : /^\d{8}$/.test(String(item.hsn_code || '')) ? editableStyle : needsInputStyle), fontFamily: 'monospace', width: 95 }}
+                                                            />
+                                                            {showErr && !hsnValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>HSN Required</div>}
+                                                          </>
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
@@ -336,31 +362,37 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                 <td>
                                                     {uomLocked
                                                         ? <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)', border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block' }}>{item.unit_of_measure}</span>
-                                                        : <select
-                                                            value={item.unit_of_measure || ''}
-                                                            onChange={e => updateItem(idx, 'unit_of_measure', e.target.value)}
-                                                            style={{ ...(item.unit_of_measure ? editableStyle : needsInputStyle), width: 68 }}
-                                                        >
-                                                            <option value="">UOM</option>
-                                                            {UOM_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                                                        </select>
+                                                        : <>
+                                                            <select
+                                                                value={item.unit_of_measure || ''}
+                                                                onChange={e => updateItem(idx, 'unit_of_measure', e.target.value)}
+                                                                style={{ ...(showErr && !uomValid ? errorInputStyle : item.unit_of_measure ? editableStyle : needsInputStyle), width: 68 }}
+                                                            >
+                                                                <option value="">UOM</option>
+                                                                {UOM_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                            </select>
+                                                            {showErr && !uomValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>UOM Required</div>}
+                                                          </>
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
                                                     {priceLocked
                                                         ? <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)', border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block' }}>{fmtI(price)}</span>
-                                                        : <input
-                                                            type="number"
-                                                            value={price || ''}
-                                                            min={0.01}
-                                                            step="any"
-                                                            onChange={e => {
-                                                                const v = Math.abs(Number(e.target.value) || 0)
-                                                                updateItem(idx, 'item_price', v)
-                                                            }}
-                                                            placeholder="0.00"
-                                                            style={{ ...(price > 0 ? editableStyle : needsInputStyle), width: 90, textAlign: 'right' }}
-                                                        />
+                                                        : <>
+                                                            <input
+                                                                type="number"
+                                                                value={price || ''}
+                                                                min={0.01}
+                                                                step="any"
+                                                                onChange={e => {
+                                                                    const v = Math.abs(Number(e.target.value) || 0)
+                                                                    updateItem(idx, 'item_price', v)
+                                                                }}
+                                                                placeholder="0.00"
+                                                                style={{ ...(showErr && !priceValid ? errorInputStyle : price > 0 ? editableStyle : needsInputStyle), width: 90, textAlign: 'right' }}
+                                                            />
+                                                            {showErr && !priceValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>Unit Price Required</div>}
+                                                          </>
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 14 }}>{fmtI(qty * price)}</td>
