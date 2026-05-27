@@ -723,12 +723,6 @@ export default function PRDetailPage() {
   const selectedQuotation = pr?.linked_quotations?.find((q: any) => q.id === pr?.selected_quotation
   ) ?? null
 
-  const { data: selectedQuotationDetail } = useQuery({
-    queryKey: ['quotation-detail', selectedQuotation?.id],
-    queryFn: async () => (await apiClient.get(`/quotations/${selectedQuotation!.id}/`)).data,
-    enabled: !!selectedQuotation?.id,
-    staleTime: 5 * 60 * 1000,
-  })
   const [expandedQuotationId, setExpandedQuotationId] = useState<number | null>(null)
   const handleExport = async (prId: any) => {
     if (!prId) return
@@ -849,7 +843,7 @@ export default function PRDetailPage() {
                 <StatusBadge status={pr.status} />
               </div>
               <div style={{ fontSize: 13, color: 'var(--tx2,#6b6b69)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const }}>
-                <span>Created {formatDate(pr.created_at)}{pr.created_by_name ? ` · ${pr.created_by_name}` : ''}</span>
+                <span>Created At {formatDate(pr.created_at)}</span>
                 {pr.tracking_code && <span style={{ fontFamily: 'monospace', fontSize: 12 }}>· {pr.tracking_code}</span>}
               </div>
             </div>
@@ -865,15 +859,8 @@ export default function PRDetailPage() {
             </div>
           </div>
 
-          {/* Description */}
-          {pr.description && (
-            <div style={{ fontSize: 13, color: 'var(--tx2,#6b6b69)', lineHeight: 1.55, marginBottom: 14, paddingBottom: 14, borderBottom: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
-              {pr.description}
-            </div>
-          )}
-
           {/* Row 2 — metadata strip */}
-          <div className="prd-hero-meta" style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: pr.description ? 'none' : '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
+          <div className="prd-hero-meta" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
             {/* Tracking ID */}
             {pr?.tracking_id ? (
               <button
@@ -898,37 +885,13 @@ export default function PRDetailPage() {
             {[
               { label: 'Plant', value: pr.plant_name },
               { label: 'Department', value: pr.department_name },
+              { label: 'Created By', value: pr.created_by_name },
             ].map(({ label, value }) => (
               <div key={label} className="prd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
                 <div className="prd-lbl">{label}</div>
                 <div className="prd-val">{value || '—'}</div>
               </div>
             ))}
-            {/* Selected Vendor — contact from invited_vendors_detail */}
-            {(() => {
-              const selVendor = selectedQuotation
-                ? (pr.invited_vendors_detail ?? []).find((v: any) => v.id === selectedQuotation.vendor_id)
-                : null
-              return (
-                <div className="prd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
-                  <div className="prd-lbl">Selected Vendor</div>
-                  {selVendor ? (
-                    <div>
-                      <div style={{ fontSize: 11 }}>
-                        {selVendor.contact_email}
-                      </div>
-                      {(selVendor.city || selVendor.state) && (
-                        <div style={{ fontSize: 11, color: 'var(--tx3,#9a9a96)' }}>
-                          {[selVendor.city, selVendor.state].filter(Boolean).join(', ')}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="prd-val">—</div>
-                  )}
-                </div>
-              )
-            })()}
           </div>
         </div>
 
@@ -962,42 +925,6 @@ export default function PRDetailPage() {
           <div >
             {/* LEFT */}
             <div className="space-y-4 min-w-0">
-              {/* KPI ROW */}
-              <div className="prd-kpi-grid grid grid-cols-2 lg:grid-cols-3 gap-3">
-                <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
-                  <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
-                    Awarded Value
-                  </div>
-                  <div className="flex items-baseline gap-1.5 mt-2">
-                    <div className="text-xl font-bold tracking-tight leading-tight truncate">
-                      {selectedQuotation ? formatCurrency(selectedQuotation.total_amount, pr.currency_code) : formatCurrency(pr.total_amount, pr.currency_code)}
-                    </div>
-                    <span className="text-[11px] text-muted-foreground shrink-0">excl. GST</span>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
-                  <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
-                    Remaining Budget
-                  </div>
-                  <div className={`text-xl font-bold tracking-tight leading-tight mt-2 ${Number(pr.budget_info?.remaining_amount) > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                    {pr.budget_info?.remaining_amount ? formatCurrency(pr.budget_info.remaining_amount) : '—'}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
-                  <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
-                    Quotations
-                  </div>
-                  <div className="text-xl font-bold tracking-tight leading-tight mt-2">
-                    {pr.linked_quotations?.length ?? 0}
-                  </div>
-                  <div className="mt-1.5 text-xs text-muted-foreground">
-                    {selectedQuotation ? `1 selected · ${pr.linked_quotations.length - 1} others` : 'None selected'}
-                  </div>
-                </div>
-              </div>
-
               {/* PROCUREMENT DETAILS */}
               {/* <Card className="overflow-hidden rounded-xl shadow-sm">
               <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
@@ -1072,6 +999,20 @@ export default function PRDetailPage() {
               </CardContent>
             </Card> */}
 
+              {/* DESCRIPTION */}
+              {pr.description && (
+                <Card className="overflow-hidden rounded-xl shadow-sm">
+                  <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
+                    <div className="flex h-full items-center">
+                      <CardTitle className="text-sm font-semibold">Description</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-4 py-3">
+                    <p className="text-sm text-muted-foreground leading-relaxed">{pr.description}</p>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* QUOTATIONS */}
               <Card className="overflow-hidden rounded-xl shadow-sm">
                 <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
@@ -1108,17 +1049,34 @@ export default function PRDetailPage() {
                         ) : (
                           (pr.linked_quotations || []).map((q: any) => {
                             const isSelected = q.is_selected
+                            const vendorDetail = (pr.invited_vendors_detail ?? []).find((v: any) => v.id === q.vendor_id)
                             return (
                               <tr
                                 key={q.id}
-                                className={cn(
-                                  'border-b last:border-0 transition-colors',
-                                  isSelected ? 'bg-emerald-50 hover:bg-emerald-100/70' : 'hover:bg-muted/20'
-                                )}
-                                style={{ borderLeft: isSelected ? '3px solid #10b981' : '3px solid transparent' }}
+                                className="border-b last:border-0 transition-colors hover:bg-muted/20"
                               >
-                                <td className="px-4 py-3 text-xs whitespace-nowrap font-mono">{q.ref_no || q.quotation_no}</td>
-                                <td className="px-4 py-3 font-medium whitespace-nowrap">{q.vendor_name}</td>
+                                <td className="px-4 py-3 text-xs whitespace-nowrap font-mono">
+                                  <button
+                                    type="button"
+                                    className="text-blue-600 hover:underline cursor-pointer bg-transparent border-none p-0 font-mono text-xs"
+                                    onClick={() => window.open(`/quotation/detail/${q.id}`, '_blank')}
+                                  >
+                                    {q.ref_no || q.quotation_no}
+                                  </button>
+                                </td>
+                                <td className="px-4 py-3 font-medium whitespace-nowrap">
+                                  {vendorDetail?.hash_id ? (
+                                    <button
+                                      type="button"
+                                      className="text-blue-600 hover:underline cursor-pointer bg-transparent border-none p-0 font-medium text-sm"
+                                      onClick={() => window.open(`/vendors/${vendorDetail.hash_id}`, '_blank')}
+                                    >
+                                      {q.vendor_name}
+                                    </button>
+                                  ) : (
+                                    q.vendor_name
+                                  )}
+                                </td>
                                 <td className="px-4 py-3 whitespace-nowrap">{q.items_count} item{q.items_count !== 1 ? 's' : ''}</td>
                                 <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
                                   {formatCurrency(q.total_amount, pr.currency_code)}
@@ -1143,84 +1101,6 @@ export default function PRDetailPage() {
                     </table>
                   </div>
 
-                  {/* ── Selected quotation line items (always shown if a quotation is selected) ── */}
-                  {selectedQuotation?.items?.length > 0 && (
-                    <div className="border-t bg-muted/10">
-                      <div className="px-6 py-3">
-                        <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 flex items-center gap-1.5">
-                          <Check className="w-3 h-3 text-emerald-600" />
-                          Line items
-                        </p>
-                        <table className="w-full border-collapse text-xs">
-                          <thead>
-                            <tr className="bg-muted/40 border-y">
-                              <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">#</th>
-                              <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Item Code</th>
-                              <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Description</th>
-                              <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">HSN</th>
-                              <th className="px-3 py-2 text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Qty</th>
-                              <th className="px-3 py-2 text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">UOM</th>
-                              <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Unit Price</th>
-                              <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedQuotation.items.map((item: any, idx: number) => (
-                              <tr key={item.id} className={cn('border-b last:border-0', idx % 2 === 1 && 'bg-muted/20')}>
-                                <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
-                                <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{item.item_code ?? '—'}</td>
-                                <td className="px-3 py-2 font-medium">{item.item_name}</td>
-                                <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{String(item.hsn_code ?? item.hsn_sac ?? '—').replace(/\s+/g, '')}</td>
-                                <td className="px-3 py-2 text-center">{item.quantity}</td>
-                                <td className="px-3 py-2 text-center text-muted-foreground">{item.unit_of_measure ?? '—'}</td>
-                                <td className="px-3 py-2 text-right">{formatCurrency(item.item_price, pr.currency_code)}</td>
-                                <td className="px-3 py-2 text-right font-semibold">{formatCurrency(item.line_total, pr.currency_code)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            {(() => {
-                              const detail = selectedQuotationDetail ?? selectedQuotation
-                              const taxes = detail?.vendor ?? detail
-                              const cgstRate = taxes?.cgst_rate ?? detail?.cgst_rate ?? null
-                              const sgstRate = taxes?.sgst_rate ?? detail?.sgst_rate ?? null
-                              const igstRate = taxes?.igst_rate ?? detail?.igst_rate ?? null
-                              const cgstAmt = taxes?.cgst_amount ?? detail?.cgst_amount ?? null
-                              const sgstAmt = taxes?.sgst_amount ?? detail?.sgst_amount ?? null
-                              const igstAmt = taxes?.igst_amount ?? detail?.igst_amount ?? null
-                              const grandTotal = taxes?.grand_total ?? detail?.grand_total ?? selectedQuotation.total_amount
-                              const subtotal = taxes?.subtotal_amount ?? detail?.subtotal_amount ?? selectedQuotation.total_amount
-                              const fmtAmt = (v: number | null) => v != null && v > 0 ? formatCurrency(v, pr.currency_code) : '—'
-                              return (
-                                <>
-                                  <tr className="border-t bg-muted/10">
-                                    <td colSpan={7} className="px-3 py-1.5 text-right text-[10px] text-muted-foreground font-semibold">Sub Total</td>
-                                    <td className="px-3 py-1.5 text-right font-semibold">{formatCurrency(subtotal, pr.currency_code)}</td>
-                                  </tr>
-                                  <tr className="bg-muted/10">
-                                    <td colSpan={7} className="px-3 py-1 text-right text-[10px] text-muted-foreground">CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
-                                    <td className="px-3 py-1 text-right text-[11px] text-muted-foreground">{fmtAmt(cgstAmt)}</td>
-                                  </tr>
-                                  <tr className="bg-muted/10">
-                                    <td colSpan={7} className="px-3 py-1 text-right text-[10px] text-muted-foreground">SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
-                                    <td className="px-3 py-1 text-right text-[11px] text-muted-foreground">{fmtAmt(sgstAmt)}</td>
-                                  </tr>
-                                  <tr className="bg-muted/10">
-                                    <td colSpan={7} className="px-3 py-1 text-right text-[10px] text-muted-foreground">IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
-                                    <td className="px-3 py-1 text-right text-[11px] text-muted-foreground">{fmtAmt(igstAmt)}</td>
-                                  </tr>
-                                  <tr className="border-t-2 bg-muted/30">
-                                    <td colSpan={7} className="px-3 py-2 text-right font-semibold text-muted-foreground">Grand Total (incl. GST)</td>
-                                    <td className="px-3 py-2 text-right font-bold">{formatCurrency(grandTotal, pr.currency_code)}</td>
-                                  </tr>
-                                </>
-                              )
-                            })()}
-                          </tfoot>
-                        </table>
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>
