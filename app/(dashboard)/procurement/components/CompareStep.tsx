@@ -657,26 +657,7 @@ function CompareStep({
                       <div style={{ fontSize: 12, color: '#4b5563', marginTop: 6, lineHeight: 1.55 }}>{recRankEntry.rationale}</div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: 18, flexShrink: 0, flexWrap: 'wrap' }}>
-                    {recLanded != null && (
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: '#9ca3af', fontWeight: 600 }}>Landed total</div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: '#111', lineHeight: 1.3, marginTop: 2 }}>{formatCurrency(recLanded)}</div>
-                      </div>
-                    )}
-                    {recSavings > 0 && (
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: '#9ca3af', fontWeight: 600 }}>Saves vs worst</div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: '#15803d', lineHeight: 1.3, marginTop: 2 }}>+{formatCurrency(recSavings)}</div>
-                      </div>
-                    )}
-                    {recRankEntry?.score != null && (
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: '#9ca3af', fontWeight: 600 }}>AI score</div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: '#6d28d9', lineHeight: 1.3, marginTop: 2 }}>{recRankEntry.score}<span style={{ fontSize: 11, fontWeight: 500, color: '#a78bfa' }}>/100</span></div>
-                      </div>
-                    )}
-                  </div>
+
                 </div>
               )}
 
@@ -688,54 +669,7 @@ function CompareStep({
                 </div>
               )}
 
-              {/* Rankings — exclude recommended vendor since it's shown in the hero card above */}
-              {(() => {
-                const otherRankings = [...aiRankings]
-                  .filter(r => r.vendor_id !== aiRecommendedVendorId)
-                  .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))
-                if (!otherRankings.length) return null
-                return (
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: '#9ca3af', marginBottom: 8 }}>
-                      Other vendors · {otherRankings.length}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {otherRankings.map((r) => {
-                        const vIdx = vendors.findIndex(v => v.vendor_id === r.vendor_id)
-                        const vInfo = vendors.find(v => v.vendor_id === r.vendor_id)
-                        const vLanded = vInfo ? landedTotal(vInfo) : null
-                        const pct = r.score != null ? Math.min(100, Number(r.score)) : 0
-                        return (
-                          <div key={r.vendor_id} style={{ borderRadius: 8, overflow: 'hidden', border: '0.5px solid rgba(0,0,0,0.07)', background: '#f9fafb' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px' }}>
-                              <div style={{ width: 22, height: 22, borderRadius: 5, background: '#f1f5f9', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                                {r.rank}
-                              </div>
-                              <VendorDot name={vInfo?.vendor_name || ''} paletteIdx={vIdx >= 0 ? vIdx : 0} size={22} />
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a18' }}>{vInfo?.vendor_name || `Vendor ${r.vendor_id}`}</span>
-                                <div style={{ marginTop: 5, height: 4, borderRadius: 99, background: '#e5e7eb', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: '#cbd5e1', transition: 'width .4s' }} />
-                                </div>
-                              </div>
-                              <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{r.score != null ? `${r.score}/100` : '—'}</div>
-                                {vLanded != null && (
-                                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{formatCurrency(vLanded)}</div>
-                                )}
-                              </div>
-                            </div>
-                            {r.rationale && (
-                              <div style={{ padding: '0 12px 9px 44px', fontSize: 11.5, color: '#6b7280', lineHeight: 1.55 }}>{r.rationale}</div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })()}
-
+   
               {/* Risks & Notes */}
               {(aiRisks.length > 0 || aiNotes.length > 0) && (
                 <div style={{ display: 'grid', gridTemplateColumns: aiRisks.length > 0 && aiNotes.length > 0 ? '1fr 1fr' : '1fr', gap: 10 }}>
