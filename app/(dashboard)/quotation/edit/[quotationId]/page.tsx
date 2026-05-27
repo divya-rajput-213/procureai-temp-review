@@ -38,6 +38,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
     const [verifyStepValid, setVerifyStepValid] = useState(true)
     const [validUntil, setValidUntil] = useState<string>('')
     const [financialYear, setFinancialYear] = useState<string>('')
+    const [step0Errors, setStep0Errors] = useState<Record<string, string>>({})
+    const [showVerifyErrors, setShowVerifyErrors] = useState(false)
 
     const getApiErrorMessage = (error: any, fallback: string) => {
         const data = error?.response?.data
@@ -144,6 +146,17 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
             toast({ title: 'Error', description: message, variant: 'destructive' })
         },
     })
+
+    const handleStep0Continue = () => {
+        const errs: Record<string, string> = {}
+        if (!vendors) errs.vendor = 'Vendor is required.'
+        if (!plantId) errs.plant = 'Plant is required.'
+        if (!departmentId) errs.department = 'Department is required.'
+        if (!categoryId) errs.category = 'Category is required.'
+        if (Object.keys(errs).length > 0) { setStep0Errors(errs); return }
+        setStep0Errors({})
+        goNext()
+    }
 
     const goNext = () => {
         setCompletedSteps(prev => { const u = new Set(prev); u.add(currentStep); return u })
@@ -423,6 +436,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         pdfName={quotationData?.ref_no}
                         validUntil={validUntil}
                         setValidUntil={setValidUntil}
+                        fieldErrors={step0Errors}
+                        onFieldChange={(field) => setStep0Errors(prev => { const n = { ...prev }; delete n[field]; return n })}
                     />
                 )}
 
@@ -439,7 +454,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         hideMasterMatch
                         disableAddRow
                         onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
-                        onValidationChange={(isValid) => setVerifyStepValid(isValid)}
+                        onValidationChange={(isValid) => { setVerifyStepValid(isValid); if (isValid) setShowVerifyErrors(false) }}
+                        showValidationErrors={showVerifyErrors}
                     />
                 )}
 
@@ -459,14 +475,14 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         </span>
 
                         {currentStep === 0 && (
-                            <Button size="sm" onClick={goNext} disabled={!vendors || !plantId} className="gap-1.5">
+                            <Button size="sm" onClick={handleStep0Continue} disabled={false} className="gap-1.5">
                                 Next: Items &amp; Matching
                                 <ChevronRight style={{ width: 14, height: 14 }} />
                             </Button>
                         )}
 
                         {currentStep === 1 && (
-                            <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving || !verifyStepValid} className="gap-1.5">
+                            <Button size="sm" onClick={() => { if (!verifyStepValid) { setShowVerifyErrors(true); return }; setShowConfirm(true) }} disabled={isSaving} className="gap-1.5">
                                 {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
                                 Save Changes
                             </Button>
@@ -479,10 +495,13 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
             {/* ── Export modal ── */}
             <CommonConfirmModal
                 isOpen={showExportModal}
-                title="Export Line Items"
+                title="Export New Items"
                 description={
                     <>
-                        Export <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} from this quotation as an Excel sheet?
+                        {(() => {
+                            const newCount = lineItems.filter(i => !i.skipItem && (i.createNew || i.is_new)).length
+                            return <>Only <strong>{newCount}</strong> new item{newCount !== 1 ? 's' : ''} will be exported — existing catalogue matches are excluded.</>
+                        })()}
                     </>
                 }
                 confirmLabel="Export Excel"

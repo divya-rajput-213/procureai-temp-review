@@ -610,10 +610,13 @@ export default function UploadQuotationPage() {
 
             <CommonConfirmModal
                 isOpen={showExportModal}
-                title="Export Line Items"
+                title="Export New Items"
                 description={
                     <>
-                        Export <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} from this quotation as an Excel sheet?
+                        {(() => {
+                            const newCount = lineItems.filter(i => !i.skipItem && (i.createNew || i.is_new)).length
+                            return <>Only <strong>{newCount}</strong> new item{newCount !== 1 ? 's' : ''} will be exported — existing catalogue matches are excluded.</>
+                        })()}
                     </>
                 }
                 confirmLabel="Export Excel"

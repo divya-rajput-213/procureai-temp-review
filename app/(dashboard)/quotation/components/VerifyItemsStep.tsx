@@ -277,7 +277,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                         </div>
 
                         {/* Table */}
-                        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <div style={{ overflowX: addRowActive ? 'visible' : 'auto', overflowY: addRowActive ? 'visible' : 'unset', WebkitOverflowScrolling: 'touch' }}>
                             <table className="match-tbl">
                                 <thead>
                                     <tr>
@@ -310,7 +310,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                         const qtyLocked = !isManual && (orig?.qty ?? 0) > 0
                                         const priceLocked = !isManual && orig?.price != null && orig.price > 0
 
-                                        const hsnValid = hsnLocked || /^\d{6,8}$/.test(String(item.hsn_code || '').replace(/\s+/g, ''))
+                                        const hsnValid = hsnLocked || /^\d{8}$/.test(String(item.hsn_code || '').replace(/\s+/g, ''))
                                         const uomValid = uomLocked || !!item.unit_of_measure
                                         const priceValid = priceLocked || Number(item.item_price) > 0
                                         const showErr = showValidationErrors && !isSkip
@@ -339,7 +339,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 inputMode="numeric"
                                                                 style={{ ...(showErr && !hsnValid ? errorInputStyle : /^\d{8}$/.test(String(item.hsn_code || '')) ? editableStyle : needsInputStyle), fontFamily: 'monospace', width: 95 }}
                                                             />
-                                                            {showErr && !hsnValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>HSN Required</div>}
+                                                            {showErr && !hsnValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>HSN Code must be 8 digits</div>}
                                                           </>
                                                     }
                                                 </td>
@@ -391,7 +391,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 placeholder="0.00"
                                                                 style={{ ...(showErr && !priceValid ? errorInputStyle : price > 0 ? editableStyle : needsInputStyle), width: 90, textAlign: 'right' }}
                                                             />
-                                                            {showErr && !priceValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>Unit Price Required</div>}
+                                                            {showErr && !priceValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>Price must be a positive value</div>}
                                                           </>
                                                     }
                                                 </td>
@@ -535,7 +535,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                             <td style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--tx3)', verticalAlign: 'top', paddingTop: 10 }}>
                                                 <i className="ti ti-search" style={{ fontSize: 12 }} />
                                             </td>
-                                            <td colSpan={6} style={{ padding: '6px 8px', position: 'relative' }}>
+                                            <td colSpan={6} style={{ padding: '6px 8px', position: 'relative', overflow: 'visible' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '0.5px solid var(--blu-bd)', borderRadius: 5, padding: '5px 8px', background: 'var(--bg)' }}>
                                                     <input
                                                         ref={searchInputRef}
