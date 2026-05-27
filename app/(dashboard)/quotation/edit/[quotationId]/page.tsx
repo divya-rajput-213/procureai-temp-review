@@ -263,12 +263,12 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 .qf-root{display:flex;flex-direction:column;min-height:calc(100vh - 90px)}
                 .qf-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;margin-top:auto;}
                 .qf-root .err-strip{background:var(--red-bg);border:0.5px solid var(--red-bd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:14px;color:var(--red-tx)}
-                .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:14px}
-                .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
+                .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed;min-width:860px}
+                .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
                 .qf-root .match-tbl tbody tr{border-bottom:0.5px solid var(--bd);cursor:default;transition:background .1s}
                 .qf-root .match-tbl tbody tr:last-child{border-bottom:none}
                 .qf-root .match-tbl tbody tr:hover{background:#fafaf8}
-                .qf-root .match-tbl td{padding:11px 12px;vertical-align:top}
+                .qf-root .match-tbl td{padding:10px 12px;vertical-align:middle;white-space:nowrap;overflow:hidden}
                 .qf-root .cell-inp{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:100%}
                 .qf-root .cell-inp:focus{background:var(--blu-bg);border-radius:4px;padding:2px 4px}
                 .qf-root .cell-num{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:60px;text-align:right}

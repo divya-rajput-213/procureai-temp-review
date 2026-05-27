@@ -258,19 +258,19 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                         </div>
 
                         {/* Table */}
-                        <div style={{ overflowX: 'auto' }}>
+                        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                             <table className="match-tbl">
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 28 }}>#</th>
-                                        <th>Item Description</th>
-                                        <th style={{ width: 90 }}>HSN Code</th>
-                                        <th style={{ width: 54, textAlign: 'right' }}>Qty</th>
-                                        <th style={{ width: 72 }}>UOM</th>
-                                        <th style={{ width: 96, textAlign: 'right' }}>Unit Price</th>
-                                        <th style={{ width: 106, textAlign: 'right' }}>Total</th>
-                                         <th style={{ width: 200 }}>Master Item Match</th>
-                                        <th style={{ width: 28 }} />
+                                        <th style={{ width: 44, textAlign: 'center' }}>#</th>
+                                        <th style={{ width: '24%' }}>Item Description</th>
+                                        <th style={{ width: 100 }}>HSN Code</th>
+                                        <th style={{ width: 56, textAlign: 'right' }}>Qty</th>
+                                        <th style={{ width: 64 }}>UOM</th>
+                                        <th style={{ width: 112, textAlign: 'right' }}>Unit Price</th>
+                                        <th style={{ width: 120, textAlign: 'right' }}>Total</th>
+                                        <th style={{ width: '24%' }}>Master Item Match</th>
+                                        <th style={{ width: 36 }} />
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -292,16 +292,16 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
 
                                         return (
                                             <tr key={idx} style={{ opacity: isSkip ? 0.45 : 1 }}>
-                                                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
-                                                <td>
+                                                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)', padding: '10px 4px', textAlign: 'center' }}>{idx + 1}</td>
+                                                <td style={{ textOverflow: 'ellipsis' }} title={!isManual ? (item.item_name || '') : undefined}>
                                                     {isManual
                                                         ? <input className="cell-inp" value={item.item_name || ''} onChange={e => updateItem(idx, 'item_name', e.target.value)} style={{ fontWeight: 500 }} />
-                                                        : <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--tx)' }}>{item.item_name}</span>
+                                                        : <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--tx)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.item_name}</span>
                                                     }
                                                 </td>
                                                 <td>
                                                     {hsnLocked
-                                                        ? <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)', border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block' }}>{item.hsn_code}</span>
+                                                        ? <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)', border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block' }}>{String(item.hsn_code || '').replace(/\s+/g, '')}</span>
                                                         : <input
                                                             value={item.hsn_code || ''}
                                                             onChange={e => {
@@ -351,7 +351,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 14 }}>{fmtI(qty * price)}</td>
-                                                { <td style={{ minWidth: isManual ? 0 : 220, position: 'relative' }}>
+                                                { <td style={{ minWidth: isManual ? 0 : 220, position: 'relative', overflow: 'visible' }}>
                                                     {isManual ? null : (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                             {/* Custom Rich Dropdown */}
@@ -555,24 +555,24 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colSpan={8} className="match-tfoot" style={{ fontWeight: 600, color: 'var(--tx2)', textAlign: 'right' }}>Sub Total</td>
-                                        <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{fmtI(subtotal)}</td>
+                                        <td colSpan={6} className="match-tfoot" style={{ fontWeight: 600, color: 'var(--tx2)', textAlign: 'right', whiteSpace: 'nowrap' }}>Sub Total</td>
+                                        <td colSpan={3} className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtI(subtotal)}</td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
-                                        <td className="match-tfoot" style={{ textAlign: 'right', color: cgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>{cgstAmount != null ? fmtI(cgstAmount) : '—'}</td>
+                                        <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)', whiteSpace: 'nowrap' }}>CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
+                                        <td colSpan={3} className="match-tfoot" style={{ textAlign: 'right', color: cgstAmount != null ? 'var(--tx2)' : 'var(--tx3)', whiteSpace: 'nowrap' }}>{cgstAmount != null ? fmtI(cgstAmount) : '—'}</td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
-                                        <td className="match-tfoot" style={{ textAlign: 'right', color: sgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>{sgstAmount != null ? fmtI(sgstAmount) : '—'}</td>
+                                        <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)', whiteSpace: 'nowrap' }}>SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
+                                        <td colSpan={3} className="match-tfoot" style={{ textAlign: 'right', color: sgstAmount != null ? 'var(--tx2)' : 'var(--tx3)', whiteSpace: 'nowrap' }}>{sgstAmount != null ? fmtI(sgstAmount) : '—'}</td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={8} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
-                                        <td className="match-tfoot" style={{ textAlign: 'right', color: igst > 0 ? 'var(--tx2)' : 'var(--tx3)' }}>{igst > 0 ? fmtI(igst) : '—'}</td>
+                                        <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)', whiteSpace: 'nowrap' }}>IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
+                                        <td colSpan={3} className="match-tfoot" style={{ textAlign: 'right', color: igst > 0 ? 'var(--tx2)' : 'var(--tx3)', whiteSpace: 'nowrap' }}>{igst > 0 ? fmtI(igst) : '—'}</td>
                                     </tr>
                                     <tr style={{ background: 'var(--bg-t)' }}>
-                                        <td colSpan={8} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>Grand Total (incl. GST)</td>
-                                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{fmtI(grandTotal)}</td>
+                                        <td colSpan={6} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)', whiteSpace: 'nowrap' }}>Grand Total (incl. GST)</td>
+                                        <td colSpan={3} style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)', whiteSpace: 'nowrap' }}>{fmtI(grandTotal)}</td>
                                     </tr>
                                 </tfoot>
                             </table>
