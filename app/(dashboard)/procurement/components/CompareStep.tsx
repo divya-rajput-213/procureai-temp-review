@@ -263,11 +263,11 @@ function CompareStep({
                             )}  {v.vendor_name}
                             {v.vendor_approval_status && <StatusBadge status={v.vendor_approval_status} />}
                           </div>
-                          {(v.city || v.state) && (
+                          {/* {(v.city || v.state) && (
                             <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
                               {[v.city, v.state].filter(s => s && s !== 'N/A').join(', ')}
                             </div>
-                          )}
+                          )} */}
                         </div>
 
                         {!isDisabled && (
