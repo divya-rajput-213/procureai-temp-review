@@ -429,13 +429,16 @@ function QuotesStep({
 
   function Th({ col, label, style }: { col: SortKey; label: string; style?: React.CSSProperties }) {
     return (
-      <th
-        style={{ ...thStyle, ...style, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-        onClick={() => handleSort(col)}
-      >
+      <th style={{ ...thStyle, ...style, whiteSpace: 'nowrap' }}>
         <span className="inline-flex items-center gap-1">
           <span>{label}</span>
-          <SortIcon column={col} sortKey={sortKey} sortDir={sortDir} />
+          <button
+            type="button"
+            onClick={() => handleSort(col)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+          >
+            <SortIcon column={col} sortKey={sortKey} sortDir={sortDir} />
+          </button>
         </span>
       </th>
     )
