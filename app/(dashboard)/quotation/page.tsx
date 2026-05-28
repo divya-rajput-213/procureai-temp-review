@@ -147,7 +147,7 @@ export default function QuotationPage() {
 
   const clearFilters = () => { setSearchInput(''); setStatusFilter(''); setDepartmentFilter(''); setVendorFilter(''); setPage(1) }
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['quotations', search, statusFilter, departmentFilter, vendorFilter, page, ordering],
     queryFn: async () => {
       const params: Record<string, string> = { page: String(page), page_size: String(PAGE_SIZE), ordering }
@@ -339,7 +339,12 @@ export default function QuotationPage() {
             </div>
           )}
           {!isLoading && quotations.length > 0 && (
-            <div className="w-full overflow-x-auto">
+            <div className="relative w-full overflow-x-auto">
+              {isFetching && (
+                <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
               <table className="min-w-[900px] w-full text-sm">
                 <thead className="bg-slate-50 border-b">
                   <tr>

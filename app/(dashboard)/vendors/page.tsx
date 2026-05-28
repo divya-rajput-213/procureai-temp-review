@@ -260,7 +260,7 @@ export default function VendorsPage() {
     setSearchInput(''); setStatusFilter(''); setPlantFilter(''); setCategoryFilter(''); setPage(1)
   }
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['vendors', search, statusFilter, plantFilter, categoryFilter, page, ordering],
     queryFn: async () => {
       const params: Record<string, string> = { page: String(page), page_size: String(PAGE_SIZE), ordering }
@@ -468,7 +468,12 @@ export default function VendorsPage() {
 
           {/* Mobile cards */}
           {!isLoading && vendors.length > 0 && (
-            <div className="md:hidden">
+            <div className="relative md:hidden">
+              {isFetching && (
+                <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
               {vendors.map((v: any) => (
                 <VendorCard
                   key={v.id}
@@ -482,7 +487,12 @@ export default function VendorsPage() {
 
           {/* Desktop table */}
           {!isLoading && vendors.length > 0 && (
-            <div className="hidden md:block w-full overflow-x-auto">
+            <div className="relative hidden md:block w-full overflow-x-auto">
+              {isFetching && (
+                <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
               <table className="min-w-[900px] w-full text-sm">
                 <thead className="bg-slate-50 border-b">
                   <tr>

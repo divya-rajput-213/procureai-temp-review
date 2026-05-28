@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useDebounce } from 'use-debounce'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, X, Trash2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -32,9 +33,11 @@ function StatusSummary({ total, counts }: { total: number; counts: Record<string
 }
 
 export default function ProcurementPage() {
-  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [trackingInput, setTrackingInput] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [trackingFilter, setTrackingFilter] = useState('')
+  const [search] = useDebounce(searchInput, 600)
+  const [trackingFilter] = useDebounce(trackingInput, 600)
   const [page, setPage] = useState(1)
   const [deletingPR, setDeletingPR] = useState<any>(null)
   const router = useRouter()
@@ -56,13 +59,12 @@ export default function ProcurementPage() {
     },
   })
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['purchase-requisitions', search, statusFilter, trackingFilter, page],
     queryFn: async () => {
       const params: Record<string, string> = { page: String(page), page_size: String(PAGE_SIZE) }
       if (search) params.search = search
       if (statusFilter) params.status = statusFilter
-      if (trackingFilter) params.tracking_code = trackingFilter
       const { data } = await apiClient.get('/procurement/', { params })
       return data
     },
@@ -70,11 +72,13 @@ export default function ProcurementPage() {
     staleTime: 0,
   })
 
-  const prs: any[] = data?.results ?? (Array.isArray(data) ? data : [])
+  const prs: any[] = (data?.results ?? (Array.isArray(data) ? data : [])).filter((pr: any) =>
+    !trackingFilter || String(pr.tracking_code || '').toLowerCase().includes(trackingFilter.toLowerCase())
+  )
   const totalCount: number = data?.count ?? prs.length
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
-  const hasFilters = !!(search || statusFilter || trackingFilter)
+  const hasFilters = !!(searchInput || statusFilter || trackingInput)
 
   const statusCounts = prs.reduce((acc: Record<string, number>, pr: any) => {
     acc[pr.status] = (acc[pr.status] ?? 0) + 1
@@ -88,11 +92,11 @@ export default function ProcurementPage() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[160px] max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search PRs…" className="pl-9 h-9" value={search} onChange={e => { setSearch(e.target.value); resetPage() }} />
+          <Input placeholder="Search PRs…" className="pl-9 h-9" value={searchInput} onChange={e => { setSearchInput(e.target.value); resetPage() }} />
         </div>
         <div className="relative min-w-[140px] flex-1 max-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Tracking ID…" className="pl-9 h-9" value={trackingFilter} onChange={e => { setTrackingFilter(e.target.value); resetPage() }} />
+          <Input placeholder="Tracking ID…" className="pl-9 h-9" value={trackingInput} onChange={e => { setTrackingInput(e.target.value); resetPage() }} />
         </div>
         <select
           className="h-9 border rounded-md px-3 text-sm bg-background shrink-0 min-w-[130px]"
@@ -110,7 +114,7 @@ export default function ProcurementPage() {
         </select>
         {hasFilters && (
           <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground"
-            onClick={() => { setSearch(''); setStatusFilter(''); setTrackingFilter(''); resetPage() }}>
+            onClick={() => { setSearchInput(''); setTrackingInput(''); setStatusFilter(''); resetPage() }}>
             <X className="w-3.5 h-3.5" /> Clear
           </Button>
         )}
@@ -140,7 +144,12 @@ export default function ProcurementPage() {
             </div>
           )}
           {!isLoading && prs.length > 0 && (
-            <div className="w-full overflow-x-auto">
+            <div className="relative w-full overflow-x-auto">
+              {isFetching && (
+                <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
               <table className="w-full text-sm" style={{ minWidth: 640 }}>
                 <thead className="bg-slate-50 border-b">
                   <tr>
