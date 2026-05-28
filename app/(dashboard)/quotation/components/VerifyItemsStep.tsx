@@ -207,8 +207,14 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
     const cgstRate = quotation?.cgst_rate != null ? Number(quotation.cgst_rate) : null
     const sgstRate = quotation?.sgst_rate != null ? Number(quotation.sgst_rate) : null
     const igstRate = quotation?.igst_rate != null ? Number(quotation.igst_rate) : null
-    const cgstAmount = quotation?.cgst_amount != null ? Number(quotation.cgst_amount) : null
-    const sgstAmount = quotation?.sgst_amount != null ? Number(quotation.sgst_amount) : null
+    // Recalculate CGST/SGST from rate × subtotal when any unit price was entered or changed on the frontend
+    const hasFrontendPrice = lineItems.some(item => item.is_manual_unit_price || item._manuallyAdded)
+    const cgstAmount = hasFrontendPrice && cgstRate != null
+        ? subtotal * cgstRate / 100
+        : quotation?.cgst_amount != null ? Number(quotation.cgst_amount) : null
+    const sgstAmount = hasFrontendPrice && sgstRate != null
+        ? subtotal * sgstRate / 100
+        : quotation?.sgst_amount != null ? Number(quotation.sgst_amount) : null
     const igst = igstRate != null
         ? subtotal * igstRate / 100
         : lineItems.reduce((a, it) => {
