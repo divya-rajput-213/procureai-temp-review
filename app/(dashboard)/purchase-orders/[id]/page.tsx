@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
 import {
   ArrowLeft, FileText, Package, Truck, CheckCircle, Loader2, Send,
-  Shield, Clock, AlertTriangle, X,
+  Shield, Clock, AlertTriangle, X, Receipt, Files,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,9 +26,10 @@ const PO_TYPE_MAP: Record<string, string> = {
 
 const TABS = [
   { key: 'overview', label: 'Overview', icon: FileText },
-  { key: 'line_items', label: 'Line Items', icon: Package },
   { key: 'approval', label: 'Approval', icon: Shield },
   { key: 'grn', label: 'GRN', icon: Truck },
+  { key: 'invoices', label: 'Invoices', icon: Receipt },
+  { key: 'documents', label: 'Documents', icon: Files },
 ]
 
 export default function PurchaseOrderDetailPage() {
@@ -187,9 +189,10 @@ export default function PurchaseOrderDetailPage() {
       </div>
 
       {activeTab === 'overview' && <OverviewTab po={po} />}
-      {activeTab === 'line_items' && <LineItemsTab po={po} />}
       {activeTab === 'approval' && <ApprovalTab po={po} poId={id as string} onUpdate={invalidate} />}
       {activeTab === 'grn' && <GRNTab po={po} poId={id as string} onUpdate={invalidate} />}
+      {activeTab === 'invoices' && <InvoicesTab po={po} />}
+      {activeTab === 'documents' && <DocumentsTab po={po} />}
 
       {/* Send to Vendor Modal */}
       {showSendModal && (
@@ -281,156 +284,158 @@ export default function PurchaseOrderDetailPage() {
   )
 }
 
-// ── Overview Tab ─────────────────────────────────────────────────────────────
+// ── Overview Tab (PO details + amount + acknowledgement + line items) ──────
 
 function OverviewTab({ po }: { po: any }) {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card>
-        <CardHeader><CardTitle className="text-base">PO Details</CardTitle></CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            {([
-              ['PO Type', PO_TYPE_MAP[po.po_type] ?? po.po_type],
-              ['Vendor', po.vendor_name],
-              ['Plant', po.plant_name],
-              ['Department', po.department_name],
-              ['PR Number', po.pr_number || '—'],
-              ['Contract', po.contract_id_display || '—'],
-              ['Budget (Tracking ID)', po.tracking_code || '—'],
-              ['Trigger', po.trigger_source],
-              ['Payment Terms', po.payment_terms || '—'],
-              ['Incoterms', po.incoterms || '—'],
-              ['Currency', po.currency_code],
-              ['Created By', po.created_by_name],
-              ['Created', formatDate(po.created_at)],
-              ['Sent to Vendor', po.sent_to_vendor_at ? formatDate(po.sent_to_vendor_at) : '—'],
-              ['Approved', po.approved_at ? formatDate(po.approved_at) : '—'],
-            ] as [string, string][]).map(([label, value]) => (
-              <div key={label}>
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="font-medium">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </CardContent>
-      </Card>
+  const items: any[] = po.line_items || []
+  const itemsSubtotal = items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.unit_rate) || 0), 0)
+  const itemsTax = items.reduce((s: number, i: any) => s + (Number(i.tax_amount) || 0), 0)
+  const itemsTaxRate = items[0]?.tax_rate ? Number(items[0].tax_rate) : 0
+  const itemsGrand = itemsSubtotal + itemsTax
 
-      <div className="space-y-4">
-        {/* Amount Breakdown */}
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader><CardTitle className="text-base">Amount</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">PO Details</CardTitle></CardHeader>
           <CardContent>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd className="font-medium">{formatCurrency(po.subtotal_amount)}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Tax</dt><dd>{formatCurrency(po.tax_amount)}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Freight</dt><dd>{formatCurrency(po.freight_amount)}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Discount</dt><dd>-{formatCurrency(po.discount_amount)}</dd></div>
-              <div className="flex justify-between border-t pt-2"><dt className="font-semibold">Total</dt><dd className="font-bold text-primary">{formatCurrency(po.total_amount)}</dd></div>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              {([
+                ['PO Type', PO_TYPE_MAP[po.po_type] ?? po.po_type],
+                ['Vendor', po.vendor_name],
+                ['Plant', po.plant_name],
+                ['Department', po.department_name],
+                ['PR Number', po.pr_number || '—'],
+                ['Contract', po.contract_id_display || '—'],
+                ['Budget (Tracking ID)', po.tracking_code || '—'],
+                ['Trigger', po.trigger_source],
+                ['Payment Terms', po.payment_terms || '—'],
+                ['Incoterms', po.incoterms || '—'],
+                ['Currency', po.currency_code],
+                ['Created By', po.created_by_name],
+                ['Created', formatDate(po.created_at)],
+                ['Sent to Vendor', po.sent_to_vendor_at ? formatDate(po.sent_to_vendor_at) : '—'],
+                ['Approved', po.approved_at ? formatDate(po.approved_at) : '—'],
+              ] as [string, string][]).map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-xs text-muted-foreground">{label}</dt>
+                  <dd className="font-medium">{value}</dd>
+                </div>
+              ))}
             </dl>
           </CardContent>
         </Card>
 
-        {/* Acknowledgements */}
-        <Card>
-          <CardHeader><CardTitle className="text-base">Vendor Acknowledgement</CardTitle></CardHeader>
-          <CardContent>
-            {(po.acknowledgements || []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {po.status === 'sent_to_vendor' ? 'Waiting for vendor to acknowledge (48h)...' : 'Not yet sent to vendor.'}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {po.acknowledgements.map((ack: any) => (
-                  <div key={ack.id} className="p-3 border rounded-lg text-sm">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-emerald-600" />
-                      <span className="font-medium">Acknowledged by {ack.acknowledged_by}</span>
-                    </div>
-                    {ack.expected_delivery && <p className="text-xs text-muted-foreground mt-1">Expected: {formatDate(ack.expected_delivery)}</p>}
-                    {ack.notes && <p className="text-xs text-muted-foreground mt-1">{ack.notes}</p>}
-                    <p className="text-[10px] text-muted-foreground">{formatDate(ack.acknowledged_at)}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {po.notes && (
+        <div className="space-y-4">
+          {/* Amount Breakdown */}
           <Card>
-            <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
-            <CardContent><p className="text-sm whitespace-pre-wrap">{po.notes}</p></CardContent>
+            <CardHeader><CardTitle className="text-base">Amount</CardTitle></CardHeader>
+            <CardContent>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd className="font-medium">{formatCurrency(po.subtotal_amount)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Tax</dt><dd>{formatCurrency(po.tax_amount)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Freight</dt><dd>{formatCurrency(po.freight_amount)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Discount</dt><dd>-{formatCurrency(po.discount_amount)}</dd></div>
+                <div className="flex justify-between border-t pt-2"><dt className="font-semibold">Total</dt><dd className="font-bold text-primary">{formatCurrency(po.total_amount)}</dd></div>
+              </dl>
+            </CardContent>
           </Card>
-        )}
+
+          {/* Acknowledgements */}
+          <Card>
+            <CardHeader><CardTitle className="text-base">Vendor Acknowledgement</CardTitle></CardHeader>
+            <CardContent>
+              {(po.acknowledgements || []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {po.status === 'sent_to_vendor' ? 'Waiting for vendor to acknowledge (48h)...' : 'Not yet sent to vendor.'}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {po.acknowledgements.map((ack: any) => (
+                    <div key={ack.id} className="p-3 border rounded-lg text-sm">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                        <span className="font-medium">Acknowledged by {ack.acknowledged_by}</span>
+                      </div>
+                      {ack.expected_delivery && <p className="text-xs text-muted-foreground mt-1">Expected: {formatDate(ack.expected_delivery)}</p>}
+                      {ack.notes && <p className="text-xs text-muted-foreground mt-1">{ack.notes}</p>}
+                      <p className="text-[10px] text-muted-foreground">{formatDate(ack.acknowledged_at)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {po.notes && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
+              <CardContent><p className="text-sm whitespace-pre-wrap">{po.notes}</p></CardContent>
+            </Card>
+          )}
+        </div>
       </div>
-    </div>
-  )
-}
 
-// ── Line Items Tab ──────────────────────────────────────────────────────────
-
-function LineItemsTab({ po }: { po: any }) {
-  const items: any[] = po.line_items || []
-  if (!items.length) {
-    return <p className="text-sm text-muted-foreground italic">No line items.</p>
-  }
-
-  const subtotal = items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.unit_rate) || 0), 0)
-  const totalTax = items.reduce((s: number, i: any) => s + (Number(i.tax_amount) || 0), 0)
-  const taxRate = items[0]?.tax_rate ? Number(items[0].tax_rate) : 0
-  const grandTotal = subtotal + totalTax
-
-  return (
-    <div className="border rounded-md overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-slate-50 border-b">
-          <tr className="text-xs text-muted-foreground">
-            <th className="text-left px-3 py-2 font-medium w-8">#</th>
-            <th className="text-left px-3 py-2 font-medium">Item / Description</th>
-            <th className="text-right px-3 py-2 font-medium w-20">Qty</th>
-            <th className="text-left px-3 py-2 font-medium w-20">UOM</th>
-            <th className="text-right px-3 py-2 font-medium w-32">Unit Rate</th>
-            <th className="text-right px-3 py-2 font-medium w-32">Amount</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {items.map((item: any, idx: number) => {
-            const amount = (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0)
-            return (
-              <tr key={item.id ?? idx} className="hover:bg-slate-50/50">
-                <td className="px-3 py-2.5 text-muted-foreground">{idx + 1}</td>
-                <td className="px-3 py-2.5">
-                  <span className="font-medium">
-                    {item.item_code_detail?.code ?? item.item_code_detail?.description ?? '—'}
-                  </span>
-                  {item.description && (
-                    <span className="block text-xs text-muted-foreground mt-0.5">{item.description}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2.5 text-right">{item.quantity}</td>
-                <td className="px-3 py-2.5 text-muted-foreground">{item.unit_of_measure}</td>
-                <td className="px-3 py-2.5 text-right">{formatCurrency(item.unit_rate)}</td>
-                <td className="px-3 py-2.5 text-right font-medium">{formatCurrency(amount)}</td>
-              </tr>
-            )
-          })}
-        </tbody>
-        <tfoot>
-          <tr className="bg-slate-50 border-t">
-            <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Subtotal</td>
-            <td className="px-3 py-2 text-right font-bold">{formatCurrency(subtotal)}</td>
-          </tr>
-          <tr className="bg-slate-50">
-            <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Tax ({taxRate}%)</td>
-            <td className="px-3 py-2 text-right font-bold">{formatCurrency(totalTax)}</td>
-          </tr>
-          <tr className="bg-slate-100 border-t-2">
-            <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold">Total</td>
-            <td className="px-3 py-2.5 text-right font-bold text-base">{formatCurrency(grandTotal)}</td>
-          </tr>
-        </tfoot>
-      </table>
+      {/* Line Items — full-width below the two-column block */}
+      <Card>
+        <CardHeader><CardTitle className="text-base">Line Items ({items.length})</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          {items.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic p-6">No line items.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b">
+                  <tr className="text-xs text-muted-foreground">
+                    <th className="text-left px-3 py-2 font-medium w-8">#</th>
+                    <th className="text-left px-3 py-2 font-medium">Item / Description</th>
+                    <th className="text-right px-3 py-2 font-medium w-20">Qty</th>
+                    <th className="text-left px-3 py-2 font-medium w-20">UOM</th>
+                    <th className="text-right px-3 py-2 font-medium w-32">Unit Rate</th>
+                    <th className="text-right px-3 py-2 font-medium w-32">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {items.map((item: any, idx: number) => {
+                    const amount = (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0)
+                    return (
+                      <tr key={item.id ?? idx} className="hover:bg-slate-50/50">
+                        <td className="px-3 py-2.5 text-muted-foreground">{idx + 1}</td>
+                        <td className="px-3 py-2.5">
+                          <span className="font-medium">
+                            {item.item_code_detail?.code ?? item.item_code_detail?.description ?? '—'}
+                          </span>
+                          {item.description && (
+                            <span className="block text-xs text-muted-foreground mt-0.5">{item.description}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right">{item.quantity}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground">{item.unit_of_measure}</td>
+                        <td className="px-3 py-2.5 text-right">{formatCurrency(item.unit_rate)}</td>
+                        <td className="px-3 py-2.5 text-right font-medium">{formatCurrency(amount)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 border-t">
+                    <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Subtotal</td>
+                    <td className="px-3 py-2 text-right font-bold">{formatCurrency(itemsSubtotal)}</td>
+                  </tr>
+                  <tr className="bg-slate-50">
+                    <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Tax ({itemsTaxRate}%)</td>
+                    <td className="px-3 py-2 text-right font-bold">{formatCurrency(itemsTax)}</td>
+                  </tr>
+                  <tr className="bg-slate-100 border-t-2">
+                    <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold">Total</td>
+                    <td className="px-3 py-2.5 text-right font-bold text-base">{formatCurrency(itemsGrand)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -693,7 +698,7 @@ function GRNTab({ po, poId, onUpdate }: { po: any; poId: string; onUpdate: () =>
       {po.status === 'sent_to_vendor' || po.status === 'acknowledged' || po.status === 'partially_received' ? (
         <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">Record goods receipt when materials arrive at the plant.</p>
-          <Button size="sm" className="gap-1.5" onClick={() => window.location.href = `/purchase-orders/${poId}/grn/new`}>
+          <Button size="sm" className="gap-1.5" onClick={() => window.location.href = `/grns/new?po=${poId}`}>
             <Truck className="w-3.5 h-3.5" /> Create GRN
           </Button>
         </div>
@@ -752,3 +757,152 @@ function GRNTab({ po, poId, onUpdate }: { po: any; poId: string; onUpdate: () =>
     </div>
   )
 }
+
+// ── Invoices Tab ─────────────────────────────────────────────────────────────
+
+function InvoicesTab({ po }: { po: any }) {
+  const invoices: any[] = po.invoices || []
+
+  if (invoices.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Receipt className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground mb-4">No invoices billed against this PO yet.</p>
+          <Link href={`/invoices/new?po=${po.hash_id ?? po.id}`}>
+            <Button size="sm" className="gap-2">
+              <Receipt className="w-4 h-4" /> Register Invoice
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const totalInvoiced = invoices
+    .filter(inv => !['rejected', 'draft'].includes(inv.status))
+    .reduce((s, inv) => s + Number(inv.total_amount || 0), 0)
+  const poTotal = Number(po.total_amount || 0)
+  const invoicedPct = poTotal > 0 ? Math.min(100, (totalInvoiced / poTotal) * 100) : 0
+
+  return (
+    <Card>
+      <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-base">Invoices billed against this PO</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Invoiced: <span className="font-semibold text-foreground">{formatCurrency(totalInvoiced)}</span>{' '}
+            of {formatCurrency(poTotal)} ({invoicedPct.toFixed(0)}%)
+          </p>
+        </div>
+        <Link href={`/invoices/new?po=${po.hash_id ?? po.id}`}>
+          <Button size="sm" variant="outline" className="gap-2">
+            <Receipt className="w-4 h-4" /> New Invoice
+          </Button>
+        </Link>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="px-6">
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
+            <div
+              className={`h-full ${invoicedPct >= 100 ? 'bg-green-500' : invoicedPct >= 50 ? 'bg-amber-500' : 'bg-blue-500'}`}
+              style={{ width: `${invoicedPct}%` }}
+            />
+          </div>
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 border-t border-b">
+            <tr>
+              <th className="text-left px-4 py-2 font-medium text-muted-foreground text-xs uppercase">Invoice</th>
+              <th className="text-left px-4 py-2 font-medium text-muted-foreground text-xs uppercase">Vendor No.</th>
+              <th className="text-left px-4 py-2 font-medium text-muted-foreground text-xs uppercase">Invoice Date</th>
+              <th className="text-left px-4 py-2 font-medium text-muted-foreground text-xs uppercase">Due Date</th>
+              <th className="text-right px-4 py-2 font-medium text-muted-foreground text-xs uppercase">Amount</th>
+              <th className="text-left px-4 py-2 font-medium text-muted-foreground text-xs uppercase">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoices.map(inv => (
+              <tr
+                key={inv.id}
+                onClick={() => window.location.assign(`/invoices/${inv.hash_id ?? inv.id}`)}
+                className="border-b last:border-0 hover:bg-slate-50 cursor-pointer"
+              >
+                <td className="px-4 py-2.5 font-mono text-xs text-purple-700 font-semibold">{inv.internal_ref}</td>
+                <td className="px-4 py-2.5">{inv.invoice_number || '—'}</td>
+                <td className="px-4 py-2.5 text-xs">{inv.invoice_date ? formatDate(inv.invoice_date) : '—'}</td>
+                <td className="px-4 py-2.5 text-xs">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
+                <td className="px-4 py-2.5 text-right font-medium">{formatCurrency(inv.total_amount)}</td>
+                <td className="px-4 py-2.5"><StatusBadge status={inv.status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Documents Tab ────────────────────────────────────────────────────────────
+
+function DocumentsTab({ po }: { po: any }) {
+  // Docs are sourced from acknowledgements (vendor PDFs), GRNs (challan), and
+  // any future PO document store. For now we surface what's already linked.
+  type DocItem = { label: string; sub: string; href?: string }
+  const docs: DocItem[] = []
+
+  for (const ack of (po.acknowledgements || [])) {
+    if (ack.document) {
+      docs.push({
+        label: `Vendor Acknowledgement — ${ack.acknowledged_by}`,
+        sub: ack.acknowledged_at ? formatDate(ack.acknowledged_at) : 'Date unknown',
+        href: ack.document,
+      })
+    }
+  }
+  for (const grn of (po.goods_receipts || [])) {
+    if (grn.challan_number) {
+      docs.push({
+        label: `Delivery Challan — ${grn.grn_number}`,
+        sub: `Challan #${grn.challan_number}${grn.challan_date ? ' · ' + formatDate(grn.challan_date) : ''}`,
+      })
+    }
+  }
+
+  if (docs.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <Files className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+          No documents attached yet. Vendor acknowledgements and delivery challans appear here once recorded.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <ul className="divide-y">
+          {docs.map((d, i) => (
+            <li key={i} className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3">
+                <FileText className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">{d.label}</p>
+                  <p className="text-xs text-muted-foreground">{d.sub}</p>
+                </div>
+              </div>
+              {d.href && (
+                <a href={d.href} target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" variant="outline">Open</Button>
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )
+}
+

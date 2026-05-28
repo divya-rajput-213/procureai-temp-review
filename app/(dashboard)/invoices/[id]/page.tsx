@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, FileText, Package, Upload, GitCompare, CreditCard,
   Loader2, Send, CheckCircle2, XCircle, DollarSign,
-  Download, AlertTriangle,
+  Download, AlertTriangle, History, Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,9 +21,10 @@ import apiClient from '@/lib/api/client'
 const TABS = [
   { key: 'details', label: 'Details', icon: FileText },
   { key: 'line_items', label: 'Line Items', icon: Package },
+  { key: 'match_result', label: '3-Way Match', icon: GitCompare },
+  { key: 'payments', label: 'Payment', icon: CreditCard },
   { key: 'documents', label: 'Documents', icon: Upload },
-  { key: 'match_result', label: 'Match Result', icon: GitCompare },
-  { key: 'payments', label: 'Payments', icon: CreditCard },
+  { key: 'activity', label: 'Activity', icon: History },
 ]
 
 const TYPE_LABELS: Record<string, string> = {
@@ -224,6 +225,7 @@ export default function InvoiceDetailPage() {
       {activeTab === 'documents' && <DocumentsTab invoice={invoice} />}
       {activeTab === 'match_result' && <MatchResultTab invoice={invoice} />}
       {activeTab === 'payments' && <PaymentsTab invoice={invoice} />}
+      {activeTab === 'activity' && <ActivityTab invoice={invoice} />}
 
       {/* Reject modal */}
       {showRejectModal && (
@@ -470,6 +472,26 @@ function MatchResultTab({ invoice }: { invoice: any }) {
     return <div className="text-center py-12 text-muted-foreground text-sm">No match result available. Trigger 3-way matching first.</div>
   }
 
+  const statusIcon = (status: string) => {
+    if (status === 'matched') return <CheckCircle2 className="w-5 h-5 text-green-500" />
+    if (status === 'variance') return <AlertTriangle className="w-5 h-5 text-amber-500" />
+    return <XCircle className="w-5 h-5 text-red-500" />
+  }
+  const statusLabel = (status: string) => {
+    if (status === 'matched') return 'Matched'
+    if (status === 'variance') return 'Variance'
+    if (status === 'not_found') return 'Not Found'
+    return 'N/A'
+  }
+
+  const details = match.match_details || {}
+  const lineResults: any[] = details.line_results || []
+  const summary = details.summary || {}
+  const priceWarnings: string[] = details.price_warnings || []
+  const qtyWarnings: string[] = details.qty_warnings || []
+  const gstWarnings: string[] = details.gst_warnings || []
+  const blockingError: string | undefined = details.error
+
   return (
     <div className="space-y-4">
       <Card>
@@ -482,67 +504,128 @@ function MatchResultTab({ invoice }: { invoice: any }) {
             <div className="border rounded-lg p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">Purchase Order</p>
-                {match.po_matched ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-500" />
-                ) : (
-                  <XCircle className="w-5 h-5 text-red-500" />
-                )}
+                {statusIcon(match.po_match_status)}
               </div>
-              <p className="text-xs text-muted-foreground">PO: {match.po_number || '—'}</p>
-              {match.po_variance != null && (
+              <p className="text-xs text-muted-foreground">PO: {invoice.po_number || '—'}</p>
+              <p className="text-xs">
+                Status: <span className="font-medium">{statusLabel(match.po_match_status)}</span>
+              </p>
+              {match.po_amount_variance != null && Number(match.po_amount_variance) !== 0 && (
                 <p className="text-xs">
-                  Variance: <span className={match.po_variance === 0 ? 'text-green-600' : 'text-amber-600'}>{formatCurrency(match.po_variance)}</span>
+                  Amount variance: <span className="text-amber-600">{formatCurrency(match.po_amount_variance)}</span>
                 </p>
+              )}
+              {match.price_variance_pct != null && Number(match.price_variance_pct) > 0 && (
+                <p className="text-xs">Price variance: {Number(match.price_variance_pct).toFixed(2)}%</p>
               )}
             </div>
             {/* GRN Match */}
             <div className="border rounded-lg p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">Goods Receipt</p>
-                {match.grn_matched ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-500" />
-                ) : (
-                  <XCircle className="w-5 h-5 text-red-500" />
-                )}
+                {statusIcon(match.grn_match_status)}
               </div>
-              <p className="text-xs text-muted-foreground">GRN: {match.grn_number || '—'}</p>
-              {match.grn_variance != null && (
+              <p className="text-xs text-muted-foreground">GRN: {invoice.grn_number || '—'}</p>
+              <p className="text-xs">
+                Status: <span className="font-medium">{statusLabel(match.grn_match_status)}</span>
+              </p>
+              {match.grn_qty_variance != null && Number(match.grn_qty_variance) !== 0 && (
                 <p className="text-xs">
-                  Variance: <span className={match.grn_variance === 0 ? 'text-green-600' : 'text-amber-600'}>{formatCurrency(match.grn_variance)}</span>
+                  Qty variance: <span className="text-amber-600">{match.grn_qty_variance}</span>
                 </p>
+              )}
+              {match.qty_variance_pct != null && Number(match.qty_variance_pct) > 0 && (
+                <p className="text-xs">Qty variance: {Number(match.qty_variance_pct).toFixed(2)}%</p>
               )}
             </div>
             {/* Tolerance */}
             <div className="border rounded-lg p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">Within Tolerance</p>
-                {match.within_tolerance ? (
+                {match.is_within_tolerance ? (
                   <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Yes</Badge>
                 ) : (
                   <Badge variant="destructive">No</Badge>
                 )}
               </div>
-              {match.tolerance_percentage != null && (
-                <p className="text-xs text-muted-foreground">Tolerance: {match.tolerance_percentage}%</p>
+              {match.tolerance_pct != null && (
+                <p className="text-xs text-muted-foreground">Tolerance: {Number(match.tolerance_pct).toFixed(2)}%</p>
               )}
-              {match.total_variance != null && (
-                <p className="text-xs">
-                  Total variance: <span className="font-medium">{formatCurrency(match.total_variance)}</span>
-                </p>
-              )}
+              <p className="text-xs">
+                Type: <span className="font-medium">{match.match_type === 'three_way' ? '3-Way Match' : '2-Way Match'}</span>
+              </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Match details / notes */}
-      {match.notes && (
-        <Card>
+      {/* Blocking error (e.g. no GRN, duplicate) */}
+      {blockingError && (
+        <Card className="border-red-200 bg-red-50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Notes</CardTitle>
+            <CardTitle className="text-base text-red-700">Blocked</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">{match.notes}</p>
+            <p className="text-sm text-red-700">{blockingError}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Line-by-line breakdown */}
+      {lineResults.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              Line-by-line ({summary.matched ?? 0} matched · {summary.review_required ?? 0} review · {summary.blocked ?? 0} blocked)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b">
+                  <tr>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground text-xs">#</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground text-xs">Description</th>
+                    <th className="text-right px-4 py-2 font-medium text-muted-foreground text-xs">Inv Qty</th>
+                    <th className="text-right px-4 py-2 font-medium text-muted-foreground text-xs">GRN Qty</th>
+                    <th className="text-right px-4 py-2 font-medium text-muted-foreground text-xs">PO Rate</th>
+                    <th className="text-right px-4 py-2 font-medium text-muted-foreground text-xs">Inv Rate</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground text-xs">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineResults.map((l, i) => (
+                    <tr key={i} className="border-b last:border-0">
+                      <td className="px-4 py-2 text-xs text-muted-foreground">{l.line_number}</td>
+                      <td className="px-4 py-2">{l.description}</td>
+                      <td className="px-4 py-2 text-right">{l.invoice_qty ?? '—'}</td>
+                      <td className="px-4 py-2 text-right">{l.grn_qty ?? '—'}</td>
+                      <td className="px-4 py-2 text-right">{l.po_rate ? formatCurrency(l.po_rate) : '—'}</td>
+                      <td className="px-4 py-2 text-right">{l.invoice_rate ? formatCurrency(l.invoice_rate) : '—'}</td>
+                      <td className="px-4 py-2">
+                        {l.status === 'matched' && <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Matched</Badge>}
+                        {l.status === 'review_required' && <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Review</Badge>}
+                        {l.status === 'blocked' && <Badge variant="destructive">Blocked</Badge>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Warnings */}
+      {(priceWarnings.length > 0 || qtyWarnings.length > 0 || gstWarnings.length > 0) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Warnings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            {priceWarnings.map((w, i) => <p key={`p${i}`} className="text-amber-700">{w}</p>)}
+            {qtyWarnings.map((w, i) => <p key={`q${i}`} className="text-red-700">{w}</p>)}
+            {gstWarnings.map((w, i) => <p key={`g${i}`} className="text-amber-700">{w}</p>)}
           </CardContent>
         </Card>
       )}
@@ -584,6 +667,104 @@ function PaymentsTab({ invoice }: { invoice: any }) {
             </tbody>
           </table>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Activity Tab ─────────────────────────────────────────────────────────────
+
+function ActivityTab({ invoice }: { invoice: any }) {
+  // No dedicated audit endpoint — derive events from invoice + match + payments.
+  type Event = { at: string | null; title: string; sub?: string; tone: 'created' | 'matched' | 'paid' | 'updated' | 'disputed' }
+  const events: Event[] = []
+
+  if (invoice.created_at) {
+    events.push({
+      at: invoice.created_at,
+      title: 'Invoice received',
+      sub: invoice.created_by_name ? `Uploaded by ${invoice.created_by_name}` : undefined,
+      tone: 'created',
+    })
+  }
+
+  const match = invoice.match_result
+  if (match?.matched_at) {
+    const pct = match.is_within_tolerance ? 100 : 60
+    events.push({
+      at: match.matched_at,
+      title: `3-Way match completed — ${match.match_type === 'three_way' ? '3-way' : '2-way'} match`,
+      sub: `PO: ${match.po_match_status} · GRN: ${match.grn_match_status} · ${pct}%`,
+      tone: 'matched',
+    })
+  }
+
+  if (invoice.approved_at) {
+    events.push({ at: invoice.approved_at, title: 'Approved for payment', tone: 'updated' })
+  }
+
+  if (invoice.status === 'disputed') {
+    events.push({ at: invoice.updated_at, title: 'Dispute raised', tone: 'disputed' })
+  }
+
+  for (const pay of (invoice.payments || [])) {
+    events.push({
+      at: pay.payment_date || pay.created_at,
+      title: `Payment recorded — ${formatCurrency(pay.amount)}`,
+      sub: `${pay.payment_mode?.toUpperCase()} · Ref: ${pay.reference_number}`,
+      tone: 'paid',
+    })
+  }
+
+  events.sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime())
+
+  if (events.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <History className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+          No activity recorded yet.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const toneColor: Record<Event['tone'], string> = {
+    created: 'bg-purple-100 text-purple-700',
+    matched: 'bg-blue-100 text-blue-700',
+    paid: 'bg-green-100 text-green-700',
+    updated: 'bg-amber-100 text-amber-700',
+    disputed: 'bg-red-100 text-red-700',
+  }
+  const toneIcon: Record<Event['tone'], any> = {
+    created: Upload,
+    matched: GitCompare,
+    paid: CheckCircle2,
+    updated: Clock,
+    disputed: AlertTriangle,
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <ul className="space-y-3">
+          {events.map((e, i) => {
+            const Icon = toneIcon[e.tone]
+            return (
+              <li key={i} className="flex gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${toneColor[e.tone]}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{e.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {e.at ? formatDate(e.at) : ''}{e.sub ? ` · ${e.sub}` : ''}
+                  </p>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
       </CardContent>
     </Card>
   )

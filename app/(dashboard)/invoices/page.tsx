@@ -5,8 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Search, X, Trash2, Loader2, AlertTriangle, Upload,
-  CheckCircle2, XCircle,
+  Plus, Search, X, Trash2, Loader2, AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -148,14 +148,9 @@ export default function InvoicesPage() {
           )}
         </div>
         <div className="flex gap-2 shrink-0">
-          <Link href="/invoices/upload">
-            <Button variant="outline" className="gap-2">
-              <Upload className="w-4 h-4" /> Upload Invoice
-            </Button>
-          </Link>
           <Link href="/invoices/new">
             <Button className="gap-2">
-              <Plus className="w-4 h-4" /> New Invoice
+              <Plus className="w-4 h-4" /> Register Invoice
             </Button>
           </Link>
         </div>
@@ -175,58 +170,100 @@ export default function InvoicesPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b">
                   <tr>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Internal Ref</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Invoice No.</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Vendor</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Amount</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Due Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Match</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Created</th>
-                    <th className="px-4 py-3" />
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Invoice No.</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Vendor</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">PO Ref</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">GRN Ref</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Invoice Value</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">3-Way</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Due Date</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Status</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {invoices.map((inv: any) => (
-                    <tr
-                      key={inv.id}
-                      onClick={() => router.push(`/invoices/${inv.hash_id || inv.id}`)}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
-                    >
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{inv.internal_ref}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{inv.invoice_type?.replace('_', ' ')}</p>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{inv.invoice_number || '—'}</td>
-                      <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{inv.vendor_name}</td>
-                      <td className="px-4 py-3 font-semibold">{formatCurrency(inv.total_amount)}</td>
-                      <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">
-                        {inv.due_date ? formatDate(inv.due_date) : '—'}
-                      </td>
-                      <td className="px-4 py-3"><StatusBadge status={inv.status} /></td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        {inv.match_status === 'matched' ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        ) : inv.match_status === 'mismatched' ? (
-                          <XCircle className="w-4 h-4 text-red-500" />
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{formatDate(inv.created_at)}</td>
-                      <td className="px-4 py-3 text-right">
-                        {inv.status === 'draft' && (
-                          <Button
-                            variant="ghost" size="sm"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                            onClick={e => { e.stopPropagation(); setDeletingInvoice(inv) }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {invoices.map((inv: any) => {
+                    const now = new Date()
+                    const due = inv.due_date ? new Date(inv.due_date) : null
+                    const daysToDue = due ? Math.round((due.getTime() - now.getTime()) / 86400000) : null
+                    const overdue = daysToDue !== null && daysToDue < 0 && inv.status !== 'paid'
+
+                    const matchSummary = inv.match_status
+                    const matched = matchSummary?.po_match_status === 'matched' && matchSummary?.grn_match_status === 'matched'
+                    const hasMatch = !!matchSummary
+                    const withinTol = matchSummary?.is_within_tolerance
+                    const matchPct = matched ? 100 : (withinTol ? 90 : (hasMatch ? 60 : 0))
+                    const matchColor = matchPct === 100 ? 'bg-green-500' : matchPct >= 80 ? 'bg-amber-500' : 'bg-red-500'
+                    const matchTextColor = matchPct === 100 ? 'text-green-700' : matchPct >= 80 ? 'text-amber-700' : 'text-red-700'
+
+                    return (
+                      <tr
+                        key={inv.id}
+                        onClick={() => router.push(`/invoices/${inv.hash_id || inv.id}`)}
+                        className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
+                      >
+                        <td className="px-4 py-3">
+                          <p className="font-mono text-xs text-purple-700 font-semibold">{inv.internal_ref}</p>
+                          <p className="text-xs text-muted-foreground">{inv.invoice_number || '—'} · {inv.invoice_type?.replace('_', ' ')}</p>
+                        </td>
+                        <td className="px-4 py-3 font-medium">{inv.vendor_name}</td>
+                        <td className="px-4 py-3">
+                          {inv.po_number ? (
+                            <span className="font-mono text-xs text-blue-700">{inv.po_number}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {inv.grn_number ? (
+                            <span className="font-mono text-xs text-green-700">{inv.grn_number}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold">{formatCurrency(inv.total_amount)}</td>
+                        <td className="px-4 py-3">
+                          {hasMatch ? (
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-bold ${matchTextColor}`}>{matchPct}%</span>
+                              <div className="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className={`h-full ${matchColor}`} style={{ width: `${matchPct}%` }} />
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Pending</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          <div className={overdue ? 'text-red-700 font-medium' : 'text-muted-foreground'}>
+                            {inv.due_date ? formatDate(inv.due_date) : '—'}
+                          </div>
+                          {overdue && (
+                            <div className="text-[10px] text-red-600">{Math.abs(daysToDue!)}d overdue</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge status={overdue ? 'rejected' : inv.status} /></td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                            <Link href={`/invoices/${inv.hash_id || inv.id}`}>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground" />
+                              </Button>
+                            </Link>
+                            {inv.status === 'draft' && (
+                              <Button
+                                variant="ghost" size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() => setDeletingInvoice(inv)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
