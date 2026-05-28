@@ -89,7 +89,7 @@ const DOT_COLORS: Record<string, string> = {
   counter_proposed: 'bg-indigo-500',
   requested: 'bg-amber-500',
   under_review: 'bg-blue-500',
-  submitted: 'bg-blue-400',
+  submitted: 'bg-orange-500',
   matched: 'bg-teal-500',
   on_hold: 'bg-amber-600',
   disputed: 'bg-orange-500',

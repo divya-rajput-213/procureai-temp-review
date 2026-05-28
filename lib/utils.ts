@@ -109,7 +109,7 @@ export const STATUS_COLORS: Record<string, string> = {
   fully_received: 'bg-green-100 text-green-700',
   on_hold: 'bg-amber-100 text-amber-700',
   // Invoice statuses
-  submitted: 'bg-blue-100 text-blue-700',
+  submitted: 'bg-orange-100 text-orange-700',
   matched: 'bg-teal-100 text-teal-700',
   disputed: 'bg-orange-100 text-orange-700',
   payment_initiated: 'bg-indigo-100 text-indigo-700',
