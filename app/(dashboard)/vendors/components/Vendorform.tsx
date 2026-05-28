@@ -1870,9 +1870,7 @@ export default function VendorForm({ vendorId: existingVendorId, initialValues, 
                 <i className="ti ti-arrow-left" /> Previous
               </Button>
             ) : (
-              <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => router.push('/vendors')}>
-                <i className="ti ti-x" /> Cancel
-              </Button>
+              ""
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
