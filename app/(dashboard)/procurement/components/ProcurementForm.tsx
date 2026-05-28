@@ -397,7 +397,7 @@ function QuotesStep({
       if (vendorFilter) params.vendor_id = vendorFilter
       if (dateFrom) params.date_from = dateFrom
       if (dateTo) params.date_to = dateTo
-      const { data } = await apiClient.get('/quotations/', { params })
+      const { data } = await apiClient.get('/quotations/unlinked', { params })
       return data
     },
     enabled: !!watchedTrackingId,

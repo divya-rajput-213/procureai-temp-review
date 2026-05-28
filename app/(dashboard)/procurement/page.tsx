@@ -34,10 +34,10 @@ function StatusSummary({ total, counts }: { total: number; counts: Record<string
 
 export default function ProcurementPage() {
   const [searchInput, setSearchInput] = useState('')
-  const [trackingInput, setTrackingInput] = useState('')
+  // const [trackingInput, setTrackingInput] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [search] = useDebounce(searchInput, 600)
-  const [trackingFilter] = useDebounce(trackingInput, 600)
+  // const [trackingFilter] = useDebounce(trackingInput, 600)
   const [page, setPage] = useState(1)
   const [deletingPR, setDeletingPR] = useState<any>(null)
   const router = useRouter()
@@ -60,11 +60,12 @@ export default function ProcurementPage() {
   })
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['purchase-requisitions', search, statusFilter, trackingFilter, page],
+    queryKey: ['purchase-requisitions', search, statusFilter, page],
     queryFn: async () => {
       const params: Record<string, string> = { page: String(page), page_size: String(PAGE_SIZE) }
       if (search) params.search = search
       if (statusFilter) params.status = statusFilter
+      // if (trackingFilter) params.tracking_code = trackingFilter
       const { data } = await apiClient.get('/procurement/', { params })
       return data
     },
@@ -72,13 +73,11 @@ export default function ProcurementPage() {
     staleTime: 0,
   })
 
-  const prs: any[] = (data?.results ?? (Array.isArray(data) ? data : [])).filter((pr: any) =>
-    !trackingFilter || String(pr.tracking_code || '').toLowerCase().includes(trackingFilter.toLowerCase())
-  )
+  const prs: any[] = data?.results ?? (Array.isArray(data) ? data : [])
   const totalCount: number = data?.count ?? prs.length
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
-  const hasFilters = !!(searchInput || statusFilter || trackingInput)
+  const hasFilters = !!(searchInput || statusFilter)
 
   const statusCounts = prs.reduce((acc: Record<string, number>, pr: any) => {
     acc[pr.status] = (acc[pr.status] ?? 0) + 1
@@ -94,10 +93,10 @@ export default function ProcurementPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Search PRs…" className="pl-9 h-9" value={searchInput} onChange={e => { setSearchInput(e.target.value); resetPage() }} />
         </div>
-        <div className="relative min-w-[140px] flex-1 max-w-[220px]">
+        {/* <div className="relative min-w-[140px] flex-1 max-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Tracking ID…" className="pl-9 h-9" value={trackingInput} onChange={e => { setTrackingInput(e.target.value); resetPage() }} />
-        </div>
+        </div> */}
         <select
           className="h-9 border rounded-md px-3 text-sm bg-background shrink-0 min-w-[130px]"
           value={statusFilter}
@@ -114,7 +113,7 @@ export default function ProcurementPage() {
         </select>
         {hasFilters && (
           <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground"
-            onClick={() => { setSearchInput(''); setTrackingInput(''); setStatusFilter(''); resetPage() }}>
+            onClick={() => { setSearchInput(''); setStatusFilter(''); resetPage() }}>
             <X className="w-3.5 h-3.5" /> Clear
           </Button>
         )}

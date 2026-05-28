@@ -437,12 +437,12 @@ export default function VendorsPage() {
               <span className="hidden sm:inline">Export CSV</span>
               <span className="sm:hidden">CSV</span>
             </Button>
-            <Link href="/vendors/import">
+            {/* <Link href="/vendors/import">
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Upload className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Import</span>
               </Button>
-            </Link>
+            </Link> */}
             <Link href="/vendors/new">
               <Button size="sm" className="gap-1.5">
                 <Plus className="w-4 h-4" />
