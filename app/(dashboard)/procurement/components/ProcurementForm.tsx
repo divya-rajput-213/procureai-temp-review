@@ -1049,7 +1049,7 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
               Select quotations · Compare &amp; select vendor · Submit for approval
             </div>
           </div>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/procurement')}>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push(isEditMode && procurementId ? `/procurement/${procurementId}` : '/procurement')}>
             <ArrowLeft className="w-3.5 h-3.5" /> Back
           </Button>
         </div>
