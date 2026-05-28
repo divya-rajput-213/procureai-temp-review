@@ -16,7 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [hydrated, setHydrated] = useState(false)
-
+        
   useEffect(() => {
     // Wait one tick for zustand persist rehydration
     setHydrated(true)
