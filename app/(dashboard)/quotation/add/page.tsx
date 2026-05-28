@@ -71,13 +71,13 @@ export default function UploadQuotationPage() {
         queryFn: async () => { const r = await apiClient.get('/users/departments/'); return r.data?.results ?? r.data ?? [] },
     })
 
-      const { data: categories,  } = useQuery({
+    const { data: categories, } = useQuery({
         queryKey: ['vendor-categories-manage'],
         queryFn: async () => {
-          const r = await apiClient.get(`/vendors/categories/`)
-          return r.data.results ?? r.data
+            const r = await apiClient.get(`/vendors/categories/`)
+            return r.data.results ?? r.data
         },
-      })
+    })
     const { data: PRs = [] } = useQuery({
         queryKey: ['purchase-requisitions'],
         queryFn: async () => {
@@ -171,22 +171,22 @@ export default function UploadQuotationPage() {
                 pr_id: prLinkId ? Number(prLinkId) : null,
                 file_key: quotation?.file_key ?? null,
                 ...(status ? { status } : {}),
-                items: lineItems.map((item: any) => {
-                    const selectedSuggestion = item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))
-                    const selectedMaster = masterItems?.find((m: any) => String(m.id) === String(item.selectedMasterId))
-                    return {
-                        item_code: item.item_code ?? item.code, item_name: item.item_name,
-                        item_price: item.item_price, quantity: item.quantity || 1,
-                        unit_of_measure: item.unit_of_measure ?? item.uom,
-                        hsn_code: item.hsn_code ?? selectedSuggestion?.hsn_code ?? selectedMaster?.hsn_code ?? null,
-                        create_new_item: item.createNew, is_new: item?.is_new || false,
-                        is_duplicate: item?.is_duplicate || false,
-                        suggestions: item.createNew ? [] : selectedSuggestion ? [selectedSuggestion] : [],
-                        is_manual_hsn: item.is_manual_hsn ?? false,
-                        is_manual_unit_price: item.is_manual_unit_price ?? false,
-                        is_manual_uom: item.is_manual_uom ?? false,
-                    }
-                }),
+                items: lineItems.map((item: any) => ({
+                    item_code: item.item_code ?? item.code,
+                    item_name: item.item_name,
+                    item_price: item.item_price,
+                    quantity: item.quantity || 1,
+                    unit_of_measure: item.unit_of_measure ?? item.uom,
+                    hsn_code: item.hsn_code ?? null,
+                    create_new_item: item.createNew,
+                    master_item_id: item.selectedMasterId ? Number(item.selectedMasterId) : null,
+                    is_new: item?.is_new || false,
+                    is_duplicate: item?.is_duplicate || false,
+                    suggestions: item.createNew ? [] : (item.suggestions || []),
+                    is_manual_hsn: item.is_manual_hsn ?? false,
+                    is_manual_unit_price: item.is_manual_unit_price ?? false,
+                    is_manual_uom: item.is_manual_uom ?? false,
+                })),
             })
             return data
         },
@@ -317,7 +317,7 @@ export default function UploadQuotationPage() {
                 } else if (e?.response?.data?.error) {
                     message = e.response.data.error
                 }
-            } catch {}
+            } catch { }
             toast({ title: 'Export failed', description: message, variant: 'destructive' })
             setShowExportModal(false)
         } finally {
@@ -572,7 +572,7 @@ export default function UploadQuotationPage() {
                 )}
 
                 {/* ── Action bar ── */}
-                <div className="sticky-bar rounded-b-xl" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center'  }}>
+                <div className="sticky-bar rounded-b-xl" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
                         {currentStep > 0 ? (
                             <Button variant="outline" size="sm" onClick={() => setCurrentStep(s => s - 1)}>
