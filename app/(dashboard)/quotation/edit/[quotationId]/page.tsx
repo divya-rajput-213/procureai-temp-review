@@ -67,13 +67,13 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
         queryKey: ['departments'],
         queryFn: async () => { const r = await apiClient.get('/users/departments/'); return r.data?.results ?? r.data ?? [] },
     })
-    const { data: categories,  } = useQuery({
+    const { data: categories, } = useQuery({
         queryKey: ['vendor-categories-manage'],
         queryFn: async () => {
-          const r = await apiClient.get(`/vendors/categories/`)
-          return r.data.results ?? r.data
+            const r = await apiClient.get(`/vendors/categories/`)
+            return r.data.results ?? r.data
         },
-      })
+    })
     const { data: PRs = [] } = useQuery({
         queryKey: ['purchase-requisitions'],
         queryFn: async () => { const { data } = await apiClient.get('/procurement/?status=draft'); return data.results || data },
@@ -130,24 +130,22 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 pr_id: prLinkId ? Number(prLinkId) : null,
                 internal_notes: internalNotes || null,
                 valid_until: validUntil || null,
-                items: lineItems.map((item: any) => {
-                    const selectedSuggestion = item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))
-                    return {
-                        item_code: item.item_code ?? item.code,
-                        item_name: item.item_name,
-                        item_price: item.item_price,
-                        quantity: item.quantity || 1,
-                        unit_of_measure: item.unit_of_measure ?? item.uom,
-                        hsn_code: item.hsn_code ?? selectedSuggestion?.hsn_code ?? null,
-                        create_new_item: item.createNew,
-                        is_new: item?.is_new || false,
-                        is_duplicate: item?.is_duplicate || false,
-                        suggestions: item.createNew ? [] : selectedSuggestion ? [selectedSuggestion] : [],
-                        is_manual_hsn: item.is_manual_hsn ?? false,
-                        is_manual_unit_price: item.is_manual_unit_price ?? false,
-                        is_manual_uom: item.is_manual_uom ?? false,
-                    }
-                }),
+                items: lineItems.map((item: any) => ({
+                    item_code: item.item_code ?? item.code,
+                    item_name: item.item_name,
+                    item_price: item.item_price,
+                    quantity: item.quantity || 1,
+                    unit_of_measure: item.unit_of_measure ?? item.uom,
+                    hsn_code: item.hsn_code ?? null,
+                    create_new_item: item.createNew,
+                    master_item_id: item.selectedMasterId ? Number(item.selectedMasterId) : null,
+                    is_new: item?.is_new || false,
+                    is_duplicate: item?.is_duplicate || false,
+                    suggestions: item.createNew ? [] : (item.suggestions || []),
+                    is_manual_hsn: item.is_manual_hsn ?? false,
+                    is_manual_unit_price: item.is_manual_unit_price ?? false,
+                    is_manual_uom: item.is_manual_uom ?? false,
+                })),
             }
             if (status) payload.status = status
             const { data } = await apiClient.patch(`/quotations/${params.quotationId}/`, payload)
@@ -224,7 +222,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 } else if (e?.response?.data?.error) {
                     message = e.response.data.error
                 }
-            } catch {}
+            } catch { }
             toast({ title: 'Export failed', description: message, variant: 'destructive' })
             setShowExportModal(false)
         } finally {
@@ -422,12 +420,12 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 {currentStep === 0 && (
                     <UploadFile
                         selectedFile={null}
-                        setSelectedFile={() => {}}
-                        handleRemoveTagState={() => {}}
+                        setSelectedFile={() => { }}
+                        handleRemoveTagState={() => { }}
                         dragging={false}
-                        handleDragOver={() => {}}
-                        handleDragLeave={() => {}}
-                        handleDrop={() => {}}
+                        handleDragOver={() => { }}
+                        handleDragLeave={() => { }}
+                        handleDrop={() => { }}
                         plantId={plantId}
                         setPlantId={setPlantId}
                         departmentId={departmentId}
