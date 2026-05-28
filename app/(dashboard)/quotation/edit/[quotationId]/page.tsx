@@ -155,6 +155,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
             toast({ title: 'Saved', description: 'Quotation updated successfully' })
             setShowConfirm(false)
             queryClient.invalidateQueries({ queryKey: ['quotations'] })
+            queryClient.invalidateQueries({ queryKey: ['quotation-edit', params.quotationId] })
+            queryClient.invalidateQueries({ queryKey: ['quotation', params.quotationId] })
             router.push('/quotation')
         },
         onError: (error: any) => {
