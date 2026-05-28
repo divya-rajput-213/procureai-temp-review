@@ -368,8 +368,8 @@ function QuotesStep({
     return vendorColors[name]
   }
 
-  const [sortKey, setSortKey] = useState<SortKey>('ref_no')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [sortKey, setSortKey] = useState<SortKey>('quotation_date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [budgetFilter, setBudgetFilter] = useState<'all' | 'within' | 'exceeds'>('all')
   const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(1)
@@ -401,6 +401,7 @@ function QuotesStep({
     },
     enabled: !!watchedTrackingId,
     placeholderData: (prev: any) => prev,
+    staleTime: 0,
   })
 
   const quotations: any[] = qData?.results ?? (Array.isArray(qData) ? qData : [])
