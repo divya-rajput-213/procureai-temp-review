@@ -694,32 +694,39 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
                   <th>Item Description</th>
                   <th>HSN</th>
                   <th>Master Item</th>
-                  <th style={{ textAlign: 'right' }}>Qty</th>
+                  <th>Qty</th>
                   <th>Unit</th>
-                  <th style={{ textAlign: 'right' }}>Unit Price</th>
-                  <th style={{ textAlign: 'right' }}>Total</th>
+                  <th>Unit Price</th>
+                  <th>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item, idx) => (
                   <tr key={item.id ?? idx}>
                     <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
-                    <td style={{ fontWeight: 500 }}>
-                      {item.item_name}
+                    <td style={{ fontWeight: 500, maxWidth: 220 }}>
+                      <div style={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.item_name}>
+                        {item.item_name}
+                      </div>
                       {item.item_sub_name && (
-                        <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>{item.item_sub_name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.item_sub_name}>
+                          {item.item_sub_name}
+                        </div>
                       )}
                     </td>
-                    <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)' }}>{item.hsn_sac}</td>
-                    <td>
+                    <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)', whiteSpace: 'nowrap' }}>{item.hsn_sac}</td>
+                    <td style={{ maxWidth: 280 }}>
                       {item.master_item_name
-                        ? <><div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--blu-tx)' }}>{item.master_item_code || '—'}</div><div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 1 }}>{item.master_item_name}</div></>
+                        ? <>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--blu-tx)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.master_item_code || '—'}>{item.master_item_code || '—'}</div>
+                            <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 1, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.master_item_name}>{item.master_item_name}</div>
+                          </>
                         : <span style={{ color: 'var(--tx3)', fontSize: 13 }}>—</span>}
                     </td>
-                    <td style={{ textAlign: 'right' }}>{item.quantity}</td>
+                    <td>{item.quantity}</td>
                     <td style={{ color: 'var(--tx3)' }}>{item.unit}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatINR(item.price_per_unit)}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatINR(item.amount)}</td>
+                    <td style={{ fontWeight: 500 }}>{formatINR(item.price_per_unit)}</td>
+                    <td style={{ fontWeight: 700 }}>{formatINR(item.amount)}</td>
                   </tr>
                 ))}
               </tbody>
