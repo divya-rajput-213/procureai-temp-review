@@ -940,59 +940,6 @@ export default function PRDetailPage() {
                 </Card>
               )}
 
-              {/* LINE ITEMS */}
-              {(pr.line_items ?? []).length > 0 && (
-                <Card className="overflow-hidden rounded-xl shadow-sm">
-                  <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
-                    <div className="flex h-full items-center justify-between">
-                      <CardTitle className="text-sm font-semibold">Line Items</CardTitle>
-                      <span className="text-xs text-muted-foreground">{pr.line_items.length} item{pr.line_items.length !== 1 ? 's' : ''} · copied from quotations</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse text-sm">
-                        <thead className="bg-muted/30 border-b">
-                          <tr>
-                            {['#', 'Item Code', 'Description', 'Qty', 'UOM', 'Unit Rate', 'Total'].map((h) => (
-                              <th key={h} className={`px-4 py-2.5 text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold whitespace-nowrap ${['Qty', 'Unit Rate', 'Total'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(pr.line_items as any[]).map((item: any, idx: number) => {
-                            const code = item.item_code_detail?.code ?? '—'
-                            const desc = item.item_code_detail?.description ?? item.description ?? '—'
-                            const total = Number(item.quantity || 0) * Number(item.unit_rate || 0)
-                            return (
-                              <tr key={item.id} className="border-b last:border-0 hover:bg-muted/10">
-                                <td className="px-4 py-2.5 text-xs text-muted-foreground">{idx + 1}</td>
-                                <td className="px-4 py-2.5 text-xs font-mono font-semibold">{code}</td>
-                                <td className="px-4 py-2.5 text-sm">{desc}</td>
-                                <td className="px-4 py-2.5 text-right text-sm tabular-nums">{Number(item.quantity).toLocaleString()}</td>
-                                <td className="px-4 py-2.5 text-center text-xs text-muted-foreground">{item.unit_of_measure || 'EA'}</td>
-                                <td className="px-4 py-2.5 text-right text-sm tabular-nums">{formatCurrency(item.unit_rate, pr.currency_code)}</td>
-                                <td className="px-4 py-2.5 text-right text-sm font-semibold tabular-nums">{formatCurrency(total, pr.currency_code)}</td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                        <tfoot className="border-t bg-muted/20">
-                          <tr>
-                            <td colSpan={6} className="px-4 py-2.5 text-xs font-semibold text-right text-muted-foreground">Total</td>
-                            <td className="px-4 py-2.5 text-right text-sm font-bold">
-                              {formatCurrency(
-                                (pr.line_items as any[]).reduce((s: number, item: any) => s + Number(item.quantity || 0) * Number(item.unit_rate || 0), 0),
-                                pr.currency_code
-                              )}
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
               {/* QUOTATIONS */}
               <Card className="overflow-hidden rounded-xl shadow-sm">
