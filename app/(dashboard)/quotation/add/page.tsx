@@ -473,7 +473,7 @@ export default function UploadQuotationPage() {
                 <div className="page-hd" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                         <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.4px' }}>Add Quotation</div>
-                        <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>Upload document · Extract &amp; match items · Submit for approval</div>
+                        <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>Upload document · Extract &amp; match items · Submit</div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/quotation')}>

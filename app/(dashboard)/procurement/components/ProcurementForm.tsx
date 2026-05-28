@@ -20,7 +20,6 @@ import {
 } from 'date-fns'
 import { formatCurrency, PAGE_SIZE } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
-import { useSettingsStore } from '@/lib/stores/settings.store'
 import ApprovalMatrix from './ApprovalMatrix'
 import CompareStep from './CompareStep'
 import Link from 'next/link'
@@ -358,7 +357,7 @@ function QuotesStep({
   trackingDetail, selectedTracking, onSelectTracking,
   setValue, watchedTrackingId, errors, register,
   selectedQuotationIds, toggleQuotation,
-  grandTotal, budgetRemaining, budgetExceeded,
+  budgetRemaining,
   setSelectedQuotationIds, isEditMode, currentPrId,
 }: any) {
   const vendorColors: Record<string, string> = {}
@@ -762,42 +761,30 @@ function QuotesStep({
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderTop: '0.5px solid rgba(0,0,0,0.06)', flexWrap: 'wrap', gap: 8 }}>
-              <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
-                Page {page} of {totalPages}
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button
-                  type="button"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.14)', background: '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.5 : 1, fontSize: 12 }}
-                >
-                  <ChevronLeft style={{ width: 14, height: 14 }} />
-                </button>
+          {!qLoading && totalCount > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                Showing {Math.min((page - 1) * Q_PAGE_SIZE + 1, totalCount)}–{Math.min(page * Q_PAGE_SIZE, totalCount)} of {totalCount} quotation{totalCount === 1 ? '' : 's'}
+              </p>
+              <div className="flex items-center gap-1 ml-auto">
+                <Button type="button" variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1} className="h-8 w-8 p-0 text-xs hidden sm:flex items-center justify-center">«</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="h-8 w-8 p-0">
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   const start = Math.max(1, Math.min(page - 2, totalPages - 4))
                   const p = start + i
+                  if (p > totalPages) return null
                   return (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPage(p)}
-                      style={{ padding: '4px 8px', minWidth: 30, borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.14)', background: p === page ? 'hsl(var(--primary))' : '#fff', color: p === page ? '#fff' : '#1a1a18', cursor: 'pointer', fontSize: 12, fontWeight: p === page ? 600 : 400 }}
-                    >
+                    <Button key={p} type="button" variant={p === page ? 'default' : 'outline'} size="sm" onClick={() => setPage(p)} className="h-8 w-8 p-0 text-xs hidden sm:flex items-center justify-center">
                       {p}
-                    </button>
+                    </Button>
                   )
                 })}
-                <button
-                  type="button"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.14)', background: '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.5 : 1, fontSize: 12 }}
-                >
-                  <ChevronRight style={{ width: 14, height: 14 }} />
-                </button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="h-8 w-8 p-0">
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPage(totalPages)} disabled={page === totalPages} className="h-8 w-8 p-0 text-xs hidden sm:flex items-center justify-center">»</Button>
               </div>
             </div>
           )}
@@ -821,7 +808,6 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
   const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
-  const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
 
   const [step, setStep] = useState(initialStep)
   const [selectedTracking, setSelectedTracking] = useState<any>(null)
@@ -883,23 +869,9 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
     enabled: !!watchedTrackingId,
   })
 
-  const { data: quotations = [], isLoading: qLoading } = useQuery({
-    queryKey: ['quotations'],
-    queryFn: async () => {
-      const { data } = await apiClient.get('/quotations/')
-      return data?.results || data || []
-    },
-    enabled: !!watchedTrackingId,
-  })
-
   // ─── Budget calculations ───────────────────────────────────────────────
 
-  const selectedQuotationList = (quotations as any[]).filter((q: any) => selectedQuotationIds.includes(q.id))
-  const subtotal = selectedQuotationList.reduce((sum, q) => sum + (Number(q.total_amount) || 0), 0)
-  const taxTotal = activeTaxes.reduce((s, t) => s + subtotal * t.rate / 100, 0)
-  const grandTotal = subtotal + taxTotal
   const budgetRemaining = trackingDetail ? Number(trackingDetail.remaining_amount ?? 0) : null
-  const budgetExceeded = budgetRemaining !== null && grandTotal > budgetRemaining
 
   // ─── Mutations ────────────────────────────────────────────────────────
 
@@ -1083,13 +1055,9 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
               watchedTrackingId={watchedTrackingId}
               errors={errors}
               register={register}
-              quotations={quotations}
-              qLoading={qLoading}
               selectedQuotationIds={selectedQuotationIds}
               toggleQuotation={toggleQuotation}
-              grandTotal={grandTotal}
               budgetRemaining={budgetRemaining}
-              budgetExceeded={budgetExceeded}
               setSelectedQuotationIds={setSelectedQuotationIds}
               isEditMode={isEditMode}
               currentPrId={savedPrId}
