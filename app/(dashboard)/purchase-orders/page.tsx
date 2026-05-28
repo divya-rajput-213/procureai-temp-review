@@ -4,10 +4,11 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, X, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Search, X, Trash2, Loader2, Package, Receipt, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useToast } from '@/components/ui/use-toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -92,36 +93,28 @@ export default function PurchaseOrdersPage() {
   const orders: any[] = data || []
   const hasFilters = search || statusFilter || typeFilter
 
+  const counts = (statsData?.status_counts ?? {}) as Record<string, number>
+  const totalCount = statsData?.total_count ?? 0
+  const totalValue = Number(statsData?.total_value ?? 0)
+
   return (
     <div className="space-y-4">
-      {/* Stats row */}
+      {/* Stat strip — matches mockup */}
       {statsData && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Total POs</p>
-              <p className="text-2xl font-bold">{statsData.total ?? 0}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Pending Approval</p>
-              <p className="text-2xl font-bold">{statsData.by_status?.pending_approval ?? statsData.pending_approval ?? 0}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Sent to Vendor</p>
-              <p className="text-2xl font-bold">{statsData.by_status?.sent_to_vendor ?? statsData.sent_to_vendor ?? 0}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Total Value</p>
-              <p className="text-2xl font-bold">{formatCurrency(statsData.total_value ?? 0)}</p>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardContent className="py-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mr-2">POs</span>
+            <Badge className="bg-slate-900 text-white hover:bg-slate-900">{totalCount} Total</Badge>
+            <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">{counts.draft ?? 0} Draft</Badge>
+            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{counts.sent_to_vendor ?? 0} Sent</Badge>
+            <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-100">{counts.acknowledged ?? 0} Acknowledged</Badge>
+            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">{counts.partially_received ?? 0} Partial</Badge>
+            <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{counts.fully_received ?? 0} Delivered</Badge>
+            <Badge variant="destructive">{counts.cancelled ?? 0} Cancelled</Badge>
+            <div className="w-px h-5 bg-border mx-2" />
+            <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-100">{formatCurrency(totalValue)}</Badge>
+          </CardContent>
+        </Card>
       )}
 
       {/* Filters + New button */}
@@ -175,48 +168,109 @@ export default function PurchaseOrdersPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b">
                   <tr>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">PO Number</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Type</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Vendor</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Amount</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Created</th>
-                    <th className="px-4 py-3" />
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">PO Number</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Vendor</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">QT / PR Ref</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Items</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase">PO Value</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Delivery</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Invoiced</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Status</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {orders.map((po: any) => (
-                    <tr
-                      key={po.id}
-                      onClick={() => router.push(`/purchase-orders/${po.hash_id ?? po.id}`)}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
-                    >
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{po.po_number}</p>
-                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">{po.vendor_name}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
-                          {PO_TYPE_MAP[po.po_type] ?? po.po_type}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{po.vendor_name}</td>
-                      <td className="px-4 py-3 font-semibold">{formatCurrency(po.total_amount ?? po.net_amount)}</td>
-                      <td className="px-4 py-3"><StatusBadge status={po.status} /></td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{formatDate(po.created_at)}</td>
-                      <td className="px-4 py-3 text-right">
-                        {po.status === 'draft' && (
-                          <Button
-                            variant="ghost" size="sm"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                            onClick={e => { e.stopPropagation(); setDeletingPO(po) }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {orders.map((po: any) => {
+                    const progress = Number(po.received_progress_pct ?? 0)
+                    const progressColor = progress >= 100
+                      ? 'bg-green-500'
+                      : progress >= 50 ? 'bg-amber-500' : 'bg-slate-400'
+                    const invoicedAmt = Number(po.invoiced_amount ?? 0)
+                    const canGrn = ['sent_to_vendor', 'acknowledged', 'partially_received', 'issued'].includes(po.status)
+                    const canInvoice = ['acknowledged', 'partially_received', 'fully_received', 'closed'].includes(po.status)
+                    return (
+                      <tr
+                        key={po.id}
+                        onClick={() => router.push(`/purchase-orders/${po.hash_id ?? po.id}`)}
+                        className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
+                      >
+                        <td className="px-4 py-3">
+                          <p className="font-mono text-xs text-blue-700 font-semibold">{po.po_number}</p>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 mt-0.5">
+                            {PO_TYPE_MAP[po.po_type] ?? po.po_type}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{po.vendor_name ?? '—'}</p>
+                          {(po.vendor_city || po.vendor_state) && (
+                            <p className="text-xs text-muted-foreground">
+                              {[po.vendor_city, po.vendor_state].filter(Boolean).join(', ')}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {po.qt_number && (
+                            <div className="font-mono text-xs text-purple-700">{po.qt_number}</div>
+                          )}
+                          {po.pr_number && (
+                            <div className="font-mono text-xs text-blue-700">{po.pr_number}</div>
+                          )}
+                          {!po.qt_number && !po.pr_number && (
+                            <span className="text-xs text-muted-foreground">Standalone</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">{po.items_count ?? 0}</td>
+                        <td className="px-4 py-3 text-right font-semibold">{formatCurrency(po.total_amount ?? 0)}</td>
+                        <td className="px-4 py-3">
+                          <div className="text-xs">{po.earliest_delivery_date ? formatDate(po.earliest_delivery_date) : '—'}</div>
+                          <div className="mt-1 h-1.5 w-20 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full ${progressColor}`} style={{ width: `${progress}%` }} />
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">{progress}% received</div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {invoicedAmt > 0 ? (
+                            <span className="text-blue-700 font-medium">{formatCurrency(invoicedAmt)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge status={po.status} /></td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                            {canGrn && (
+                              <Link href={`/grns/new?po=${po.hash_id ?? po.id}`}>
+                                <Button size="sm" variant="outline" className="gap-1.5 h-7">
+                                  <Package className="w-3.5 h-3.5" /> GRN
+                                </Button>
+                              </Link>
+                            )}
+                            {canInvoice && (
+                              <Link href={`/invoices/new?po=${po.hash_id ?? po.id}`}>
+                                <Button size="sm" variant="outline" className="gap-1.5 h-7">
+                                  <Receipt className="w-3.5 h-3.5" /> Invoice
+                                </Button>
+                              </Link>
+                            )}
+                            <Link href={`/purchase-orders/${po.hash_id ?? po.id}`}>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                                <Eye className="w-3.5 h-3.5" />
+                              </Button>
+                            </Link>
+                            {po.status === 'draft' && (
+                              <Button
+                                variant="ghost" size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() => setDeletingPO(po)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

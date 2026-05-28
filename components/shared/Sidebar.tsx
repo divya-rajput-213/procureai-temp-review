@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   ClipboardList,
   Receipt,
+  GitCompare,
   CheckSquare,
   Settings,
   LogOut,
@@ -43,7 +44,9 @@ const NAV_ITEMS = [
     ],
   },
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList, indent: false },
+  { href: '/grns', label: 'GRN / Delivery', icon: Package, indent: false },
   { href: '/invoices', label: 'Invoices', icon: Receipt, indent: false },
+  { href: '/matching', label: '3-Way Matching', icon: GitCompare, indent: false },
   { href: '/approvals', label: 'Approvals', icon: CheckSquare, indent: false },
   {
     label: 'Inventory',
