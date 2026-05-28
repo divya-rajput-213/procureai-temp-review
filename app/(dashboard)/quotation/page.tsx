@@ -84,6 +84,7 @@ function StatusSummary({ totalCount, counts, totalValue }: {
   const badges = [
     { key: 'total',            label: 'Total',            count: totalCount,                          cls: 'bg-gray-900 text-white' },
     { key: 'draft',            label: 'Draft',            count: counts['draft'] ?? 0,            cls: 'bg-gray-100 text-gray-600 border border-gray-200' },
+    { key: 'submitted',        label: 'Submitted',        count: counts['submitted'] ?? 0,        cls: 'bg-orange-50 text-orange-700 border border-orange-200' },
     { key: 'approved',         label: 'Approved',         count: counts['approved'] ?? 0,         cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
     { key: 'under_evaluation', label: 'Under Evaluation', count: counts['under_evaluation'] ?? 0, cls: 'bg-blue-50 text-blue-700 border border-blue-200' },
     { key: 'shortlisted',      label: 'Shortlisted',      count: counts['shortlisted'] ?? 0,      cls: 'bg-teal-50 text-teal-700 border border-teal-200' },
@@ -240,6 +241,7 @@ export default function QuotationPage() {
           <select className="h-9 border rounded-md px-3 text-sm bg-background w-full" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
+            <option value="submitted">Submitted</option>
             <option value="approved">Approved</option>
             <option value="under_evaluation">Under Evaluation</option>
             <option value="shortlisted">Shortlisted</option>

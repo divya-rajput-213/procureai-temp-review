@@ -278,6 +278,7 @@ const QD_CSS = `
   .p-eval{background:#EFF6FF;color:#1D4ED8}.p-eval .dot{background:#3B82F6}
   .p-shortlist{background:var(--tel-bg);color:var(--tel-tx)}.p-shortlist .dot{background:var(--tel-bd)}
   .p-po{background:#F5F3FF;color:#6D28D9}.p-po .dot{background:#7C3AED}
+  .p-submitted{background:#FFEDD5;color:#C2410C}.p-submitted .dot{background:#F97316}
   .tag{font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap}
   .t-new{background:var(--grn-bg);color:var(--grn-tx)}
   .t-match{background:var(--blu-bg);color:var(--blu-tx)}
@@ -331,6 +332,7 @@ const STATUS_PILL: Record<string, { cls: string; label: string }> = {
   under_evaluation: { cls: 'p-eval', label: 'Under Evaluation' },
   shortlisted: { cls: 'p-shortlist', label: 'Shortlisted' },
   po_raised: { cls: 'p-po', label: 'PO Raised' },
+  submitted: { cls: 'p-submitted', label: 'Submitted' },
   rejected: { cls: 'p-rejected', label: 'Rejected' },
   not_selected: { cls: 'p-rejected', label: 'Rejected' },
   // legacy
@@ -514,13 +516,15 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
           <button
             className="qd-btn"
             onClick={() => {
-              if (!quotation.pr_no)
+              if (!quotation.pr_no && quotation.status !== 'submitted')
                 router.push(`/quotation/edit/${params.quotationId}`)
             }}
-            disabled={!!quotation.pr_no}
+            disabled={!!quotation.pr_no || quotation.status === 'submitted'}
             title={
               quotation.pr_no
                 ? `Linked to PR ${quotation.pr_no} — cannot edit`
+                : quotation.status === 'submitted'
+                ? 'Submitted quotation cannot be edited'
                 : 'Edit quotation'
             }
           >

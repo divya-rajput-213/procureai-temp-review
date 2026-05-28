@@ -225,9 +225,8 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
     const incompleteItems = lineItems.filter((item, idx) => {
         if (item.skipItem) return false
         const orig = origRef.current[idx]
-        // HSN: trusted if backend provided it; user-entered must be 6 digits
         const hsnFromBackend = !item._manuallyAdded && orig?.hsn != null
-        const hsnOk = hsnFromBackend || /^\d{8}$/.test(String(item.hsn_code || '').trim())
+        const hsnOk = hsnFromBackend || /^\d{4,}$/.test(String(item.hsn_code || '').trim())
         return !hsnOk || !item.unit_of_measure || !(Number(item.item_price) > 0)
     })
     const isBlocked = incompleteItems.length > 0
@@ -267,11 +266,11 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                         })()}
                     </div>
                     <div className="form-body" style={{ padding: 14 }}>
-                        {/* HSN info — only when any item is missing a valid 8-digit HSN */}
-                        {lineItems.some(item => !item.skipItem && !/^\d{8}$/.test(String(item.hsn_code || '').replace(/\s+/g, ''))) && (
+                        {/* HSN info — only when any item is missing a valid HSN */}
+                        {lineItems.some(item => !item.skipItem && !/^\d{4,}$/.test(String(item.hsn_code || '').replace(/\s+/g, ''))) && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#92540a', background: '#fef3c7', border: '0.5px solid #f59e0b', borderRadius: 6, padding: '7px 12px', marginBottom: 10 }}>
                                 <i className="ti ti-info-circle" style={{ fontSize: 14, flexShrink: 0 }} />
-                                <span>HSN code must be <strong>8 digits</strong> — required before submission.</span>
+                                <span>HSN code must be <strong>minimum 4 digits</strong> — required before submission.</span>
                             </div>
                         )}
                         {/* Extraction notice */}
@@ -321,7 +320,8 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                             ? !isManual && !item.is_manual_unit_price
                                             : !isManual && orig?.price != null && orig.price > 0
 
-                                        const hsnValid = hsnLocked || /^\d{8}$/.test(String(item.hsn_code || '').replace(/\s+/g, ''))
+                                        const hsnStr = String(item.hsn_code || '').replace(/\s+/g, '')
+                                        const hsnValid = hsnLocked || /^\d{4,}$/.test(hsnStr)
                                         const uomValid = uomLocked || !!item.unit_of_measure
                                         const priceValid = priceLocked || Number(item.item_price) > 0
                                         const showErr = showValidationErrors && !isSkip
@@ -345,12 +345,12 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                     const v = e.target.value.replace(/\D/g, '').slice(0, 8)
                                                                     updateItemFields(idx, { hsn_code: v, is_manual_hsn: true })
                                                                 }}
-                                                                placeholder="8-digit HSN"
-                                                                maxLength={8}
+                                                                placeholder="Min 4-digit HSN"
+                                                                maxLength={20}
                                                                 inputMode="numeric"
-                                                                style={{ ...(showErr && !hsnValid ? errorInputStyle : /^\d{8}$/.test(String(item.hsn_code || '')) ? editableStyle : needsInputStyle), fontFamily: 'monospace', width: 95 }}
+                                                                style={{ ...(showErr && !hsnValid ? errorInputStyle : /^\d{4,}$/.test(hsnStr) ? editableStyle : needsInputStyle), fontFamily: 'monospace', width: 95 }}
                                                             />
-                                                            {showErr && !hsnValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>HSN Code must be 8 digits</div>}
+                                                            {showErr && !hsnValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>HSN must be at least 4 digits</div>}
                                                           </>
                                                     }
                                                 </td>
