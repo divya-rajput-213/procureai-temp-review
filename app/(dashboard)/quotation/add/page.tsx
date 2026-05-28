@@ -39,8 +39,13 @@ export default function UploadQuotationPage() {
     const [internalNotes, setInternalNotes] = useState<string>('')
     const [isExtracting, setIsExtracting] = useState(false)
     const [showConfirm, setShowConfirm] = useState(false)
+    const [showDraftConfirm, setShowDraftConfirm] = useState(false)
     const [showExportModal, setShowExportModal] = useState(false)
     const [exporting, setExporting] = useState(false)
+    const [verifyStepValid, setVerifyStepValid] = useState(true)
+    const [validUntil, setValidUntil] = useState<string>('')
+    const [step0Errors, setStep0Errors] = useState<Record<string, string>>({})
+    const [showVerifyErrors, setShowVerifyErrors] = useState(false)
 
     const getApiErrorMessage = (error: any, fallback: string) => {
         const data = error?.response?.data
@@ -102,6 +107,8 @@ export default function UploadQuotationPage() {
         onSuccess: (data: any) => {
             setQuotation(data)
             setVendors(data.vendor ?? null)
+            const extractedValidUntil = data.vendor?.valid_until ?? data.valid_until ?? ''
+            if (extractedValidUntil) setValidUntil(extractedValidUntil)
             setLineItems((data.items || []).map((item: any) => ({
                 ...item,
                 createNew: item?.is_new ? true : (item?.createNew ?? false),
@@ -120,7 +127,7 @@ export default function UploadQuotationPage() {
     })
 
     const quotationSaveMutation = useMutation({
-        mutationFn: async () => {
+        mutationFn: async ({ status }: { status?: string } = {}) => {
             const { data } = await apiClient.post('/quotations/save/', {
                 vendor: {
                     company_name: vendors?.company_name, contact_name: vendors?.contact_name,
@@ -137,7 +144,7 @@ export default function UploadQuotationPage() {
                     place_of_supply: vendors?.place_of_supply ?? null,
                     quotation_no: vendors?.quotation_no ?? quotation?.quotation_no ?? null,
                     quotation_date: vendors?.quotation_date ?? quotation?.quotation_date ?? null,
-                    valid_until: vendors?.valid_until ?? quotation?.valid_until ?? null,
+                    valid_until: validUntil || null,
                     delivery_lead_time_days: vendors?.delivery_lead_time_days ?? null,
                     delivery_terms: vendors?.delivery_terms ?? null,
                     freight_charges: vendors?.freight_charges ?? null,
@@ -145,7 +152,7 @@ export default function UploadQuotationPage() {
                     warranty: vendors?.warranty ?? null,
                     is_new: vendors?.is_new ?? true,
                 },
-                valid_until: quotation?.vendor?.valid_until ?? quotation?.valid_until ?? null,
+                valid_until: validUntil || null,
                 grand_total: quotation?.grand_total ?? null,
                 subtotal_amount: quotation?.subtotal_amount ?? null,
                 cgst_rate: quotation?.cgst_rate ?? null,
@@ -163,6 +170,7 @@ export default function UploadQuotationPage() {
                 category_id: categoryId ? Number(categoryId) : null,
                 pr_id: prLinkId ? Number(prLinkId) : null,
                 file_key: quotation?.file_key ?? null,
+                ...(status ? { status } : {}),
                 items: lineItems.map((item: any) => {
                     const selectedSuggestion = item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))
                     const selectedMaster = masterItems?.find((m: any) => String(m.id) === String(item.selectedMasterId))
@@ -174,6 +182,9 @@ export default function UploadQuotationPage() {
                         create_new_item: item.createNew, is_new: item?.is_new || false,
                         is_duplicate: item?.is_duplicate || false,
                         suggestions: item.createNew ? [] : selectedSuggestion ? [selectedSuggestion] : [],
+                        is_manual_hsn: item.is_manual_hsn ?? false,
+                        is_manual_unit_price: item.is_manual_unit_price ?? false,
+                        is_manual_uom: item.is_manual_uom ?? false,
                     }
                 }),
             })
@@ -198,6 +209,7 @@ export default function UploadQuotationPage() {
         if (!selectedFile) {
             setQuotation(null); setVendors(null); setLineItems([])
             setCurrentStep(0); setCompletedSteps(new Set()); setIsExtracting(false)
+            setValidUntil('')
         }
     }, [selectedFile])
 
@@ -239,7 +251,14 @@ export default function UploadQuotationPage() {
     }
 
     const handleStep0Continue = () => {
-        if (!quotation || !vendors) return
+        const errs: Record<string, string> = {}
+        if (!quotation) errs.file = 'Please upload a quotation PDF first.'
+        if (!vendors) errs.vendor = 'Vendor details are required.'
+        if (!plantId) errs.plant = 'Plant is required.'
+        if (!departmentId) errs.department = 'Department is required.'
+        if (!categoryId) errs.category = 'Category is required.'
+        setStep0Errors(errs)
+        if (Object.keys(errs).length > 0) return
         setCompletedSteps(prev => { const u = new Set(prev); u.add(0); return u })
         setCurrentStep(1)
     }
@@ -287,8 +306,20 @@ export default function UploadQuotationPage() {
             link.remove()
             window.URL.revokeObjectURL(url)
             setShowExportModal(false)
-        } catch (e) {
-            console.error(e)
+        } catch (e: any) {
+            let message = 'Export failed. Please try again.'
+            try {
+                const blob: Blob = e?.response?.data
+                if (blob instanceof Blob) {
+                    const text = await blob.text()
+                    const json = JSON.parse(text)
+                    message = json.error ?? json.detail ?? json.message ?? message
+                } else if (e?.response?.data?.error) {
+                    message = e.response.data.error
+                }
+            } catch {}
+            toast({ title: 'Export failed', description: message, variant: 'destructive' })
+            setShowExportModal(false)
         } finally {
             setExporting(false)
         }
@@ -367,14 +398,15 @@ export default function UploadQuotationPage() {
                 .qf-root .ci:last-child{border-bottom:none}
                 .qf-root .ci-ok{color:var(--grn-tx)}
                 .qf-root .ci-idle{color:var(--tx3)}
-                .qf-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px;}
+                .qf-root{display:flex;flex-direction:column;min-height:calc(100vh - 90px)}
+                .qf-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;margin-top:auto;}
                 .qf-root .err-strip{background:var(--red-bg);border:0.5px solid var(--red-bd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:14px;color:var(--red-tx)}
-                .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:14px}
-                .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
+                .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed;min-width:860px}
+                .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
                 .qf-root .match-tbl tbody tr{border-bottom:0.5px solid var(--bd);cursor:default;transition:background .1s}
                 .qf-root .match-tbl tbody tr:last-child{border-bottom:none}
                 .qf-root .match-tbl tbody tr:hover{background:#fafaf8}
-                .qf-root .match-tbl td{padding:11px 12px;vertical-align:top}
+                .qf-root .match-tbl td{padding:10px 12px;vertical-align:top;white-space:nowrap;overflow:visible}
                 .qf-root .cell-inp{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:100%}
                 .qf-root .cell-inp:focus{background:var(--blu-bg);border-radius:4px;padding:2px 4px}
                 .qf-root .cell-num{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:60px;text-align:right}
@@ -436,12 +468,12 @@ export default function UploadQuotationPage() {
                 }
             `}</style>
 
-            <div className="qf-root relative">
+            <div className="qf-root">
                 {/* Page header */}
                 <div className="page-hd" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                         <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.4px' }}>Add Quotation</div>
-                        <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>Upload document · Extract &amp; match items · Submit for approval</div>
+                        <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 2 }}>Upload document · Extract &amp; match items · Submit</div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/quotation')}>
@@ -483,6 +515,8 @@ export default function UploadQuotationPage() {
                 {/* ── STEP 0: Upload Document ── */}
                 {currentStep === 0 && (
                     <UploadFile
+                        fieldErrors={step0Errors}
+                        onFieldChange={(field) => setStep0Errors(prev => { const n = { ...prev }; delete n[field]; return n })}
                         selectedFile={selectedFile}
                         setSelectedFile={setSelectedFile}
                         handleRemoveTagState={() => {
@@ -516,6 +550,8 @@ export default function UploadQuotationPage() {
                         allVendors={allApprovedVendors}
                         vendorsFetching={vendorsFetching}
                         onSelectVendor={(v: any) => setVendors((prev: any) => ({ ...v, gst_percentage: prev?.gst_percentage ?? v.gst_percentage }))}
+                        validUntil={validUntil}
+                        setValidUntil={setValidUntil}
                     />
                 )}
 
@@ -530,11 +566,13 @@ export default function UploadQuotationPage() {
                         onContinue={handleStep1Continue}
                         onBack={() => setCurrentStep(0)}
                         onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
+                        onValidationChange={(isValid) => { setVerifyStepValid(isValid); if (isValid) setShowVerifyErrors(false) }}
+                        showValidationErrors={showVerifyErrors}
                     />
                 )}
 
                 {/* ── Action bar ── */}
-                <div className="sticky-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="sticky-bar rounded-b-xl" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center'  }}>
                     <div style={{ display: 'flex', gap: 8 }}>
                         {currentStep > 0 ? (
                             <Button variant="outline" size="sm" onClick={() => setCurrentStep(s => s - 1)}>
@@ -550,40 +588,70 @@ export default function UploadQuotationPage() {
                         </span>
 
                         {currentStep === 0 && (
-                            <Button size="sm" onClick={handleStep0Continue} disabled={!quotation || !vendors || !plantId || !departmentId || !categoryId || uploadMutation.isPending || isExtracting} className="gap-1.5">
-
+                            <Button size="sm" onClick={handleStep0Continue} disabled={uploadMutation.isPending || isExtracting} className="gap-1.5">
                                 {step0ContinueLabel()}
                                 <ChevronRight style={{ width: 14, height: 14 }} />
                             </Button>
                         )}
 
-                        {currentStep === 1 && (
+                        {currentStep === 1 && (<>
                             <Button
+                                variant="outline"
                                 size="sm"
-                                onClick={() => setShowConfirm(true)}
+                                onClick={() => {
+                                    if (!verifyStepValid) { setShowVerifyErrors(true); return }
+                                    setShowVerifyErrors(false)
+                                    setShowDraftConfirm(true)
+                                }}
                                 disabled={isSaving}
                                 className="gap-1.5"
                             >
                                 {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
+                                Save as Draft
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={() => {
+                                    if (!verifyStepValid) { setShowVerifyErrors(true); return }
+                                    setShowVerifyErrors(false)
+                                    setShowConfirm(true)
+                                }}
+                                disabled={isSaving}
+                                className="gap-1.5"
+                            >
                                 Submit
                             </Button>
-                        )}
+                        </>)}
                     </div>
                 </div>
             </div>
 
             <CommonConfirmModal
                 isOpen={showExportModal}
-                title="Export Line Items"
+                title="Export New Items"
                 description={
                     <>
-                        Export <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} from this quotation as an Excel sheet?
+                        {(() => {
+                            const newCount = lineItems.filter(i => !i.skipItem && (i.createNew || i.is_new)).length
+                            return <><strong>{newCount}</strong> new item{newCount !== 1 ? 's' : ''} will be exported — existing catalogue matches are excluded.</>
+                        })()}
                     </>
                 }
                 confirmLabel="Export Excel"
                 onClose={() => setShowExportModal(false)}
                 onConfirm={handleExportExcel}
                 isPending={exporting}
+            />
+
+            {/* ── Draft confirm modal ── */}
+            <CommonConfirmModal
+                isOpen={showDraftConfirm}
+                title="Save as Draft"
+                description="Are you sure you want to save this quotation as a draft?"
+                confirmLabel="Save as Draft"
+                onClose={() => setShowDraftConfirm(false)}
+                onConfirm={() => quotationSaveMutation.mutate({ status: 'draft' })}
+                isPending={quotationSaveMutation.isPending}
             />
 
             {/* ── Confirm modal — outside qf-root so Tailwind styles are not overridden ── */}
@@ -598,7 +666,7 @@ export default function UploadQuotationPage() {
                 }
                 confirmLabel="Submit"
                 onClose={() => setShowConfirm(false)}
-                onConfirm={() => quotationSaveMutation.mutate()}
+                onConfirm={() => quotationSaveMutation.mutate({ status: 'submitted' })}
                 isPending={quotationSaveMutation.isPending}
             />
         </>

@@ -360,14 +360,14 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </Link>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">PO Number</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Type</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Plant</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
+            <table className="w-full text-[12px] table-fixed">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">PO Number</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Type</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Plant</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Amount</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -376,18 +376,18 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                     <tr
                       key={po.id}
                       onClick={() => { if (!po?.id) return; openInNewTab(`/purchase-orders/${po.id}`) }}
-                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-2.5 font-mono text-[11px]">{po?.po_number || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{po?.po_type_display || po?.po_type || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{po?.plant_name || '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{po?.total_amount != null ? formatCurrency(po?.total_amount) : '—'}</td>
-                      <td className="px-4 py-2.5 text-center"><StatusBadge status={po.status} /></td>
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-slate-700 truncate">{po?.po_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-muted-foreground truncate">{po?.po_type_display || po?.po_type || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-muted-foreground truncate">{po?.plant_name || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-left font-medium truncate">{po?.total_amount != null ? formatCurrency(po?.total_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 text-left"><StatusBadge status={po.status} /></td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-[12px] text-muted-foreground">No purchase orders yet</td>
+                    <td colSpan={5} className="py-10 text-center text-[12px] text-muted-foreground">No purchase orders yet</td>
                   </tr>
                 )}
               </tbody>
@@ -407,14 +407,14 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </Link>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Ref No</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Quotation No</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Valid Until</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
+            <table className="w-full text-[12px] table-fixed">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Ref No</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Quotation No</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Valid Until</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Amount</th>
+                  <th style={{ width: '20%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -427,18 +427,18 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                         if (!quotationId) return
                         openInNewTab(`/quotation/detail/${quotationId}`)
                       }}
-                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{q.ref_no || q.pr_number || '—'}</td>
-                      <td className="px-4 py-2.5 max-w-[160px] truncate">{q.quotation_no || q.title || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{(q.date || q.quotation_date || q.created_at) ? formatDate(q.date || q.quotation_date || q.created_at) : '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{(q.total_amount ?? q.bid_amount) != null ? formatCurrency(q.total_amount ?? q.bid_amount) : '—'}</td>
-                      <td className="px-4 py-2.5 text-center"><StatusBadge status={q.status} /></td>
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground truncate">{q.ref_no || q.pr_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] truncate">{q.quotation_no || q.title || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-muted-foreground truncate">{(q.date || q.quotation_date || q.created_at) ? formatDate(q.date || q.quotation_date || q.created_at) : '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-left font-medium truncate">{(q.total_amount ?? q.bid_amount) != null ? formatCurrency(q.total_amount ?? q.bid_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 text-left"><StatusBadge status={q.status} /></td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-[12px] text-muted-foreground">No quotations yet</td>
+                    <td colSpan={5} className="py-10 text-center text-[12px] text-muted-foreground">No quotations yet</td>
                   </tr>
                 )}
               </tbody>
@@ -458,15 +458,15 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </Link>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Invoice #</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Type</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">PO Ref</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-right">Amount</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-left">Due Date</th>
-                  <th className="px-4 py-2 text-[11px] uppercase text-center">Status</th>
+            <table className="w-full text-[12px] table-fixed">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th style={{ width: '17%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Invoice #</th>
+                  <th style={{ width: '17%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Type</th>
+                  <th style={{ width: '17%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">PO Ref</th>
+                  <th style={{ width: '17%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Amount</th>
+                  <th style={{ width: '17%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Due Date</th>
+                  <th style={{ width: '15%' }} className="px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -475,19 +475,19 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                     <tr
                       key={inv.id}
                       onClick={() => { if (!inv?.id) return; openInNewTab(`/invoices/${inv.id}`) }}
-                      className="border-t hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-2.5 font-mono text-[11px]">{inv.invoice_number || '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground capitalize">{inv.invoice_type?.replace(/_/g, ' ') || '—'}</td>
-                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground">{inv.po_number || '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
-                      <td className="px-4 py-2.5 text-center"><StatusBadge status={inv.status} /></td>
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-slate-700 truncate">{inv.invoice_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-muted-foreground capitalize truncate">{inv.invoice_type?.replace(/_/g, ' ') || '—'}</td>
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground truncate">{inv.po_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-left font-medium truncate">{inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</td>
+                      <td className="px-4 py-2.5 text-[12px] text-muted-foreground truncate">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
+                      <td className="px-4 py-2.5 text-left"><StatusBadge status={inv.status} /></td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-[12px] text-muted-foreground">No invoices yet</td>
+                    <td colSpan={6} className="py-10 text-center text-[12px] text-muted-foreground">No invoices yet</td>
                   </tr>
                 )}
               </tbody>
@@ -523,81 +523,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
           </CardContent>
         </Card>
 
-        {/* Bid Win Rate + Delivery Performance */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="rounded-xl border shadow-none">
-            <CardHeader className="py-3 px-4 border-b">
-              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-                <Trophy className="h-3.5 w-3.5" />
-                Bid Win Rate
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 flex flex-col items-center gap-2">
-              {stats.total_bids === 0 ? (
-                <div className="h-[120px] flex items-center justify-center text-[12px] text-muted-foreground">No bids yet</div>
-              ) : (
-                <>
-                  <div className="relative">
-                    <ResponsiveContainer width={120} height={120}>
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: 'Won', value: stats.accepted_bids ?? 0 },
-                            { name: 'Rejected', value: stats.rejected_bids ?? 0 },
-                            { name: 'Pending', value: stats.pending_bids ?? 0 },
-                          ]}
-                          cx={55} cy={55} innerRadius={36} outerRadius={52}
-                          startAngle={90} endAngle={-270}
-                          dataKey="value" strokeWidth={0}
-                        >
-                          <Cell fill="#2563eb" />
-                          <Cell fill="#ef4444" />
-                          <Cell fill="#e2e8f0" />
-                        </Pie>
-                        <Tooltip formatter={(v: any, name: any) => [v, name]} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[18px] font-bold text-slate-800">{stats.win_rate}%</span>
-                    </div>
-                  </div>
-                  <div className="text-center space-y-1">
-                    <div className="text-[11px] text-muted-foreground">{stats.accepted_bids} of {stats.total_bids} bids won</div>
-                    <div className="flex items-center justify-center gap-3 text-[10px]">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#2563eb] inline-block" />Won</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ef4444] inline-block" />Rejected</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#e2e8f0] inline-block" />Pending</span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl border shadow-none">
-            <CardHeader className="py-3 px-4 border-b">
-              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-                <Truck className="h-3.5 w-3.5" />
-                Delivery Performance
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <ResponsiveContainer width="100%" height={120}>
-                <LineChart data={dash.delivery_trend ?? []} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(v: any, name: any) => [`${v} days`, name === 'actual' ? 'Actual' : 'Target']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                  <Line type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-                  <Line type="monotone" dataKey="target" stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-              {stats.otd_pct != null && (
-                <p className="text-[10px] text-muted-foreground text-center mt-1">{stats.otd_pct}% on-time delivery</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
       {/* RIGHT SIDEBAR */}
@@ -653,12 +578,12 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
                       </span>
                       {hasValue && verified && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[9px] font-semibold shrink-0">
-                          <CheckCircle2 className="h-2.5 w-2.5" />Verified
+                          <CheckCircle2 className="h-2.5 w-2.5" />Uploaded
                         </span>
                       )}
                       {hasValue && !verified && hasDoc && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-semibold shrink-0">
-                          <AlertTriangle className="h-2.5 w-2.5" />Not Verified
+                          <AlertTriangle className="h-2.5 w-2.5" />Not Uploaded
                         </span>
                       )}
                       {hasValue && !hasDoc && (
@@ -687,27 +612,6 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
           </CardContent>
         </Card>
 
-        {/* Contact */}
-        <Card>
-          <CardHeader className="py-3 px-4 border-b">
-            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-              <User className="h-3.5 w-3.5" />
-              Contact Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <div className="text-[13px] font-medium">{vendor.contact_name}</div>
-                <div className="text-[11px] text-muted-foreground">Owner</div>
-              </div>
-              <div>
-                <div className="text-[12px]">{vendor.contact_email}</div>
-                <div className="text-[11px] text-muted-foreground">{vendor.contact_phone}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Vendor Scorecard */}
         {scorecard && (
@@ -807,6 +711,80 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
             </CardContent>
           </Card>
         )}
+
+        {/* Bid Win Rate + Delivery Performance */}
+        <Card className="rounded-xl border shadow-none">
+          <CardHeader className="py-3 px-4 border-b">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <Trophy className="h-3.5 w-3.5" />
+              Bid Win Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 flex flex-col items-center gap-2">
+            {stats.total_bids === 0 ? (
+              <div className="h-[120px] flex items-center justify-center text-[12px] text-muted-foreground">No bids yet</div>
+            ) : (
+              <>
+                <div className="relative">
+                  <ResponsiveContainer width={120} height={120}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Won', value: stats.accepted_bids ?? 0 },
+                          { name: 'Rejected', value: stats.rejected_bids ?? 0 },
+                          { name: 'Pending', value: stats.pending_bids ?? 0 },
+                        ]}
+                        cx={55} cy={55} innerRadius={36} outerRadius={52}
+                        startAngle={90} endAngle={-270}
+                        dataKey="value" strokeWidth={0}
+                      >
+                        <Cell fill="#2563eb" />
+                        <Cell fill="#ef4444" />
+                        <Cell fill="#e2e8f0" />
+                      </Pie>
+                      <Tooltip formatter={(v: any, name: any) => [v, name]} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-[18px] font-bold text-slate-800">{stats.win_rate}%</span>
+                  </div>
+                </div>
+                <div className="text-center space-y-1">
+                  <div className="text-[11px] text-muted-foreground">{stats.accepted_bids} of {stats.total_bids} bids won</div>
+                  <div className="flex items-center justify-center gap-3 text-[10px]">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#2563eb] inline-block" />Won</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ef4444] inline-block" />Rejected</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#e2e8f0] inline-block" />Pending</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* <Card className="rounded-xl border shadow-none">
+          <CardHeader className="py-3 px-4 border-b">
+            <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+              <Truck className="h-3.5 w-3.5" />
+              Delivery Performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <ResponsiveContainer width="100%" height={120}>
+              <LineChart data={dash.delivery_trend ?? []} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v: any, name: any) => [`${v} days`, name === 'actual' ? 'Actual' : 'Target']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                <Line type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                <Line type="monotone" dataKey="target" stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+            {stats.otd_pct != null && (
+              <p className="text-[10px] text-muted-foreground text-center mt-1">{stats.otd_pct}% on-time delivery</p>
+            )}
+          </CardContent>
+        </Card> */}
       </div>
     </div>
   )
@@ -841,7 +819,7 @@ function DocFileCard({ doc }: { doc: any }) {
           background: isVerified ? '#dcfce7' : isFailed ? '#fee2e2' : '#f1f5f9',
           color: isVerified ? '#166534' : isFailed ? '#991b1b' : '#64748b',
         }}>
-          {isVerified ? '✓ Verified' : isFailed ? '✗ Failed' : '⏳ Pending'}
+          {isVerified ? '✓ Uploaded' : isFailed ? '✗ Failed' : '⏳ Pending'}
         </span>
       )}
       {doc.file_url && (
@@ -937,7 +915,7 @@ export default function VendorDetailPage() {
           </div>
 
           {/* Row 2 — Vendor Contact | Plant / Category | Type */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
             <div className="vd-cell">
               <div className="vd-lbl">Vendor Contact</div>
               <div className="vd-val">{vendor.contact_name || '—'}</div>
@@ -953,20 +931,6 @@ export default function VendorDetailPage() {
             </div>
           </div>
 
-          {/* Row 3 — key metadata strip */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
-            {[
-              // { label: 'GSTIN', value: vendor.gst_number },
-              // { label: 'PAN', value: vendor.pan_number },
-              { label: 'MSME', value: vendor.is_msme ? (vendor.msme_number || 'Registered') : '—' },
-              // { label: 'Compliance Score', value: vendor?.score_breakdown?.compliance?.score != null ? `${vendor.score_breakdown.compliance.score}/100` : '—' },
-            ].map(({ label, value }, i) => (
-              <div key={label} className="vd-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
-                <div className="vd-lbl">{label}</div>
-                <div className="vd-val">{value || '—'}</div>
-              </div>
-            ))}
-          </div>
 
         </div>
 
@@ -1040,9 +1004,9 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                           GST Certificate <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
                           {isVerified ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Uploaded</span>
                           ) : vendor.gst_number ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                           ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
@@ -1079,9 +1043,9 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                           PAN Card Copy <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
                           {isVerified ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Uploaded</span>
                           ) : vendor.pan_number ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                           ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>
@@ -1118,9 +1082,9 @@ export default function VendorDetailPage() {
                         <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                           Bank Verification Letter <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626' }}>Required</span>
                           {isVerified ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>✓ Uploaded</span>
                           ) : vendor.bank_account ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Verified</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>⚠ Not Uploaded</span>
                           ) : null}
                         </div>
                         <div style={{ fontSize: 11, color: '#9a9a96' }}>PDF, JPG or PNG</div>

@@ -11,11 +11,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, Loader2, X, Save, Send, Sparkles, ChevronDown } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { ArrowLeft, Loader2, Save, Send, Sparkles, ChevronDown } from 'lucide-react'
 import { useSettingsStore } from '@/lib/stores/settings.store'
 import apiClient from '@/lib/api/client'
-import { MatrixSelectorTable } from '@/components/shared/MatrixSelectorTable'
 import { normalizeLeadingWhitespace } from '@/lib/utils'
 
 const ALPHANUM_WITH_SPACES_DASH_UNDERSCORE = /^[a-z0-9 _-]+$/i
@@ -36,17 +34,6 @@ const schema = z.object({
     .number({ invalid_type_error: 'Enter a valid amount' })
     .min(1000, 'Minimum budget is ₹1,000')
     .max(100_000_000, 'Maximum budget is ₹10 Crore'),
-  preferred_vendor_ids: z
-    .array(z.number())
-    .default([])
-    .refine(arr => arr.length > 0, {
-      message: 'Please select at least one vendor',
-    })
-    .refine(arr => arr.length <= 5, {
-      message: 'You can select maximum 5 vendors',
-    }),
-
-
 })
 
 
@@ -73,10 +60,6 @@ export default function NewBudgetPage() {
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
 
-  const [selectedVendors, setSelectedVendors] = useState<any[]>([])
-  const [vendorSearch, setVendorSearch] = useState('')
-  const normalizedVendorSearch = vendorSearch.trim()
-  const [showVendorSearch, setShowVendorSearch] = useState(false)
   const [showApprovalPanel, setShowApprovalPanel] = useState(true)
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
   const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
@@ -106,32 +89,9 @@ export default function NewBudgetPage() {
     resolver: zodResolver(schema),
     mode: 'onChange',
     reValidateMode: 'onChange',
-    defaultValues: { priority: 'medium', preferred_vendor_ids: [], },
+    defaultValues: { priority: 'medium' },
   })
-  const watchedPlant = watch('plant')
-
-  const watchedPriority = watch('priority')
   const watchedAmount = watch('requested_amount')
-  const { data: vendors } = useQuery({
-  queryKey: ['vendors-approved', normalizedVendorSearch, watchedPlant],
-  queryFn: async () => {
-    const params = new URLSearchParams({
-      status: 'approved',
-    })
-
-    if (watchedPlant) {
-      params.set('plant', String(watchedPlant))
-    }
-
-    if (normalizedVendorSearch) {
-      params.set('search', normalizedVendorSearch)
-    }
-
-    const r = await apiClient.get(`/vendors/?${params.toString()}`)
-    return r.data.results ?? r.data
-  },
-  enabled: showVendorSearch && normalizedVendorSearch.length >= 2,
-})
 
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -139,7 +99,6 @@ export default function NewBudgetPage() {
 
       const payload: Record<string, any> = {
         ...data,
-        preferred_vendor_ids: selectedVendors.map(v => v.id),
         status: mode === 'approval' ? 'pending_approval' : 'draft',
       }
 
@@ -148,18 +107,12 @@ export default function NewBudgetPage() {
         payload.matrix_id = selectedMatrix
       }
 
-      const response = await apiClient.post(
-        '/budget/tracking-ids/',
-        payload
-      )
+      await apiClient.post('/budget/tracking-ids/', payload)
 
-      const budget =
-        response.data?.data ?? response.data
-
-      return { budget, mode }
+      return { mode }
     },
 
-    onSuccess: ({ budget, mode }) => {
+    onSuccess: ({ mode }) => {
       toast({
         title:
           mode === 'approval'
@@ -190,43 +143,6 @@ export default function NewBudgetPage() {
 
   })
 
-  const addVendor = (v: any) => {
-    if (selectedVendors.length >= 5) {
-      toast({
-        title: 'Limit reached',
-        description: 'You can select maximum 5 vendors',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    if (!selectedVendors.some(x => x.id === v.id)) {
-      const updated = [...selectedVendors, v]
-      setSelectedVendors(updated)
-
-      setValue(
-        'preferred_vendor_ids',
-        updated.map(v => v.id),
-        { shouldValidate: true }
-      )
-    }
-
-    setShowVendorSearch(false)
-    setVendorSearch('')
-  }
-
-
-  const removeVendor = (id: number) => {
-    const updated = selectedVendors.filter(v => v.id !== id)
-    setSelectedVendors(updated)
-
-    setValue(
-      'preferred_vendor_ids',
-      updated.map(v => v.id),
-      { shouldValidate: true }
-    )
-  }
-
   const handleDraft = handleSubmit(data => {
     submitModeRef.current = 'draft'
     createMutation.mutate(data)
@@ -236,10 +152,6 @@ export default function NewBudgetPage() {
     submitModeRef.current = 'approval'
     createMutation.mutate(data)
   })
-
-  const toggleMatrixExpand = (id: number) => {
-    setExpandedMatrix(prev => prev === id ? null : id)
-  }
 
   const handleAiFill = async () => {
     if (!aiInput.trim()) return
@@ -487,118 +399,7 @@ export default function NewBudgetPage() {
           </CardContent>
         </Card>
 
-        {/* ── Preferred Vendors ────────────────────────────────────────────── */}
-        <Card className="shadow-sm">
-          <CardHeader className="pb-4 border-b">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                Preferred Vendors <span className="text-destructive">*</span>
-              </CardTitle>
 
-              <span className="text-xs font-normal text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
-                Required
-              </span>
-
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              List vendors you'd prefer to source from. Finance may suggest alternatives during review.
-            </p>
-          </CardHeader>
-          <CardContent className="pt-5 space-y-2">
-            <div className="relative">
-              <Input
-                disabled={selectedVendors.length >= 5}
-                placeholder={
-                  selectedVendors.length >= 5
-                    ? 'Maximum 5 vendors can be select'
-                    : 'Search approved vendors...'
-                }
-                value={vendorSearch}
-                onChange={e => {
-                  const nextValue = e.target.value
-                  setVendorSearch(/\S/.test(nextValue) ? nextValue : '')
-                  setShowVendorSearch(true)
-                }}
-                onFocus={() => setShowVendorSearch(true)}
-                onBlur={() => setTimeout(() => setShowVendorSearch(false), 150)}
-                className="h-10"
-              />
-              {showVendorSearch && normalizedVendorSearch.length >= 2 && (
-                <div className="absolute z-10 top-full mt-1 left-0 right-0 border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y">
-                  {(vendors || []).filter((v: any) => !selectedVendors.some((s: any) => s.id === v.id)).map((v: any) => (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onMouseDown={e => e.preventDefault()}
-                      className="w-full text-left px-3 py-2.5 hover:bg-muted/50 text-sm transition-colors"
-                      onClick={() => addVendor(v)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-foreground">{v.company_name}</span>
-                        <span className="text-xs text-emerald-600 font-medium">{v.status}</span>
-                      </div>
-                      <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
-                        {v.category_name && <span>{v.category_name}</span>}
-                        {v.city && <span>{v.city}{v.state ? `, ${v.state}` : ''}</span>}
-                      </div>
-                    </button>
-                  ))}
-                  {(vendors || []).filter((v: any) => !selectedVendors.some((s: any) => s.id === v.id)).length === 0 && normalizedVendorSearch && (
-                    <p className="px-3 py-2.5 text-sm text-muted-foreground">No vendors found.</p>
-                  )}
-                </div>
-              )}
-            </div>
-            {errors.preferred_vendor_ids && (
-              <p className="text-xs text-destructive">
-                {errors.preferred_vendor_ids.message}
-              </p>
-            )}
-
-            {selectedVendors.length > 0 && (
-              <div className="border border-border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b border-border">
-                    <tr>
-                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vendor</th>
-                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Category</th>
-                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Location</th>
-                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Email</th>
-                      <th className="w-8 px-3 py-2.5" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {selectedVendors.map((v: any) => {
-                      let location = '—'
-                      if (v.city && v.state) location = `${v.city}, ${v.state}`
-                      else if (v.city) location = v.city
-                      return (
-                        <tr key={v.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-3 py-2.5 font-medium text-foreground">{v.company_name}</td>
-                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{v.category_name || '—'}</td>
-                          <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
-                            {location}
-                          </td>
-                          <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{v.contact_email || '—'}</td>
-                          <td className="px-3 py-2.5 text-center">
-                            <button
-                              type="button"
-                              onClick={() => removeVendor(v.id)}
-                              className="text-muted-foreground hover:text-destructive transition-colors"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* ── Approval Matrix ──────────────────────────────────────────────── */}
         {showApprovalPanel && (

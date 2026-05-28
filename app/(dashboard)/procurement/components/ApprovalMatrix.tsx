@@ -7,11 +7,6 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import apiClient from '@/lib/api/client'
 
-import {
-    Dialog,
-    DialogContent,
-} from '@/components/ui/dialog'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type ApprovalMatrixProps = {
     prId: string | string[]
@@ -37,7 +32,6 @@ const ApprovalMatrix = ({
     step
 }: ApprovalMatrixProps) => {
     const { toast } = useToast()
-
     const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
     const [expandedMatrix, setExpandedMatrix] = useState<number | null>(null)
     const [submitting, setSubmitting] = useState(false)
@@ -92,66 +86,55 @@ const ApprovalMatrix = ({
     }
 
     return (
-        <>
-      <Card className="shadow-sm">
-        <CardHeader className="pb-4 border-b">
-          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Select Approval Matrix
-          </CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">
-            Choose the approval workflow for this budget request.
-          </p>
-        </CardHeader>
-
-        <CardContent className="pt-5">
-          {matrices === undefined && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
-            </div>
-          )}
-
-          {!loadingMatrices && (matrices ?? []).length === 0 && (
-            <p className="text-xs text-amber-600 font-medium">
-              No active PR approval matrices configured. The system will use the default matrix.
-            </p>
-          )}
-
-          {!loadingMatrices && (matrices ?? []).length > 0 && (
-            <MatrixSelectorTable
-              matrices={matrices}
-              selectedMatrix={selectedMatrix}
-              expandedMatrix={expandedMatrix}
-              onSelect={(id) => {
-                setSelectedMatrix(id)
-                setExpandedMatrix(id)
-              }}
-              onToggleExpand={(id) => {
-                setExpandedMatrix((prev) => (prev === id ? null : id))
-              }}
-            />
-          )}
-        </CardContent>
-
-        {/* Footer — same as first design */}
-        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
-        <Button variant="outline" size="sm" onClick={() => setStep(step - 1)} className="gap-1">
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
-          </Button>
-          <Button
-            onClick={submit}
-            disabled={submitting || (matrices && matrices.length > 0 && selectedMatrix === null) || !selectedVendor}
-            className="gap-2 min-w-[160px]"
-          >
-            {submitting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
+        <div style={{ borderRadius: 12, overflow: 'hidden', fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#1a1a18' }}>
+    
+          <div className='mb-4'>
+            {matrices === undefined && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#9a9a96', padding: '4px 0' }}>
+                <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
+              </div>
             )}
-            Submit for Approval
-          </Button>
+
+            {!loadingMatrices && (matrices ?? []).length === 0 && (
+              <p style={{ fontSize: 12, color: '#b45309', fontWeight: 500 }}>
+                No active PR approval matrices configured. The system will use the default matrix.
+              </p>
+            )}
+
+            {!loadingMatrices && (matrices ?? []).length > 0 && (
+              <MatrixSelectorTable
+                matrices={matrices}
+                selectedMatrix={selectedMatrix}
+                expandedMatrix={expandedMatrix}
+                onSelect={(id) => {
+                  setSelectedMatrix(id)
+                  setExpandedMatrix(id)
+                }}
+                onToggleExpand={(id) => {
+                  setExpandedMatrix((prev) => (prev === id ? null : id))
+                }}
+              />
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '13px 16px', borderTop: '0.5px solid rgba(0,0,0,0.08)', background: '#fff' }}>
+            <Button variant="outline" size="sm" onClick={() => setStep(step - 1)} className="gap-1">
+              <ArrowLeft className="w-3.5 h-3.5" /> Back
+            </Button>
+            <Button
+              onClick={submit}
+              disabled={submitting || (matrices && matrices.length > 0 && selectedMatrix === null) || !selectedVendor}
+              className="gap-2 min-w-[160px]"
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              Submit for Approval
+            </Button>
+          </div>
         </div>
-      </Card>
-    </>
     )
 }
 

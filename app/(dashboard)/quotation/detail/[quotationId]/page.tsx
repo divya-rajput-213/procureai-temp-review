@@ -27,7 +27,7 @@ type ExtractedLineItem = {
 }
 
 type Vendor = {
-  id:number,
+  id: number,
   company_name: string
   address: string
   city: string
@@ -93,6 +93,7 @@ type Quotation = {
   category_name: string
   confidence_score?: number | null
   pr_no?: string
+  pr_hash_id?: string | null
   buyer_details?: any
   category?: any
 }
@@ -155,7 +156,7 @@ function mapVendor(raw: any): Vendor | null {
   const v = raw?.vendor ?? raw
   if (!v) return null
   return {
-    id:v.id,
+    id: v.id,
     company_name: v.company_name ?? raw?.vendor_name ?? '—',
     address: v.address ?? raw?.vendor_address ?? '',
     city: v.city ?? '',
@@ -232,6 +233,7 @@ function mapQuotation(raw: any): Quotation {
     department_name: raw.department_name ?? '',
     category_id: raw.category ?? null,
     pr_no: raw.pr_no ?? '',
+    pr_hash_id: raw.pr_hash_id ?? raw.pr_id ?? null,
     category_name: raw.category_name ?? '',
     buyer_details: raw.buyer_details ?? null,
     confidence_score: nullableNumber(raw.confidence_score ?? raw.ai_confidence ?? raw.confidence),
@@ -273,6 +275,9 @@ const QD_CSS = `
   .p-pending{background:var(--amb-bg);color:var(--amb-tx)}.p-pending .dot{background:var(--amb-bd)}
   .p-approved{background:var(--grn-bg);color:var(--grn-tx)}.p-approved .dot{background:var(--grn-bd)}
   .p-rejected{background:var(--red-bg);color:var(--red-tx)}.p-rejected .dot{background:var(--red-bd)}
+  .p-eval{background:#EFF6FF;color:#1D4ED8}.p-eval .dot{background:#3B82F6}
+  .p-shortlist{background:var(--tel-bg);color:var(--tel-tx)}.p-shortlist .dot{background:var(--tel-bd)}
+  .p-po{background:#F5F3FF;color:#6D28D9}.p-po .dot{background:#7C3AED}
   .tag{font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap}
   .t-new{background:var(--grn-bg);color:var(--grn-tx)}
   .t-match{background:var(--blu-bg);color:var(--blu-tx)}
@@ -322,13 +327,18 @@ function getVendorAvatar(name: string) {
 
 const STATUS_PILL: Record<string, { cls: string; label: string }> = {
   draft: { cls: 'p-draft', label: 'Draft' },
+  approved: { cls: 'p-approved', label: 'Approved' },
+  under_evaluation: { cls: 'p-eval', label: 'Under Evaluation' },
+  shortlisted: { cls: 'p-shortlist', label: 'Shortlisted' },
+  po_raised: { cls: 'p-po', label: 'PO Raised' },
+  rejected: { cls: 'p-rejected', label: 'Rejected' },
+  not_selected: { cls: 'p-rejected', label: 'Rejected' },
+  // legacy
   under_review: { cls: 'p-review', label: 'Under Review' },
   'under review': { cls: 'p-review', label: 'Under Review' },
   pending_approval: { cls: 'p-pending', label: 'Pending Approval' },
   'pending approval': { cls: 'p-pending', label: 'Pending Approval' },
   pending: { cls: 'p-pending', label: 'Pending Approval' },
-  approved: { cls: 'p-approved', label: 'Approved' },
-  rejected: { cls: 'p-rejected', label: 'Rejected' },
 }
 
 function getStatusPill(status: string) {
@@ -562,7 +572,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
               </span>
             </div>
             <div style={{ fontSize: 14, color: 'var(--tx2)' }}>
-               Submitted {fmtDate(quotation.created_at)}
+              Submitted {fmtDate(quotation.created_at)}
             </div>
           </div>
         </div>
@@ -603,7 +613,7 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         </div>
 
         {/* Row 2: Quote Date / Valid Until / Grand Total / PR Linked */}
-        <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14, marginTop: 14 }}>
+        <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd)', paddingTop: 14 }}>
           <div className="qd-info-cell" style={{ padding: '0 14px', borderRight: '0.5px solid var(--bd)' }}>
             <div className="rhm-lbl">Quote Date</div>
             <div style={{ fontSize: 14, fontWeight: 500 }}>{fmtDate(quotation.quotation_date)}</div>
@@ -616,10 +626,26 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
             <div className="rhm-lbl">Grand Total</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--tel-tx)' }}>{formatINR(displayGrandTotal)}</div>
           </div>
-          <div style={{ padding: '0 14px' }}>
-            <div className="rhm-lbl">PR Linked</div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{quotation.pr_no || '—'}</div>
-          </div>
+          {quotation.pr_hash_id ? (
+            <button
+              type="button"
+              className="vendor-link-cell"
+              onClick={() => window.open(`/procurement/${quotation.pr_hash_id}`, '_blank')}
+              title="Open PR in new tab"
+            >
+              <div className="rhm-lbl" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                PR Linked <i className="ti ti-arrow-up-right" style={{ fontSize: 9, opacity: 0.7 }} />
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--blu-tx)' }}>
+                {quotation.pr_no || quotation.pr_hash_id}
+              </div>
+            </button>
+          ) : (
+            <div style={{ padding: '0 14px' }}>
+              <div className="rhm-lbl">PR Linked</div>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>—</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -661,81 +687,88 @@ export default function QuotationDetailsPage({ params }: Readonly<{ params: { qu
         {/* ── Line Items ── */}
         {activeTab === 'items' && (
           <div style={{ overflowX: 'auto' }}>
-          <table className="match-tbl">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Item Description</th>
-                <th>HSN</th>
-                <th>Master Item</th>
-                <th style={{ textAlign: 'right' }}>Qty</th>
-                <th>Unit</th>
-                <th style={{ textAlign: 'right' }}>Unit Price</th>
-                <th style={{ textAlign: 'right' }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, idx) => (
-                <tr key={item.id ?? idx}>
-                  <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
-                  <td style={{ fontWeight: 500 }}>
-                    {item.item_name}
-                    {item.item_sub_name && (
-                      <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>{item.item_sub_name}</div>
-                    )}
-                  </td>
-                  <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)' }}>{item.hsn_sac}</td>
-                  <td>
-                    {item.master_item_name
-                      ? <><div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--blu-tx)' }}>{item.master_item_code || '—'}</div><div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 1 }}>{item.master_item_name}</div></>
-                      : <span style={{ color: 'var(--tx3)', fontSize: 13 }}>—</span>}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>{item.quantity}</td>
-                  <td style={{ color: 'var(--tx3)' }}>{item.unit}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatINR(item.price_per_unit)}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatINR(item.amount)}</td>
+            <table className="match-tbl">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Item Description</th>
+                  <th>HSN</th>
+                  <th>Master Item</th>
+                  <th>Qty</th>
+                  <th>Unit</th>
+                  <th>Unit Price</th>
+                  <th>Total</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={7} className="match-tfoot" style={{ fontWeight: 600, textAlign: 'right', color: 'var(--tx2)' }}>Sub Total</td>
-                <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{formatINR(displaySubtotal)}</td>
-              </tr>
-              <tr>
-                <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
-                  CGST{displayCgstRate != null ? ` @ ${displayCgstRate}%` : ''}
-                </td>
-                <td className="match-tfoot" style={{ textAlign: 'right', color: displayCgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
-                  {displayCgstAmount != null ? formatINR(displayCgstAmount) : '—'}
-                </td>
-              </tr>
-              <tr>
-                <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
-                  SGST {displaySgstRate != null ? ` @ ${displaySgstRate}%` : ''}
-                </td>
-                <td className="match-tfoot" style={{ textAlign: 'right', color: displaySgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
-                  {displaySgstAmount != null ? formatINR(displaySgstAmount) : '—'}
-                </td>
-              </tr>
-              <tr>
-                <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
-                  IGST{backendIgstRate != null ? ` @ ${backendIgstRate}%` : ''}
-                </td>
-                <td className="match-tfoot" style={{ textAlign: 'right', color: backendIgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
-                  {backendIgstAmount != null ? formatINR(backendIgstAmount) : '—'}
-                </td>
-              </tr>
-              <tr style={{ background: 'var(--bg-t)' }}>
-                <td colSpan={7} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>
-                  Grand Total (incl. GST)
-                </td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>
-                  {formatINR(displayGrandTotal)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((item, idx) => (
+                  <tr key={item.id ?? idx}>
+                    <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
+                    <td style={{ fontWeight: 500, maxWidth: 220 }}>
+                      <div style={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.item_name}>
+                        {item.item_name}
+                      </div>
+                      {item.item_sub_name && (
+                        <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.item_sub_name}>
+                          {item.item_sub_name}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--tx3)', whiteSpace: 'nowrap' }}>{item.hsn_sac}</td>
+                    <td style={{ maxWidth: 280 }}>
+                      {item.master_item_name
+                        ? <>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--blu-tx)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.master_item_code || '—'}>{item.master_item_code || '—'}</div>
+                            <div style={{ fontSize: 13, color: 'var(--tx2)', marginTop: 1, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.master_item_name}>{item.master_item_name}</div>
+                          </>
+                        : <span style={{ color: 'var(--tx3)', fontSize: 13 }}>—</span>}
+                    </td>
+                    <td>{item.quantity}</td>
+                    <td style={{ color: 'var(--tx3)' }}>{item.unit}</td>
+                    <td style={{ fontWeight: 500 }}>{formatINR(item.price_per_unit)}</td>
+                    <td style={{ fontWeight: 700 }}>{formatINR(item.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={7} className="match-tfoot" style={{ fontWeight: 600, textAlign: 'right', color: 'var(--tx2)' }}>Sub Total</td>
+                  <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{formatINR(displaySubtotal)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                    CGST{displayCgstRate != null ? ` @ ${displayCgstRate}%` : ''}
+                  </td>
+                  <td className="match-tfoot" style={{ textAlign: 'right', color: displayCgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
+                    {displayCgstAmount != null ? formatINR(displayCgstAmount) : '—'}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                    SGST {displaySgstRate != null ? ` @ ${displaySgstRate}%` : ''}
+                  </td>
+                  <td className="match-tfoot" style={{ textAlign: 'right', color: displaySgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
+                    {displaySgstAmount != null ? formatINR(displaySgstAmount) : '—'}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>
+                    IGST{backendIgstRate != null ? ` @ ${backendIgstRate}%` : ''}
+                  </td>
+                  <td className="match-tfoot" style={{ textAlign: 'right', color: backendIgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>
+                    {backendIgstAmount != null ? formatINR(backendIgstAmount) : '—'}
+                  </td>
+                </tr>
+                <tr style={{ background: 'var(--bg-t)' }}>
+                  <td colSpan={7} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>
+                    Grand Total (incl. GST)
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>
+                    {formatINR(displayGrandTotal)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
 

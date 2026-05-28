@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 interface ApprovalLevel {
@@ -32,6 +33,12 @@ export function MatrixSelectorTable({
   onSelect,
   onToggleExpand,
 }: Props) {
+  const thSt: React.CSSProperties = {
+    textAlign: 'left', padding: '8px 12px', fontSize: 11, fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '.05em',
+    color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap',
+  }
+
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <table className="w-full text-sm">
@@ -49,11 +56,13 @@ export function MatrixSelectorTable({
             const levelCount = m.levels?.length ?? 0
             const isSelected = selectedMatrix === m.id
             const isExpanded = expandedMatrix === m.id
+            const tdBase: React.CSSProperties = { padding: '9px 12px', fontSize: 13, borderBottom: '0.5px solid rgba(0,0,0,0.06)', cursor: 'pointer' }
             return (
               <>
                 <tr
                   key={m.id}
-                  className={`transition-colors ${isSelected ? 'bg-primary/5' : 'hover:bg-muted/40'}`}
+                  style={{ background: isSelected ? 'hsl(var(--primary) / 0.05)' : '#fff', transition: 'background .12s' }}
+                  className={isSelected ? '' : 'hover:bg-slate-50'}
                 >
                   <td className="px-3 py-2.5 text-center">
                     <label htmlFor={`matrix-radio-${m.id}`} className="cursor-pointer flex items-center justify-center">
@@ -67,14 +76,13 @@ export function MatrixSelectorTable({
                       />
                     </label>
                   </td>
-                  <td className="px-3 py-2.5 font-medium text-foreground cursor-pointer" onClick={() => onSelect(m.id)}>
+                  <td style={{ ...tdBase, fontWeight: 500, color: '#1a1a18' }} onClick={() => onSelect(m.id)}>
                     {m.name}
                   </td>
-                  <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell cursor-pointer" onClick={() => onSelect(m.id)}>
-                    {m.plant_name || 'All Plants'}
+                  <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell cursor-pointer" onClick={() => onSelect(m.id)}>                    {m.plant_name || 'All Plants'}
                   </td>
                   <td className="px-3 py-2.5 cursor-pointer" onClick={() => onSelect(m.id)}>
-                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
                       {levelCount} level{levelCount === 1 ? '' : 's'}
                     </span>
                   </td>
@@ -82,36 +90,32 @@ export function MatrixSelectorTable({
                     <button
                       type="button"
                       onClick={() => onToggleExpand(m.id)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
+                      className="text-muted-foreground hover:text-foreground transition-colors"                    >
                       {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     </button>
                   </td>
                 </tr>
                 {isExpanded && (
                   <tr key={`${m.id}-levels`}>
-                    <td colSpan={5} className="p-0">
+                      <td colSpan={5} className="p-0">
                       <div className="bg-muted/30 border-t border-border px-6 py-3">
                         {levelCount === 0 ? (
-                          <p className="text-xs text-muted-foreground py-1">No levels configured.</p>
-                        ) : (
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-muted-foreground">
-                                <th className="text-left py-1.5 pr-4 font-semibold w-12">Level</th>
-                                <th className="text-left py-1.5 pr-4 font-semibold">Approver</th>
-                                <th className="text-left py-1.5 pr-4 font-semibold">Role</th>
-                                <th className="text-right py-1.5 font-semibold w-16">SLA</th>
-                              </tr>
-                            </thead>
+                          <p className="text-xs text-muted-foreground py-1">No levels configured.</p>) : (
+                          <table className="w-full text-xs">                            <thead>
+                            <tr className="text-muted-foreground">
+                              <th className="text-left py-1.5 pr-4 font-semibold w-12">Level</th>
+                              <th className="text-left py-1.5 pr-4 font-semibold">Approver</th>
+                              <th className="text-left py-1.5 pr-4 font-semibold">Role</th>
+                              <th className="text-right py-1.5 font-semibold w-16">SLA</th>
+                            </tr>
+                          </thead>
                             <tbody>
                               {(m.levels ?? []).map((lv) => (
                                 <tr key={lv.id} className="border-t border-border/60">
                                   <td className="py-1.5 pr-4">
                                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs">
                                       {lv.level_number}
-                                    </span>
-                                  </td>
+                                    </span>                                 </td>
                                   <td className="py-1.5 pr-4 font-medium text-foreground">{lv.user_name ?? '—'}</td>
                                   <td className="py-1.5 pr-4 text-muted-foreground">{lv.role_name ?? '—'}</td>
                                   <td className="py-1.5 text-right text-muted-foreground">{lv.sla_hours ? `${lv.sla_hours}h` : '—'}</td>

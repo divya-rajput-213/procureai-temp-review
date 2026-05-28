@@ -17,7 +17,6 @@ import {
 } from 'lucide-react'
 import {
   formatCurrency, formatDate, formatDateTime, getSLAPercentage, getSLAColor,
-  cn,
 } from '@/lib/utils'
 import apiClient from '@/lib/api/client'
 import { useSettingsStore } from '@/lib/stores/settings.store'
@@ -26,12 +25,6 @@ import CompareStep from '../components/CompareStep'
 
 // ─── Approval Timeline ─────────────────────────────────────────────────────────
 
-function stepStyle(action: string) {
-  if (action === 'approved') return { dot: 'bg-green-500', badge: 'bg-green-100 text-green-700' }
-  if (action === 'rejected') return { dot: 'bg-red-500', badge: 'bg-red-100 text-red-700' }
-  if (action === 'held') return { dot: 'bg-amber-400', badge: 'bg-amber-100 text-amber-700' }
-  return { dot: 'bg-slate-300', badge: 'bg-slate-100 text-slate-600' }
-}
 
 function actionStepClass(action: string) {
   if (action === 'approved') return 'bg-green-50 border-green-200 text-green-700'
@@ -73,8 +66,7 @@ function ApprovalTimeline({ actions, currentLevel, requestedAt }: { actions: any
             </tr>
           </thead>
           <tbody>
-            {actions.map((a: any, idx: number) => {
-              const s = stepStyle(a.action);
+            {actions.map((a: any) => {
               const isPending = !a.action || a.action === 'pending';
               const isCurrent = isPending && a.level_number === currentLevel;
               const effectiveAction = a.action ?? 'pending';
@@ -355,65 +347,54 @@ function SubmitForApprovalModal({ pr, prId, onClose, onSuccess, selectedVendor }
 
   return (
     <>
-      <Card className="shadow-sm">
-        <CardHeader className="pb-4 border-b">
-          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Select Approval Matrix
-          </CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">
-            Choose the approval workflow for this budget request.
+      <div>
+        {matrices === undefined && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
+          </div>
+        )}
+
+        {!loadingMatrices && (matrices ?? []).length === 0 && (
+          <p className="text-xs text-amber-600 font-medium">
+            No active PR approval matrices configured. The system will use the default matrix.
           </p>
-        </CardHeader>
+        )}
 
-        <CardContent className="pt-5">
-          {matrices === undefined && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading matrices…
-            </div>
-          )}
+        {!loadingMatrices && (matrices ?? []).length > 0 && (
+          <MatrixSelectorTable
+            matrices={matrices}
+            selectedMatrix={selectedMatrix}
+            expandedMatrix={expandedMatrix}
+            onSelect={(id) => {
+              setSelectedMatrix(id)
+              setExpandedMatrix(id)
+            }}
+            onToggleExpand={(id) => {
+              setExpandedMatrix((prev) => (prev === id ? null : id))
+            }}
+          />
+        )}
+      </div>
 
-          {!loadingMatrices && (matrices ?? []).length === 0 && (
-            <p className="text-xs text-amber-600 font-medium">
-              No active PR approval matrices configured. The system will use the default matrix.
-            </p>
-          )}
-
-          {!loadingMatrices && (matrices ?? []).length > 0 && (
-            <MatrixSelectorTable
-              matrices={matrices}
-              selectedMatrix={selectedMatrix}
-              expandedMatrix={expandedMatrix}
-              onSelect={(id) => {
-                setSelectedMatrix(id)
-                setExpandedMatrix(id)
-              }}
-              onToggleExpand={(id) => {
-                setExpandedMatrix((prev) => (prev === id ? null : id))
-              }}
-            />
-          )}
-        </CardContent>
-
-        {/* Footer — same as first design */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-xl">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>
+      {/* Footer — same as first design */}
+      <div className="flex items-center justify-end ">
+        {/* <Button variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
-          </Button>
+          </Button> */}
 
-          <Button
-            onClick={submit}
-            disabled={submitting}
-            className="gap-2 min-w-[160px]"
-          >
-            {submitting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            Submit for Approval
-          </Button>
-        </div>
-      </Card>
+        <Button
+          onClick={submit}
+          disabled={submitting || !selectedMatrix}
+          className="gap-2 min-w-[160px]"
+        >
+          {submitting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4" />
+          )}
+          Submit for Approval
+        </Button>
+      </div>
     </>
 
   )
@@ -435,7 +416,6 @@ function exportPRPDF(pr: any, activeTaxes: Array<{ name: string; rate: number }>
   const currency = pr.currency_code ?? 'INR'
   const fmt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const dateStr = (d: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
-  const dateTimeStr = (d: string) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 
   // ── Status badge ─────────────────────────────────────────────────────────────
 
@@ -712,83 +692,21 @@ export default function PRDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const queryClient = useQueryClient()
-  const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<'approval' | 'comparison' | 'details'>('comparison')
-  const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [activeTab, setActiveTab] = useState<'approval' | 'comparison' | 'details'>('details')
   const activeTaxes = useSettingsStore(s => s.taxComponents.filter(t => t.is_active))
   const initialTabSet = useRef(false)
   const [selectedVendor, setSelectedVendor] = useState<any>("")
-  const [isExporting, setIsExporting] = useState(false)
 
   const { data: pr, isLoading } = useQuery({
     queryKey: ['pr', id],
     queryFn: async () => (await apiClient.get(`/procurement/${id}/`)).data,
+    refetchOnMount: 'always',
   })
-  const subtotal = (pr?.line_items ?? []).reduce(
-    (sum: any, item: any) => sum + (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0),
-    0,
-  )
-  const quotationIds = pr?.linked_quotations.map((quotation: any) => quotation?.id) ?? []
-  {/* KPI ROW */ }
-  const selectedQuotation = pr?.linked_quotations?.find((q: any) => q.id === pr?.selected_quotation
-  ) ?? null
-  const [expandedQuotationId, setExpandedQuotationId] = useState<number | null>(null)
+  const quotationIds = pr?.quotation_ids ?? []
 
-  const handleExport = async (prId: any) => {
-    if (!prId) return
-    setIsExporting(true)
-    try {
-      const res = await apiClient.get(
-        `/procurement/${prId}/export-pcs/`,
-        { responseType: 'blob' }
-      )
-
-      const disposition = res.headers?.['content-disposition'] || ''
-      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
-      const filename = match ? match[1].replace(/['"]/g, '') : `PCS-${prId}.xlsx`
-
-      const blob = new Blob([res.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (err: any) {
-      let message = 'Could not download the PCS sheet. Please try again.'
-
-      const blob: Blob = err?.response?.data
-      if (blob instanceof Blob) {
-        try {
-          const text = await blob.text()
-          const json = JSON.parse(text)
-          message = json.error || json.detail || message
-        } catch {
-          // not JSON, keep default message
-        }
-      }
-
-      console.error('Export failed', err)
-      toast({ title: 'Export failed', description: message, variant: 'destructive' })
-    } finally {
-      setIsExporting(false)
-    }
-  }
-  // Auto-expand the selected quotation on load
   useEffect(() => {
-    if (selectedQuotation) setExpandedQuotationId(selectedQuotation.id)
-  }, [selectedQuotation?.id])
-  useEffect(() => {
-    if (pr?.status === 'draft') {
-      setActiveTab('comparison')
-    } else if (pr && !initialTabSet.current) {
-      initialTabSet.current = true
-      setActiveTab('details')
-    }
+    initialTabSet.current = true
+    setActiveTab('details')
   }, [pr])
 
   const invalidatePR = () => queryClient.invalidateQueries({ queryKey: ['pr', id] })
@@ -812,122 +730,135 @@ export default function PRDetailPage() {
     { key: 'approval' as const, label: 'Approval' },
   ]
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-start gap-3 flex-wrap">
+    <>
+      <style>{`
+        .prd-lbl{font-size:10px;font-weight:600;color:var(--tx3,#9a9a96);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+        .prd-val{font-size:13px;font-weight:500;color:#1a1a18}
+        .prd-cell{padding:0 14px}
+        .vendor-link-cell{all:unset;display:block;cursor:pointer;text-align:left;padding:0 14px;transition:background .15s}
+        .vendor-link-cell:hover{background:var(--bg-s,#f8f8f6)}
+        .prd-cell:first-child{padding-left:0}
+        .prd-cell:last-child{padding-right:0}
+        @media(max-width:900px){
+          .prd-hero-meta{grid-template-columns:repeat(3,1fr)!important;gap:12px!important;padding-top:12px!important}
+          .prd-hero-meta .prd-cell{border-left:none!important;padding:0!important;border-bottom:0.5px solid rgba(0,0,0,0.07);padding-bottom:10px!important}
+          .prd-hero-meta .prd-cell:nth-child(odd){border-right:0.5px solid rgba(0,0,0,0.07);padding-right:12px!important}
+        }
+        @media(max-width:768px){
+          .prd-hero-meta{grid-template-columns:repeat(2,1fr)!important}
+          .prd-hero-row1{flex-wrap:wrap;gap:10px!important}
+          .prd-hero-actions{width:100%!important}
+          .prd-hero-icon{width:36px!important;height:36px!important;font-size:16px!important}
+          .prd-kpi-grid{grid-template-columns:repeat(2,1fr)!important}
+          .prd-tabs-bar{overflow-x:auto!important;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+          .prd-tabs-bar::-webkit-scrollbar{display:none}
+        }
+        @media(max-width:480px){
+          .prd-hero-meta{grid-template-columns:1fr 1fr!important;gap:10px!important}
+          .prd-hero-meta .prd-cell:nth-child(odd){border-right:0.5px solid rgba(0,0,0,0.07)!important;padding-right:10px!important}
+          .prd-kpi-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+        }
+      `}</style>
+      <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-lg font-semibold truncate">{pr.pr_number}</h1>
-            <StatusBadge status={pr.status} />
-          </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Created {formatDate(pr.created_at)}
-            {pr.created_by_name && ` by ${pr.created_by_name}`}
-            {pr.tracking_code && ` · Tracking: ${pr.tracking_code}`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {activeTab === "comparison" && <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 text-xs"
-            onClick={() => handleExport(pr.id)}
-            disabled={isExporting || !pr.id}
-          >
-            {isExporting
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <Download className="w-3.5 h-3.5" />
-            }
-            {isExporting ? 'Exporting…' : 'Export PCS'}
-          </Button>}
-          <Button variant="outline" size="sm" onClick={() => exportPRPDF(pr, activeTaxes)} className="gap-1.5">
-            <Download className="w-3.5 h-3.5" /> PDF
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => router.push('/procurement')} className="gap-1 shrink-0">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </Button>
-        </div>
-      </div>
+        {/* ── Hero card ── */}
+        <div style={{ background: 'var(--bg,#fff)', border: '0.5px solid var(--bd,rgba(0,0,0,0.08))', borderRadius: 'var(--rl,12px)', padding: 22, marginBottom: 4 }}>
 
-      {/* Tabs */}
-      <div className="flex border-b gap-1">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === t.key
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {activeTab === 'details' && (
-        <div >
-          {/* LEFT */}
-          <div className="space-y-4 min-w-0">
-            {/* KPI ROW */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
-                <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
-                  Awarded Value
-                </div>
-                <div className="flex items-end gap-1.5 mt-2">
-                  <div className="text-[30px] leading-none font-semibold tracking-tight">
-                    {selectedQuotation ? formatCurrency(selectedQuotation.total_amount, pr.currency_code) : formatCurrency(pr.total_amount, pr.currency_code)}
-                  </div>
-                  <span className="text-xs text-muted-foreground mb-1">excl. GST</span>
-                </div>
-                {selectedQuotation && (
-                  <div className="mt-1.5 text-xs text-muted-foreground truncate">{selectedQuotation.vendor_name}</div>
-                )}
+          {/* Row 1 — icon + PR number + status + action buttons */}
+          <div className="prd-hero-row1" style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 18 }}>
+            <div className="prd-hero-icon" style={{ width: 48, height: 48, borderRadius: 12, background: '#dbeafe', color: '#1e40af', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <i className="ti ti-clipboard-list" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const, marginBottom: 4 }}>
+                <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-.4px' }}>{pr.pr_number}</span>
+                <StatusBadge status={pr.status} />
               </div>
-
-              <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
-                <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
-                  Budget Util.
-                </div>
-                <div className="text-[30px] leading-none font-semibold tracking-tight mt-2">
-                  {pr.budget_info?.approved_amount
-                    ? `${Math.round((Number(pr.total_amount) / Number(pr.budget_info.approved_amount)) * 100)}%`
-                    : '—'}
-                </div>
-                <div className="mt-1.5 text-xs text-muted-foreground">
-                  {pr.budget_info ? `${formatCurrency(pr.budget_info.consumed_amount)} of ${formatCurrency(pr.budget_info.approved_amount)}` : '—'}
-                </div>
-              </div>
-
-              <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
-                <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
-                  Remaining Budget
-                </div>
-                <div className={`text-[30px] leading-none font-semibold tracking-tight mt-2 ${Number(pr.budget_info?.remaining_amount) > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                  {pr.budget_info?.remaining_amount ? formatCurrency(pr.budget_info.remaining_amount) : '—'}
-                </div>
-                <div className="mt-1.5 text-xs text-muted-foreground">
-                  Tracking: {pr.budget_info?.tracking_code ?? '—'}
-                </div>
-              </div>
-
-              <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
-                <div className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
-                  Quotations
-                </div>
-                <div className="text-[30px] leading-none font-semibold tracking-tight mt-2">
-                  {pr.linked_quotations?.length ?? 0}
-                </div>
-                <div className="mt-1.5 text-xs text-muted-foreground">
-                  {selectedQuotation ? `1 selected · ${pr.linked_quotations.length - 1} others` : 'None selected'}
-                </div>
+              <div style={{ fontSize: 13, color: 'var(--tx2,#6b6b69)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const }}>
+                <span>Created At {formatDate(pr.created_at)}</span>
+                {pr.tracking_code && <span style={{ fontFamily: 'monospace', fontSize: 12 }}>· {pr.tracking_code}</span>}
               </div>
             </div>
+            <div className="prd-hero-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={() => exportPRPDF(pr, activeTaxes)}>
+                <Download className="w-3.5 h-3.5" /> PDF
+              </Button>
+              {pr.status === 'draft' && (
+                <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={() => router.push(`/procurement/edit/${pr.id}`)}>
+                  <Pencil className="w-3.5 h-3.5" /> Edit
+                </Button>
+              )}
+            </div>
+          </div>
 
-            {/* PROCUREMENT DETAILS */}
-            <Card className="overflow-hidden rounded-xl shadow-sm">
+          {/* Row 2 — metadata strip */}
+          <div className="prd-hero-meta" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
+            {/* Tracking ID */}
+            {pr?.tracking_id ? (
+              <button
+                type="button"
+                className="vendor-link-cell"
+                onClick={() => window.open(`/budget/${pr.tracking_id}`, '_blank')}
+                title="Open budget in new tab"
+              >
+                <div className="prd-lbl" style={{ display: 'flex', alignItems: 'start', gap: 4 }}>
+                  Tracking ID <i className="ti ti-arrow-up-right" style={{ fontSize: 9, opacity: 0.7 }} />
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: 'var(--blu-tx)' }}>
+                  {pr.budget_info?.tracking_code || pr.budget_info?.hash_id || '—'}
+                </div>
+              </button>
+            ) : (
+              <div className="prd-cell">
+                <div className="prd-lbl">Tracking ID</div>
+                <div className="prd-val" style={{ fontFamily: 'monospace' }}>{pr.budget_info?.tracking_code || '—'}</div>
+              </div>
+            )}
+            {[
+              { label: 'Plant', value: pr.plant_name },
+              { label: 'Department', value: pr.department_name },
+              { label: 'Created By', value: pr.created_by_name },
+            ].map(({ label, value }) => (
+              <div key={label} className="prd-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+                <div className="prd-lbl">{label}</div>
+                <div className="prd-val">{value || '—'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Tabs ── */}
+        <div className="prd-tabs-bar flex items-center w-full border border-[rgba(0,0,0,0.08)] rounded-t-xl overflow-hidden bg-white mb-4">
+          {TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`
+                flex items-center justify-center gap-1.5
+                px-5 py-[11px]
+                text-[13px] font-medium
+                transition-colors
+                border-b-[2.5px]
+                whitespace-nowrap
+                ${activeTab === tab.key
+                  ? 'text-[#042348] border-[#042348] bg-white'
+                  : 'text-[#9a9a96] border-transparent hover:bg-[#f8f8f6] hover:text-[#042348]'
+                }
+              `}
+            >
+              {tab.key === 'details' && <i className="ti ti-layout-list" style={{ fontSize: 14 }} />}
+              {tab.key === 'comparison' && <i className="ti ti-table-column" style={{ fontSize: 14 }} />}
+              {tab.key === 'approval' && <i className="ti ti-shield-check" style={{ fontSize: 14 }} />}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {activeTab === 'details' && (
+          <div >
+            {/* LEFT */}
+            <div className="space-y-4 min-w-0">
+              {/* PROCUREMENT DETAILS */}
+              {/* <Card className="overflow-hidden rounded-xl shadow-sm">
               <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
                 <div className="flex h-full items-center justify-between">
                   <CardTitle className="text-sm font-semibold">
@@ -998,139 +929,117 @@ export default function PRDetailPage() {
                   ))}
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
 
-            {/* QUOTATIONS */}
-            <Card className="overflow-hidden rounded-xl shadow-sm">
-              <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
-                <div className="flex h-full items-center">
-                  <CardTitle className="text-sm font-semibold">Quotations</CardTitle>
-                </div>
-              </CardHeader>
-
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-sm">
-                    <thead className="bg-muted/30 border-b">
-                      <tr>
-                        {['Ref No', 'Vendor', 'Items', 'Total', 'Status', 'Selected'].map((head, i) => (
-                          <th
-                            key={head}
-                            className={cn(
-                              'py-3 text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold whitespace-nowrap',
-                              i === 3 ? 'px-4 text-right' : 'px-4 text-left'
-                            )}
-                          >
-                            {head}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(pr.linked_quotations || []).length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-4 py-6 text-center text-sm text-muted-foreground italic">
-                            No quotations linked yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        (pr.linked_quotations || []).map((q: any) => {
-                          const isSelected = q.is_selected
-                          return (
-                            <tr
-                              key={q.id}
-                              className={cn(
-                                'border-b last:border-0 transition-colors',
-                                isSelected ? 'bg-emerald-50 hover:bg-emerald-100/70' : 'hover:bg-muted/20'
-                              )}
-                              style={{ borderLeft: isSelected ? '3px solid #10b981' : '3px solid transparent' }}
-                            >
-                              <td className="px-4 py-3 text-xs whitespace-nowrap font-mono">{q.ref_no || q.quotation_no}</td>
-                              <td className="px-4 py-3 font-medium whitespace-nowrap">{q.vendor_name}</td>
-                              <td className="px-4 py-3 whitespace-nowrap">{q.items_count} item{q.items_count !== 1 ? 's' : ''}</td>
-                              <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
-                                {formatCurrency(q.total_amount, pr.currency_code)}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                <span className={cn(
-                                  'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
-                                  q.status === 'approved' ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                    : q.status === 'rejected' ? 'border-red-200 bg-red-50 text-red-700'
-                                      : 'border-slate-200 bg-slate-50 text-slate-600'
-                                )}>
-                                  {q.status}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                {isSelected ? (
-                                  <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                                    <Check className="w-3 h-3" /> Selected
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* ── Selected quotation line items (always shown if a quotation is selected) ── */}
-                {selectedQuotation?.items?.length > 0 && (
-                  <div className="border-t bg-muted/10">
-                    <div className="px-6 py-3">
-                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 flex items-center gap-1.5">
-                        <Check className="w-3 h-3 text-emerald-600" />
-                        Line items · {selectedQuotation.vendor_name}
-                      </p>
-                      <table className="w-full border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-muted/40 border-y">
-                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">#</th>
-                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Item Code</th>
-                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Description</th>
-                            <th className="px-3 py-2 text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Qty</th>
-                            <th className="px-3 py-2 text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">UOM</th>
-                            <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Unit Price</th>
-                            <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedQuotation.items.map((item: any, idx: number) => (
-                            <tr key={item.id} className={cn('border-b last:border-0', idx % 2 === 1 && 'bg-muted/20')}>
-                              <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
-                              <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{item.item_code}</td>
-                              <td className="px-3 py-2 font-medium">{item.item_name}</td>
-                              <td className="px-3 py-2 text-center">{item.quantity}</td>
-                              <td className="px-3 py-2 text-center text-muted-foreground">{item.unit_of_measure}</td>
-                              <td className="px-3 py-2 text-right">{formatCurrency(item.item_price, pr.currency_code)}</td>
-                              <td className="px-3 py-2 text-right font-semibold">{formatCurrency(item.line_total, pr.currency_code)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="border-t-2 bg-muted/30">
-                            <td colSpan={6} className="px-3 py-2 text-right font-semibold text-muted-foreground">Total</td>
-                            <td className="px-3 py-2 text-right font-bold">{formatCurrency(selectedQuotation.total_amount, pr.currency_code)}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
+              {/* DESCRIPTION */}
+              {pr.description && (
+                <Card className="overflow-hidden rounded-xl shadow-sm">
+                  <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
+                    <div className="flex h-full items-center">
+                      <CardTitle className="text-sm font-semibold">Description</CardTitle>
                     </div>
+                  </CardHeader>
+                  <CardContent className="px-4 py-3">
+                    <p className="text-sm text-muted-foreground leading-relaxed">{pr.description}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* QUOTATIONS */}
+              <Card className="overflow-hidden rounded-xl shadow-sm">
+                <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
+                  <div className="flex h-full items-center">
+                    <CardTitle className="text-sm font-semibold">Quotations</CardTitle>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                </CardHeader>
 
-          {/* RIGHT SIDEBAR */}
-          {/* <div className="space-y-4"> */}
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm">
+                      <thead className="bg-muted/30 border-b">
+                        <tr>
+                          {['Ref No', 'Vendor', 'Items', 'Total', 'Status', 'Selected'].map((head) => (
+                            <th
+                              key={head}
+                              className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold whitespace-nowrap"
+                            >
+                              {head}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(pr.linked_quotations || []).length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-6 text-center text-sm text-muted-foreground italic">
+                              No quotations linked yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          (pr.linked_quotations || []).map((q: any) => {
+                            const isSelected = q.is_selected
+                            const vendorDetail = (pr.invited_vendors_detail ?? []).find((v: any) => v.id === q.vendor_id)
+                            return (
+                              <tr
+                                key={q.id}
+                                className="border-b last:border-0 transition-colors hover:bg-muted/20"
+                              >
+                                <td className="px-4 py-3 text-xs whitespace-nowrap font-mono">
+                                  <button
+                                    type="button"
+                                    className="text-blue-600 hover:underline cursor-pointer bg-transparent border-none p-0 font-mono text-xs"
+                                    onClick={() => window.open(`/quotation/detail/${q.id}`, '_blank')}
+                                  >
+                                    {q.ref_no || q.quotation_no}
+                                  </button>
+                                </td>
+                                <td className="px-4 py-3 font-medium whitespace-nowrap">
+                                  {vendorDetail?.hash_id ? (
+                                    <button
+                                      type="button"
+                                      className="text-blue-600 hover:underline cursor-pointer bg-transparent border-none p-0 font-medium text-sm"
+                                      onClick={() => window.open(`/vendors/${vendorDetail.hash_id}`, '_blank')}
+                                    >
+                                      {q.vendor_name}
+                                    </button>
+                                  ) : (
+                                    q.vendor_name
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">{q.items_count} item{q.items_count !== 1 ? 's' : ''}</td>
+                                <td className="px-4 py-3 font-semibold whitespace-nowrap">
+                                  {formatCurrency(q.total_amount, pr.currency_code)}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <StatusBadge status={q.status} />
+                                </td>
+                                <td className="px-4 py-3">
+                                  {isSelected ? (
+                                    <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                                      <Check className="w-3 h-3" /> Selected
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* RIGHT SIDEBAR */}
+            {/* <div className="space-y-4"> */}
 
 
-          {/* APPROVAL CHAIN */}
-          {/* <Card className="overflow-hidden rounded-xl shadow-sm">
+            {/* APPROVAL CHAIN */}
+            {/* <Card className="overflow-hidden rounded-xl shadow-sm">
               <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
                 <div className="flex h-full items-center">
                   <CardTitle className="text-sm font-semibold">
@@ -1174,37 +1083,39 @@ export default function PRDetailPage() {
               </CardContent>
             </Card> */}
 
-          {/* </div> */}
-        </div>
-      )}
+            {/* </div> */}
+          </div>
+        )}
 
-      {/* ── Approval Tab ── */}
-      {activeTab === 'approval' && (
-        <div className="space-y-4">
-          {pr.status === 'draft' ? (
-            <SubmitForApprovalModal
-              pr={pr}
-              prId={id!}
-              onClose={() => setShowSubmitModal(false)}
-              onSuccess={invalidatePR}
-              selectedVendor={selectedVendor}
-            />
-          ) : (
-            <ApprovalProgressPanel prId={id!} onStatusChange={invalidatePR} />
-          )}
-        </div>
-      )}
+        {/* ── Approval Tab ── */}
+        {activeTab === 'approval' && (
+          <div className="space-y-4">
+            {pr.status === 'draft' ? (
+              <SubmitForApprovalModal
+                pr={pr}
+                prId={id!}
+                onClose={() => {}}
+                onSuccess={invalidatePR}
+                selectedVendor={selectedVendor}
+              />
+            ) : (
+              <ApprovalProgressPanel prId={id!} onStatusChange={invalidatePR} />
+            )}
+          </div>
+        )}
 
-      {/* ── Comparison Tab ── */}
-      {activeTab === 'comparison' && <>
-        <CompareStep
-          selectedQuotationIds={quotationIds}
-          selectedVendorId={selectedVendor}
-          setSelectedVendorId={setSelectedVendor}
-          isDisabled={pr.status !== 'draft'}
-          prId={pr.id}
-        />
-      </>}
-    </div>
+        {/* ── Comparison Tab ── */}
+        {activeTab === 'comparison' && (
+          <CompareStep
+            selectedQuotationIds={quotationIds}
+            selectedQuotationId={selectedVendor}
+            setSelectedQuotationId={setSelectedVendor}
+            isDisabled={true}
+            prId={pr.id}
+            onSelectVendor={pr.status === 'draft' ? () => router.push(`/procurement/edit/${id}?step=2`) : undefined}
+          />
+        )}
+      </div>
+    </>
   )
 }

@@ -68,6 +68,10 @@ type UploadFileProps = {
     disableUpload?: boolean
     pdfUrl?: string
     pdfName?: string
+    validUntil?: string
+    setValidUntil?: (v: string) => void
+    fieldErrors?: Record<string, string>
+    onFieldChange?: (field: string) => void
 }
 
 export default function UploadFile({
@@ -81,12 +85,26 @@ export default function UploadFile({
     quotation, vendors, isExtracting = false,
     allVendors = [], vendorsFetching = false, onSelectVendor,
     disableUpload = false, pdfUrl, pdfName,
+    validUntil, setValidUntil,
+    fieldErrors = {}, onFieldChange,
 }: UploadFileProps) {
     const [showVendorSearch, setShowVendorSearch] = useState(false)
     const [vendorQuery, setVendorQuery] = useState('')
     const [extractProgress, setExtractProgress] = useState(0)
-
     useEffect(() => { setShowVendorSearch(false); setVendorQuery('') }, [vendors])
+
+    // Sync validUntil from extracted quotation; clamp to today if past
+    useEffect(() => {
+        const extracted = quotation?.vendor?.valid_until || quotation?.valid_until || ''
+        if (extracted && !validUntil && setValidUntil) {
+            const today = new Date().toISOString().split('T')[0]
+            setValidUntil(extracted < today ? today : extracted)
+        }
+        // Clear when quotation is removed
+        if (!quotation && validUntil && setValidUntil) {
+            setValidUntil('')
+        }
+    }, [quotation?.vendor?.valid_until, quotation?.valid_until, quotation])
 
     useEffect(() => {
         if (isExtracting) {
@@ -126,15 +144,7 @@ export default function UploadFile({
             <div>
                 {/* Upload section */}
                 <div className="form-sec">
-                    <div className="form-sec-head">
-                        <div className="fsh-ic" style={{ background: 'var(--blu-bg)', color: 'var(--blu-tx)' }}>
-                            <i className="ti ti-upload" />
-                        </div>
-                        <div>
-                            <div className="fsh-title">Upload Quotation Document</div>
-                            <div className="fsh-sub">{disableUpload ? 'Original uploaded PDF — cannot be changed here' : 'PDF. max 20 MB · vendor details extracted automatically'}</div>
-                        </div>
-                    </div>
+            
                     <div className="form-body">
                         {disableUpload ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg-s)', borderRadius: 'var(--r)', border: '0.5px solid var(--bd)' }}>
@@ -232,7 +242,7 @@ export default function UploadFile({
                     <div className="form-body">
                         {/* VENDOR CARD */}
                         <div className="fgrp" style={{ marginBottom: 14 }}>
-                            <div className="extracted-lbl" style={{ marginBottom: 6 }}>
+                            {vendors?.company_name&&<div className="extracted-lbl" style={{ marginBottom: 6 }}>
                                 <i className="ti ti-sparkles" style={{ fontSize: 11 }} /> Vendor  {isExtracting
                                     ? <span style={{ fontSize: 9, background: 'var(--blu-bg)', color: 'var(--blu-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Extracting…</span>
                                     : vendors
@@ -240,15 +250,15 @@ export default function UploadFile({
                                         : null
                                 }
                                 
-                            </div>
+                            </div>}
 
                             {/* State 1: Placeholder */}
-                            {!vendors && !isExtracting && (
-                                <div style={{ border: '1.5px dashed var(--bdm)', borderRadius: 'var(--r)', padding: 16, background: 'var(--bg-s)', display: 'flex', alignItems: 'center', gap: 12, color: 'var(--tx3)' }}>
+                            {/* {!vendors && !isExtracting && (
+                                <div style={{ border: `1.5px dashed ${fieldErrors.vendor ? '#E24B4A' : 'var(--bdm)'}`, borderRadius: 'var(--r)', padding: 16, background: fieldErrors.vendor ? '#fff5f5' : 'var(--bg-s)', display: 'flex', alignItems: 'center', gap: 12, color: fieldErrors.vendor ? '#E24B4A' : 'var(--tx3)' }}>
                                     <i className="ti ti-building-store" style={{ fontSize: 22, flexShrink: 0 }} />
-                                    <div style={{ fontSize: 13 }}>Vendor will be extracted and matched automatically after document upload</div>
+                                    <div style={{ fontSize: 13 }}>{fieldErrors.vendor ?? 'Vendor will be extracted and matched automatically after document upload'}</div>
                                 </div>
-                            )}
+                            )} */}
 
                             {/* Extracting */}
                             {isExtracting && (
@@ -514,43 +524,66 @@ export default function UploadFile({
                             {[
                                 { label: 'Quotation Number', value: quotation?.vendor?.quotation_no || '' },
                                 { label: 'Quote Date', value: quotation?.vendor?.quotation_date || '' },
-                                { label: 'Valid Until', value: quotation?.vendor?.valid_until || '' },
                             ].map(({ label, value }) => (
                                 <div key={label} className="fgrp">
                                     <div className="extracted-lbl">
                                         <i className="ti ti-sparkles" style={{ fontSize: 11 }} /> {label}
-                                        { value
-                                                ? <span style={{ fontSize: 9, background: 'var(--tel-bg)', color: 'var(--tel-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Auto-extracted</span>
-                                                : null
+                                        {value
+                                            ? <span style={{ fontSize: 9, background: 'var(--tel-bg)', color: 'var(--tel-tx)', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>Auto-extracted</span>
+                                            : null
                                         }
                                     </div>
                                     <input readOnly className="inp-extracted" placeholder="Extract from document…" value={value} onChange={() => { }} />
                                 </div>
                             ))}
+                            <div className="fgrp">
+                                <div className="extracted-lbl">
+                                    <i className="ti ti-calendar" style={{ fontSize: 11 }} /> Valid Until
+                                 
+                                </div>
+                                <input
+                                    type="date"
+                                    className="inp"
+                                    min={new Date().toISOString().split('T')[0]}
+                                    value={validUntil || ''}
+                                    onChange={e => {
+                                        const val = e.target.value
+                                        const today = new Date().toISOString().split('T')[0]
+                                        setValidUntil?.(val && val < today ? today : val)
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                />
+                            </div>
                         </div>
 
                         {/* Plant, Department, Category */}
                         <div className="g3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                             <div className="fgrp">
                                 <label className="lbl">Plant / Location <span className="req">*</span></label>
-                                <select className="sel" value={plantId} onChange={e => setPlantId(e.target.value)}>
+                                <select className="sel" value={plantId} onChange={e => { setPlantId(e.target.value); onFieldChange?.('plant') }}
+                                    style={fieldErrors.plant ? { borderColor: '#E24B4A' } : undefined}>
                                     <option value="">Select plant</option>
                                     {plants.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                                 </select>
+                                {fieldErrors.plant && <p style={{ fontSize: 11, color: '#E24B4A', marginTop: 3 }}>{fieldErrors.plant}</p>}
                             </div>
                             <div className="fgrp">
                                 <label className="lbl">Department <span className="req">*</span></label>
-                                <select className="sel" value={departmentId} onChange={e => setDepartmentId(e.target.value)}>
+                                <select className="sel" value={departmentId} onChange={e => { setDepartmentId(e.target.value); onFieldChange?.('department') }}
+                                    style={fieldErrors.department ? { borderColor: '#E24B4A' } : undefined}>
                                     <option value="">Select department</option>
                                     {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
                                 </select>
+                                {fieldErrors.department && <p style={{ fontSize: 11, color: '#E24B4A', marginTop: 3 }}>{fieldErrors.department}</p>}
                             </div>
                             <div className="fgrp">
                                 <label className="lbl">Category <span className="req">*</span></label>
-                                <select className="sel" value={categoryId} onChange={e => setCategoryId(e.target.value)}>
+                                <select className="sel" value={categoryId} onChange={e => { setCategoryId(e.target.value); onFieldChange?.('category') }}
+                                    style={fieldErrors.category ? { borderColor: '#E24B4A' } : undefined}>
                                     <option value="">Select category</option>
                                     {categories?.map((c: any) => <option key={c?.id} value={c?.id}>{c?.name}</option>)}
                                 </select>
+                                {fieldErrors.category && <p style={{ fontSize: 11, color: '#E24B4A', marginTop: 3 }}>{fieldErrors.category}</p>}
                             </div>
                         </div>
 

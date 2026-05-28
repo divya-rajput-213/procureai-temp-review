@@ -15,6 +15,9 @@ interface VerifyItemsStepProps {
     hideMasterMatch?: boolean
     onExport?: () => void
     disableAddRow?: boolean
+    onValidationChange?: (isValid: boolean, incompleteCount: number) => void
+    showValidationErrors?: boolean
+    unlockAll?: boolean
 }
 
 const fmtI = (v: number) => '₹' + (isNaN(v) ? 0 : Math.round(v)).toLocaleString('en-IN')
@@ -22,25 +25,37 @@ const fmtI = (v: number) => '₹' + (isNaN(v) ? 0 : Math.round(v)).toLocaleStrin
 const UOM_OPTIONS = ['EA', 'KG', 'LTR', 'MTR', 'PCS', 'SET', 'BOX', 'BAG', 'TON', 'NOS']
 
 const editableStyle: React.CSSProperties = {
-    border: '0.5px solid var(--blu-bd)', background: 'var(--blu-bg)', color: 'var(--blu-tx)',
+    border: '0.5px solid var(--bdm)', background: 'var(--bg)', color: 'var(--tx)',
     borderRadius: 4, padding: '3px 7px', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%',
 }
 const needsInputStyle: React.CSSProperties = {
-    border: '0.5px solid var(--amb-bd)', background: 'var(--amb-bg)', color: 'var(--amb-tx)',
+    border: '0.5px solid var(--bdm)', background: 'var(--bg)', color: 'var(--tx)',
     borderRadius: 4, padding: '3px 7px', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%',
 }
-const extractedCellStyle: React.CSSProperties = {
-    fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)',
-    border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block',
+const errorInputStyle: React.CSSProperties = {
+    border: '1px solid #E24B4A', background: '#fff5f5', color: '#1a1a18',
+    borderRadius: 4, padding: '3px 7px', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%',
 }
 
-export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation, onExport, disableAddRow = false }: VerifyItemsStepProps) {
+export default function VerifyItemsStep({ lineItems, setLineItems, masterItems = [], hideMasterMatch = false, quotation, onExport, disableAddRow = false, onValidationChange, showValidationErrors = false, unlockAll = false }: VerifyItemsStepProps) {
     const [addRowActive, setAddRowActive] = useState(false)
     const [activeDropdownIdx, setActiveDropdownIdx] = useState<number | null>(null)
     const [addSearch, setAddSearch] = useState('')
     const searchInputRef = useRef<HTMLInputElement>(null)
     const searchRowRef = useRef<HTMLTableRowElement>(null)
     const dropdownRef = useRef<HTMLDivElement>(null)
+    // Snapshot which fields were non-null in the original backend response (set once per item index)
+    const origRef = useRef<Record<number, { hsn: string | null; uom: string | null; qty: number; price: number | null }>>({})
+    lineItems.forEach((item, idx) => {
+        if (!item._manuallyAdded && origRef.current[idx] === undefined) {
+            origRef.current[idx] = {
+                hsn: item.hsn_code ?? null,
+                uom: item.unit_of_measure ?? null,
+                qty: Number(item.quantity) || 0,
+                price: item.item_price != null ? Number(item.item_price) : null,
+            }
+        }
+    })
 
     const { data: inventoryItems = [], isFetching: inventoryFetching } = useQuery({
         queryKey: ['items-inventory', addSearch],
@@ -122,6 +137,10 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
         setLineItems(prev => { const u = [...prev]; u[idx] = { ...u[idx], [field]: value }; return u })
     }, [setLineItems])
 
+    const updateItemFields = useCallback((idx: number, fields: Record<string, any>) => {
+        setLineItems(prev => { const u = [...prev]; u[idx] = { ...u[idx], ...fields }; return u })
+    }, [setLineItems])
+
     const selectMaster = (idx: number, masterId: string) => {
         setLineItems(prev => {
             const u = [...prev]
@@ -133,7 +152,27 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
     const toggleCreateNew = (idx: number, checked: boolean) => {
         setLineItems(prev => {
             const u = [...prev]
-            u[idx] = { ...u[idx], createNew: checked, is_new: checked, replaceExisting: false, skipItem: false }
+            const item = u[idx]
+
+            if (checked) {
+                u[idx] = {
+                    ...item,
+                    createNew: true,
+                    is_new: true,
+                    replaceExisting: false,
+                    skipItem: false,
+                    selectedMasterId: '',
+                }
+            } else {
+                u[idx] = {
+                    ...item,
+                    createNew: checked,
+                    is_new: checked,
+                    replaceExisting: false,
+                    skipItem: false,
+                    selectedMasterId: checked ? '' : item.selectedMasterId,
+                }
+            }
             return u
         })
     }
@@ -182,6 +221,21 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
     const matched = lineItems.filter(i => !i.createNew && !i.is_new && !i.skipItem && !i.replaceExisting && !!i.selectedMasterId).length
     const newCount = lineItems.filter(i => (i.createNew || i.is_new) && !i.skipItem).length
 
+    // Validation — items missing HSN, UOM or Unit Price block submission
+    const incompleteItems = lineItems.filter((item, idx) => {
+        if (item.skipItem) return false
+        const orig = origRef.current[idx]
+        // HSN: trusted if backend provided it; user-entered must be 6 digits
+        const hsnFromBackend = !item._manuallyAdded && orig?.hsn != null
+        const hsnOk = hsnFromBackend || /^\d{8}$/.test(String(item.hsn_code || '').trim())
+        return !hsnOk || !item.unit_of_measure || !(Number(item.item_price) > 0)
+    })
+    const isBlocked = incompleteItems.length > 0
+
+    useEffect(() => {
+        onValidationChange?.(!isBlocked, incompleteItems.length)
+    }, [isBlocked, incompleteItems.length])
+
     return (
         <div className="vi-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16 }}>
             {/* LEFT */}
@@ -197,17 +251,29 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                 <div className="fsh-sub">Edit extracted values · choose an action for each item · pick a master match if available</div>
                             </div>
                         </div>
-                        {onExport && (
-                            <button
-                                type="button"
-                                onClick={onExport}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, padding: '5px 12px', border: '0.5px solid var(--bd)', borderRadius: 6, background: 'white', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
-                            >
-                                <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
-                            </button>
-                        )}
+                        {onExport && (() => {
+                            const hasNewItems = lineItems.some(item => !item.skipItem && (item.createNew || item.is_new))
+                            return (
+                                <span style={{ flexShrink: 0 }}>
+                                    <button
+                                        type="button"
+                                        onClick={onExport}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, padding: '5px 12px', border: '0.5px solid var(--bd)', borderRadius: 6, background: 'white', whiteSpace: 'nowrap' }}
+                                    >
+                                        <i className="ti ti-file-spreadsheet" style={{ fontSize: 14 }} /> Export Excel
+                                    </button>
+                                </span>
+                            )
+                        })()}
                     </div>
                     <div className="form-body" style={{ padding: 14 }}>
+                        {/* HSN info — only when any item is missing a valid 8-digit HSN */}
+                        {lineItems.some(item => !item.skipItem && !/^\d{8}$/.test(String(item.hsn_code || '').replace(/\s+/g, ''))) && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#92540a', background: '#fef3c7', border: '0.5px solid #f59e0b', borderRadius: 6, padding: '7px 12px', marginBottom: 10 }}>
+                                <i className="ti ti-info-circle" style={{ fontSize: 14, flexShrink: 0 }} />
+                                <span>HSN code must be <strong>8 digits</strong> — required before submission.</span>
+                            </div>
+                        )}
                         {/* Extraction notice */}
                         <div style={{ background: 'var(--grn-bg)', border: '0.5px solid rgba(99,153,34,.3)', borderRadius: 'var(--r)', padding: '9px 13px', display: 'flex', alignItems: 'center', gap: 9, marginBottom: 12, fontSize: 12, color: 'var(--grn-tx)' }}>
                             <i className="ti ti-sparkles" style={{ fontSize: 14, flexShrink: 0 }} />
@@ -215,19 +281,19 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                         </div>
 
                         {/* Table */}
-                        <div style={{ overflowX: 'auto' }}>
+                        <div style={{ overflowX: addRowActive ? 'visible' : 'auto', overflowY: addRowActive ? 'visible' : 'unset', WebkitOverflowScrolling: 'touch' }}>
                             <table className="match-tbl">
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 28 }}>#</th>
-                                        <th>Item Description</th>
-                                        <th style={{ width: 90 }}>HSN Code</th>
-                                        <th style={{ width: 54, textAlign: 'right' }}>Qty</th>
-                                        <th style={{ width: 72 }}>UOM</th>
-                                        <th style={{ width: 96, textAlign: 'right' }}>Unit Price</th>
-                                        <th style={{ width: 106, textAlign: 'right' }}>Total</th>
-                                        {!hideMasterMatch && <th style={{ width: 200 }}>Master Item Match</th>}
-                                        <th style={{ width: 28 }} />
+                                        <th style={{ width: 44, textAlign: 'center' }}>#</th>
+                                        <th style={{ width: '24%' }}>Item Description</th>
+                                        <th style={{ width: 100 }}>HSN Code</th>
+                                        <th style={{ width: 56, textAlign: 'right' }}>Qty</th>
+                                        <th style={{ width: 64 }}>UOM</th>
+                                        <th style={{ width: 112, textAlign: 'right' }}>Unit Price</th>
+                                        <th style={{ width: 120, textAlign: 'right' }}>Total</th>
+                                        <th style={{ width: '24%' }}>Master Item Match</th>
+                                        <th style={{ width: 36 }} />
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -241,75 +307,107 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                         const price = Number(item.item_price || 0)
                                         const isManual = !!item._manuallyAdded
 
+                                        const orig = origRef.current[idx]
+                                        // In add flow: lock if backend provided the value
+                                        // In edit flow (unlockAll): lock unless the field was previously marked is_manual by backend
+                                        const hsnLocked = unlockAll
+                                            ? !isManual && !item.is_manual_hsn
+                                            : !isManual && orig?.hsn != null
+                                        const uomLocked = unlockAll
+                                            ? !isManual && !item.is_manual_uom
+                                            : !isManual && orig?.uom != null
+                                        const qtyLocked = !isManual && (orig?.qty ?? 0) > 0
+                                        const priceLocked = unlockAll
+                                            ? !isManual && !item.is_manual_unit_price
+                                            : !isManual && orig?.price != null && orig.price > 0
+
+                                        const hsnValid = hsnLocked || /^\d{8}$/.test(String(item.hsn_code || '').replace(/\s+/g, ''))
+                                        const uomValid = uomLocked || !!item.unit_of_measure
+                                        const priceValid = priceLocked || Number(item.item_price) > 0
+                                        const showErr = showValidationErrors && !isSkip
+
                                         return (
                                             <tr key={idx} style={{ opacity: isSkip ? 0.45 : 1 }}>
-                                                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)' }}>{String(idx + 1).padStart(2, '0')}</td>
-                                                <td>
+                                                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)', padding: '10px 4px', textAlign: 'center' }}>{String(idx + 1).padStart(2, '0')}</td>
+                                                <td style={{ textOverflow: 'ellipsis' }} title={!isManual ? (item.item_name || '') : undefined}>
                                                     {isManual
                                                         ? <input className="cell-inp" value={item.item_name || ''} onChange={e => updateItem(idx, 'item_name', e.target.value)} style={{ fontWeight: 500 }} />
-                                                        : <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--tx)' }}>{item.item_name}</span>
+                                                        : <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--tx)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.item_name}</span>
                                                     }
                                                 </td>
                                                 <td>
-                                                    {isManual
-                                                        ? item.hsn_code
-                                                            ? <span style={extractedCellStyle}>{item.hsn_code}</span>
-                                                            : <input
+                                                    {hsnLocked
+                                                        ? <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)', border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block' }}>{String(item.hsn_code || '').replace(/\s+/g, '')}</span>
+                                                        : <>
+                                                            <input
                                                                 value={item.hsn_code || ''}
-                                                                onChange={e => updateItem(idx, 'hsn_code', e.target.value)}
-                                                                placeholder="Enter HSN"
-                                                                style={{ ...needsInputStyle, fontFamily: 'monospace', width: 85 }}
+                                                                onChange={e => {
+                                                                    const v = e.target.value.replace(/\D/g, '').slice(0, 8)
+                                                                    updateItemFields(idx, { hsn_code: v, is_manual_hsn: true })
+                                                                }}
+                                                                placeholder="8-digit HSN"
+                                                                maxLength={8}
+                                                                inputMode="numeric"
+                                                                style={{ ...(showErr && !hsnValid ? errorInputStyle : /^\d{8}$/.test(String(item.hsn_code || '')) ? editableStyle : needsInputStyle), fontFamily: 'monospace', width: 95 }}
                                                             />
-                                                        : item.hsn_code
-                                                            ? <span style={extractedCellStyle}>{item.hsn_code}</span>
-                                                            : <span style={{ fontSize: 13, color: 'var(--tx3)' }}>—</span>
+                                                            {showErr && !hsnValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>HSN Code must be 8 digits</div>}
+                                                          </>
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
-                                                    {isManual || qty === 0
-                                                        ? <input
+                                                    {qtyLocked
+                                                        ? <span style={{ fontSize: 14, fontFamily: 'monospace' }}>{qty}</span>
+                                                        : <input
                                                             type="number"
                                                             value={qty || ''}
-                                                            onChange={e => updateItem(idx, 'quantity', Number(e.target.value))}
+                                                            min={1}
+                                                            onChange={e => {
+                                                                const v = Math.max(1, Number(e.target.value) || 1)
+                                                                updateItem(idx, 'quantity', v)
+                                                            }}
                                                             placeholder="1"
-                                                            style={{ ...(isManual ? editableStyle : needsInputStyle), width: 48, textAlign: 'right' }}
+                                                            style={{ ...(qty > 0 ? editableStyle : needsInputStyle), width: 48, textAlign: 'right' }}
                                                         />
-                                                        : <span style={{ fontSize: 14, fontFamily: 'monospace' }}>{qty}</span>
                                                     }
                                                 </td>
                                                 <td>
-                                                    {isManual
-                                                        ? item.unit_of_measure
-                                                            ? <span style={extractedCellStyle}>{item.unit_of_measure}</span>
-                                                            : <select
+                                                    {uomLocked
+                                                        ? <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)', border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block' }}>{item.unit_of_measure}</span>
+                                                        : <>
+                                                            <select
                                                                 value={item.unit_of_measure || ''}
-                                                                onChange={e => updateItem(idx, 'unit_of_measure', e.target.value)}
-                                                                style={{ ...needsInputStyle, width: 68 }}
+                                                                onChange={e => updateItemFields(idx, { unit_of_measure: e.target.value, is_manual_uom: true })}
+                                                                style={{ ...(showErr && !uomValid ? errorInputStyle : item.unit_of_measure ? editableStyle : needsInputStyle), width: 68 }}
                                                             >
                                                                 <option value="">UOM</option>
                                                                 {UOM_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
                                                             </select>
-                                                        : item.unit_of_measure
-                                                            ? <span style={extractedCellStyle}>{item.unit_of_measure}</span>
-                                                            : <span style={{ fontSize: 13, color: 'var(--tx3)' }}>—</span>
+                                                            {showErr && !uomValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>UOM Required</div>}
+                                                          </>
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
-                                                    {isManual
-                                                        ? <input
-                                                            type="number"
-                                                            value={price || ''}
-                                                            onChange={e => updateItem(idx, 'item_price', Number(e.target.value))}
-                                                            placeholder="0"
-                                                            style={{ ...editableStyle, width: 85, textAlign: 'right' }}
-                                                        />
-                                                        : price > 0
-                                                            ? <span style={extractedCellStyle}>{fmtI(price)}</span>
-                                                            : <span style={{ fontSize: 13, color: 'var(--tx3)' }}>—</span>
+                                                    {priceLocked
+                                                        ? <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--tel-tx)', background: 'var(--tel-bg)', border: '0.5px solid rgba(29,158,117,.3)', borderRadius: 4, padding: '3px 7px', display: 'inline-block' }}>{fmtI(price)}</span>
+                                                        : <>
+                                                            <input
+                                                                type="number"
+                                                                value={price || ''}
+                                                                min={0.01}
+                                                                step="any"
+                                                                onChange={e => {
+                                                                    const v = Math.abs(Number(e.target.value) || 0)
+                                                                    updateItemFields(idx, { item_price: v, is_manual_unit_price: true })
+                                                                }}
+                                                                placeholder="0.00"
+                                                                style={{ ...(showErr && !priceValid ? errorInputStyle : price > 0 ? editableStyle : needsInputStyle), width: 90, textAlign: 'right' }}
+                                                            />
+                                                            {showErr && !priceValid && <div style={{ fontSize: 10, color: '#E24B4A', marginTop: 2 }}>Price must be a positive value</div>}
+                                                          </>
                                                     }
                                                 </td>
                                                 <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 14 }}>{fmtI(qty * price)}</td>
-                                                {!hideMasterMatch && <td style={{ minWidth: isManual ? 0 : 220, position: 'relative' }}>
+                                                { <td style={{ minWidth: isManual ? 0 : 220, position: 'relative', overflow: 'visible' }}>
                                                     {isManual ? null : (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                             {/* Custom Rich Dropdown */}
@@ -317,7 +415,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setActiveDropdownIdx(activeDropdownIdx === idx ? null : idx)}
-                                                                    disabled={isNew}
+                                                                    disabled={isNew || (hideMasterMatch && !unlockAll)}
                                                                     style={{
                                                                         fontSize: 13, padding: '7px 10px',
                                                                         border: `0.5px solid ${isNew ? 'var(--gry-bd)' : 'var(--blu-bd)'}`,
@@ -410,19 +508,15 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
 
                                                             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4 }}>
                                                                 <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--tx2)', cursor: 'pointer' }}>
-                                                                    <input type="checkbox" checked={isNew} onChange={e => toggleCreateNew(idx, e.target.checked)} style={{ accentColor: 'var(--grn-bd)', width: 12, height: 12 }} />
+                                                                    <input type="checkbox" checked={isNew} onChange={e => toggleCreateNew(idx, e.target.checked)} style={{ accentColor: 'var(--grn-bd)', width: 12, height: 12 }} disabled={hideMasterMatch && !unlockAll} />
                                                                     <span>Create New</span>
                                                                 </label>
-                                                                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--tx2)', cursor: isNew ? 'default' : 'pointer', opacity: isNew ? 0.4 : 1 }}>
-                                                                    <input type="checkbox" checked={isReplace} onChange={e => toggleReplace(idx, e.target.checked)} disabled={isNew} style={{ accentColor: 'var(--amb-bd)', width: 12, height: 12 }} />
-                                                                    <span>Replace Existing</span>
-                                                                </label>
+                   
                                                             </div>
                                                             <div style={{ fontSize: 12, color: 'var(--tx3)', padding: '2px 0' }}>
                                                                 {isNew
                                                                     ? <span style={{ color: 'var(--grn-tx)', fontWeight: 600 }}><i className="ti ti-plus" style={{ fontSize: 11, marginRight: 2 }} />Will create new master item</span>
-                                                                    : isReplace
-                                                                        ? <span style={{ color: 'var(--amb-tx)', fontWeight: 600 }}><i className="ti ti-refresh" style={{ fontSize: 11, marginRight: 2 }} />Will update existing item&apos;s spec &amp; price</span>
+
                                                                         : <span style={{ color: 'var(--blu-tx)', fontWeight: 600 }}><i className="ti ti-link" style={{ fontSize: 11, marginRight: 2 }} />Using existing master item</span>
                                                                 }
                                                             </div>
@@ -452,7 +546,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                             <td style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--tx3)', verticalAlign: 'top', paddingTop: 10 }}>
                                                 <i className="ti ti-search" style={{ fontSize: 12 }} />
                                             </td>
-                                            <td colSpan={6} style={{ padding: '6px 8px', position: 'relative' }}>
+                                            <td colSpan={6} style={{ padding: '6px 8px', position: 'relative', overflow: 'visible' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '0.5px solid var(--blu-bd)', borderRadius: 5, padding: '5px 8px', background: 'var(--bg)' }}>
                                                     <input
                                                         ref={searchInputRef}
@@ -517,48 +611,44 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colSpan={7} className="match-tfoot" style={{ fontWeight: 600, color: 'var(--tx2)', textAlign: 'right' }}>Sub Total</td>
-                                        <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{fmtI(subtotal)}</td>
-                                        <td colSpan={2} className="match-tfoot" />
+                                        <td colSpan={6} className="match-tfoot" style={{ fontWeight: 600, color: 'var(--tx2)', textAlign: 'right', whiteSpace: 'nowrap' }}>Sub Total</td>
+                                        <td colSpan={3} className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtI(subtotal)}</td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
-                                        <td className="match-tfoot" style={{ textAlign: 'right', color: cgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>{cgstAmount != null ? fmtI(cgstAmount) : '—'}</td>
-                                        <td colSpan={2} className="match-tfoot" />
+                                        <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)', whiteSpace: 'nowrap' }}>CGST{cgstRate != null ? ` @ ${cgstRate}%` : ''}</td>
+                                        <td colSpan={3} className="match-tfoot" style={{ textAlign: 'right', color: cgstAmount != null ? 'var(--tx2)' : 'var(--tx3)', whiteSpace: 'nowrap' }}>{cgstAmount != null ? fmtI(cgstAmount) : '—'}</td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
-                                        <td className="match-tfoot" style={{ textAlign: 'right', color: sgstAmount != null ? 'var(--tx2)' : 'var(--tx3)' }}>{sgstAmount != null ? fmtI(sgstAmount) : '—'}</td>
-                                        <td colSpan={2} className="match-tfoot" />
+                                        <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)', whiteSpace: 'nowrap' }}>SGST{sgstRate != null ? ` @ ${sgstRate}%` : ''}</td>
+                                        <td colSpan={3} className="match-tfoot" style={{ textAlign: 'right', color: sgstAmount != null ? 'var(--tx2)' : 'var(--tx3)', whiteSpace: 'nowrap' }}>{sgstAmount != null ? fmtI(sgstAmount) : '—'}</td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
-                                        <td className="match-tfoot" style={{ textAlign: 'right', color: igst > 0 ? 'var(--tx2)' : 'var(--tx3)' }}>{igst > 0 ? fmtI(igst) : '—'}</td>
-                                        <td colSpan={2} className="match-tfoot" />
+                                        <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3)', whiteSpace: 'nowrap' }}>IGST{igstRate != null ? ` @ ${igstRate}%` : ''}</td>
+                                        <td colSpan={3} className="match-tfoot" style={{ textAlign: 'right', color: igst > 0 ? 'var(--tx2)' : 'var(--tx3)', whiteSpace: 'nowrap' }}>{igst > 0 ? fmtI(igst) : '—'}</td>
                                     </tr>
                                     <tr style={{ background: 'var(--bg-t)' }}>
-                                        <td colSpan={7} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)' }}>Grand Total (incl. GST)</td>
-                                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{fmtI(grandTotal)}</td>
-                                        <td colSpan={2} style={{ borderTop: '0.5px solid var(--bdm)' }} />
+                                        <td colSpan={6} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bdm)', whiteSpace: 'nowrap' }}>Grand Total (incl. GST)</td>
+                                        <td colSpan={3} style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)', whiteSpace: 'nowrap' }}>{fmtI(grandTotal)}</td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
 
-                        {!addRowActive && !disableAddRow && (
+                        {/* {!addRowActive && !disableAddRow && (
                             <button
                                 onClick={() => setAddRowActive(true)}
-                                style={{ marginTop: 10, padding: '6px 12px', borderRadius: 'var(--r)', border: '0.5px solid var(--bdm)', background: 'var(--bg)', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--tx)' }}
+                                style={{ marginTop: 10, padding: '6px 12px ', borderRadius: 'var(--r)', border: '0.5px solid var(--bdm)', background: 'var(--bg)', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--tx)' }}
                             >
                                 <i className="ti ti-plus" style={{ fontSize: 13 }} /> Add Row
                             </button>
-                        )}
+                        )} */}
                     </div>
                 </div>
             </div>
 
             {/* SIDEBAR */}
             <div className="vi-sidebar">
+
                 <div className="card" style={{ marginBottom: 12 }}>
                     <div className="card-head">
                         <div className="card-title"><i className="ti ti-chart-pie" /> Matching Summary</div>

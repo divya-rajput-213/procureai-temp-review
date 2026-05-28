@@ -32,10 +32,15 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
     const [prLinkId, setPrLinkId] = useState<string>('')
     const [errorMessage, setErrorMessage] = useState('')
     const [showConfirm, setShowConfirm] = useState(false)
+    const [showDraftConfirm, setShowDraftConfirm] = useState(false)
     const [showExportModal, setShowExportModal] = useState(false)
     const [exporting, setExporting] = useState(false)
     const [initialized, setInitialized] = useState(false)
+    const [verifyStepValid, setVerifyStepValid] = useState(true)
+    const [validUntil, setValidUntil] = useState<string>('')
     const [financialYear, setFinancialYear] = useState<string>('')
+    const [step0Errors, setStep0Errors] = useState<Record<string, string>>({})
+    const [showVerifyErrors, setShowVerifyErrors] = useState(false)
 
     const getApiErrorMessage = (error: any, fallback: string) => {
         const data = error?.response?.data
@@ -97,6 +102,8 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
         setCategoryId(quotationData.category_id ? String(quotationData.category_id) : (quotationData.category ? String(quotationData.category) : ''))
         setPrLinkId(quotationData.pr_id ? String(quotationData.pr_id) : (quotationData.pr ? String(quotationData.pr) : ''))
         setInternalNotes(quotationData.internal_notes || '')
+        const vu = quotationData.vendor?.valid_until ?? quotationData.valid_until ?? ''
+        if (vu) setValidUntil(vu)
         setInitialized(true)
     }, [quotationData, initialized])
 
@@ -114,15 +121,35 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
     }, [quotationData])
 
     const quotationSaveMutation = useMutation({
-        mutationFn: async () => {
-            const payload = {
+        mutationFn: async ({ status }: { status?: string } = {}) => {
+            const payload: Record<string, any> = {
                 vendor_id: vendors?.id ? Number(vendors.id) : null,
                 plant_id: plantId ? Number(plantId) : null,
                 department_id: departmentId ? Number(departmentId) : null,
                 category_id: categoryId ? Number(categoryId) : null,
                 pr_id: prLinkId ? Number(prLinkId) : null,
                 internal_notes: internalNotes || null,
+                valid_until: validUntil || null,
+                items: lineItems.map((item: any) => {
+                    const selectedSuggestion = item.suggestions?.find((s: any) => String(s.master_item_id) === String(item.selectedMasterId))
+                    return {
+                        item_code: item.item_code ?? item.code,
+                        item_name: item.item_name,
+                        item_price: item.item_price,
+                        quantity: item.quantity || 1,
+                        unit_of_measure: item.unit_of_measure ?? item.uom,
+                        hsn_code: item.hsn_code ?? selectedSuggestion?.hsn_code ?? null,
+                        create_new_item: item.createNew,
+                        is_new: item?.is_new || false,
+                        is_duplicate: item?.is_duplicate || false,
+                        suggestions: item.createNew ? [] : selectedSuggestion ? [selectedSuggestion] : [],
+                        is_manual_hsn: item.is_manual_hsn ?? false,
+                        is_manual_unit_price: item.is_manual_unit_price ?? false,
+                        is_manual_uom: item.is_manual_uom ?? false,
+                    }
+                }),
             }
+            if (status) payload.status = status
             const { data } = await apiClient.patch(`/quotations/${params.quotationId}/`, payload)
             return data
         },
@@ -139,6 +166,17 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
             toast({ title: 'Error', description: message, variant: 'destructive' })
         },
     })
+
+    const handleStep0Continue = () => {
+        const errs: Record<string, string> = {}
+        if (!vendors) errs.vendor = 'Vendor is required.'
+        if (!plantId) errs.plant = 'Plant is required.'
+        if (!departmentId) errs.department = 'Department is required.'
+        if (!categoryId) errs.category = 'Category is required.'
+        if (Object.keys(errs).length > 0) { setStep0Errors(errs); return }
+        setStep0Errors({})
+        goNext()
+    }
 
     const goNext = () => {
         setCompletedSteps(prev => { const u = new Set(prev); u.add(currentStep); return u })
@@ -175,8 +213,20 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
             link.remove()
             window.URL.revokeObjectURL(url)
             setShowExportModal(false)
-        } catch (e) {
-            console.error(e)
+        } catch (e: any) {
+            let message = 'Export failed. Please try again.'
+            try {
+                const blob: Blob = e?.response?.data
+                if (blob instanceof Blob) {
+                    const text = await blob.text()
+                    const json = JSON.parse(text)
+                    message = json.error ?? json.detail ?? json.message ?? message
+                } else if (e?.response?.data?.error) {
+                    message = e.response.data.error
+                }
+            } catch {}
+            toast({ title: 'Export failed', description: message, variant: 'destructive' })
+            setShowExportModal(false)
         } finally {
             setExporting(false)
         }
@@ -255,14 +305,15 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 .qf-root .ci:last-child{border-bottom:none}
                 .qf-root .ci-ok{color:var(--grn-tx)}
                 .qf-root .ci-idle{color:var(--tx3)}
-                .qf-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100;margin-top:16px;}
+                .qf-root{display:flex;flex-direction:column;min-height:calc(100vh - 90px)}
+                .qf-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bdm);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;margin-top:auto;}
                 .qf-root .err-strip{background:var(--red-bg);border:0.5px solid var(--red-bd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:14px;color:var(--red-tx)}
-                .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:14px}
-                .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap}
+                .qf-root .match-tbl{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed;min-width:860px}
+                .qf-root .match-tbl thead th{padding:9px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg-s);border-bottom:0.5px solid var(--bd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
                 .qf-root .match-tbl tbody tr{border-bottom:0.5px solid var(--bd);cursor:default;transition:background .1s}
                 .qf-root .match-tbl tbody tr:last-child{border-bottom:none}
                 .qf-root .match-tbl tbody tr:hover{background:#fafaf8}
-                .qf-root .match-tbl td{padding:11px 12px;vertical-align:top}
+                .qf-root .match-tbl td{padding:10px 12px;vertical-align:middle;white-space:nowrap;overflow:hidden}
                 .qf-root .cell-inp{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:100%}
                 .qf-root .cell-inp:focus{background:var(--blu-bg);border-radius:4px;padding:2px 4px}
                 .qf-root .cell-num{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);outline:none;width:60px;text-align:right}
@@ -321,7 +372,7 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                 }
             `}</style>
 
-            <div className="qf-root relative">
+            <div className="qf-root">
                 {/* Page header */}
                 <div className="page-hd" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
@@ -403,6 +454,10 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         disableUpload
                         pdfUrl={quotationData?.pdf_url}
                         pdfName={quotationData?.ref_no}
+                        validUntil={validUntil}
+                        setValidUntil={setValidUntil}
+                        fieldErrors={step0Errors}
+                        onFieldChange={(field) => setStep0Errors(prev => { const n = { ...prev }; delete n[field]; return n })}
                     />
                 )}
 
@@ -418,13 +473,16 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         onBack={() => setCurrentStep(0)}
                         hideMasterMatch
                         disableAddRow
+                        unlockAll
                         onExport={lineItems.length > 0 ? () => setShowExportModal(true) : undefined}
+                        onValidationChange={(isValid) => { setVerifyStepValid(isValid); if (isValid) setShowVerifyErrors(false) }}
+                        showValidationErrors={showVerifyErrors}
                     />
                 )}
 
 
                 {/* ── Action bar ── */}
-                <div className="sticky-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="sticky-bar rounded-b-xl" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
                         {currentStep > 0 ? (
                             <Button variant="outline" size="sm" onClick={() => setCurrentStep(s => s - 1)}>Back</Button>
@@ -438,18 +496,35 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         </span>
 
                         {currentStep === 0 && (
-                            <Button size="sm" onClick={goNext} disabled={!vendors || !plantId} className="gap-1.5">
+                            <Button size="sm" onClick={handleStep0Continue} disabled={false} className="gap-1.5">
                                 Next: Items &amp; Matching
                                 <ChevronRight style={{ width: 14, height: 14 }} />
                             </Button>
                         )}
 
-                        {currentStep === 1 && (
-                            <Button size="sm" onClick={() => setShowConfirm(true)} disabled={isSaving} className="gap-1.5">
+                        {currentStep === 1 && (<>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    if (!verifyStepValid) { setShowVerifyErrors(true); return }
+                                    setShowDraftConfirm(true)
+                                }}
+                                disabled={isSaving}
+                                className="gap-1.5"
+                            >
                                 {isSaving && <Loader2 style={{ width: 14, height: 14, animation: 'spin 0.8s linear infinite' }} />}
-                                Save Changes
+                                Save as Draft
                             </Button>
-                        )}
+                            <Button
+                                size="sm"
+                                onClick={() => { if (!verifyStepValid) { setShowVerifyErrors(true); return }; setShowConfirm(true) }}
+                                disabled={isSaving}
+                                className="gap-1.5"
+                            >
+                                Submit
+                            </Button>
+                        </>)}
 
                     </div>
                 </div>
@@ -458,16 +533,30 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
             {/* ── Export modal ── */}
             <CommonConfirmModal
                 isOpen={showExportModal}
-                title="Export Line Items"
+                title="Export New Items"
                 description={
                     <>
-                        Export <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} from this quotation as an Excel sheet?
+                        {(() => {
+                            const newCount = lineItems.filter(i => !i.skipItem && (i.createNew || i.is_new)).length
+                            return <>Only <strong>{newCount}</strong> new item{newCount !== 1 ? 's' : ''} will be exported — existing catalogue matches are excluded.</>
+                        })()}
                     </>
                 }
                 confirmLabel="Export Excel"
                 onClose={() => setShowExportModal(false)}
                 onConfirm={handleExportExcel}
                 isPending={exporting}
+            />
+
+            {/* ── Draft confirm modal ── */}
+            <CommonConfirmModal
+                isOpen={showDraftConfirm}
+                title="Save as Draft"
+                description="Are you sure you want to save this quotation as a draft?"
+                confirmLabel="Save as Draft"
+                onClose={() => setShowDraftConfirm(false)}
+                onConfirm={() => quotationSaveMutation.mutate({ status: 'draft' })}
+                isPending={quotationSaveMutation.isPending}
             />
 
             {/* ── Confirm modal — outside qf-root so Tailwind styles are not overridden ── */}
@@ -480,9 +569,9 @@ export default function EditQuotationPage({ params }: Readonly<{ params: { quota
                         <strong>{lineItems.length}</strong> line item{lineItems.length !== 1 ? 's' : ''} will be updated. This will overwrite the existing data.
                     </>
                 }
-                confirmLabel="Save Changes"
+                confirmLabel="Submit"
                 onClose={() => setShowConfirm(false)}
-                onConfirm={() => quotationSaveMutation.mutate()}
+                onConfirm={() => quotationSaveMutation.mutate({ status: 'submitted' })}
                 isPending={quotationSaveMutation.isPending}
             />
         </>

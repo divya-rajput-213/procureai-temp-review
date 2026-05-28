@@ -192,16 +192,53 @@ export default function VendorsPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
+  const vendorKey = (v: any) => String(v?.hash_id ?? v?.id ?? '')
+
+  const removeVendorFromVendorsCache = (idOrHash: string | number) => {
+    const target = String(idOrHash)
+    queryClient.setQueriesData({ queryKey: ['vendors'] }, (old: any) => {
+      if (!old) return old
+      if (Array.isArray(old)) return old.filter((v: any) => vendorKey(v) !== target)
+      const results = Array.isArray(old?.results) ? old.results : null
+      if (!results) return old
+      const nextResults = results.filter((v: any) => vendorKey(v) !== target)
+      const nextCount =
+        typeof old?.count === 'number'
+          ? Math.max(0, old.count - (results.length - nextResults.length))
+          : old?.count
+      return { ...old, results: nextResults, ...(typeof nextCount === 'number' ? { count: nextCount } : {}) }
+    })
+  }
+
   const deleteMutation = useMutation({
     mutationFn: async (hashId: string) => apiClient.delete(`/vendors/${hashId}/`),
+    onMutate: async (hashId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['vendors'] })
+      const snapshot = queryClient.getQueriesData({ queryKey: ['vendors'] })
+      removeVendorFromVendorsCache(hashId)
+      return { snapshot }
+    },
+    onError: (err: any, _hashId: string, ctx: any) => {
+      if (ctx?.snapshot) {
+        for (const [key, data] of ctx.snapshot as any[]) queryClient.setQueryData(key, data)
+      }
+      const data = err?.response?.data
+      let msg = 'Failed to delete vendor.'
+      if (typeof data === 'string') msg = data
+      else if (data?.detail) msg = data.detail
+      else if (data?.error) msg = data.error
+      if (msg.toLowerCase().includes('protected') || msg.toLowerCase().includes('quotation')) {
+        msg = 'This vendor cannot be deleted because they have linked quotations.'
+      }
+      toast({ title: 'Cannot delete vendor', description: msg, variant: 'destructive' })
+      setDeletingVendor(null)
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendors'] })
       toast({ title: 'Vendor deleted' })
       setDeletingVendor(null)
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error ?? 'Failed to delete vendor'
-      toast({ title: msg, variant: 'destructive' })
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] })
     },
   })
 
@@ -223,7 +260,7 @@ export default function VendorsPage() {
     setSearchInput(''); setStatusFilter(''); setPlantFilter(''); setCategoryFilter(''); setPage(1)
   }
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['vendors', search, statusFilter, plantFilter, categoryFilter, page, ordering],
     queryFn: async () => {
       const params: Record<string, string> = { page: String(page), page_size: String(PAGE_SIZE), ordering }
@@ -400,12 +437,12 @@ export default function VendorsPage() {
               <span className="hidden sm:inline">Export CSV</span>
               <span className="sm:hidden">CSV</span>
             </Button>
-            <Link href="/vendors/import">
+            {/* <Link href="/vendors/import">
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Upload className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Import</span>
               </Button>
-            </Link>
+            </Link> */}
             <Link href="/vendors/new">
               <Button size="sm" className="gap-1.5">
                 <Plus className="w-4 h-4" />
@@ -431,7 +468,12 @@ export default function VendorsPage() {
 
           {/* Mobile cards */}
           {!isLoading && vendors.length > 0 && (
-            <div className="md:hidden">
+            <div className="relative md:hidden">
+              {isFetching && (
+                <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
               {vendors.map((v: any) => (
                 <VendorCard
                   key={v.id}
@@ -445,7 +487,12 @@ export default function VendorsPage() {
 
           {/* Desktop table */}
           {!isLoading && vendors.length > 0 && (
-            <div className="hidden md:block w-full overflow-x-auto">
+            <div className="relative hidden md:block w-full overflow-x-auto">
+              {isFetching && (
+                <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
               <table className="min-w-[900px] w-full text-sm">
                 <thead className="bg-slate-50 border-b">
                   <tr>
@@ -576,7 +623,7 @@ export default function VendorsPage() {
         }
         confirmLabel="Delete"
         onClose={() => setDeletingVendor(null)}
-        onConfirm={() => deletingVendor && deleteMutation.mutate(deletingVendor.id)}
+        onConfirm={() => deletingVendor && deleteMutation.mutate(vendorKey(deletingVendor))}
         isPending={deleteMutation.isPending}
       />
 
