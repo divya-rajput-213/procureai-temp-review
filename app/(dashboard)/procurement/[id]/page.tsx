@@ -296,11 +296,12 @@ function ApprovalProgressPanel({ prId, onStatusChange }: {
 }
 
 // ─── Submit for Approval Modal ─────────────────────────────────────────────────
-function SubmitForApprovalModal({ prId, onClose, onSuccess, selectedVendor }: {
+function SubmitForApprovalModal({ prId, onClose, onSuccess, selectedVendor, hasQuotations = true }: {
   prId: string | string[]
   onClose: () => void
   onSuccess: () => void
   selectedVendor: any
+  hasQuotations?: boolean
 }) {
   const { toast } = useToast()
   const [selectedMatrix, setSelectedMatrix] = useState<number | null>(null)
@@ -322,13 +323,20 @@ function SubmitForApprovalModal({ prId, onClose, onSuccess, selectedVendor }: {
       setSubmitting(false)
       return
     }
-    if (!selectedVendor) {
+    // Quick PRs (no quotations linked) don't go through bid comparison — the
+    // vendor is already set on the PR at creation time. Skip the quotation
+    // gate and don't send a quotation id in the body.
+    if (hasQuotations && !selectedVendor) {
       toast({ title: 'Submission failed', description: 'No quotation selected.', variant: 'destructive' })
       setSubmitting(false)
       return
     }
     try {
-      const body = selectedMatrix ? { matrix_id: selectedMatrix, selected_quotation_id: selectedVendor } : { selected_quotation: selectedVendor }
+      const body: Record<string, any> = {}
+      if (selectedMatrix) body.matrix_id = selectedMatrix
+      if (hasQuotations && selectedVendor) {
+        body.selected_quotation_id = selectedVendor
+      }
       await apiClient.post(`/procurement/${prId}/submit/`, body)
       toast({ title: 'PR submitted for approval.' })
       onSuccess()
@@ -719,9 +727,11 @@ export default function PRDetailPage() {
       <div className="p-8 text-center text-muted-foreground">PR not found.</div>
     )
   }
+  // Quick PRs (no quotations) don't have a comparison view — hide the tab.
+  const hasQuotations = ((pr.linked_quotations as any[] | undefined)?.length ?? 0) > 0
   const TABS = [
     { key: 'details' as const, label: 'Details' },
-    { key: 'comparison' as const, label: 'Comparison' },
+    ...(hasQuotations ? [{ key: 'comparison' as const, label: 'Comparison' }] : []),
     { key: 'approval' as const, label: 'Approval' },
   ]
   return (
@@ -940,8 +950,140 @@ export default function PRDetailPage() {
                 </Card>
               )}
 
+              {/* SELECTED VENDOR — for Quick PRs without a quotation flow.
+                  Clicking the card opens the vendor detail page in a new tab. */}
+              {!hasQuotations && (pr.selected_vendor_detail || pr.selected_vendor_name) && (() => {
+                const v = pr.selected_vendor_detail
+                const vendorUrl = v?.hash_id ? `/vendors/${v.hash_id}` : null
+                return (
+                  <Card className="overflow-hidden rounded-xl shadow-sm">
+                    <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
+                      <div className="flex h-full items-center">
+                        <CardTitle className="text-sm font-semibold">Vendor</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-4 py-2.5 text-sm">
+                      {/* Single dense row: name + meta on left, contact info inline on right */}
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="min-w-0">
+                          {vendorUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => window.open(vendorUrl, '_blank')}
+                              className="font-semibold text-foreground hover:text-blue-700 hover:underline text-left"
+                              title="Open vendor detail in a new tab"
+                            >
+                              {v?.company_name ?? pr.selected_vendor_name}
+                            </button>
+                          ) : (
+                            <span className="font-semibold text-foreground">{v?.company_name ?? pr.selected_vendor_name}</span>
+                          )}
+                          {v && (
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {[
+                                v.vendor_code,
+                                v.gst_number && `GSTIN ${v.gst_number}`,
+                                v.category_name,
+                                (v.city || v.state) && [v.city, v.state, v.pincode].filter(Boolean).join(', '),
+                                v.payment_terms && (v.payment_terms as string).toUpperCase(),
+                              ].filter(Boolean).join(' · ')}
+                            </span>
+                          )}
+                        </div>
+                        {v && (v.contact_name || v.contact_email || v.contact_phone) && (
+                          <div className="flex items-center gap-3 text-xs">
+                            {v.contact_name && <span className="text-muted-foreground">{v.contact_name}</span>}
+                            {v.contact_email && (
+                              <a href={`mailto:${v.contact_email}`} className="text-blue-700 hover:underline break-all">
+                                {v.contact_email}
+                              </a>
+                            )}
+                            {v.contact_phone && (
+                              <a href={`tel:${v.contact_phone}`} className="text-blue-700 hover:underline">
+                                {v.contact_phone}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })()}
 
-              {/* QUOTATIONS */}
+              {/* LINE ITEMS — always shown so Quick PRs aren't empty */}
+              <Card className="overflow-hidden rounded-xl shadow-sm">
+                <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
+                  <div className="flex h-full items-center">
+                    <CardTitle className="text-sm font-semibold">
+                      Line Items ({(pr.line_items as any[] | undefined)?.length ?? 0})
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {((pr.line_items as any[] | undefined)?.length ?? 0) === 0 ? (
+                    <p className="px-4 py-6 text-center text-sm text-muted-foreground italic">No items on this PR.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-sm">
+                        <thead className="bg-muted/30 border-b">
+                          <tr>
+                            {['#', 'Item', 'HSN', 'Qty', 'UOM', 'Unit Rate', 'Amount'].map((head) => (
+                              <th
+                                key={head}
+                                className="px-4 py-3 text-left text-[11px] uppercase tracking-[0.06em] text-muted-foreground font-semibold whitespace-nowrap"
+                              >
+                                {head}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {((pr.line_items as any[]) || []).map((li: any, idx: number) => {
+                            const qty = Number(li.quantity) || 0
+                            const rate = Number(li.unit_rate) || 0
+                            const detail = li.item_code_detail || {}
+                            return (
+                              <tr key={li.id ?? idx} className="border-b last:border-0 hover:bg-muted/20">
+                                <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">
+                                  {String(idx + 1).padStart(2, '0')}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  <p className="font-medium">{detail.code ?? li.description ?? '—'}</p>
+                                  {detail.description && detail.code && (
+                                    <p className="text-xs text-muted-foreground">{detail.description}</p>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2.5 text-xs font-mono text-muted-foreground">
+                                  {detail.hsn_code ?? '—'}
+                                </td>
+                                <td className="px-4 py-2.5 text-sm">{qty}</td>
+                                <td className="px-4 py-2.5 text-xs text-muted-foreground">{li.unit_of_measure ?? '—'}</td>
+                                <td className="px-4 py-2.5 text-sm">{formatCurrency(rate)}</td>
+                                <td className="px-4 py-2.5 text-sm font-medium">{formatCurrency(qty * rate)}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-muted/30 border-t">
+                            <td colSpan={6} className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase">
+                              Total
+                            </td>
+                            <td className="px-4 py-2.5 text-sm font-bold">
+                              {formatCurrency(pr.total_amount ?? 0)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+
+              {/* QUOTATIONS — hidden when none linked (Quick PRs) */}
+              {hasQuotations && (
               <Card className="overflow-hidden rounded-xl shadow-sm">
                 <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
                   <div className="flex h-full items-center">
@@ -1028,6 +1170,7 @@ export default function PRDetailPage() {
 
                 </CardContent>
               </Card>
+              )}
             </div>
 
             {/* RIGHT SIDEBAR */}
@@ -1092,6 +1235,7 @@ export default function PRDetailPage() {
                 onClose={() => {}}
                 onSuccess={invalidatePR}
                 selectedVendor={selectedVendor}
+                hasQuotations={hasQuotations}
               />
             ) : (
               <ApprovalProgressPanel prId={id!} onStatusChange={invalidatePR} />
