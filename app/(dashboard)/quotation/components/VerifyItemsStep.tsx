@@ -320,7 +320,7 @@ export default function VerifyItemsStep({ lineItems, setLineItems, masterItems =
                                             : !isManual && orig?.hsn != null
                                         const uomLocked = unlockAll
                                             ? !isManual && !item.is_manual_uom
-                                            : !isManual && orig?.uom != null
+                                            : !isManual && !!orig?.uom
                                         const qtyLocked = !isManual && (orig?.qty ?? 0) > 0
                                         const priceLocked = unlockAll
                                             ? !isManual && !item.is_manual_unit_price

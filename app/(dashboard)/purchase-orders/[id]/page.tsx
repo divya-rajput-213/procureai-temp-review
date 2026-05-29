@@ -432,7 +432,6 @@ function OverviewTab({ po }: { po: any }) {
                     <th>Qty</th>
                     <th>UOM</th>
                     <th>Unit Rate</th>
-                    <th>GST %</th>
                     <th>Amount</th>
                   </tr>
                 </thead>
@@ -440,7 +439,6 @@ function OverviewTab({ po }: { po: any }) {
                   {items.map((item: any, idx: number) => {
                     const amount = (Number(item.quantity) || 0) * (Number(item.unit_rate) || 0)
                     const hsnCode = item.item_code_detail?.hsn_code || item.hsn_code || '—'
-                    const taxRate = item.tax_rate != null ? Number(item.tax_rate) : null
                     return (
                       <tr key={item.id ?? idx}>
                         <td style={{ fontFamily: 'var(--mono,monospace)', fontSize: 12, color: 'var(--tx3,#9a9a96)' }}>
@@ -462,7 +460,6 @@ function OverviewTab({ po }: { po: any }) {
                         <td>{item.quantity}</td>
                         <td style={{ color: 'var(--tx3,#9a9a96)' }}>{item.unit_of_measure || '—'}</td>
                         <td style={{ fontWeight: 500 }}>{formatCurrency(item.unit_rate)}</td>
-                        <td style={{ color: 'var(--tx3,#9a9a96)' }}>{taxRate != null ? `${taxRate}%` : '—'}</td>
                         <td style={{ fontWeight: 700 }}>{formatCurrency(amount)}</td>
                       </tr>
                     )
@@ -470,14 +467,14 @@ function OverviewTab({ po }: { po: any }) {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={7} className="match-tfoot" style={{ fontWeight: 600, textAlign: 'right', color: 'var(--tx2,#6b6b69)' }}>Sub Total</td>
+                    <td colSpan={6} className="match-tfoot" style={{ fontWeight: 600, textAlign: 'right', color: 'var(--tx2,#6b6b69)' }}>Sub Total</td>
                     <td className="match-tfoot" style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(subtotal)}</td>
                   </tr>
 
                   {/* Always show CGST if rate exists */}
                   {cgstRate != null ? (
                     <tr>
-                      <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3,#9a9a96)' }}>
+                      <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3,#9a9a96)' }}>
                         CGST @ {cgstRate}%
                       </td>
                       <td className="match-tfoot" style={{ textAlign: 'right' }}>{formatCurrency(cgstTotal)}</td>
@@ -487,7 +484,7 @@ function OverviewTab({ po }: { po: any }) {
                   {/* Always show SGST if rate exists */}
                   {sgstRate != null ? (
                     <tr>
-                      <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3,#9a9a96)' }}>
+                      <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3,#9a9a96)' }}>
                         SGST @ {sgstRate}%
                       </td>
                       <td className="match-tfoot" style={{ textAlign: 'right' }}>{formatCurrency(sgstTotal)}</td>
@@ -497,7 +494,7 @@ function OverviewTab({ po }: { po: any }) {
                   {/* Always show IGST if rate exists */}
                   {igstRate != null ? (
                     <tr>
-                      <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3,#9a9a96)' }}>
+                      <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3,#9a9a96)' }}>
                         IGST @ {igstRate}%
                       </td>
                       <td className="match-tfoot" style={{ textAlign: 'right' }}>{formatCurrency(igstTotal)}</td>
@@ -507,7 +504,7 @@ function OverviewTab({ po }: { po: any }) {
                   {/* Fallback: show generic GST row using tax_rate from first line item */}
                   {cgstRate == null && sgstRate == null && igstRate == null && (
                     <tr>
-                      <td colSpan={7} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3,#9a9a96)' }}>
+                      <td colSpan={6} className="match-tfoot" style={{ textAlign: 'right', color: 'var(--tx3,#9a9a96)' }}>
                         GST{items[0]?.tax_rate != null ? ` @ ${items[0].tax_rate}%` : ''}
                       </td>
                       <td className="match-tfoot" style={{ textAlign: 'right' }}>{formatCurrency(taxTotal)}</td>
@@ -515,7 +512,7 @@ function OverviewTab({ po }: { po: any }) {
                   )}
 
                   <tr style={{ background: 'var(--bg-t,#f0f0ee)' }}>
-                    <td colSpan={7} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+                    <td colSpan={6} style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
                       Grand Total (incl. GST)
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 14, borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
