@@ -762,265 +762,353 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
 
           {/* ════════ CREATE STEP 1 — Select Source ════════ */}
           { step === 1 && (
-            <>
-              {/* Method picker */}
-              <div className="form-sec">
-                <div className="form-sec-head">
-                  <div className="fsh-ic" style={{ background: 'var(--pur-bg)', color: 'var(--pur-tx)' }}><i className="ti ti-route" /></div>
-                  <div>
-                    <div className="fsh-title">How would you like to create this PO?</div>
-                    <div className="fsh-sub">Select one method — only one can be used per order</div>
-                  </div>
-                </div>
-                <div className="form-body">
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                    {([
-                      { m: 'pr' as const,        icon: 'ti-git-fork',        label: 'Purchase Request', desc: 'Link to an approved PR and auto-load vendor & items', clr: 'pur' },
-                      { m: 'quotation' as const,  icon: 'ti-file-invoice',    label: 'Quotation',        desc: 'Create from a submitted quotation directly',          clr: 'blu' },
-                      { m: 'vendor' as const,     icon: 'ti-building-store',  label: 'Vendor (Manual)',  desc: 'Choose a vendor and add items from the master catalog', clr: 'grn' },
-                    ] as const).map(({ m, icon, label, desc, clr }) => (
-                      <button key={m} type="button"
-                        onClick={() => {
-                          if (createMethod !== m) {
-                            setCreateMethod(m)
-                            setSelectedPrId(null)
-                            setDirectQtId(null); setQtSearch('')
-                            setManualVendorId(null); setManualVendorName(''); setManualVendorSearch(''); setSelectedManualVendor(null)
-                            setManualItems([]); setItemSearchMap({}); setOpenDropdownKey(null)
-                            setStep1Error('')
-                          }
-                        }}
-                        style={{
-                          padding: 16, border: createMethod === m ? `1.5px solid var(--${clr}-bd)` : '0.5px solid var(--bd)',
-                          borderRadius: 10, background: createMethod === m ? `var(--${clr}-bg)` : 'var(--bg)',
-                          cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
-                        }}
-                      >
-                        <div style={{ width: 36, height: 36, borderRadius: 8, background: `var(--${clr}-bg)`, color: `var(--${clr}-tx)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, marginBottom: 10, border: createMethod === m ? `1px solid var(--${clr}-bd)` : 'none' }}>
-                          <i className={`ti ${icon}`} />
+
+              <>
+                {mode === 'edit' ? (
+                  /* ── EDIT: Read-only source card ── */
+                  <div className="form-sec">
+                    <div className="form-sec-head">
+                      <div className="fsh-ic" style={{ background: 'var(--gry-bg)', color: 'var(--gry-tx)' }}>
+                        <i className="ti ti-lock" />
+                      </div>
+                      <div>
+                        <div className="fsh-title">Source — Locked</div>
+                        <div className="fsh-sub">The creation source cannot be changed after a PO is created</div>
+                      </div>
+                    </div>
+                    <div className="form-body">
+                      <div style={{
+                        background: 'var(--bg-s)', border: '0.5px solid var(--bd)',
+                        borderRadius: 10, padding: 16,
+                      }}>
+                        {/* Method badge */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                          <div style={{
+                            width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17,
+                            background: createMethod === 'pr' ? 'var(--pur-bg)' : createMethod === 'quotation' ? 'var(--blu-bg)' : 'var(--grn-bg)',
+                            color: createMethod === 'pr' ? 'var(--pur-tx)' : createMethod === 'quotation' ? 'var(--blu-tx)' : 'var(--grn-tx)',
+                          }}>
+                            <i className={`ti ${createMethod === 'pr' ? 'ti-git-fork' : createMethod === 'quotation' ? 'ti-file-invoice' : 'ti-building-store'}`} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--tx)' }}>
+                              {createMethod === 'pr' ? 'Purchase Request'
+                                : createMethod === 'quotation' ? 'Quotation'
+                                : 'Vendor (Manual)'}
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--tx3)' }}>
+                              {createMethod === 'pr' ? 'PO was created from an approved PR'
+                                : createMethod === 'quotation' ? 'PO was created from a submitted quotation'
+                                : 'PO was created manually with a vendor'}
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                            background: 'var(--gry-bg)', color: 'var(--gry-tx)', border: '0.5px solid var(--gry-bd)',
+                            whiteSpace: 'nowrap',
+                          }}>Locked</span>
                         </div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: createMethod === m ? `var(--${clr}-tx)` : 'var(--tx)', marginBottom: 3 }}>{label}</div>
-                        <div style={{ fontSize: 12, color: createMethod === m ? `var(--${clr}-tx)` : 'var(--tx3)', lineHeight: 1.4 }}>{desc}</div>
-                      </button>
-                    ))}
-                  </div>
-                  {step1Error && !createMethod && <div className="err" style={{ marginTop: 6 }}>{step1Error}</div>}
-
-                  {/* Source info summary — shown once a method + source is selected */}
-                  {createMethod === 'pr' && selectedQuotation && (
-                    <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.25)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
-                      <span style={{ color: 'var(--tx3)' }}>PR:</span><span style={{ fontWeight: 600, color: 'var(--pur-tx)', fontFamily: 'monospace' }}>{prDetail?.pr_number}</span>
-                      <span style={{ color: 'var(--bd)' }}>·</span>
-                      <span style={{ color: 'var(--tx3)' }}>Vendor:</span><span style={{ fontWeight: 600 }}>{selectedQuotation.vendor_name}</span>
-                      <span style={{ color: 'var(--bd)' }}>·</span>
-                      <span style={{ color: 'var(--tx3)' }}>Total:</span><span style={{ fontWeight: 700, color: 'var(--tel-tx)' }}>{formatCurrency(grandTotal)}</span>
-                      {budgetAfterPO !== null && <><span style={{ color: 'var(--bd)' }}>·</span><span style={{ color: budgetAfterPO < 0 ? 'var(--red-tx)' : 'var(--grn-tx)', fontWeight: 600 }}>Budget after: {formatCurrency(budgetAfterPO)}</span></>}
-                    </div>
-                  )}
-                  {createMethod === 'pr' && selectedPrId && !selectedQuotation && (
-                    <div style={{ marginTop: 12, background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.25)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--tx3)' }}>
-                      PR <span style={{ fontFamily: 'monospace', color: 'var(--pur-tx)', fontWeight: 600 }}>{prDetail?.pr_number}</span> — no eligible quotation, PO will be created from PR estimates.
-                    </div>
-                  )}
- 
-                </div>
-              </div>
-
-              {/* ── PR sub-form ── */}
-              {createMethod === 'pr' && (
-                <div className="form-sec">
-                  <div className="form-sec-head">
-                    <div className="fsh-ic" style={{ background: 'var(--pur-bg)', color: 'var(--pur-tx)' }}><i className="ti ti-git-fork" /></div>
-                    <div><div className="fsh-title">Select Purchase Request</div><div className="fsh-sub">Choose from approved PRs — budget and vendor info load automatically (quotation optional)</div></div>
-                  </div>
-                  <div className="form-body">
-                    <div className="fgrp">
-                      <label className="lbl">Purchase Request <span className="req">*</span></label>
-                      <select className={`sel${step1Error && !selectedPrId ? ' err' : ''}`} value={selectedPrId ?? ''}
-                        onChange={e => { setSelectedPrId(e.target.value ? Number(e.target.value) : null); setStep1Error('') }}>
-                        <option value="">— Select an approved PR —</option>
-                        {(eligiblePrs || []).map(pr => (
-                          <option key={pr.id} value={pr.id}>{pr.pr_number} — {pr.plant_name ?? '—'} · {formatCurrency(pr.total_amount)}</option>
-                        ))}
-                      </select>
-                      {step1Error && !selectedPrId && <div className="err">{step1Error}</div>}
-                      {(eligiblePrs?.length ?? 0) === 0 && <p style={{ fontSize: 12, color: 'var(--tx3)' }}>No approved PRs available.</p>}
-                    </div>
-                    {prDetail && (
-                      <div style={{ background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.3)', borderRadius: 10, padding: 14 }}>
-                        {prDetail.description && <p style={{ fontSize: 13, color: 'var(--pur-tx)', marginBottom: 10 }}>{prDetail.description}</p>}
+            
+                        {/* Info grid */}
                         <div className="info-grid">
-                          <div className="info-cell"><div className="info-lbl">PR Code</div><Link href={`/procurement/${prDetail.hash_id ?? prDetail.id}`} style={{ color: 'var(--pur-tx)', fontFamily: 'monospace', fontWeight: 700, textDecoration: 'none', fontSize: 13 }}>{prDetail.pr_number}</Link></div>
-                          <div className="info-cell"><div className="info-lbl">Tracking ID</div>
-                            {prDetail.tracking_id
-                              ? <Link href={`/budget/${prDetail.tracking_id}`} style={{ color: 'var(--blu-tx)', fontFamily: 'monospace', textDecoration: 'none', fontSize: 13 }}>{prDetail.tracking_code || '—'}</Link>
-                              : <div className="info-val" style={{ fontFamily: 'monospace' }}>{prDetail.tracking_code || '—'}</div>}
-                          </div>
-                          <div className="info-cell"><div className="info-lbl">Budget Remaining</div><div className="info-val" style={{ color: budgetWillExceed ? 'var(--red-tx)' : 'var(--tel-tx)', fontWeight: 700 }}>{budgetInfo ? formatCurrency(budgetInfo.remaining_amount) : '—'}</div></div>
-                          <div className="info-cell"><div className="info-lbl">Vendor</div>{selectedQuotation ? <Link href={`/vendors/${selectedQuotation.vendor_id}`} style={{ color: 'var(--blu-tx)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>{selectedQuotation.vendor_name}</Link> : <div style={{ fontSize: 13, color: 'var(--tx3)' }}>No quotation on PR</div>}</div>
-                          <div className="info-cell"><div className="info-lbl">Quotation</div>{selectedQuotation ? <Link href={`/quotation/${selectedQuotation.id}`} style={{ color: 'var(--pur-tx)', fontFamily: 'monospace', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>{selectedQuotation.quotation_no || selectedQuotation.ref_no}</Link> : <div style={{ fontSize: 13, color: 'var(--tx3)' }}>—</div>}</div>
-                          <div className="info-cell"><div className="info-lbl">QT Total</div><div className="info-val" style={{ color: 'var(--tel-tx)', fontWeight: 700 }}>{selectedQuotation ? formatCurrency(selectedQuotation.total_amount) : '—'}</div></div>
-                        </div>
-                        {!selectedQuotation && eligibleQuotes.length === 0 && <div className="alert-warn"><AlertTriangle style={{ width: 14, height: 14, flexShrink: 0 }} /> No eligible quotation on this PR. PO from PR estimates.</div>}
-                        {selectedQuotation && budgetWillExceed && <div className="alert-err"><AlertTriangle style={{ width: 14, height: 14, flexShrink: 0 }} /> Quotation total exceeds budget by {formatCurrency(grandTotal - (remainingBudget ?? 0))}</div>}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Quotation sub-form ── */}
-              {createMethod === 'quotation' && (
-                <div className="form-sec">
-                  <div className="form-sec-head">
-                    <div className="fsh-ic" style={{ background: 'var(--blu-bg)', color: 'var(--blu-tx)' }}><i className="ti ti-file-invoice" /></div>
-                    <div><div className="fsh-title">Select Quotation</div><div className="fsh-sub">Search submitted quotations by Ref ID or vendor name</div></div>
-                  </div>
-                  <div className="form-body">
-                    {directQtId ? (
-                      <div className="vendor-chip">
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 14 }}>{directQtDetail?.ref_no || `QT-${directQtId}`}</div>
-                          <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{qtVendorName}{directQtDetail?.grand_total ? ` · ${formatCurrency(directQtDetail.grand_total)}` : ''}</div>
-                        </div>
-                        <button type="button" onClick={() => { setDirectQtId(null); setQtSearch('') }} style={{ background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", color: 'var(--tx2)' }}>Change</button>
-                      </div>
-                    ) : (
-                      <div className="fgrp">
-                        <label className="lbl">Quotation <span className="req">*</span></label>
-                        <div style={{ position: 'relative' }}>
-                          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--tx3)' }} />
-                          <input className={`inp${step1Error && !directQtId ? ' err' : ''}`} style={{ paddingLeft: 32 }} placeholder="Search by Ref ID or vendor name…" value={qtSearch}
-                            onChange={e => { setQtSearch(e.target.value); setStep1Error('') }} />
-                        </div>
-                        {step1Error && !directQtId && <div className="err">{step1Error}</div>}
-                        {submittedQuotations && submittedQuotations.length > 0 && (
-                          <div style={{ border: '0.5px solid var(--bdm)', borderRadius: 8, overflow: 'hidden', marginTop: 4, maxHeight: 220, overflowY: 'auto' }}>
-                            {submittedQuotations.map((qt: QuotationSummary) => (
-                              <button key={qt.id} type="button"
-                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', borderBottom: '0.5px solid var(--bd)', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}
-                                onClick={() => { setDirectQtId(qt.id); setQtSearch('') }}>
-                                <div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{qt.ref_no}</div>
-                                <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{qt.vendor_name ?? '—'}{qt.grand_total ? ` · ${formatCurrency(qt.grand_total)}` : ''}</div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {submittedQuotations && submittedQuotations.length === 0 && normalizedQtSearch.length >= 1 && (
-                          <p style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 4 }}>No submitted quotations found.</p>
-                        )}
-                      </div>
-                    )}
-                    {/* Quotation detail — full view */}
-                    {directQtId && directQtDetail && (
-                      <div style={{ background: 'var(--blu-bg)', border: '0.5px solid rgba(24,95,165,.25)', borderRadius: 10, padding: 14, marginTop: 10 }}>
-                        {/* QT meta */}
-                        <div className="info-grid" style={{ marginBottom: 12 }}>
-                          {directQtDetail.quotation_no && <div className="info-cell"><div className="info-lbl">QT Number</div><div className="info-val" style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--blu-tx)' }}>{directQtDetail.quotation_no}</div></div>}
-                          {directQtDetail.quotation_date && <div className="info-cell"><div className="info-lbl">QT Date</div><div className="info-val">{directQtDetail.quotation_date}</div></div>}
-                          {directQtDetail.valid_until && <div className="info-cell"><div className="info-lbl">Valid Until</div><div className="info-val">{directQtDetail.valid_until}</div></div>}
-                          {directQtDetail.pr_no && <div className="info-cell"><div className="info-lbl">Linked PR</div><div className="info-val" style={{ fontFamily: 'monospace', color: 'var(--pur-tx)', fontWeight: 600 }}>{directQtDetail.pr_no}</div></div>}
-                          {directQtDetail.plant_name && <div className="info-cell"><div className="info-lbl">Plant</div><div className="info-val">{directQtDetail.plant_name}</div></div>}
-                          {directQtDetail.department_name && <div className="info-cell"><div className="info-lbl">Department</div><div className="info-val">{directQtDetail.department_name}</div></div>}
-                          {(directQtDetail.cgst_rate || directQtDetail.sgst_rate) && (
+                          {po.pr_number && (
                             <div className="info-cell">
-                              <div className="info-lbl">Tax Rates</div>
-                              <div className="info-val" style={{ fontSize: 12 }}>
-                                {directQtDetail.cgst_rate && <>CGST {directQtDetail.cgst_rate}%</>}
-                                {directQtDetail.cgst_rate && directQtDetail.sgst_rate && ' + '}
-                                {directQtDetail.sgst_rate && <>SGST {directQtDetail.sgst_rate}%</>}
-                                {directQtDetail.igst_rate && <>IGST {directQtDetail.igst_rate}%</>}
+                              <div className="info-lbl">PR Number</div>
+                              <div className="info-val" style={{ fontFamily: 'monospace', color: 'var(--pur-tx)', fontWeight: 700 }}>
+                                {po.pr_number}
                               </div>
                             </div>
                           )}
-                        </div>
-
-                        {/* Vendor info from quotation — don't repeat company name shown in chip */}
-                        {directQtDetail.vendor && (
-                          <div style={{ borderTop: '0.5px solid rgba(24,95,165,.2)', paddingTop: 10, marginBottom: 12 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Vendor</div>
-                            <div className="info-grid">
-                              {directQtDetail.vendor.gst_number && <div className="info-cell"><div className="info-lbl">GST</div><div className="info-val" style={{ fontFamily: 'monospace', fontSize: 12 }}>{directQtDetail.vendor.gst_number}</div></div>}
-                              {directQtDetail.vendor.contact_name && <div className="info-cell"><div className="info-lbl">Contact</div><div className="info-val">{directQtDetail.vendor.contact_name}</div></div>}
-                              {directQtDetail.vendor.contact_email && <div className="info-cell"><div className="info-lbl">Email</div><div className="info-val" style={{ fontSize: 12 }}>{directQtDetail.vendor.contact_email}</div></div>}
-                              {directQtDetail.vendor.contact_phone && <div className="info-cell"><div className="info-lbl">Phone</div><div className="info-val">{directQtDetail.vendor.contact_phone}</div></div>}
+                          <div className="info-cell">
+                            <div className="info-lbl">Vendor</div>
+                            <div className="info-val">{po.vendor_name || '—'}</div>
+                          </div>
+                          <div className="info-cell">
+                            <div className="info-lbl">PO Number</div>
+                            <div className="info-val" style={{ fontFamily: 'monospace', fontWeight: 700 }}>{po.po_number}</div>
+                          </div>
+                          <div className="info-cell">
+                            <div className="info-lbl">Plant</div>
+                            <div className="info-val">{po.plant_name || '—'}</div>
+                          </div>
+                          <div className="info-cell">
+                            <div className="info-lbl">Department</div>
+                            <div className="info-val">{po.department_name || '—'}</div>
+                          </div>
+                          <div className="info-cell">
+                            <div className="info-lbl">PO Value</div>
+                            <div className="info-val" style={{ color: 'var(--tel-tx)', fontWeight: 700 }}>
+                              {formatCurrency(po.total_amount)}
                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* ── CREATE: existing method picker + sub-forms (no changes) ── */
+                  <>
+                  {/* Method picker */}
+                  <div className="form-sec">
+                    <div className="form-sec-head">
+                      <div className="fsh-ic" style={{ background: 'var(--pur-bg)', color: 'var(--pur-tx)' }}><i className="ti ti-route" /></div>
+                      <div>
+                        <div className="fsh-title">How would you like to create this PO?</div>
+                        <div className="fsh-sub">Select one method — only one can be used per order</div>
+                      </div>
+                    </div>
+                    <div className="form-body">
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+                        {([
+                          { m: 'pr' as const,        icon: 'ti-git-fork',        label: 'Purchase Request', desc: 'Link to an approved PR and auto-load vendor & items', clr: 'pur' },
+                          { m: 'quotation' as const,  icon: 'ti-file-invoice',    label: 'Quotation',        desc: 'Create from a submitted quotation directly',          clr: 'blu' },
+                          { m: 'vendor' as const,     icon: 'ti-building-store',  label: 'Vendor (Manual)',  desc: 'Choose a vendor and add items from the master catalog', clr: 'grn' },
+                        ] as const).map(({ m, icon, label, desc, clr }) => (
+                          <button key={m} type="button"
+                            onClick={() => {
+                              if (createMethod !== m) {
+                                setCreateMethod(m)
+                                setSelectedPrId(null)
+                                setDirectQtId(null); setQtSearch('')
+                                setManualVendorId(null); setManualVendorName(''); setManualVendorSearch(''); setSelectedManualVendor(null)
+                                setManualItems([]); setItemSearchMap({}); setOpenDropdownKey(null)
+                                setStep1Error('')
+                              }
+                            }}
+                            style={{
+                              padding: 16, border: createMethod === m ? `1.5px solid var(--${clr}-bd)` : '0.5px solid var(--bd)',
+                              borderRadius: 10, background: createMethod === m ? `var(--${clr}-bg)` : 'var(--bg)',
+                              cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                            }}
+                          >
+                            <div style={{ width: 36, height: 36, borderRadius: 8, background: `var(--${clr}-bg)`, color: `var(--${clr}-tx)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, marginBottom: 10, border: createMethod === m ? `1px solid var(--${clr}-bd)` : 'none' }}>
+                              <i className={`ti ${icon}`} />
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: createMethod === m ? `var(--${clr}-tx)` : 'var(--tx)', marginBottom: 3 }}>{label}</div>
+                            <div style={{ fontSize: 12, color: createMethod === m ? `var(--${clr}-tx)` : 'var(--tx3)', lineHeight: 1.4 }}>{desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                      {step1Error && !createMethod && <div className="err" style={{ marginTop: 6 }}>{step1Error}</div>}
+    
+                      {/* Source info summary — shown once a method + source is selected */}
+                      {createMethod === 'pr' && selectedQuotation && (
+                        <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.25)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
+                          <span style={{ color: 'var(--tx3)' }}>PR:</span><span style={{ fontWeight: 600, color: 'var(--pur-tx)', fontFamily: 'monospace' }}>{prDetail?.pr_number}</span>
+                          <span style={{ color: 'var(--bd)' }}>·</span>
+                          <span style={{ color: 'var(--tx3)' }}>Vendor:</span><span style={{ fontWeight: 600 }}>{selectedQuotation.vendor_name}</span>
+                          <span style={{ color: 'var(--bd)' }}>·</span>
+                          <span style={{ color: 'var(--tx3)' }}>Total:</span><span style={{ fontWeight: 700, color: 'var(--tel-tx)' }}>{formatCurrency(grandTotal)}</span>
+                          {budgetAfterPO !== null && <><span style={{ color: 'var(--bd)' }}>·</span><span style={{ color: budgetAfterPO < 0 ? 'var(--red-tx)' : 'var(--grn-tx)', fontWeight: 600 }}>Budget after: {formatCurrency(budgetAfterPO)}</span></>}
+                        </div>
+                      )}
+                      {createMethod === 'pr' && selectedPrId && !selectedQuotation && (
+                        <div style={{ marginTop: 12, background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.25)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--tx3)' }}>
+                          PR <span style={{ fontFamily: 'monospace', color: 'var(--pur-tx)', fontWeight: 600 }}>{prDetail?.pr_number}</span> — no eligible quotation, PO will be created from PR estimates.
+                        </div>
+                      )}
+     
+                    </div>
+                  </div>
+    
+                  {/* ── PR sub-form ── */}
+                  {createMethod === 'pr' && (
+                    <div className="form-sec">
+                      <div className="form-sec-head">
+                        <div className="fsh-ic" style={{ background: 'var(--pur-bg)', color: 'var(--pur-tx)' }}><i className="ti ti-git-fork" /></div>
+                        <div><div className="fsh-title">Select Purchase Request</div><div className="fsh-sub">Choose from approved PRs — budget and vendor info load automatically (quotation optional)</div></div>
+                      </div>
+                      <div className="form-body">
+                        <div className="fgrp">
+                          <label className="lbl">Purchase Request <span className="req">*</span></label>
+                          <select className={`sel${step1Error && !selectedPrId ? ' err' : ''}`} value={selectedPrId ?? ''}
+                            onChange={e => { setSelectedPrId(e.target.value ? Number(e.target.value) : null); setStep1Error('') }}>
+                            <option value="">— Select an approved PR —</option>
+                            {(eligiblePrs || []).map(pr => (
+                              <option key={pr.id} value={pr.id}>{pr.pr_number} — {pr.plant_name ?? '—'} · {formatCurrency(pr.total_amount)}</option>
+                            ))}
+                          </select>
+                          {step1Error && !selectedPrId && <div className="err">{step1Error}</div>}
+                          {(eligiblePrs?.length ?? 0) === 0 && <p style={{ fontSize: 12, color: 'var(--tx3)' }}>No approved PRs available.</p>}
+                        </div>
+                        {prDetail && (
+                          <div style={{ background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.3)', borderRadius: 10, padding: 14 }}>
+                            {prDetail.description && <p style={{ fontSize: 13, color: 'var(--pur-tx)', marginBottom: 10 }}>{prDetail.description}</p>}
+                            <div className="info-grid">
+                              <div className="info-cell"><div className="info-lbl">PR Code</div><Link href={`/procurement/${prDetail.hash_id ?? prDetail.id}`} style={{ color: 'var(--pur-tx)', fontFamily: 'monospace', fontWeight: 700, textDecoration: 'none', fontSize: 13 }}>{prDetail.pr_number}</Link></div>
+                              <div className="info-cell"><div className="info-lbl">Tracking ID</div>
+                                {prDetail.tracking_id
+                                  ? <Link href={`/budget/${prDetail.tracking_id}`} style={{ color: 'var(--blu-tx)', fontFamily: 'monospace', textDecoration: 'none', fontSize: 13 }}>{prDetail.tracking_code || '—'}</Link>
+                                  : <div className="info-val" style={{ fontFamily: 'monospace' }}>{prDetail.tracking_code || '—'}</div>}
+                              </div>
+                              <div className="info-cell"><div className="info-lbl">Budget Remaining</div><div className="info-val" style={{ color: budgetWillExceed ? 'var(--red-tx)' : 'var(--tel-tx)', fontWeight: 700 }}>{budgetInfo ? formatCurrency(budgetInfo.remaining_amount) : '—'}</div></div>
+                              <div className="info-cell"><div className="info-lbl">Vendor</div>{selectedQuotation ? <Link href={`/vendors/${selectedQuotation.vendor_id}`} style={{ color: 'var(--blu-tx)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>{selectedQuotation.vendor_name}</Link> : <div style={{ fontSize: 13, color: 'var(--tx3)' }}>No quotation on PR</div>}</div>
+                              <div className="info-cell"><div className="info-lbl">Quotation</div>{selectedQuotation ? <Link href={`/quotation/${selectedQuotation.id}`} style={{ color: 'var(--pur-tx)', fontFamily: 'monospace', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>{selectedQuotation.quotation_no || selectedQuotation.ref_no}</Link> : <div style={{ fontSize: 13, color: 'var(--tx3)' }}>—</div>}</div>
+                              <div className="info-cell"><div className="info-lbl">QT Total</div><div className="info-val" style={{ color: 'var(--tel-tx)', fontWeight: 700 }}>{selectedQuotation ? formatCurrency(selectedQuotation.total_amount) : '—'}</div></div>
+                            </div>
+                            {!selectedQuotation && eligibleQuotes.length === 0 && <div className="alert-warn"><AlertTriangle style={{ width: 14, height: 14, flexShrink: 0 }} /> No eligible quotation on this PR. PO from PR estimates.</div>}
+                            {selectedQuotation && budgetWillExceed && <div className="alert-err"><AlertTriangle style={{ width: 14, height: 14, flexShrink: 0 }} /> Quotation total exceeds budget by {formatCurrency(grandTotal - (remainingBudget ?? 0))}</div>}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Vendor (manual) sub-form ── */}
-              {createMethod === 'vendor' && (
-                <div className="form-sec">
-                  <div className="form-sec-head">
-                    <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}><i className="ti ti-building-store" /></div>
-                    <div><div className="fsh-title">Select Vendor</div><div className="fsh-sub">Search approved vendors — you will add items in step 2</div></div>
-                  </div>
-                  <div className="form-body">
-                    {manualVendorId ? (
-                      <>
-                        <div className="vendor-chip">
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 14 }}>{manualVendorName}</div>
-                            <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{selectedManualVendor?.vendor_code ?? ''}{selectedManualVendor?.city ? ` · ${selectedManualVendor.city}` : ''}</div>
-                          </div>
-                          <button type="button" onClick={() => { setManualVendorId(null); setManualVendorName(''); setManualVendorSearch(''); setSelectedManualVendor(null) }} style={{ background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", color: 'var(--tx2)' }}>Change</button>
-                        </div>
-                        {selectedManualVendor && (
-                          <div style={{ background: 'var(--grn-bg)', border: '0.5px solid rgba(99,153,34,.25)', borderRadius: 10, padding: 14, marginTop: 10 }}>
-                            <div className="info-grid">
-                              {selectedManualVendor.gst_number && <div className="info-cell"><div className="info-lbl">GST Number</div><div className="info-val" style={{ fontFamily: 'monospace', fontSize: 12 }}>{selectedManualVendor.gst_number}</div></div>}
-                              {selectedManualVendor.category_name && <div className="info-cell"><div className="info-lbl">Category</div><div className="info-val">{selectedManualVendor.category_name}</div></div>}
-                              {selectedManualVendor.plant_name && <div className="info-cell"><div className="info-lbl">Plant</div><div className="info-val">{selectedManualVendor.plant_name}</div></div>}
-                              {selectedManualVendor.contact_name && <div className="info-cell"><div className="info-lbl">Contact</div><div className="info-val">{selectedManualVendor.contact_name}</div></div>}
-                              {selectedManualVendor.contact_email && <div className="info-cell"><div className="info-lbl">Email</div><div className="info-val" style={{ fontSize: 12 }}>{selectedManualVendor.contact_email}</div></div>}
-                              {selectedManualVendor.contact_phone && <div className="info-cell"><div className="info-lbl">Phone</div><div className="info-val">{selectedManualVendor.contact_phone}</div></div>}
+                    </div>
+                  )}
+    
+                  {/* ── Quotation sub-form ── */}
+                  {createMethod === 'quotation' && (
+                    <div className="form-sec">
+                      <div className="form-sec-head">
+                        <div className="fsh-ic" style={{ background: 'var(--blu-bg)', color: 'var(--blu-tx)' }}><i className="ti ti-file-invoice" /></div>
+                        <div><div className="fsh-title">Select Quotation</div><div className="fsh-sub">Search submitted quotations by Ref ID or vendor name</div></div>
+                      </div>
+                      <div className="form-body">
+                        {directQtId ? (
+                          <div className="vendor-chip">
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: 14 }}>{directQtDetail?.ref_no || `QT-${directQtId}`}</div>
+                              <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{qtVendorName}{directQtDetail?.grand_total ? ` · ${formatCurrency(directQtDetail.grand_total)}` : ''}</div>
                             </div>
-                            {(selectedManualVendor.address || selectedManualVendor.city) && (
-                              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx3)', lineHeight: 1.5 }}>
-                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Address</span><br />
-                                {[selectedManualVendor.address, selectedManualVendor.city, selectedManualVendor.state !== 'N/A' ? selectedManualVendor.state : null, selectedManualVendor.pincode !== '000000' ? selectedManualVendor.pincode : null, selectedManualVendor.country].filter(Boolean).join(', ')}
+                            <button type="button" onClick={() => { setDirectQtId(null); setQtSearch('') }} style={{ background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", color: 'var(--tx2)' }}>Change</button>
+                          </div>
+                        ) : (
+                          <div className="fgrp">
+                            <label className="lbl">Quotation <span className="req">*</span></label>
+                            <div style={{ position: 'relative' }}>
+                              <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--tx3)' }} />
+                              <input className={`inp${step1Error && !directQtId ? ' err' : ''}`} style={{ paddingLeft: 32 }} placeholder="Search by Ref ID or vendor name…" value={qtSearch}
+                                onChange={e => { setQtSearch(e.target.value); setStep1Error('') }} />
+                            </div>
+                            {step1Error && !directQtId && <div className="err">{step1Error}</div>}
+                            {submittedQuotations && submittedQuotations.length > 0 && (
+                              <div style={{ border: '0.5px solid var(--bdm)', borderRadius: 8, overflow: 'hidden', marginTop: 4, maxHeight: 220, overflowY: 'auto' }}>
+                                {submittedQuotations.map((qt: QuotationSummary) => (
+                                  <button key={qt.id} type="button"
+                                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', borderBottom: '0.5px solid var(--bd)', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}
+                                    onClick={() => { setDirectQtId(qt.id); setQtSearch('') }}>
+                                    <div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{qt.ref_no}</div>
+                                    <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{qt.vendor_name ?? '—'}{qt.grand_total ? ` · ${formatCurrency(qt.grand_total)}` : ''}</div>
+                                  </button>
+                                ))}
                               </div>
                             )}
-                            <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap' }}>
-                              {selectedManualVendor.payment_terms && <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Payment: <strong style={{ color: 'var(--tx2)' }}>{selectedManualVendor.payment_terms}</strong></span>}
-                              <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Currency: <strong style={{ color: 'var(--tx2)' }}>{selectedManualVendor.currency || 'INR'}</strong></span>
-                              {selectedManualVendor.is_msme && <span style={{ fontSize: 11, background: 'var(--grn-bg)', color: 'var(--grn-tx)', border: '0.5px solid rgba(99,153,34,.3)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>MSME</span>}
-                            </div>
+                            {submittedQuotations && submittedQuotations.length === 0 && normalizedQtSearch.length >= 1 && (
+                              <p style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 4 }}>No submitted quotations found.</p>
+                            )}
                           </div>
                         )}
-                      </>
-                    ) : (
-                      <div className="fgrp">
-                        <label className="lbl">Vendor <span className="req">*</span></label>
-                        <div style={{ position: 'relative' }}>
-                          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--tx3)' }} />
-                          <input className={`inp${step1Error && !manualVendorId ? ' err' : ''}`} style={{ paddingLeft: 32 }} placeholder="Type vendor name (min 2 chars)…" value={manualVendorSearch}
-                            onChange={e => { setManualVendorSearch(e.target.value); setStep1Error('') }} />
-                        </div>
-                        {step1Error && !manualVendorId && <div className="err">{step1Error}</div>}
-                        {manualVendors && manualVendors.length > 0 && (
-                          <div style={{ border: '0.5px solid var(--bdm)', borderRadius: 8, overflow: 'hidden', marginTop: 4, maxHeight: 200, overflowY: 'auto' }}>
-                            {manualVendors.map((v: any) => (
-                              <button key={v.id} type="button"
-                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', borderBottom: '0.5px solid var(--bd)', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}
-                                onClick={() => { setManualVendorId(v.id); setManualVendorName(v.company_name); setSelectedManualVendor(v); setManualVendorSearch(''); setStep1Error('') }}>
-                                <div style={{ fontWeight: 600 }}>{v.company_name}</div>
-                                <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{v.vendor_code} · {v.city}</div>
-                              </button>
-                            ))}
+                        {/* Quotation detail — full view */}
+                        {directQtId && directQtDetail && (
+                          <div style={{ background: 'var(--blu-bg)', border: '0.5px solid rgba(24,95,165,.25)', borderRadius: 10, padding: 14, marginTop: 10 }}>
+                            {/* QT meta */}
+                            <div className="info-grid" style={{ marginBottom: 12 }}>
+                              {directQtDetail.quotation_no && <div className="info-cell"><div className="info-lbl">QT Number</div><div className="info-val" style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--blu-tx)' }}>{directQtDetail.quotation_no}</div></div>}
+                              {directQtDetail.quotation_date && <div className="info-cell"><div className="info-lbl">QT Date</div><div className="info-val">{directQtDetail.quotation_date}</div></div>}
+                              {directQtDetail.valid_until && <div className="info-cell"><div className="info-lbl">Valid Until</div><div className="info-val">{directQtDetail.valid_until}</div></div>}
+                              {directQtDetail.pr_no && <div className="info-cell"><div className="info-lbl">Linked PR</div><div className="info-val" style={{ fontFamily: 'monospace', color: 'var(--pur-tx)', fontWeight: 600 }}>{directQtDetail.pr_no}</div></div>}
+                              {directQtDetail.plant_name && <div className="info-cell"><div className="info-lbl">Plant</div><div className="info-val">{directQtDetail.plant_name}</div></div>}
+                              {directQtDetail.department_name && <div className="info-cell"><div className="info-lbl">Department</div><div className="info-val">{directQtDetail.department_name}</div></div>}
+                              {(directQtDetail.cgst_rate || directQtDetail.sgst_rate) && (
+                                <div className="info-cell">
+                                  <div className="info-lbl">Tax Rates</div>
+                                  <div className="info-val" style={{ fontSize: 12 }}>
+                                    {directQtDetail.cgst_rate && <>CGST {directQtDetail.cgst_rate}%</>}
+                                    {directQtDetail.cgst_rate && directQtDetail.sgst_rate && ' + '}
+                                    {directQtDetail.sgst_rate && <>SGST {directQtDetail.sgst_rate}%</>}
+                                    {directQtDetail.igst_rate && <>IGST {directQtDetail.igst_rate}%</>}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+    
+                            {/* Vendor info from quotation — don't repeat company name shown in chip */}
+                            {directQtDetail.vendor && (
+                              <div style={{ borderTop: '0.5px solid rgba(24,95,165,.2)', paddingTop: 10, marginBottom: 12 }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Vendor</div>
+                                <div className="info-grid">
+                                  {directQtDetail.vendor.gst_number && <div className="info-cell"><div className="info-lbl">GST</div><div className="info-val" style={{ fontFamily: 'monospace', fontSize: 12 }}>{directQtDetail.vendor.gst_number}</div></div>}
+                                  {directQtDetail.vendor.contact_name && <div className="info-cell"><div className="info-lbl">Contact</div><div className="info-val">{directQtDetail.vendor.contact_name}</div></div>}
+                                  {directQtDetail.vendor.contact_email && <div className="info-cell"><div className="info-lbl">Email</div><div className="info-val" style={{ fontSize: 12 }}>{directQtDetail.vendor.contact_email}</div></div>}
+                                  {directQtDetail.vendor.contact_phone && <div className="info-cell"><div className="info-lbl">Phone</div><div className="info-val">{directQtDetail.vendor.contact_phone}</div></div>}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </>
+                    </div>
+                  )}
+    
+                  {/* ── Vendor (manual) sub-form ── */}
+                  {createMethod === 'vendor' && (
+                    <div className="form-sec">
+                      <div className="form-sec-head">
+                        <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}><i className="ti ti-building-store" /></div>
+                        <div><div className="fsh-title">Select Vendor</div><div className="fsh-sub">Search approved vendors — you will add items in step 2</div></div>
+                      </div>
+                      <div className="form-body">
+                        {manualVendorId ? (
+                          <>
+                            <div className="vendor-chip">
+                              <div>
+                                <div style={{ fontWeight: 600, fontSize: 14 }}>{manualVendorName}</div>
+                                <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{selectedManualVendor?.vendor_code ?? ''}{selectedManualVendor?.city ? ` · ${selectedManualVendor.city}` : ''}</div>
+                              </div>
+                              <button type="button" onClick={() => { setManualVendorId(null); setManualVendorName(''); setManualVendorSearch(''); setSelectedManualVendor(null) }} style={{ background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", color: 'var(--tx2)' }}>Change</button>
+                            </div>
+                            {selectedManualVendor && (
+                              <div style={{ background: 'var(--grn-bg)', border: '0.5px solid rgba(99,153,34,.25)', borderRadius: 10, padding: 14, marginTop: 10 }}>
+                                <div className="info-grid">
+                                  {selectedManualVendor.gst_number && <div className="info-cell"><div className="info-lbl">GST Number</div><div className="info-val" style={{ fontFamily: 'monospace', fontSize: 12 }}>{selectedManualVendor.gst_number}</div></div>}
+                                  {selectedManualVendor.category_name && <div className="info-cell"><div className="info-lbl">Category</div><div className="info-val">{selectedManualVendor.category_name}</div></div>}
+                                  {selectedManualVendor.plant_name && <div className="info-cell"><div className="info-lbl">Plant</div><div className="info-val">{selectedManualVendor.plant_name}</div></div>}
+                                  {selectedManualVendor.contact_name && <div className="info-cell"><div className="info-lbl">Contact</div><div className="info-val">{selectedManualVendor.contact_name}</div></div>}
+                                  {selectedManualVendor.contact_email && <div className="info-cell"><div className="info-lbl">Email</div><div className="info-val" style={{ fontSize: 12 }}>{selectedManualVendor.contact_email}</div></div>}
+                                  {selectedManualVendor.contact_phone && <div className="info-cell"><div className="info-lbl">Phone</div><div className="info-val">{selectedManualVendor.contact_phone}</div></div>}
+                                </div>
+                                {(selectedManualVendor.address || selectedManualVendor.city) && (
+                                  <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx3)', lineHeight: 1.5 }}>
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Address</span><br />
+                                    {[selectedManualVendor.address, selectedManualVendor.city, selectedManualVendor.state !== 'N/A' ? selectedManualVendor.state : null, selectedManualVendor.pincode !== '000000' ? selectedManualVendor.pincode : null, selectedManualVendor.country].filter(Boolean).join(', ')}
+                                  </div>
+                                )}
+                                <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap' }}>
+                                  {selectedManualVendor.payment_terms && <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Payment: <strong style={{ color: 'var(--tx2)' }}>{selectedManualVendor.payment_terms}</strong></span>}
+                                  <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Currency: <strong style={{ color: 'var(--tx2)' }}>{selectedManualVendor.currency || 'INR'}</strong></span>
+                                  {selectedManualVendor.is_msme && <span style={{ fontSize: 11, background: 'var(--grn-bg)', color: 'var(--grn-tx)', border: '0.5px solid rgba(99,153,34,.3)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>MSME</span>}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="fgrp">
+                            <label className="lbl">Vendor <span className="req">*</span></label>
+                            <div style={{ position: 'relative' }}>
+                              <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--tx3)' }} />
+                              <input className={`inp${step1Error && !manualVendorId ? ' err' : ''}`} style={{ paddingLeft: 32 }} placeholder="Type vendor name (min 2 chars)…" value={manualVendorSearch}
+                                onChange={e => { setManualVendorSearch(e.target.value); setStep1Error('') }} />
+                            </div>
+                            {step1Error && !manualVendorId && <div className="err">{step1Error}</div>}
+                            {manualVendors && manualVendors.length > 0 && (
+                              <div style={{ border: '0.5px solid var(--bdm)', borderRadius: 8, overflow: 'hidden', marginTop: 4, maxHeight: 200, overflowY: 'auto' }}>
+                                {manualVendors.map((v: any) => (
+                                  <button key={v.id} type="button"
+                                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', borderBottom: '0.5px solid var(--bd)', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}
+                                    onClick={() => { setManualVendorId(v.id); setManualVendorName(v.company_name); setSelectedManualVendor(v); setManualVendorSearch(''); setStep1Error('') }}>
+                                    <div style={{ fontWeight: 600 }}>{v.company_name}</div>
+                                    <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{v.vendor_code} · {v.city}</div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+                )}
+              </>
           )}
 
           {/* ════════ STEP 2 — PO Details ════════ */}
