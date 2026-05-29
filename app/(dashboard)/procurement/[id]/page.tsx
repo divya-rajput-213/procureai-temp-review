@@ -1012,7 +1012,7 @@ export default function PRDetailPage() {
               })()}
 
               {/* LINE ITEMS — always shown so Quick PRs aren't empty */}
-              <Card className="overflow-hidden rounded-xl shadow-sm">
+            { pr.status === 'approved' && <Card className="overflow-hidden rounded-xl shadow-sm">
                 <CardHeader className="h-11 border-b bg-muted/20 px-4 py-0">
                   <div className="flex h-full items-center">
                     <CardTitle className="text-sm font-semibold">
@@ -1080,7 +1080,7 @@ export default function PRDetailPage() {
                   )}
                 </CardContent>
               </Card>
-
+}
 
               {/* QUOTATIONS — hidden when none linked (Quick PRs) */}
               {hasQuotations && (
