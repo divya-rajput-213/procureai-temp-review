@@ -881,18 +881,6 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                         </div>
                         {step1Error && !createMethod && <div className="err" style={{ marginTop: 6 }}>{step1Error}</div>}
 
-                        {/* Source info summary — shown once a method + source is selected */}
-                        {createMethod === 'pr' && selectedQuotation && (
-                          <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.25)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
-                            <span style={{ color: 'var(--tx3)' }}>PR:</span><span style={{ fontWeight: 600, color: 'var(--pur-tx)', fontFamily: 'monospace' }}>{prDetail?.pr_number}</span>
-                            <span style={{ color: 'var(--bd)' }}>·</span>
-                            <span style={{ color: 'var(--tx3)' }}>Vendor:</span><span style={{ fontWeight: 600 }}>{selectedQuotation.vendor_name}</span>
-                            <span style={{ color: 'var(--bd)' }}>·</span>
-                            <span style={{ color: 'var(--tx3)' }}>Total:</span><span style={{ fontWeight: 700, color: 'var(--tel-tx)' }}>{formatCurrency(grandTotal)}</span>
-                            {budgetAfterPO !== null && <><span style={{ color: 'var(--bd)' }}>·</span><span style={{ color: budgetAfterPO < 0 ? 'var(--red-tx)' : 'var(--grn-tx)', fontWeight: 600 }}>Budget after: {formatCurrency(budgetAfterPO)}</span></>}
-                          </div>
-                        )}
-
                       </div>
                     </div>
 
