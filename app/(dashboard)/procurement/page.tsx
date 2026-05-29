@@ -119,13 +119,22 @@ export default function ProcurementPage() {
         )}
       </div>
 
-      {/* Summary + New PR button */}
+      {/* Summary + New PR buttons */}
       {!isLoading && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <StatusSummary total={totalCount} counts={statusCounts} />
-          <Button size="sm" className="gap-1.5 ml-auto" onClick={() => router.push('/procurement/new')}>
-            <Plus className="w-4 h-4" /> New PR
-          </Button>
+          <div className="flex gap-2 ml-auto">
+            <Button
+              variant="outline" size="sm" className="gap-1.5"
+              onClick={() => router.push('/procurement/quick-new')}
+            >
+              <Plus className="w-4 h-4" /> Quick PR
+            </Button>
+            <Button size="sm" className="gap-1.5"
+              onClick={() => router.push('/procurement/new')}>
+              <Plus className="w-4 h-4" /> Compare Quotations
+            </Button>
+          </div>
         </div>
       )}
 
