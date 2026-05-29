@@ -187,8 +187,8 @@ export default function PurchaseOrderDetailPage() {
           <div className="pod-hero-meta" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14, marginBottom: 14 }}>
             {[
               { label: 'PO Type', value: PO_TYPE_MAP[po.po_type] ?? po.po_type },
-              { label: 'PR Number', value: po.pr_number || '—' },
               { label: 'Payment Terms', value: po.payment_terms || '—' },
+              { label: 'Delivery Date', value: po.delivery_date ? formatDate(po.delivery_date) : '—' },
               { label: 'Currency', value: po.currency_code || '—' },
             ].map(({ label, value }, i) => (
               <div key={label} className="pod-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
@@ -200,18 +200,34 @@ export default function PurchaseOrderDetailPage() {
 
           {/* Row 3 — Vendor details */}
           <div className="pod-hero-meta" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14 }}>
-            {[
-              { label: 'Vendor', value: po.vendor_name },
-              { label: 'Plant', value: po.plant_name },
-              { label: 'Department', value: po.department_name },
-              { label: 'Created By', value: po.created_by_name },
-            ].map(({ label, value }, i) => (
-              <div key={label} className="pod-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
-                <div className="pod-lbl">{label}</div>
-                <div className="pod-val">{value || '—'}</div>
-              </div>
-            ))}
-          </div>
+  {/* Vendor — clickable */}
+  <div className="pod-cell">
+    <button
+      type="button"
+      onClick={() => window.open(`/vendors/${po.vendor_hash_id ?? po.vendor}`, '_blank')}
+      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+    >
+      <div className="pod-lbl" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        Vendor <i className="ti ti-arrow-up-right" style={{ fontSize: 9, opacity: 0.7 }} />
+      </div>
+      <div className="pod-val" style={{ color: 'var(--blu-tx,#0C447C)' }}>
+        {po.vendor_name || '—'}
+      </div>
+    </button>
+  </div>
+
+  {/* Rest — plain cells */}
+  {[
+    { label: 'Plant',      value: po.plant_name },
+    { label: 'Department', value: po.department_name },
+    { label: 'Created By', value: po.created_by_name },
+  ].map(({ label, value }) => (
+    <div key={label} className="pod-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+      <div className="pod-lbl">{label}</div>
+      <div className="pod-val">{value || '—'}</div>
+    </div>
+  ))}
+</div>
         </div>
 
         {/* ── Tabs ── */}
