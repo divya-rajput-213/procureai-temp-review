@@ -183,19 +183,20 @@ export default function PurchaseOrderDetailPage() {
             </div>
           </div>
 
-          {/* Row 2 — PO details */}
-          <div className="pod-hero-meta" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14, marginBottom: 14 }}>
-            {[
-              { label: 'PO Type', value: PO_TYPE_MAP[po.po_type] ?? po.po_type },
-              { label: 'Payment Terms', value: po.payment_terms || '—' },
-              { label: 'Delivery Date', value: po.delivery_date ? formatDate(po.delivery_date) : '—' },
-              { label: 'Currency', value: po.currency_code || '—' },
-            ].map(({ label, value }, i) => (
-              <div key={label} className="pod-cell" style={i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : {}}>
-                <div className="pod-lbl">{label}</div>
-                <div className="pod-val">{value}</div>
-              </div>
-            ))}
+          {/* Row 2 — PO Type + Delivery Date + Billing Address */}
+          <div className="pod-hero-meta" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 14, marginBottom: 14 }}>
+            <div className="pod-cell" style={{ paddingLeft: 0 }}>
+              <div className="pod-lbl">PO Type</div>
+              <div className="pod-val">{PO_TYPE_MAP[po.po_type] ?? po.po_type}</div>
+            </div>
+            <div className="pod-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+              <div className="pod-lbl">Delivery Date</div>
+              <div className="pod-val">{po.delivery_date ? formatDate(po.delivery_date) : '—'}</div>
+            </div>
+            <div className="pod-cell" style={{ borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+              <div className="pod-lbl">Billing / Delivery Address</div>
+              <div className="pod-val" style={{ fontSize: 12, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{po.delivery_address || '—'}</div>
+            </div>
           </div>
 
           {/* Row 3 — Vendor details */}

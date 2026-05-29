@@ -40,6 +40,7 @@ type LinkedQuotation = {
     item_price: number
     line_total: number
   }>
+  terms_and_conditions: any
 }
 
 type PrDetail = {
@@ -60,8 +61,9 @@ type PrDetail = {
     consumed_amount: string
     remaining_amount: string
   } | null
- selected_vendor_detail:any
- line_items:any
+  selected_vendor_detail: any
+  line_items: any
+  notes: any
 }
 
 type PrSummary = {
@@ -230,9 +232,8 @@ const CSS = `
 // ─── Steps config ─────────────────────────────────────────────────────────────
 
 const CREATE_STEPS = [
-  { n: 1, label: 'Select Source', sub: 'PR, Quotation or Vendor' },
-  { n: 2, label: 'PO Details', sub: 'Dates, terms and items' },
-  { n: 3, label: 'Review & Issue', sub: 'Confirm and issue the PO' },
+  { n: 1, label: 'PO Details', sub: 'Source, dates and terms' },
+  { n: 2, label: 'Review & Issue', sub: 'Line items and confirm' },
 ]
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -267,14 +268,10 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
   const [justification, setJustification] = useState('')
   const [trackingIdCreate, setTrackingIdCreate] = useState<number | null>(null)
   const [departmentIdCreate, setDepartmentIdCreate] = useState<number | null>(null)
-  const [trackingSearchCreate, setTrackingSearchCreate] = useState('')
   const [paymentTermsCreate, setPaymentTermsCreate] = useState('Net 30 Days')
   const [billingAddress, setBillingAddress] = useState('')
   const [terms, setTerms] = useState(
-    '1. All items per agreed specifications.\n'
-    + '2. Vendor to provide packing list and delivery challan.\n'
-    + '3. Invoice only after delivery confirmation.\n'
-    + '4. Rejected goods returned at vendor cost.',
+    '',
   )
 
   // ── Quotation flow state ──────────────────────────────────────────────────
@@ -339,54 +336,54 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
     enabled: mode === 'edit' && normalizedVendorSearch.length >= 2,
   })
 
-// CHANGE 2: In the autofill useEffect, add reset() call to populate RHF fields
-useEffect(() => {
-  if (mode !== 'edit' || !po || formReady) return
-  setPoTypeCreate(po.po_type || 'NB')
-  setCurrencyCode(po.currency_code || 'INR')
-  setPoDate(po.po_date || new Date().toISOString().slice(0, 10))
-  setDeliveryDate(po.delivery_date || '')
-  setPriority((po.priority as any) || 'medium')
-  setPaymentTermsCreate(po.payment_terms || '')
-  setBillingAddress(po.delivery_address || '')
-  if (po.notes) setTerms(po.notes)
-  setTrackingIdCreate(po.tracking_id || null)
-  setDepartmentIdCreate(po.department || null)
+  // CHANGE 2: In the autofill useEffect, add reset() call to populate RHF fields
+  useEffect(() => {
+    if (mode !== 'edit' || !po || formReady) return
+    setPoTypeCreate(po.po_type || 'NB')
+    setCurrencyCode(po.currency_code || 'INR')
+    setPoDate(po.po_date || new Date().toISOString().slice(0, 10))
+    setDeliveryDate(po.delivery_date || '')
+    setPriority((po.priority as any) || 'medium')
+    setPaymentTermsCreate(po.payment_terms || '')
+    setBillingAddress(po.delivery_address || '')
+    if (po.notes) setTerms(po.notes)
+    setTrackingIdCreate(po.tracking_id || null)
+    setDepartmentIdCreate(po.department || null)
 
-  // ← ADD THIS: populate React Hook Form fields
-  reset({
-    po_type: po.po_type || 'NB',
-    vendor: po.vendor,
-    plant: po.plant,
-    department: po.department,
-    tracking_id: po.tracking_id || null,
-    currency_code: po.currency_code || 'INR',
-    po_date: po.po_date || new Date().toISOString().slice(0, 10),
-    delivery_date: po.delivery_date || '',
-    priority: (po.priority as any) || 'medium',
-    payment_terms: po.payment_terms || '',
-    incoterms: po.incoterms || '',
-    delivery_address: po.delivery_address || '',
-    notes: po.notes || '',
-    freight_amount: Number(po.freight_amount) || 0,
-    discount_amount: Number(po.discount_amount) || 0,
-    advance_schedule: po.advance_schedule || {},
-    exchange_rate: po.exchange_rate || null,
-    customs_duty_rate: po.customs_duty_rate || null,
-    freight_insurance: po.freight_insurance || null,
-  })
+    // ← ADD THIS: populate React Hook Form fields
+    reset({
+      po_type: po.po_type || 'NB',
+      vendor: po.vendor,
+      plant: po.plant,
+      department: po.department,
+      tracking_id: po.tracking_id || null,
+      currency_code: po.currency_code || 'INR',
+      po_date: po.po_date || new Date().toISOString().slice(0, 10),
+      delivery_date: po.delivery_date || '',
+      priority: (po.priority as any) || 'medium',
+      payment_terms: po.payment_terms || '',
+      incoterms: po.incoterms || '',
+      delivery_address: po.delivery_address || '',
+      notes: po.notes || '',
+      freight_amount: Number(po.freight_amount) || 0,
+      discount_amount: Number(po.discount_amount) || 0,
+      advance_schedule: po.advance_schedule || {},
+      exchange_rate: po.exchange_rate || null,
+      customs_duty_rate: po.customs_duty_rate || null,
+      freight_insurance: po.freight_insurance || null,
+    })
 
-  if (po.pr_number) {
-    setCreateMethod('pr')
-  } else if (po.qt_number) {
-    setCreateMethod('quotation')
-  } else {
-    setCreateMethod('vendor')
-    if (po.vendor) { setManualVendorId(po.vendor); setManualVendorName(po.vendor_name || '') }
-  }
-  setFormReady(true)
-  setStep(2)
-}, [po, formReady, mode])
+    if (po.pr_number) {
+      setCreateMethod('pr')
+    } else if (po.qt_number) {
+      setCreateMethod('quotation')
+    } else {
+      setCreateMethod('vendor')
+      if (po.vendor) { setManualVendorId(po.vendor); setManualVendorName(po.vendor_name || '') }
+    }
+    setFormReady(true)
+    setStep(2)
+  }, [po, formReady, mode])
 
   useEffect(() => {
     if (mode !== 'edit' || !po?.advance_schedule) return
@@ -514,16 +511,26 @@ useEffect(() => {
     enabled: mode === 'create' && createMethod === 'vendor' && debouncedItemSearch.length >= 1,
   })
 
-  // Auto-fill from quotation detail (vendor address + payment terms)
+  // Auto-fill from quotation detail (vendor address + payment terms + terms)
   useEffect(() => {
     if (mode !== 'create' || !directQtDetail || createMethod !== 'quotation') return
     if (directQtDetail.payment_terms) setPaymentTermsCreate(directQtDetail.payment_terms)
+    const tandc: string[] = directQtDetail.terms_and_conditions || []
+    if (tandc.length) setTerms(tandc.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n'))
+    else if (directQtDetail.notes) setTerms(directQtDetail.notes)
     const v = directQtDetail.vendor
     if (v) {
       const parts = [v.company_name, v.address, [v.city, v.state, v.pincode].filter(Boolean).join(', '), v.country].filter(Boolean)
       if (parts.length) setBillingAddress(parts.join('\n'))
     }
   }, [directQtDetail, createMethod, mode])
+
+  // Pre-fill terms from selected quotation (PR flow)
+  useEffect(() => {
+    if (mode !== 'create' || createMethod !== 'pr') return
+    const tandc: string[] = selectedQuotation?.terms_and_conditions || []
+    if (tandc.length) setTerms(tandc.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n'))
+  }, [selectedQuotation, createMethod, mode])
 
   // Create computed — PR flow
   const eligibleQuotes = (prDetail?.linked_quotations || []).filter(q => q.status !== 'po_raised' && q.status !== 'rejected')
@@ -563,6 +570,7 @@ useEffect(() => {
   // ── Mutations ─────────────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: async () => {
+      const termsArray = terms.split('\n').filter(Boolean).map(t => t.replace(/^\d+\.\s*/, ''))
       const common = {
         po_type: poTypeCreate,
         currency_code: currencyCode,
@@ -572,6 +580,7 @@ useEffect(() => {
         payment_terms: paymentTermsCreate,
         delivery_address: billingAddress,
         notes: terms,
+        terms_and_conditions: termsArray,
         ...(justification ? { justification } : {}),
       }
       if (createMethod === 'pr') {
@@ -640,24 +649,24 @@ useEffect(() => {
   const [step2Errors, setStep2Errors] = useState<{ poDate?: string; deliveryDate?: string; department?: string }>({})
   const [showIssueConfirm, setShowIssueConfirm] = useState(false)
   const [showSaveConfirm, setShowSaveConfirm] = useState(false)
+  const [showTrackingSection, setShowTrackingSection] = useState(false)
   const [editStepErrors, setEditStepErrors] = useState<Record<string, string>>({})
 
   const handleNextStep = () => {
     if (step === 1) {
-      if (mode === 'edit') { setStep(s => s + 1); return }
-      if (!createMethod) { setStep1Error('Please choose a creation method.'); return }
-      if (createMethod === 'pr' && !selectedPrId) { setStep1Error('Please select a purchase request.'); return }
-      if (createMethod === 'quotation' && !directQtId) { setStep1Error('Please select a quotation.'); return }
-      if (createMethod === 'vendor' && !manualVendorId) { setStep1Error('Please select a vendor.'); return }
-      setStep1Error('')
-      setStep(s => s + 1)
-    } else if (step === 2) {
-      const errs: { poDate?: string; deliveryDate?: string; plant?: string; department?: string } = {}
-      if (!poDate) errs.poDate = 'PO date is required.'
-      if (!deliveryDate) errs.deliveryDate = 'Delivery date is required.'
-      if (createMethod === 'vendor' && !departmentIdCreate) errs.department = 'Department is required.'
-      if (Object.keys(errs).length) { setStep2Errors(errs); return }
-      setStep2Errors({})
+      if (mode !== 'edit') {
+        if (!createMethod) { setStep1Error('Please choose a creation method.'); return }
+        if (createMethod === 'pr' && !selectedPrId) { setStep1Error('Please select a purchase request.'); return }
+        if (createMethod === 'quotation' && !directQtId) { setStep1Error('Please select a quotation.'); return }
+        if (createMethod === 'vendor' && !manualVendorId) { setStep1Error('Please select a vendor.'); return }
+        setStep1Error('')
+        const errs: { poDate?: string; deliveryDate?: string; department?: string } = {}
+        if (!poDate) errs.poDate = 'PO date is required.'
+        if (!deliveryDate) errs.deliveryDate = 'Delivery date is required.'
+        if (createMethod === 'vendor' && !departmentIdCreate) errs.department = 'Department is required.'
+        if (Object.keys(errs).length) { setStep2Errors(errs); return }
+        setStep2Errors({})
+      }
       setStep(s => s + 1)
     } else {
       setStep(s => s + 1)
@@ -885,11 +894,25 @@ useEffect(() => {
                               onClick={() => {
                                 if (createMethod !== m) {
                                   setCreateMethod(m)
+                                  // Reset source fields
                                   setSelectedPrId(null)
                                   setDirectQtId(null); setQtSearch('')
                                   setManualVendorId(null); setManualVendorName(''); setManualVendorSearch(''); setSelectedManualVendor(null)
                                   setManualItems([]); setItemSearchMap({}); setOpenDropdownKey(null)
                                   setStep1Error('')
+                                  // Reset PO Details fields
+                                  setPoDate(new Date().toISOString().slice(0, 10))
+                                  setDeliveryDate('')
+                                  setPriority('medium')
+                                  setPoTypeCreate('NB')
+                                  setBillingAddress('')
+                                  setTerms('')
+                                  setJustification('')
+                                  setTrackingIdCreate(null); 
+                                  setDepartmentIdCreate(null)
+                                  setPaymentTermsCreate('Net 30 Days')
+                                  setStep2Errors({})
+                                  setShowTrackingSection(false)
                                 }
                               }}
                               style={{
@@ -932,23 +955,55 @@ useEffect(() => {
                             {(eligiblePrs?.length ?? 0) === 0 && <p style={{ fontSize: 12, color: 'var(--tx3)' }}>No approved PRs available.</p>}
                           </div>
                           {prDetail && (
-                            <div style={{ background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.3)', borderRadius: 10, padding: 14 }}>
-                              {prDetail.description && <p style={{ fontSize: 13, color: 'var(--pur-tx)', marginBottom: 10 }}>{prDetail.description}</p>}
-                              <div className="info-grid">
-                                <div className="info-cell"><div className="info-lbl">PR Code</div><Link href={`/procurement/${prDetail.hash_id ?? prDetail.id}`} style={{ color: 'var(--pur-tx)', fontFamily: 'monospace', fontWeight: 700, textDecoration: 'none', fontSize: 13 }}>{prDetail.pr_number}</Link></div>
-                                <div className="info-cell"><div className="info-lbl">Tracking ID</div>
-                                  {prDetail.tracking_id
-                                    ? <Link href={`/budget/${prDetail.tracking_id}`} style={{ color: 'var(--blu-tx)', fontFamily: 'monospace', textDecoration: 'none', fontSize: 13 }}>{prDetail?.budget_info?.tracking_code || '—'}</Link>
-                                    : <div className="info-val" style={{ fontFamily: 'monospace' }}>{prDetail?.budget_info?.tracking_code || '—'}</div>}
+                            <div style={{ background: 'var(--bg,#fff)', border: '0.5px solid var(--bd,rgba(0,0,0,0.08))', borderRadius: 10, padding: '14px 16px' }}>
+                              {/* Row 1 */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                <div style={{ width: 34, height: 34, borderRadius: 8, background: '#ede9fe', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <i className="ti ti-git-fork" style={{ fontSize: 16 }} />
                                 </div>
-                                <div className="info-cell"><div className="info-lbl">Budget Remaining</div><div className="info-val" style={{ color: budgetWillExceed ? 'var(--red-tx)' : 'var(--tel-tx)', fontWeight: 700 }}>{budgetInfo ? formatCurrency(budgetInfo.remaining_amount) : '—'}</div></div>
-                                <div className="info-cell"><div className="info-lbl">Vendor</div>{prDetail?.selected_vendor_detail?.id ? <Link href={`/vendors/${prDetail?.selected_vendor_detail.id}`} style={{ color: 'var(--blu-tx)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>{prDetail?.selected_vendor_detail?.company_name
-                                }</Link> : <div style={{ fontSize: 13, color: 'var(--tx3)' }}>No quotation on PR</div>}</div>
-                                <div className="info-cell"><div className="info-lbl">Quotation</div>{selectedQuotation ? <Link href={`/quotation/${selectedQuotation.id}`} style={{ color: 'var(--pur-tx)', fontFamily: 'monospace', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>{selectedQuotation.quotation_no || selectedQuotation.ref_no}</Link> : <div style={{ fontSize: 13, color: 'var(--tx3)' }}>—</div>}</div>
-                                <div className="info-cell"><div className="info-lbl">QT Total</div><div className="info-val" style={{ color: 'var(--tel-tx)', fontWeight: 700 }}>{selectedQuotation ? formatCurrency(selectedQuotation.total_amount) : '—'}</div></div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <Link href={`/procurement/${prDetail.hash_id ?? prDetail.id}`} style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: 'var(--pur-tx)', textDecoration: 'none' }}>{prDetail.pr_number}</Link>
+                                  {prDetail.description && <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prDetail.description}</div>}
+                                </div>
+                                {budgetInfo && (
+                                  <div style={{ fontSize: 11, color: 'var(--tx3)', whiteSpace: 'nowrap', flexShrink: 0, textAlign: 'right' }}>
+                                    Budget left <strong style={{ color: budgetWillExceed ? 'var(--red-tx)' : 'var(--tel-tx)' }}>{formatCurrency(budgetInfo.remaining_amount)}</strong>
+                                  </div>
+                                )}
                               </div>
-                              {!selectedQuotation && eligibleQuotes.length === 0 && <div className="alert-warn"><AlertTriangle style={{ width: 14, height: 14, flexShrink: 0 }} /> No eligible quotation on this PR. PO from PR estimates.</div>}
-                              {selectedQuotation && budgetWillExceed && <div className="alert-err"><AlertTriangle style={{ width: 14, height: 14, flexShrink: 0 }} /> Quotation total exceeds budget by {formatCurrency(grandTotal - (remainingBudget ?? 0))}</div>}
+                              {/* Row 2 */}
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 10 }}>
+                                <div style={{ paddingRight: 12 }}>
+                                  <div className="pod-lbl">Tracking ID</div>
+                                  <div className="pod-val" style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                                    {prDetail.tracking_id
+                                      ? <Link href={`/budget/${prDetail.tracking_id}`} style={{ color: 'var(--blu-tx)', textDecoration: 'none' }}>{prDetail?.budget_info?.tracking_code || '—'}</Link>
+                                      : prDetail?.budget_info?.tracking_code || '—'}
+                                  </div>
+                                </div>
+                                <div style={{ padding: '0 12px', borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+                                  <div className="pod-lbl">Vendor</div>
+                                  <div className="pod-val">
+                                    {prDetail?.selected_vendor_detail?.id
+                                      ? <Link href={`/vendors/${prDetail.selected_vendor_detail.id}`} style={{ color: 'var(--blu-tx)', textDecoration: 'none' }}>{prDetail.selected_vendor_detail.company_name}</Link>
+                                      : <span style={{ color: 'var(--tx3)' }}>No quotation on PR</span>}
+                                  </div>
+                                </div>
+                                <div style={{ padding: '0 12px', borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+                                  <div className="pod-lbl">Quotation</div>
+                                  <div className="pod-val" style={{ fontFamily: 'monospace' }}>
+                                    {selectedQuotation
+                                      ? <Link href={`/quotation/${selectedQuotation.id}`} style={{ color: 'var(--pur-tx)', textDecoration: 'none' }}>{selectedQuotation.quotation_no || selectedQuotation.ref_no}</Link>
+                                      : <span style={{ color: 'var(--tx3)' }}>—</span>}
+                                  </div>
+                                </div>
+                                <div style={{ padding: '0 12px', borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+                                  <div className="pod-lbl">QT Total</div>
+                                  <div className="pod-val" style={{ color: 'var(--tel-tx)', fontWeight: 700 }}>{selectedQuotation ? formatCurrency(selectedQuotation.total_amount) : '—'}</div>
+                                </div>
+                              </div>
+                              {!selectedQuotation && eligibleQuotes.length === 0 && <div className="alert-warn" style={{ marginTop: 10 }}><AlertTriangle style={{ width: 14, height: 14, flexShrink: 0 }} /> No eligible quotation on this PR. PO from PR estimates.</div>}
+                              {selectedQuotation && budgetWillExceed && <div className="alert-err" style={{ marginTop: 10 }}><AlertTriangle style={{ width: 14, height: 14, flexShrink: 0 }} /> Quotation total exceeds budget by {formatCurrency(grandTotal - (remainingBudget ?? 0))}</div>}
                               {(prDetail.line_items?.length > 0) && (
                                 <div style={{ marginTop: 12, overflowX: 'auto' }}>
                                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--pur-tx)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 6 }}>Line Items</div>
@@ -1043,42 +1098,61 @@ useEffect(() => {
                               )}
                             </div>
                           )}
-                          {/* Quotation detail — full view */}
+                          {/* Quotation detail — compact hero style */}
                           {directQtId && directQtDetail && (
-                            <div style={{ background: 'var(--blu-bg)', border: '0.5px solid rgba(24,95,165,.25)', borderRadius: 10, padding: 14, marginTop: 10 }}>
-                              {/* QT meta */}
-                              <div className="info-grid" style={{ marginBottom: 12 }}>
-                                {directQtDetail.quotation_no && <div className="info-cell"><div className="info-lbl">QT Number</div><div className="info-val" style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--blu-tx)' }}>{directQtDetail.quotation_no}</div></div>}
-                                {directQtDetail.quotation_date && <div className="info-cell"><div className="info-lbl">QT Date</div><div className="info-val">{directQtDetail.quotation_date}</div></div>}
-                                {directQtDetail.valid_until && <div className="info-cell"><div className="info-lbl">Valid Until</div><div className="info-val">{directQtDetail.valid_until}</div></div>}
-                                {directQtDetail.pr_no && <div className="info-cell"><div className="info-lbl">Linked PR</div><div className="info-val" style={{ fontFamily: 'monospace', color: 'var(--pur-tx)', fontWeight: 600 }}>{directQtDetail.pr_no}</div></div>}
-                                {directQtDetail.plant_name && <div className="info-cell"><div className="info-lbl">Plant</div><div className="info-val">{directQtDetail.plant_name}</div></div>}
-                                {directQtDetail.department_name && <div className="info-cell"><div className="info-lbl">Department</div><div className="info-val">{directQtDetail.department_name}</div></div>}
-                                {(directQtDetail.cgst_rate || directQtDetail.sgst_rate) && (
-                                  <div className="info-cell">
-                                    <div className="info-lbl">Tax Rates</div>
-                                    <div className="info-val" style={{ fontSize: 12 }}>
-                                      {directQtDetail.cgst_rate && <>CGST {directQtDetail.cgst_rate}%</>}
-                                      {directQtDetail.cgst_rate && directQtDetail.sgst_rate && ' + '}
-                                      {directQtDetail.sgst_rate && <>SGST {directQtDetail.sgst_rate}%</>}
-                                      {directQtDetail.igst_rate && <>IGST {directQtDetail.igst_rate}%</>}
-                                    </div>
+                            <div style={{ background: 'var(--bg,#fff)', border: '0.5px solid var(--bd,rgba(0,0,0,0.08))', borderRadius: 10, padding: '14px 16px', marginTop: 10 }}>
+                              {/* Row 1 — icon + QT ref + vendor */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--blu-bg)', color: 'var(--blu-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <i className="ti ti-file-invoice" style={{ fontSize: 16 }} />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: 'var(--blu-tx)' }}>{directQtDetail.quotation_no || directQtDetail.ref_no}</div>
+                                  <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{qtVendorName}</div>
+                                </div>
+                                {directQtDetail.valid_until && (
+                                  <div style={{ fontSize: 11, color: 'var(--tx3)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                    Valid till <strong style={{ color: 'var(--tx2)' }}>{directQtDetail.valid_until}</strong>
                                   </div>
                                 )}
                               </div>
-
-                              {/* Vendor info from quotation — don't repeat company name shown in chip */}
-                              {directQtDetail.vendor && (
-                                <div style={{ borderTop: '0.5px solid rgba(24,95,165,.2)', paddingTop: 10, marginBottom: 12 }}>
-                                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Vendor</div>
-                                  <div className="info-grid">
-                                    {directQtDetail.vendor.gst_number && <div className="info-cell"><div className="info-lbl">GST</div><div className="info-val" style={{ fontFamily: 'monospace', fontSize: 12 }}>{directQtDetail.vendor.gst_number}</div></div>}
-                                    {directQtDetail.vendor.contact_name && <div className="info-cell"><div className="info-lbl">Contact</div><div className="info-val">{directQtDetail.vendor.contact_name}</div></div>}
-                                    {directQtDetail.vendor.contact_email && <div className="info-cell"><div className="info-lbl">Email</div><div className="info-val" style={{ fontSize: 12 }}>{directQtDetail.vendor.contact_email}</div></div>}
-                                    {directQtDetail.vendor.contact_phone && <div className="info-cell"><div className="info-lbl">Phone</div><div className="info-val">{directQtDetail.vendor.contact_phone}</div></div>}
+                              {/* Row 2 — 4-col meta */}
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 10, gap: 0 }}>
+                                <div style={{ paddingLeft: 0, paddingRight: 12 }}>
+                                  <div className="pod-lbl">QT Date</div>
+                                  <div className="pod-val">{directQtDetail.quotation_date || '—'}</div>
+                                </div>
+                                <div style={{ padding: '0 12px', borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+                                  <div className="pod-lbl">Linked PR</div>
+                                  <div className="pod-val" style={{ fontFamily: 'monospace' }}>
+                                    {directQtDetail.pr_id
+                                      ? <Link href={`/procurement/${directQtDetail.pr_hash_id ?? directQtDetail.pr_id}`} style={{ color: 'var(--pur-tx)', textDecoration: 'none', fontWeight: 700 }}>{directQtDetail.pr_no}</Link>
+                                      : directQtDetail.pr_no || '—'}
                                   </div>
                                 </div>
-                              )}
+                                <div style={{ padding: '0 12px', borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+                                  <div className="pod-lbl">Plant</div>
+                                  <div className="pod-val">{directQtDetail.plant_name || '—'}</div>
+                                </div>
+                                <div style={{ padding: '0 12px', borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }}>
+                                  <div className="pod-lbl">Department</div>
+                                  <div className="pod-val">{directQtDetail.department_name || '—'}</div>
+                                </div>
+                              </div>
+                              {/* Row 3 — vendor + tax */}
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 10, marginTop: 10, gap: 0 }}>
+                                {[
+                                  { lbl: 'GST', val: directQtDetail.vendor?.gst_number || '—', mono: true },
+                                  { lbl: 'Contact', val: directQtDetail.vendor?.contact_name || '—' },
+                                  { lbl: 'Email', val: directQtDetail.vendor?.contact_email || '—' },
+                                  { lbl: 'Tax Rates', val: [directQtDetail.cgst_rate && `CGST ${directQtDetail.cgst_rate}%`, directQtDetail.sgst_rate && `SGST ${directQtDetail.sgst_rate}%`, directQtDetail.igst_rate && `IGST ${directQtDetail.igst_rate}%`].filter(Boolean).join(' + ') || '—' },
+                                ].map(({ lbl, val, mono }, i) => (
+                                  <div key={lbl} style={{ padding: '0 12px', ...(i > 0 ? { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' } : { paddingLeft: 0 }) }}>
+                                    <div className="pod-lbl">{lbl}</div>
+                                    <div className="pod-val" style={{ fontFamily: mono ? 'monospace' : undefined, fontSize: 12 }}>{val}</div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1103,25 +1177,48 @@ useEffect(() => {
                                 <button type="button" onClick={() => { setManualVendorId(null); setManualVendorName(''); setManualVendorSearch(''); setSelectedManualVendor(null) }} style={{ background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", color: 'var(--tx2)' }}>Change</button>
                               </div>
                               {selectedManualVendor && (
-                                <div style={{ background: 'var(--grn-bg)', border: '0.5px solid rgba(99,153,34,.25)', borderRadius: 10, padding: 14, marginTop: 10 }}>
-                                  <div className="info-grid">
-                                    {selectedManualVendor.gst_number && <div className="info-cell"><div className="info-lbl">GST Number</div><div className="info-val" style={{ fontFamily: 'monospace', fontSize: 12 }}>{selectedManualVendor.gst_number}</div></div>}
-                                    {selectedManualVendor.category_name && <div className="info-cell"><div className="info-lbl">Category</div><div className="info-val">{selectedManualVendor.category_name}</div></div>}
-                                    {selectedManualVendor.plant_name && <div className="info-cell"><div className="info-lbl">Plant</div><div className="info-val">{selectedManualVendor.plant_name}</div></div>}
-                                    {selectedManualVendor.contact_name && <div className="info-cell"><div className="info-lbl">Contact</div><div className="info-val">{selectedManualVendor.contact_name}</div></div>}
-                                    {selectedManualVendor.contact_email && <div className="info-cell"><div className="info-lbl">Email</div><div className="info-val" style={{ fontSize: 12 }}>{selectedManualVendor.contact_email}</div></div>}
-                                    {selectedManualVendor.contact_phone && <div className="info-cell"><div className="info-lbl">Phone</div><div className="info-val">{selectedManualVendor.contact_phone}</div></div>}
-                                  </div>
-                                  {(selectedManualVendor.address || selectedManualVendor.city) && (
-                                    <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx3)', lineHeight: 1.5 }}>
-                                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Address</span><br />
-                                      {[selectedManualVendor.address, selectedManualVendor.city, selectedManualVendor.state !== 'N/A' ? selectedManualVendor.state : null, selectedManualVendor.pincode !== '000000' ? selectedManualVendor.pincode : null, selectedManualVendor.country].filter(Boolean).join(', ')}
+                                <div style={{ background: 'var(--bg,#fff)', border: '0.5px solid var(--bd,rgba(0,0,0,0.08))', borderRadius: 10, padding: '14px 16px', marginTop: 10 }}>
+                                  {/* Row 1 */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                    <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--grn-bg)', color: 'var(--grn-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                      <i className="ti ti-building-store" style={{ fontSize: 16 }} />
                                     </div>
-                                  )}
-                                  <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap' }}>
-                                    {selectedManualVendor.payment_terms && <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Payment: <strong style={{ color: 'var(--tx2)' }}>{selectedManualVendor.payment_terms}</strong></span>}
-                                    <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Currency: <strong style={{ color: 'var(--tx2)' }}>{selectedManualVendor.currency || 'INR'}</strong></span>
-                                    {selectedManualVendor.is_msme && <span style={{ fontSize: 11, background: 'var(--grn-bg)', color: 'var(--grn-tx)', border: '0.5px solid rgba(99,153,34,.3)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>MSME</span>}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--tx)' }}>{selectedManualVendor.company_name}</div>
+                                      <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 1 }}>
+                                        {selectedManualVendor.vendor_code}
+                                        {selectedManualVendor.plant_name && ` · ${selectedManualVendor.plant_name}`}
+                                        {selectedManualVendor.is_msme && <span style={{ marginLeft: 6, fontSize: 10, background: '#dcfce7', color: '#16a34a', border: '0.5px solid rgba(22,163,74,.3)', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>MSME</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {/* Row 2 */}
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 10 }}>
+                                    {[
+                                      { lbl: 'GST', val: selectedManualVendor.gst_number || '—', mono: true },
+                                      { lbl: 'Category', val: selectedManualVendor.category_name || '—' },
+                                      { lbl: 'Contact', val: selectedManualVendor.contact_name || '—' },
+                                      { lbl: 'Email', val: selectedManualVendor.contact_email || '—' },
+                                    ].map(({ lbl, val, mono }, i) => (
+                                      <div key={lbl} style={{ padding: '0 12px', ...(i === 0 ? { paddingLeft: 0 } : { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }) }}>
+                                        <div className="pod-lbl">{lbl}</div>
+                                        <div className="pod-val" style={{ fontFamily: mono ? 'monospace' : undefined, fontSize: 12 }}>{val}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {/* Row 3 */}
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', borderTop: '0.5px solid var(--bd,rgba(0,0,0,0.08))', paddingTop: 10, marginTop: 10 }}>
+                                    {[
+                                      { lbl: 'Phone', val: selectedManualVendor.contact_phone || '—' },
+                                      { lbl: 'Currency', val: selectedManualVendor.currency || 'INR' },
+                                      { lbl: 'Payment Terms', val: selectedManualVendor.payment_terms || '—' },
+                                      { lbl: 'Address', val: [selectedManualVendor.city, selectedManualVendor.state !== 'N/A' ? selectedManualVendor.state : null, selectedManualVendor.country].filter(Boolean).join(', ') || '—' },
+                                    ].map(({ lbl, val }, i) => (
+                                      <div key={lbl} style={{ padding: '0 12px', ...(i === 0 ? { paddingLeft: 0 } : { borderLeft: '0.5px solid var(--bd,rgba(0,0,0,0.08))' }) }}>
+                                        <div className="pod-lbl">{lbl}</div>
+                                        <div className="pod-val" style={{ fontSize: 12 }}>{val}</div>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               )}
@@ -1154,17 +1251,13 @@ useEffect(() => {
                     )}
                   </>
                 )}
-              </>
-            )}
 
-            {/* ════════ STEP 2 — PO Details ════════ */}
-            {step === 2 && (
-              <>
+                {/* ════════ PO Details ════════ */}
                 {/* PO dates / terms — common to all methods */}
                 <div className="form-sec">
                   <div className="form-sec-head">
                     <div className="fsh-ic" style={{ background: 'var(--blu-bg)', color: 'var(--blu-tx)' }}><i className="ti ti-file-text" /></div>
-                    <div><div className="fsh-title">PO Details</div><div className="fsh-sub">Dates, priority, payment terms and delivery address</div></div>
+                    <div><div className="fsh-title">PO Details</div><div className="fsh-sub">Dates, priority and delivery address</div></div>
                   </div>
                   <div className="form-body">
                     <div className="g3">
@@ -1189,108 +1282,48 @@ useEffect(() => {
                         </select>
                       </div>
                     </div>
-                    <div className="g3">
-                      <div className="fgrp">
-                        <label className="lbl">PO Type <span className="req">*</span></label>
-                        <select className="sel" value={poTypeCreate} onChange={e => setPoTypeCreate(e.target.value)}>
-                          {PO_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
-                      </div>
-                      <div className="fgrp">
-                        <label className="lbl">Currency</label>
-                        <select className="sel" value={currencyCode} onChange={e => setCurrencyCode(e.target.value)}>
-                          <option value="INR">INR — Indian Rupee</option>
-                          <option value="USD">USD — US Dollar</option>
-                          <option value="EUR">EUR — Euro</option>
-                          <option value="GBP">GBP — British Pound</option>
-                          <option value="AED">AED — UAE Dirham</option>
-                        </select>
-                      </div>
-                      <div className="fgrp">
-                        <label className="lbl">Payment Terms</label>
-                        <input className="inp" value={paymentTermsCreate} onChange={e => setPaymentTermsCreate(e.target.value)} />
-                      </div>
-                      {createMethod === 'vendor' ? (
-                        <div className="fgrp">
-                          <label className="lbl">Department <span className="req">*</span></label>
-                          <select className={`sel${step2Errors.department ? ' err' : ''}`} value={departmentIdCreate ?? ''}
-                            onChange={e => { setDepartmentIdCreate(e.target.value ? Number(e.target.value) : null); setStep2Errors(p => ({ ...p, department: undefined })) }}>
-                            <option value="">— Select department —</option>
-                            {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                          </select>
-                          {step2Errors.department && <div className="err">{step2Errors.department}</div>}
-                        </div>
-                      ) : <div />}
-                    </div>
-
-                    {/* Tracking ID + Department — for quotation flow */}
-                    {createMethod === 'quotation' && (() => {
-                      const selTracking = (trackingIds || []).find((t: any) => t.id === trackingIdCreate)
-                      const filteredTrackings = (trackingIds || []).filter((t: any) => !trackingSearchCreate.trim() || (t.tracking_code || '').toLowerCase().includes(trackingSearchCreate.toLowerCase()) || (t.title || '').toLowerCase().includes(trackingSearchCreate.toLowerCase()))
-                      return (
+                    {createMethod === 'vendor' ? (
+                      <>
                         <div className="g2">
-                          {/* Tracking ID — search popup */}
                           <div className="fgrp">
-                            <label className="lbl">Budget / Tracking ID</label>
-                            {selTracking ? (
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, background: '#F7F9FD' }}>
-                                <div>
-                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'hsl(var(--primary))' }}>{selTracking.tracking_code}</div>
-                                  {selTracking.title && <div style={{ fontSize: 12, color: '#5a5a57', marginTop: 1 }}>{selTracking.title}</div>}
-                                </div>
-                                <button type="button" onClick={() => { setTrackingIdCreate(null); setTrackingSearchCreate('') }}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx3)', fontSize: 15, lineHeight: 1, padding: '0 2px' }}>×</button>
-                              </div>
-                            ) : (
-                              <div style={{ position: 'relative' }}>
-                                <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: 'var(--tx3)', pointerEvents: 'none' }} />
-                                <input className="inp" style={{ paddingLeft: 30 }}
-                                  placeholder="Type code or title…" value={trackingSearchCreate}
-                                  onChange={e => setTrackingSearchCreate(e.target.value)}
-                                  onBlur={() => setTimeout(() => setTrackingSearchCreate(s => s), 200)} />
-                                {filteredTrackings.length > 0 && (
-                                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 8, maxHeight: 220, overflowY: 'auto', zIndex: 40, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                                    {filteredTrackings.map((t: any) => (
-                                      <button key={t.id} type="button"
-                                        onMouseDown={e => e.preventDefault()}
-                                        onClick={() => { setTrackingIdCreate(t.id); setTrackingSearchCreate('') }}
-                                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'transparent', border: 'none', borderBottom: '0.5px solid rgba(0,0,0,0.06)', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif" }}
-                                        onMouseOver={e => (e.currentTarget.style.background = '#F7F9FD')}
-                                        onMouseOut={e => (e.currentTarget.style.background = 'transparent')}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                                          <span style={{ fontSize: 12, fontWeight: 700, color: 'hsl(var(--primary))' }}>{t.tracking_code}</span>
-                                          {t.approved_amount && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--tel-tx)' }}>{formatCurrency(t.approved_amount)}</span>}
-                                        </div>
-                                        {t.title && <div style={{ fontSize: 12, color: '#5a5a57', marginTop: 2 }}>{t.title}</div>}
-                                        {(t.plant_name || t.department_name) && <div style={{ fontSize: 11, color: '#9a9a96', marginTop: 2 }}>{t.plant_name}{t.department_name && ` · ${t.department_name}`}</div>}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                            <label className="lbl">PO Type <span className="req">*</span></label>
+                            <select className="sel" value={poTypeCreate} onChange={e => setPoTypeCreate(e.target.value)}>
+                              {PO_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            </select>
                           </div>
-                          {/* Department — native select */}
                           <div className="fgrp">
-                            <label className="lbl">Department</label>
-                            <select className="sel" value={departmentIdCreate ?? ''}
-                              onChange={e => setDepartmentIdCreate(e.target.value ? Number(e.target.value) : null)}>
+                            <label className="lbl">Department <span className="req">*</span></label>
+                            <select className={`sel${step2Errors.department ? ' err' : ''}`} value={departmentIdCreate ?? ''}
+                              onChange={e => { setDepartmentIdCreate(e.target.value ? Number(e.target.value) : null); setStep2Errors(p => ({ ...p, department: undefined })) }}>
                               <option value="">— Select department —</option>
                               {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
+                            {step2Errors.department && <div className="err">{step2Errors.department}</div>}
                           </div>
                         </div>
-                      )
-                    })()}
-
-                    <div className="fgrp">
-                      <label className="lbl">Justification</label>
-                      <input className="inp" placeholder="Reason for this purchase order" value={justification} onChange={e => setJustification(e.target.value)} />
-                    </div>
-                    <div className="fgrp">
-                      <label className="lbl">Billing / Delivery Address</label>
-                      <textarea className="textarea" value={billingAddress} onChange={e => setBillingAddress(e.target.value)} placeholder="Vendor address auto-fills when quotation is loaded" />
-                    </div>
+                        <div className="fgrp">
+                          <label className="lbl">Justification <span className="req">*</span></label>
+                          <input className="inp" placeholder="Reason for this purchase order" value={justification} onChange={e => setJustification(e.target.value)} />
+                        </div>
+                        <div className="fgrp">
+                          <label className="lbl">Billing / Delivery Address</label>
+                          <textarea className="textarea" value={billingAddress} onChange={e => setBillingAddress(e.target.value)} placeholder="Enter delivery address" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="g2">
+                        <div className="fgrp">
+                          <label className="lbl">PO Type <span className="req">*</span></label>
+                          <select className="sel" value={poTypeCreate} onChange={e => setPoTypeCreate(e.target.value)}>
+                            {PO_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="fgrp">
+                          <label className="lbl">Billing / Delivery Address</label>
+                          <textarea className="textarea" value={billingAddress} onChange={e => setBillingAddress(e.target.value)} placeholder="Vendor address auto-fills when quotation is loaded" />
+                        </div>
+                      </div>
+                    )}
                     <div className="fgrp">
                       <label className="lbl">Terms &amp; Conditions</label>
                       <textarea className="textarea" style={{ minHeight: 100 }} value={terms} onChange={e => setTerms(e.target.value)} />
@@ -1300,24 +1333,23 @@ useEffect(() => {
               </>
             )}
 
-            {/* ════════ STEP 3 — Review & Issue / Save ════════ */}
-          {/* ════════ STEP 3 — Review & Issue / Save ════════ */}
-          {step === 3 && (() => {
+            {/* ════════ STEP 2 — Review & Issue / Save ════════ */}
+            {step === 2 && (() => {
               const s3sub = createMethod === 'pr' ? subTotal : createMethod === 'quotation' ? qtSubtotal : manualSubtotal
               const s3gst = createMethod === 'pr' ? gstAmount : createMethod === 'quotation' ? (qtGrandTotal - qtSubtotal) : manualGstAmount
               const s3total = step3GrandTotal
 
               const items3 = mode === 'edit'
                 ? editLineItems.map((li: any) => ({
-                    id: li.id,
-                    name: li.description || li.item_code_detail?.description || '—',
-                    code: li.item_code_detail?.code ?? '',
-                    hsn: li.hsn_code || li.item_code_detail?.hsn_code || '—',
-                    qty: li.quantity,
-                    uom: li.unit_of_measure,
-                    price: li.unit_rate,
-                    total: li.total_amount,
-                  }))
+                  id: li.id,
+                  name: li.description || li.item_code_detail?.description || '—',
+                  code: li.item_code_detail?.code ?? '',
+                  hsn: li.hsn_code || li.item_code_detail?.hsn_code || '—',
+                  qty: li.quantity,
+                  uom: li.unit_of_measure,
+                  price: li.unit_rate,
+                  total: li.total_amount,
+                }))
                 : createMethod === 'pr'
                   ? (selectedQuotation?.items || []).map(it => ({ id: it.id, name: it.item_name, code: it.item_code, hsn: it.hsn_code || '—', qty: it.quantity, uom: it.unit_of_measure, price: it.item_price, total: it.line_total }))
                   : qtItems?.map((it: any) => ({ id: it?.id, name: it?.item_name, code: it?.item_code, hsn: it?.hsn_code, qty: it?.quantity, uom: it?.unit_of_measure, price: it?.item_price, total: it?.line_total }))
@@ -1549,7 +1581,7 @@ useEffect(() => {
                 </>
               )
             })()}
-          
+
           </div>
 
           {/* ── Sidebar ── */}
@@ -1560,7 +1592,7 @@ useEffect(() => {
                 <div className="card-head">
                   <div className="card-title">
                     <i className="ti ti-list-check" style={{ fontSize: 14 }} />
-                    {step === 1 ? 'Step 1 — Source' : step === 2 ? 'Step 2 — PO Details' : mode === 'edit' ? 'Step 3 — Review & Save' : 'Step 3 — Line Items & Issue'}
+                    {step === 1 ? 'Step 1 — Source & Details' : mode === 'edit' ? 'Step 2 — Review & Save' : 'Step 2 — Line Items & Issue'}
                   </div>
                 </div>
                 <div>
@@ -1598,10 +1630,9 @@ useEffect(() => {
                     ))
                   })()}
 
-                  {step === 2 && [
+                  {step === 1 && [
                     { done: !!poDate, label: 'PO date set', req: true },
                     { done: !!deliveryDate, label: 'Delivery date set', req: true },
-                    { done: !!paymentTermsCreate, label: 'Payment terms', req: false },
                     { done: !!billingAddress, label: 'Billing address', req: false },
                   ].map(({ done, label, req }) => (
                     <div key={label} className="ci" style={{ color: done ? 'var(--grn-tx)' : req ? 'var(--red-tx)' : 'var(--tx3)' }}>
@@ -1611,7 +1642,7 @@ useEffect(() => {
                     </div>
                   ))}
 
-                  {step === 3 && (() => {
+                  {step === 2 && (() => {
                     const items =
                       createMethod === 'pr'
                         ? [
@@ -1669,7 +1700,6 @@ useEffect(() => {
                   if (!createMethod || createMethod === 'pr') {
                     const prS = step === 1 ? active('PR') : done('PR')
                     const qtS = step <= 1 ? pend('QT') : step === 2 ? active('QT') : done('QT')
-                    const poS = step < 3 ? pend('PO') : active('PO')
                     return (
                       <>
                         <ChainNode dotStyle={prS.dot} label="PR"
@@ -1678,11 +1708,11 @@ useEffect(() => {
                         <div className="chain-line" />
                         <ChainNode dotStyle={qtS.dot} label="QT"
                           value={selectedQuotation?.quotation_no || selectedQuotation?.ref_no || (step > 1 && !selectedQuotation ? 'No QT' : '—')}
-                          sub={step === 2 ? 'Fill PO details' : selectedQuotation ? selectedQuotation.vendor_name : 'Quotation (optional)'} />
+                          sub={selectedQuotation ? selectedQuotation.vendor_name : 'Quotation (optional)'} />
                         <div className="chain-line" />
-                        <ChainNode dotStyle={step === 3 ? poActive : pend('PO').dot} label="PO"
+                        <ChainNode dotStyle={step === 2 ? poActive : pend('PO').dot} label="PO"
                           value="This Purchase Order"
-                          sub={step === 3 ? 'Review & issue' : 'Being created'} />
+                          sub={step === 2 ? 'Review & issue' : 'Being created'} />
                       </>
                     )
                   }
@@ -1696,16 +1726,16 @@ useEffect(() => {
                           value={directQtDetail?.ref_no || (directQtId ? `QT-${directQtId}` : '—')}
                           sub={step === 1 ? 'Select quotation' : qtVendorName || 'Quotation'} />
                         <div className="chain-line" />
-                        <ChainNode dotStyle={step === 3 ? poActive : pend('PO').dot} label="PO"
+                        <ChainNode dotStyle={step === 2 ? poActive : pend('PO').dot} label="PO"
                           value="This Purchase Order"
-                          sub={step === 3 ? 'Review & issue' : 'Being created'} />
+                          sub={step === 2 ? 'Review & issue' : 'Being created'} />
                       </>
                     )
                   }
 
                   /* ── Vendor (manual) flow ── */
                   const vendorS = step === 1 ? active('V') : done('V')
-                  const itemsS = step <= 2 ? pend('I') : active('I')
+                  const itemsS = step <= 1 ? pend('I') : active('I')
                   const addedCount = manualItems.filter(x => x.masterItemId > 0).length
                   return (
                     <>
@@ -1715,11 +1745,11 @@ useEffect(() => {
                       <div className="chain-line" />
                       <ChainNode dotStyle={itemsS.dot} label="I"
                         value={addedCount > 0 ? `${addedCount} item${addedCount > 1 ? 's' : ''}` : '—'}
-                        sub={step === 3 ? 'Add line items' : 'Items from catalog'} />
+                        sub={step === 2 ? 'Add line items' : 'Items from catalog'} />
                       <div className="chain-line" />
-                      <ChainNode dotStyle={step === 3 ? poActive : pend('PO').dot} label="PO"
+                      <ChainNode dotStyle={step === 2 ? poActive : pend('PO').dot} label="PO"
                         value="This Purchase Order"
-                        sub={step === 3 ? 'Review & issue' : 'Being created'} />
+                        sub={step === 2 ? 'Review & issue' : 'Being created'} />
                     </>
                   )
                 })()}
@@ -1743,18 +1773,18 @@ useEffect(() => {
             )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            {step < 3 && (
+            {step < 2 && (
               <button type="button" onClick={handleNextStep} className="btn-primary">
                 Next <ChevronRight style={{ width: 14, height: 14 }} />
               </button>
             )}
-            {step === 3 && mode === 'create' && (
+            {step === 2 && mode === 'create' && (
               <button type="button" disabled={isPending || !canIssue} onClick={() => setShowIssueConfirm(true)} className="btn-primary" style={{ opacity: !canIssue ? 0.5 : 1 }}>
                 {isPending ? <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> : <Send style={{ width: 14, height: 14 }} />}
                 Issue Purchase Order
               </button>
             )}
-            {step === 3 && mode === 'edit' && (
+            {step === 2 && mode === 'edit' && (
               <button type="button" disabled={isPending} onClick={() => setShowSaveConfirm(true)} className="btn-primary">
                 {isPending ? <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> : <Save style={{ width: 14, height: 14 }} />}
                 Save Changes
