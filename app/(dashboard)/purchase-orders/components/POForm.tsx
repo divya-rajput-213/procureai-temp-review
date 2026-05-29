@@ -338,29 +338,54 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
     enabled: mode === 'edit' && normalizedVendorSearch.length >= 2,
   })
 
-  useEffect(() => {
-    if (mode !== 'edit' || !po || formReady) return
-    setPoTypeCreate(po.po_type || 'NB')
-    setCurrencyCode(po.currency_code || 'INR')
-    setPoDate(po.po_date || new Date().toISOString().slice(0, 10))
-    setDeliveryDate(po.delivery_date || '')
-    setPriority((po.priority as any) || 'medium')
-    setPaymentTermsCreate(po.payment_terms || '')
-    setBillingAddress(po.delivery_address || '')
-    if (po.notes) setTerms(po.notes)
-    setTrackingIdCreate(po.tracking_id || null)
-    setDepartmentIdCreate(po.department || null)
-    if (po.pr_number) {
-      setCreateMethod('pr')
-    } else if (po.qt_number) {
-      setCreateMethod('quotation')
-    } else {
-      setCreateMethod('vendor')
-      if (po.vendor) { setManualVendorId(po.vendor); setManualVendorName(po.vendor_name || '') }
-    }
-    setFormReady(true)
-    setStep(2)
-  }, [po, formReady, mode])
+// CHANGE 2: In the autofill useEffect, add reset() call to populate RHF fields
+useEffect(() => {
+  if (mode !== 'edit' || !po || formReady) return
+  setPoTypeCreate(po.po_type || 'NB')
+  setCurrencyCode(po.currency_code || 'INR')
+  setPoDate(po.po_date || new Date().toISOString().slice(0, 10))
+  setDeliveryDate(po.delivery_date || '')
+  setPriority((po.priority as any) || 'medium')
+  setPaymentTermsCreate(po.payment_terms || '')
+  setBillingAddress(po.delivery_address || '')
+  if (po.notes) setTerms(po.notes)
+  setTrackingIdCreate(po.tracking_id || null)
+  setDepartmentIdCreate(po.department || null)
+
+  // ← ADD THIS: populate React Hook Form fields
+  reset({
+    po_type: po.po_type || 'NB',
+    vendor: po.vendor,
+    plant: po.plant,
+    department: po.department,
+    tracking_id: po.tracking_id || null,
+    currency_code: po.currency_code || 'INR',
+    po_date: po.po_date || new Date().toISOString().slice(0, 10),
+    delivery_date: po.delivery_date || '',
+    priority: (po.priority as any) || 'medium',
+    payment_terms: po.payment_terms || '',
+    incoterms: po.incoterms || '',
+    delivery_address: po.delivery_address || '',
+    notes: po.notes || '',
+    freight_amount: Number(po.freight_amount) || 0,
+    discount_amount: Number(po.discount_amount) || 0,
+    advance_schedule: po.advance_schedule || {},
+    exchange_rate: po.exchange_rate || null,
+    customs_duty_rate: po.customs_duty_rate || null,
+    freight_insurance: po.freight_insurance || null,
+  })
+
+  if (po.pr_number) {
+    setCreateMethod('pr')
+  } else if (po.qt_number) {
+    setCreateMethod('quotation')
+  } else {
+    setCreateMethod('vendor')
+    if (po.vendor) { setManualVendorId(po.vendor); setManualVendorName(po.vendor_name || '') }
+  }
+  setFormReady(true)
+  setStep(2)
+}, [po, formReady, mode])
 
   useEffect(() => {
     if (mode !== 'edit' || !po?.advance_schedule) return
@@ -1228,27 +1253,40 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
             )}
 
             {/* ════════ STEP 3 — Review & Issue / Save ════════ */}
-            {step === 3 && (() => {
+          {/* ════════ STEP 3 — Review & Issue / Save ════════ */}
+          {step === 3 && (() => {
               const s3sub = createMethod === 'pr' ? subTotal : createMethod === 'quotation' ? qtSubtotal : manualSubtotal
               const s3gst = createMethod === 'pr' ? gstAmount : createMethod === 'quotation' ? (qtGrandTotal - qtSubtotal) : manualGstAmount
               const s3total = step3GrandTotal
-              const s3label = createMethod === 'pr' ? `PR ${prDetail?.pr_number ?? ''}` : createMethod === 'quotation' ? (directQtDetail?.ref_no ?? '') : manualVendorName
 
-              // Normalise items for PR / Quotation flow (vendor manages its own table below)
-              const items3 = createMethod === 'pr'
-                ? (selectedQuotation?.items || []).map(it => ({ id: it.id, name: it.item_name, code: it.item_code, hsn: it.hsn_code || '—', qty: it.quantity, uom: it.unit_of_measure, price: it.item_price, total: it.line_total }))
-                : qtItems?.map((it: any) => ({ id: it?.id, name: it?.item_name, code: it?.item_code, hsn: it?.hsn_code, qty: it?.quantity, uom: it?.unit_of_measure, price: it?.item_price, total: it?.line_total }))
+              const items3 = mode === 'edit'
+                ? editLineItems.map((li: any) => ({
+                    id: li.id,
+                    name: li.description || li.item_code_detail?.description || '—',
+                    code: li.item_code_detail?.code ?? '',
+                    hsn: li.hsn_code || li.item_code_detail?.hsn_code || '—',
+                    qty: li.quantity,
+                    uom: li.unit_of_measure,
+                    price: li.unit_rate,
+                    total: li.total_amount,
+                  }))
+                : createMethod === 'pr'
+                  ? (selectedQuotation?.items || []).map(it => ({ id: it.id, name: it.item_name, code: it.item_code, hsn: it.hsn_code || '—', qty: it.quantity, uom: it.unit_of_measure, price: it.item_price, total: it.line_total }))
+                  : qtItems?.map((it: any) => ({ id: it?.id, name: it?.item_name, code: it?.item_code, hsn: it?.hsn_code, qty: it?.quantity, uom: it?.unit_of_measure, price: it?.item_price, total: it?.line_total }))
+
+              const displaySub = mode === 'edit' ? editSubtotal : s3sub
+              const displayTax = mode === 'edit' ? editTotalTax : s3gst
+              const displayTotal = mode === 'edit' ? editGrandTotal : s3total
 
               return (
                 <>
-
-                  {/* ── Vendor flow: inline item add table ── */}
-                  {createMethod === 'vendor' && (
+                  {/* ── Vendor flow (create only): inline item add table ── */}
+                  {createMethod === 'vendor' && mode === 'create' && (
                     <div className="form-sec">
                       <div className="form-sec-head">
                         <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}><i className="ti ti-package" /></div>
                         <div style={{ flex: 1 }}>
-                          <div className="fsh-title">Line Items </div>
+                          <div className="fsh-title">Line Items</div>
                           <div className="fsh-sub">Select from master catalog — all fields auto-populate on selection</div>
                         </div>
                         <button type="button"
@@ -1389,14 +1427,17 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                     </div>
                   )}
 
-                  {/* ── PR / Quotation flow: read-only review table ── */}
-                  {createMethod !== 'vendor' && (
+                  {/* ── PR / Quotation / Edit mode: read-only items table ── */}
+                  {(mode === 'edit' || createMethod !== 'vendor') && (
                     <>
                       {items3 && items3.length > 0 ? (
                         <div className="form-sec">
                           <div className="form-sec-head">
                             <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}><i className="ti ti-package" /></div>
-                            <div><div className="fsh-title">Line Items</div></div>
+                            <div>
+                              <div className="fsh-title">Line Items ({items3.length})</div>
+                              {mode === 'edit' && <div className="fsh-sub">Read-only — items are locked after creation</div>}
+                            </div>
                           </div>
                           <div style={{ overflowX: 'auto' }}>
                             <table className="po-tbl">
@@ -1412,27 +1453,27 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                                 </tr>
                               </thead>
                               <tbody>
-                                {items3?.map((it: any, i: any) => (
-                                  <tr key={it?.id}>
+                                {items3.map((it: any, i: number) => (
+                                  <tr key={it.id}>
                                     <td style={{ fontFamily: 'monospace', color: 'var(--tx3)', fontSize: 12 }}>{String(i + 1).padStart(2, '0')}</td>
                                     <td>
                                       <div style={{ fontWeight: 600 }}>{it.name}</div>
-                                      {it.code && <div style={{ fontSize: 11, color: 'var(--tx3)', fontFamily: 'monospace' }}>{it?.code}</div>}
+                                      {it.code && <div style={{ fontSize: 11, color: 'var(--tx3)', fontFamily: 'monospace' }}>{it.code}</div>}
                                     </td>
-                                    <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)' }}>{it?.hsn}</td>
-                                    <td style={{ textAlign: 'right' }}>{it?.qty}</td>
-                                    <td style={{ color: 'var(--tx3)' }}>{it?.uom}</td>
-                                    <td style={{ textAlign: 'right' }}>{formatCurrency(it?.price)}</td>
-                                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(it?.total)}</td>
+                                    <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)' }}>{it.hsn}</td>
+                                    <td style={{ textAlign: 'right' }}>{it.qty}</td>
+                                    <td style={{ color: 'var(--tx3)' }}>{it.uom}</td>
+                                    <td style={{ textAlign: 'right' }}>{formatCurrency(it.price)}</td>
+                                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(it.total)}</td>
                                   </tr>
                                 ))}
                               </tbody>
                               <tfoot>
-                                <tr><td colSpan={6} style={{ textAlign: 'right', fontWeight: 600, color: 'var(--tx2)' }}>Sub Total</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(s3sub)}</td></tr>
-                                <tr><td colSpan={6} style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST @ {GST_RATE}%</td><td style={{ textAlign: 'right', color: 'var(--tx3)' }}>{formatCurrency(s3gst)}</td></tr>
+                                <tr><td colSpan={6} style={{ textAlign: 'right', fontWeight: 600, color: 'var(--tx2)' }}>Sub Total</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(displaySub)}</td></tr>
+                                <tr><td colSpan={6} style={{ textAlign: 'right', color: 'var(--tx3)' }}>{mode === 'edit' ? `Tax (${combinedTaxRate}%)` : `IGST @ ${GST_RATE}%`}</td><td style={{ textAlign: 'right', color: 'var(--tx3)' }}>{formatCurrency(displayTax)}</td></tr>
                                 <tr style={{ background: 'var(--bg-t)' }}>
                                   <td colSpan={6} style={{ textAlign: 'right', fontWeight: 700, fontSize: 14, borderTop: '0.5px solid var(--bdm)' }}>Grand Total</td>
-                                  <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{formatCurrency(s3total)}</td>
+                                  <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{formatCurrency(displayTotal)}</td>
                                 </tr>
                               </tfoot>
                             </table>
@@ -1441,7 +1482,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                       ) : (
                         <div className="form-sec">
                           <div className="form-body" style={{ padding: 24 }}>
-                            {createMethod === 'pr' ? (
+                            {mode === 'create' && createMethod === 'pr' ? (
                               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.25)', borderRadius: 8, padding: '12px 16px', fontSize: 13 }}>
                                 <i className="ti ti-info-circle" style={{ fontSize: 16, color: 'var(--pur-tx)', flexShrink: 0, marginTop: 1 }} />
                                 <div>
@@ -1460,234 +1501,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                 </>
               )
             })()}
-            {false && (<>
-              {/* PO Details — unified card matching create step 2 */}
-              <div className="form-sec">
-                <div className="form-sec-head">
-                  <div className="fsh-ic" style={{ background: 'var(--blu-bg)', color: 'var(--blu-tx)' }}><i className="ti ti-file-text" /></div>
-                  <div><div className="fsh-title">PO Details</div><div className="fsh-sub">Dates, type, vendor, terms and delivery</div></div>
-                </div>
-                <div className="form-body">
-
-                  {/* Vendor */}
-                  <div className="fgrp">
-                    <label className="lbl">Vendor <span className="req">*</span></label>
-                    {selectedVendorId && !vendorSearch ? (
-                      <div className="vendor-chip">
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 14 }}>{selectedVendorFromSearch?.company_name || vendorDisplayName}</div>
-                          <div style={{ fontSize: 12, color: 'var(--tx3)' }}>
-                            {selectedVendorFromSearch ? `${selectedVendorFromSearch.vendor_code} · ${selectedVendorFromSearch.city}, ${selectedVendorFromSearch.state}` : ''}
-                          </div>
-                        </div>
-                        <button type="button" onClick={() => setVendorSearch(' ')} style={{ background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", color: 'var(--tx2)' }}>Change</button>
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ position: 'relative' }}>
-                          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--tx3)' }} />
-                          <input className={`inp${editStepErrors.vendor ? ' err' : ''}`} style={{ paddingLeft: 32 }} placeholder="Type vendor name (min 2 chars)…" value={vendorSearch} onChange={e => { setVendorSearch(e.target.value); setEditStepErrors(p => ({ ...p, vendor: '' })) }} />
-                        </div>
-                        {editStepErrors.vendor && <div className="err">{editStepErrors.vendor}</div>}
-                        {vendors && vendors.length > 0 && (
-                          <div style={{ border: '0.5px solid var(--bdm)', borderRadius: 8, overflow: 'hidden', marginTop: 4, maxHeight: 200, overflowY: 'auto' }}>
-                            {vendors.map((v: any) => (
-                              <button key={v.id} type="button" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', borderBottom: '0.5px solid var(--bd)', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}
-                                onClick={() => { setValue('vendor', v.id, { shouldDirty: true }); setVendorSearch(''); setEditStepErrors(p => ({ ...p, vendor: '' })) }}>
-                                <div style={{ fontWeight: 600 }}>{v.company_name}</div>
-                                <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{v.vendor_code} · {v.city}</div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {editStepErrors.vendor && !vendorSearch && <div className="err">{editStepErrors.vendor}</div>}
-                  </div>
-
-                  {/* Dates + Priority */}
-                  <div className="g3">
-                    <div className="fgrp">
-                      <label className="lbl">PO Date</label>
-                      <input type="date" className="inp" {...register('po_date')} />
-                    </div>
-                    <div className="fgrp">
-                      <label className="lbl">Delivery Date</label>
-                      <input type="date" className="inp" {...register('delivery_date')} />
-                    </div>
-                    <div className="fgrp">
-                      <label className="lbl">Priority</label>
-                      <select className="sel" {...register('priority')}>
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* PO Type + Currency + Plant */}
-                  <div className="g3">
-                    <div className="fgrp">
-                      <label className="lbl">PO Type <span className="req">*</span></label>
-                      <select className={`sel${editStepErrors.po_type ? ' err' : ''}`} {...register('po_type')} onChange={e => { register('po_type').onChange(e); setEditStepErrors(p => ({ ...p, po_type: '' })) }}>
-                        <option value="">Select PO type</option>
-                        {PO_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                      {editStepErrors.po_type && <div className="err">{editStepErrors.po_type}</div>}
-                    </div>
-                    <div className="fgrp">
-                      <label className="lbl">Currency</label>
-                      <select className="sel" {...register('currency_code')}>
-                        <option value="INR">INR — Indian Rupee</option>
-                        <option value="USD">USD — US Dollar</option>
-                        <option value="EUR">EUR — Euro</option>
-                        <option value="GBP">GBP — British Pound</option>
-                        <option value="AED">AED — UAE Dirham</option>
-                      </select>
-                    </div>
-                    <div className="fgrp">
-                      <label className="lbl">Plant <span className="req">*</span></label>
-                      <select className={`sel${editStepErrors.plant ? ' err' : ''}`} {...register('plant', { valueAsNumber: true })} onChange={e => { register('plant', { valueAsNumber: true }).onChange(e); setEditStepErrors(p => ({ ...p, plant: '' })) }}>
-                        <option value="">Select plant</option>
-                        {(plants || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                      {editStepErrors.plant && <div className="err">{editStepErrors.plant}</div>}
-                    </div>
-                  </div>
-
-                  {/* Department + Tracking ID */}
-                  <div className="g2">
-                    <div className="fgrp">
-                      <label className="lbl">Department <span className="req">*</span></label>
-                      <select className={`sel${editStepErrors.department ? ' err' : ''}`} {...register('department', { valueAsNumber: true })} onChange={e => { register('department', { valueAsNumber: true }).onChange(e); setEditStepErrors(p => ({ ...p, department: '' })) }}>
-                        <option value="">Select department</option>
-                        {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                      </select>
-                      {editStepErrors.department && <div className="err">{editStepErrors.department}</div>}
-                    </div>
-                  </div>
-
-                  {/* Payment Terms + Incoterms */}
-                  <div className="g2">
-                    <div className="fgrp">
-                      <label className="lbl">Payment Terms</label>
-                      <input className="inp" placeholder="e.g. Net 30 days" {...register('payment_terms')} />
-                    </div>
-                    <div className="fgrp">
-                      <label className="lbl">Incoterms</label>
-                      <input className="inp" placeholder="e.g. FOB, CIF" {...register('incoterms')} />
-                    </div>
-                  </div>
-
-                  {/* Delivery Address */}
-                  <div className="fgrp">
-                    <label className="lbl">Delivery Address</label>
-                    <textarea className="textarea" style={{ minHeight: 70 }} placeholder="Delivery location / warehouse" {...register('delivery_address')} />
-                  </div>
-
-                  {/* Freight + Discount */}
-                  <div className="g2">
-                    <div className="fgrp"><label className="lbl">Freight Amount</label><input type="number" step="0.01" className="inp" {...register('freight_amount', { valueAsNumber: true })} /></div>
-                    <div className="fgrp"><label className="lbl">Discount Amount</label><input type="number" step="0.01" className="inp" {...register('discount_amount', { valueAsNumber: true })} /></div>
-                  </div>
-
-                  {/* Notes */}
-                  <div className="fgrp">
-                    <label className="lbl">Notes</label>
-                    <textarea className="textarea" placeholder="Additional notes…" {...register('notes')} />
-                  </div>
-
-                </div>
-              </div>
-
-              {/* ZT: Advance Payment Schedule */}
-              {selectedPoType === 'ZT' && (
-                <div className="form-sec">
-                  <div className="form-sec-head">
-                    <div className="fsh-ic" style={{ background: 'var(--gry-bg)', color: 'var(--gry-tx)' }}><i className="ti ti-calendar-dollar" /></div>
-                    <div><div className="fsh-title">Advance Payment Schedule</div><div className="fsh-sub">Percentages must sum to 100%</div></div>
-                  </div>
-                  <div className="form-body">
-                    <div className="g3" style={{ marginBottom: 10 }}>
-                      {([['po', '% at PO Issuance'], ['approval', '% on Approval'], ['delivery', '% on Delivery']] as const).map(([key, label]) => (
-                        <div key={key} className="fgrp">
-                          <label className="lbl">{label}</label>
-                          <input type="number" className="inp" min="0" max="100" value={advSchedule[key]}
-                            onChange={e => { const v = Number(e.target.value) || 0; setAdvSchedule(p => ({ ...p, [key]: v })); setValue('advance_schedule', { ...advSchedule, [key]: v }, { shouldDirty: true }) }} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* IM: Import Details */}
-              {selectedPoType === 'IM' && (
-                <div className="form-sec">
-                  <div className="form-sec-head">
-                    <div className="fsh-ic" style={{ background: 'var(--blu-bg)', color: 'var(--blu-tx)' }}><i className="ti ti-world" /></div>
-                    <div><div className="fsh-title">Import Details</div></div>
-                  </div>
-                  <div className="form-body">
-                    <div className="g3">
-                      <div className="fgrp"><label className="lbl">Exchange Rate</label><input type="number" step="0.0001" className="inp" placeholder="e.g. 83.25" {...register('exchange_rate', { valueAsNumber: true })} /></div>
-                      <div className="fgrp"><label className="lbl">Customs Duty Rate (%)</label><input type="number" step="0.01" className="inp" placeholder="e.g. 10" {...register('customs_duty_rate', { valueAsNumber: true })} /></div>
-                      <div className="fgrp"><label className="lbl">Freight &amp; Insurance</label><input type="number" step="0.01" className="inp" placeholder="0.00" {...register('freight_insurance', { valueAsNumber: true })} /></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Line Items (read-only) */}
-              {editLineItems.length > 0 && (
-                <div className="form-sec">
-                  <div className="form-sec-head">
-                    <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}><i className="ti ti-package" /></div>
-                    <div><div className="fsh-title">Line Items ({editLineItems.length})</div><div className="fsh-sub">Read-only</div></div>
-                  </div>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="po-tbl">
-                      <thead>
-                        <tr>
-                          <th style={{ width: 36 }}>#</th>
-                          <th>Item / Description</th>
-                          <th style={{ textAlign: 'right', width: 80 }}>Qty</th>
-                          <th style={{ width: 80 }}>UOM</th>
-                          <th style={{ textAlign: 'right', width: 120 }}>Unit Rate</th>
-                          <th style={{ textAlign: 'right', width: 120 }}>Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {editLineItems.map((li: any, idx: number) => {
-                          const amount = (Number(li.quantity) || 0) * (Number(li.unit_rate) || 0)
-                          return (
-                            <tr key={li.id}>
-                              <td style={{ color: 'var(--tx3)', fontFamily: 'monospace', fontSize: 12 }}>{idx + 1}</td>
-                              <td>
-                                <div style={{ fontWeight: 600 }}>{li.item_code_detail?.code ?? '—'}</div>
-                                {li.description && <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>{li.description}</div>}
-                              </td>
-                              <td style={{ textAlign: 'right' }}>{li.quantity}</td>
-                              <td style={{ color: 'var(--tx3)' }}>{li.unit_of_measure}</td>
-                              <td style={{ textAlign: 'right' }}>{formatCurrency(li.unit_rate)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(amount)}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr><td colSpan={5} style={{ textAlign: 'right', fontWeight: 600, color: 'var(--tx2)' }}>Subtotal</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(editSubtotal)}</td></tr>
-                        <tr><td colSpan={5} style={{ textAlign: 'right', color: 'var(--tx3)' }}>Tax ({combinedTaxRate}%)</td><td style={{ textAlign: 'right', color: 'var(--tx3)' }}>{formatCurrency(editTotalTax)}</td></tr>
-                        <tr style={{ background: 'var(--bg-t)' }}>
-                          <td colSpan={5} style={{ textAlign: 'right', fontWeight: 700, fontSize: 14, borderTop: '0.5px solid var(--bdm)' }}>Total</td>
-                          <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{formatCurrency(editGrandTotal)}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </>)}
+          
           </div>
 
           {/* ── Sidebar ── */}
