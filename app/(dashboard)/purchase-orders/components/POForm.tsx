@@ -382,7 +382,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
       if (po.vendor) { setManualVendorId(po.vendor); setManualVendorName(po.vendor_name || '') }
     }
     setFormReady(true)
-    setStep(2)
+    setStep(1)
   }, [po, formReady, mode])
 
   useEffect(() => {
@@ -621,7 +621,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
     },
     onSuccess: (resp) => {
       toast({ title: `PO ${resp.po_number} created — review & issue` })
-      router.push(`/purchase-orders/${resp.hash_id ?? resp.id}`)
+      router.push('/purchase-orders')
     },
     onError: (err: any) => {
       const detail = err?.response?.data
@@ -634,7 +634,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
       const { data: resp } = await apiClient.patch(`/purchase-orders/${poId}/`, data)
       return resp
     },
-    onSuccess: () => { toast({ title: 'Purchase order updated' }); router.push(`/purchase-orders/${poId}`) },
+    onSuccess: () => { toast({ title: 'Purchase order updated' }); router.push('/purchase-orders') },
     onError: (err: any) => {
       const detail = err?.response?.data
       const msg = typeof detail === 'string' ? detail : detail?.detail || detail?.error || detail?.non_field_errors?.[0] || Object.values(detail || {}).flat().join(', ') || 'Failed to update'
@@ -702,7 +702,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
     if (po.status !== 'draft' && po.status !== 'pending_approval') return (
       <div style={{ textAlign: 'center', padding: '48px 0', fontFamily: "'DM Sans',sans-serif" }}>
         <p style={{ color: '#9a9a96', marginBottom: 12 }}>Only draft or pending-approval POs can be edited.</p>
-        <button onClick={() => router.push(`/purchase-orders/${poId}`)} style={{ border: '0.5px solid rgba(0,0,0,0.14)', background: '#fff', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>Back to PO</button>
+        <button onClick={() => router.push('/purchase-orders')} style={{ border: '0.5px solid rgba(0,0,0,0.14)', background: '#fff', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>Back to PO</button>
       </div>
     )
   }
@@ -1834,7 +1834,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
           const validItems = manualItems.filter(it => it.masterItemId > 0)
           if (validItems.length > 0) payload.line_items_data = validItems.map(it => ({ item_code: it.masterItemId, description: it.description, quantity: it.quantity, unit_of_measure: it.unit_of_measure, unit_rate: it.unit_rate, delivery_date: deliveryDate, hsn_code: it.hsn_code }))
           apiClient.patch(`/purchase-orders/${poId}/`, payload)
-            .then(() => { toast({ title: 'Purchase order updated' }); router.push(`/purchase-orders/${poId}`) })
+            .then(() => { toast({ title: 'Purchase order updated' }); router.push('/purchase-orders') })
             .catch((err: any) => { const d = err?.response?.data; toast({ title: typeof d === 'string' ? d : d?.detail || d?.error || 'Failed to update', variant: 'destructive' }) })
         }}
         isPending={isPending}
