@@ -5,7 +5,7 @@ import { useDebounce } from 'use-debounce'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -187,6 +187,7 @@ const CSS = `
   .po-root .sticky-bar{background:var(--bg);border-top:0.5px solid var(--bdm);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-top:auto;gap:8px}
   .po-root .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .po-root .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .po-root .g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px}
   .po-root .fgrp{display:flex;flex-direction:column;gap:4px}
   .po-root .err{font-size:12px;color:var(--red-tx);margin-top:3px}
   .po-root .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
@@ -217,6 +218,7 @@ const CSS = `
     .po-root .po-layout{grid-template-columns:1fr!important}
     .po-root .g2{grid-template-columns:1fr!important}
     .po-root .g3{grid-template-columns:1fr 1fr!important}
+    .po-root .g4{grid-template-columns:1fr 1fr!important}
     .po-root .info-grid{grid-template-columns:1fr 1fr!important}
     .po-root .stepper{flex-direction:column}
     .po-root .step-item{border-right:none!important;border-bottom:0.5px solid var(--bd)}
@@ -224,6 +226,7 @@ const CSS = `
   }
   @media(max-width:600px){
     .po-root .g3{grid-template-columns:1fr!important}
+    .po-root .g4{grid-template-columns:1fr!important}
     .po-root .sticky-bar{flex-wrap:wrap}
     .po-root .info-grid{grid-template-columns:1fr!important}
   }
@@ -246,6 +249,7 @@ interface POFormProps {
 
 export default function POForm({ mode, poId, initialPrId = null }: POFormProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { toast } = useToast()
 
   // ── Step state ───────────────────────────────────────────────────────────
@@ -620,6 +624,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
       throw new Error('No creation method selected')
     },
     onSuccess: (resp) => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
       toast({ title: `PO ${resp.po_number} created — review & issue` })
       router.push('/purchase-orders')
     },
@@ -634,7 +639,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
       const { data: resp } = await apiClient.patch(`/purchase-orders/${poId}/`, data)
       return resp
     },
-    onSuccess: () => { toast({ title: 'Purchase order updated' }); router.push('/purchase-orders') },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['purchase-orders'] }); toast({ title: 'Purchase order updated' }); router.push('/purchase-orders') },
     onError: (err: any) => {
       const detail = err?.response?.data
       const msg = typeof detail === 'string' ? detail : detail?.detail || detail?.error || detail?.non_field_errors?.[0] || Object.values(detail || {}).flat().join(', ') || 'Failed to update'
@@ -1260,7 +1265,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                     <div><div className="fsh-title">PO Details</div><div className="fsh-sub">Dates, priority and delivery address</div></div>
                   </div>
                   <div className="form-body">
-                    <div className="g3">
+                    <div className={createMethod === 'vendor' ? 'g4' : 'g3'}>
                       <div className="fgrp">
                         <label className="lbl">PO Date <span className="req">*</span></label>
                         <input type="date" className={`inp${step2Errors.poDate ? ' err' : ''}`} value={poDate}
@@ -1281,47 +1286,22 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                           <option value="high">High</option>
                         </select>
                       </div>
-                    </div>
-                    {createMethod === 'vendor' ? (
-                      <>
-                        <div className="g2">
-                          <div className="fgrp">
-                            <label className="lbl">PO Type <span className="req">*</span></label>
-                            <select className="sel" value={poTypeCreate} onChange={e => setPoTypeCreate(e.target.value)}>
-                              {PO_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                            </select>
-                          </div>
-                          <div className="fgrp">
-                            <label className="lbl">Department <span className="req">*</span></label>
-                            <select className={`sel${step2Errors.department ? ' err' : ''}`} value={departmentIdCreate ?? ''}
-                              onChange={e => { setDepartmentIdCreate(e.target.value ? Number(e.target.value) : null); setStep2Errors(p => ({ ...p, department: undefined })) }}>
-                              <option value="">— Select department —</option>
-                              {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                            </select>
-                            {step2Errors.department && <div className="err">{step2Errors.department}</div>}
-                          </div>
-                        </div>
+                      {createMethod === 'vendor' && (
                         <div className="fgrp">
-                          <label className="lbl">Justification <span className="req">*</span></label>
-                          <input className="inp" placeholder="Reason for this purchase order" value={justification} onChange={e => setJustification(e.target.value)} />
-                        </div>
-                        <div className="fgrp">
-                          <label className="lbl">Billing / Delivery Address</label>
-                          <textarea className="textarea" value={billingAddress} onChange={e => setBillingAddress(e.target.value)} placeholder="Enter delivery address" />
-                        </div>
-                      </>
-                    ) : (
-                      <div className="g2">
-                        <div className="fgrp">
-                          <label className="lbl">PO Type <span className="req">*</span></label>
-                          <select className="sel" value={poTypeCreate} onChange={e => setPoTypeCreate(e.target.value)}>
-                            {PO_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                          <label className="lbl">Department <span className="req">*</span></label>
+                          <select className={`sel${step2Errors.department ? ' err' : ''}`} value={departmentIdCreate ?? ''}
+                            onChange={e => { setDepartmentIdCreate(e.target.value ? Number(e.target.value) : null); setStep2Errors(p => ({ ...p, department: undefined })) }}>
+                            <option value="">— Select department —</option>
+                            {(departments || []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
                           </select>
+                          {step2Errors.department && <div className="err">{step2Errors.department}</div>}
                         </div>
-                        <div className="fgrp">
-                          <label className="lbl">Billing / Delivery Address</label>
-                          <textarea className="textarea" value={billingAddress} onChange={e => setBillingAddress(e.target.value)} placeholder="Vendor address auto-fills when quotation is loaded" />
-                        </div>
+                      )}
+                    </div>
+                    {createMethod === 'vendor' && (
+                      <div className="fgrp">
+                        <label className="lbl">Justification <span className="req">*</span></label>
+                        <input className="inp" placeholder="Reason for this purchase order" value={justification} onChange={e => setJustification(e.target.value)} />
                       </div>
                     )}
                     <div className="fgrp">
@@ -1633,7 +1613,6 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                   {step === 1 && [
                     { done: !!poDate, label: 'PO date set', req: true },
                     { done: !!deliveryDate, label: 'Delivery date set', req: true },
-                    { done: !!billingAddress, label: 'Billing address', req: false },
                   ].map(({ done, label, req }) => (
                     <div key={label} className="ci" style={{ color: done ? 'var(--grn-tx)' : req ? 'var(--red-tx)' : 'var(--tx3)' }}>
                       {done ? <CheckCircle2 style={{ width: 14, height: 14, flexShrink: 0 }} /> : <Circle style={{ width: 14, height: 14, flexShrink: 0 }} />}
@@ -1834,7 +1813,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
           const validItems = manualItems.filter(it => it.masterItemId > 0)
           if (validItems.length > 0) payload.line_items_data = validItems.map(it => ({ item_code: it.masterItemId, description: it.description, quantity: it.quantity, unit_of_measure: it.unit_of_measure, unit_rate: it.unit_rate, delivery_date: deliveryDate, hsn_code: it.hsn_code }))
           apiClient.patch(`/purchase-orders/${poId}/`, payload)
-            .then(() => { toast({ title: 'Purchase order updated' }); router.push('/purchase-orders') })
+            .then(() => { queryClient.invalidateQueries({ queryKey: ['purchase-orders'] }); toast({ title: 'Purchase order updated' }); router.push('/purchase-orders') })
             .catch((err: any) => { const d = err?.response?.data; toast({ title: typeof d === 'string' ? d : d?.detail || d?.error || 'Failed to update', variant: 'destructive' }) })
         }}
         isPending={isPending}
