@@ -760,33 +760,8 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
         {/* ── Main ── */}
         <div style={{ minWidth: 0 }}>
 
-          {/* ════════ STEP 1 — read-only source for edit ════════ */}
-          {mode === 'edit' && step === 1 && (
-            <div className="form-sec">
-              <div className="form-sec-head">
-                <div className="fsh-ic" style={{ background: 'var(--pur-bg)', color: 'var(--pur-tx)' }}><i className="ti ti-lock" /></div>
-                <div><div className="fsh-title">Source</div><div className="fsh-sub">Cannot be changed when editing a purchase order</div></div>
-              </div>
-              <div className="form-body">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg-s)', border: '0.5px solid var(--bd)', borderRadius: 8 }}>
-                  <div className="chain-dot" style={{ background: 'var(--pur-bg)', color: 'var(--pur-tx)', width: 32, height: 32, flexShrink: 0 }}>
-                    {createMethod === 'pr' ? 'PR' : createMethod === 'quotation' ? 'QT' : 'V'}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>
-                      {createMethod === 'pr' ? `Purchase Request: ${po?.pr_number ?? '—'}` : createMethod === 'quotation' ? `Quotation: ${po?.qt_number ?? '—'}` : `Vendor: ${po?.vendor_name ?? manualVendorName ?? '—'}`}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>
-                      {createMethod === 'pr' ? 'PO linked to a purchase request' : createMethod === 'quotation' ? 'PO linked to a quotation' : 'Manually created PO'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* ════════ CREATE STEP 1 — Select Source ════════ */}
-          {mode === 'create' && step === 1 && (
+          { step === 1 && (
             <>
               {/* Method picker */}
               <div className="form-sec">
@@ -1722,25 +1697,6 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
 
         {/* ── Sidebar ── */}
         <div>
-
-          {/* ── PO Summary — edit mode only ── */}
-          {mode === 'edit' && (
-            <div className="card">
-              <div className="card-head">
-                <div className="card-title"><i className="ti ti-eye" style={{ fontSize: 14 }} />PO Summary</div>
-              </div>
-              <div className="card-body">
-                <div className="stat-box"><div className="stat-lbl">Grand Total</div><div className="stat-val" style={{ color: 'var(--tel-tx)' }}>{formatCurrency(editGrandTotal)}</div></div>
-                {budgetRemainingEdit !== null && (
-                  <div className="stat-box" style={{ background: budgetExceededEdit ? 'var(--red-bg)' : 'var(--bg-s)', borderColor: budgetExceededEdit ? 'var(--red-bd)' : 'var(--bd)' }}>
-                    <div className="stat-lbl">Budget Remaining</div>
-                    <div className="stat-val" style={{ fontSize: 16, color: budgetExceededEdit ? 'var(--red-tx)' : 'var(--grn-tx)' }}>{formatCurrency(budgetRemainingEdit)}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* ── Checklist — step-aware ── */}
           {(
             <div className="card">
