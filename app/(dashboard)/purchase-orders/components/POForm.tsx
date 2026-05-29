@@ -641,9 +641,8 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
       throw new Error('No creation method selected')
     },
     onSuccess: (resp) => {
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
       toast({ title: `PO ${resp.po_number} created — review & issue` })
-      router.push('/purchase-orders')
+      window.location.href = '/purchase-orders'
     },
     onError: (err: any) => {
       toast({ title: parseApiError(err?.response?.data, 'Failed to create PO'), variant: 'destructive' })
@@ -655,7 +654,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
       const { data: resp } = await apiClient.patch(`/purchase-orders/${poId}/`, data)
       return resp
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['purchase-orders'] }); toast({ title: 'Purchase order updated' }); router.push('/purchase-orders') },
+    onSuccess: () => { toast({ title: 'Purchase order updated' }); window.location.href = '/purchase-orders' },
     onError: (err: any) => {
       toast({ title: parseApiError(err?.response?.data, 'Failed to update'), variant: 'destructive' })
     },
@@ -1782,7 +1781,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
           const validItems = manualItems.filter(it => it.masterItemId > 0)
           if (validItems.length > 0) payload.line_items_data = validItems.map(it => ({ item_code: it.masterItemId, description: it.description, quantity: it.quantity, unit_of_measure: it.unit_of_measure, unit_rate: it.unit_rate, delivery_date: deliveryDate, hsn_code: it.hsn_code }))
           apiClient.patch(`/purchase-orders/${poId}/`, payload)
-            .then(() => { queryClient.invalidateQueries({ queryKey: ['purchase-orders'] }); toast({ title: 'Purchase order updated' }); router.push('/purchase-orders') })
+            .then(() => { toast({ title: 'Purchase order updated' }); window.location.href = '/purchase-orders' })
             .catch((err: any) => { toast({ title: parseApiError(err?.response?.data, 'Failed to update'), variant: 'destructive' }) })
         }}
         isPending={isPending}
