@@ -96,6 +96,23 @@ type QuotationSummary = {
 
 const GST_RATE = 18
 
+function parseApiError(detail: any, fallback = 'Something went wrong'): string {
+  if (!detail) return fallback
+  if (typeof detail === 'string') return detail
+  if (detail.detail) return String(detail.detail)
+  if (detail.error) return String(detail.error)
+  if (detail.non_field_errors) return Array.isArray(detail.non_field_errors) ? detail.non_field_errors[0] : String(detail.non_field_errors)
+  const entries = Object.entries(detail)
+  if (!entries.length) return fallback
+  return entries
+    .map(([field, msgs]: [string, any]) => {
+      const label = field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ' ')
+      const msg = Array.isArray(msgs) ? msgs[0] : String(msgs)
+      return `${label}: ${msg}`
+    })
+    .join('\n')
+}
+
 // ─── Edit schema ──────────────────────────────────────────────────────────────
 
 const editSchema = z.object({
@@ -629,8 +646,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
       router.push('/purchase-orders')
     },
     onError: (err: any) => {
-      const detail = err?.response?.data
-      toast({ title: typeof detail === 'string' ? detail : detail?.error || detail?.detail || 'Failed to create PO', variant: 'destructive' })
+      toast({ title: parseApiError(err?.response?.data, 'Failed to create PO'), variant: 'destructive' })
     },
   })
 
@@ -641,9 +657,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['purchase-orders'] }); toast({ title: 'Purchase order updated' }); router.push('/purchase-orders') },
     onError: (err: any) => {
-      const detail = err?.response?.data
-      const msg = typeof detail === 'string' ? detail : detail?.detail || detail?.error || detail?.non_field_errors?.[0] || Object.values(detail || {}).flat().join(', ') || 'Failed to update'
-      toast({ title: msg, variant: 'destructive' })
+      toast({ title: parseApiError(err?.response?.data, 'Failed to update'), variant: 'destructive' })
     },
   })
 
@@ -1009,52 +1023,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                               </div>
                               {!selectedQuotation && eligibleQuotes.length === 0 && <div className="alert-warn" style={{ marginTop: 10 }}><AlertTriangle style={{ width: 14, height: 14, flexShrink: 0 }} /> No eligible quotation on this PR. PO from PR estimates.</div>}
                               {selectedQuotation && budgetWillExceed && <div className="alert-err" style={{ marginTop: 10 }}><AlertTriangle style={{ width: 14, height: 14, flexShrink: 0 }} /> Quotation total exceeds budget by {formatCurrency(grandTotal - (remainingBudget ?? 0))}</div>}
-                              {(prDetail.line_items?.length > 0) && (
-                                <div style={{ marginTop: 12, overflowX: 'auto' }}>
-                                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--pur-tx)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 6 }}>Line Items</div>
-                                  <table className="po-tbl">
-                                    <thead>
-                                      <tr>
-                                        <th style={{ width: 36 }}>#</th>
-                                        <th>Item</th>
-                                        <th style={{ textAlign: 'right', width: 70 }}>Qty</th>
-                                        <th style={{ width: 70 }}>UOM</th>
-                                        <th style={{ textAlign: 'right', width: 110 }}>Unit Rate</th>
-                                        <th style={{ textAlign: 'right', width: 110 }}>Amount</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {prDetail.line_items.map((li: any, idx: number) => {
-                                        const qty = Number(li.quantity) || 0
-                                        const rate = Number(li.unit_rate) || 0
-                                        const amount = Number(li.total_amount) || qty * rate
-                                        const itemName = li.item_code_detail?.name || li.item_code_detail?.description || li.item_code_detail?.code || li.item_name || '—'
-                                        return (
-                                          <tr key={li.id ?? idx}>
-                                            <td style={{ fontFamily: 'monospace', color: 'var(--tx3)', fontSize: 12 }}>{String(idx + 1).padStart(2, '0')}</td>
-                                            <td>
-                                              <div style={{ fontWeight: 500, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{itemName}</div>
-                                              {li.description && <div style={{ fontSize: 11, color: 'var(--tx3)', marginTop: 1 }}>{li.description}</div>}
-                                            </td>
-                                            <td style={{ textAlign: 'right' }}>{qty}</td>
-                                            <td style={{ color: 'var(--tx3)' }}>{li.unit_of_measure || '—'}</td>
-                                            <td style={{ textAlign: 'right', fontWeight: 500 }}>{rate > 0 ? formatCurrency(rate) : '—'}</td>
-                                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{amount > 0 ? formatCurrency(amount) : '—'}</td>
-                                          </tr>
-                                        )
-                                      })}
-                                    </tbody>
-                                    <tfoot>
-                                      <tr>
-                                        <td colSpan={5} style={{ textAlign: 'right', fontWeight: 600, color: 'var(--tx2)' }}>Total</td>
-                                        <td style={{ textAlign: 'right', fontWeight: 700 }}>
-                                          {formatCurrency(prDetail.line_items.reduce((s: number, li: any) => s + (Number(li.total_amount) || (Number(li.quantity) || 0) * (Number(li.unit_rate) || 0)), 0))}
-                                        </td>
-                                      </tr>
-                                    </tfoot>
-                                  </table>
-                                </div>
-                              )}
+
                             </div>
                           )}
                         </div>
@@ -1814,7 +1783,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
           if (validItems.length > 0) payload.line_items_data = validItems.map(it => ({ item_code: it.masterItemId, description: it.description, quantity: it.quantity, unit_of_measure: it.unit_of_measure, unit_rate: it.unit_rate, delivery_date: deliveryDate, hsn_code: it.hsn_code }))
           apiClient.patch(`/purchase-orders/${poId}/`, payload)
             .then(() => { queryClient.invalidateQueries({ queryKey: ['purchase-orders'] }); toast({ title: 'Purchase order updated' }); router.push('/purchase-orders') })
-            .catch((err: any) => { const d = err?.response?.data; toast({ title: typeof d === 'string' ? d : d?.detail || d?.error || 'Failed to update', variant: 'destructive' }) })
+            .catch((err: any) => { toast({ title: parseApiError(err?.response?.data, 'Failed to update'), variant: 'destructive' }) })
         }}
         isPending={isPending}
       />
