@@ -60,6 +60,7 @@ type PrDetail = {
     consumed_amount: string
     remaining_amount: string
   } | null
+ selected_vendor_detail:any
 }
 
 type PrSummary = {
@@ -402,7 +403,6 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
     },
     enabled: mode === 'create' && !!selectedPrId && !!eligiblePrs,
   })
-
   useEffect(() => {
     if (mode !== 'create' || !prDetail) { if (mode === 'create') setSelectedQuotationId(null); return }
     const quotes = prDetail.linked_quotations || []
@@ -444,8 +444,6 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
 
   // Non-debounced aliases for UI checks
   const normalizedQtSearch = qtSearch.trim()
-  const normalizedManualVendorSearch = manualVendorSearch.trim()
-  const normalizedItemSearch = activeItemSearch
 
   // Quotation flow: submitted quotations list
   const { data: submittedQuotations } = useQuery<QuotationSummary[]>({
@@ -925,11 +923,12 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                                 <div className="info-cell"><div className="info-lbl">PR Code</div><Link href={`/procurement/${prDetail.hash_id ?? prDetail.id}`} style={{ color: 'var(--pur-tx)', fontFamily: 'monospace', fontWeight: 700, textDecoration: 'none', fontSize: 13 }}>{prDetail.pr_number}</Link></div>
                                 <div className="info-cell"><div className="info-lbl">Tracking ID</div>
                                   {prDetail.tracking_id
-                                    ? <Link href={`/budget/${prDetail.tracking_id}`} style={{ color: 'var(--blu-tx)', fontFamily: 'monospace', textDecoration: 'none', fontSize: 13 }}>{prDetail.tracking_code || '—'}</Link>
-                                    : <div className="info-val" style={{ fontFamily: 'monospace' }}>{prDetail.tracking_code || '—'}</div>}
+                                    ? <Link href={`/budget/${prDetail.tracking_id}`} style={{ color: 'var(--blu-tx)', fontFamily: 'monospace', textDecoration: 'none', fontSize: 13 }}>{prDetail?.budget_info?.tracking_code || '—'}</Link>
+                                    : <div className="info-val" style={{ fontFamily: 'monospace' }}>{prDetail?.budget_info?.tracking_code || '—'}</div>}
                                 </div>
                                 <div className="info-cell"><div className="info-lbl">Budget Remaining</div><div className="info-val" style={{ color: budgetWillExceed ? 'var(--red-tx)' : 'var(--tel-tx)', fontWeight: 700 }}>{budgetInfo ? formatCurrency(budgetInfo.remaining_amount) : '—'}</div></div>
-                                <div className="info-cell"><div className="info-lbl">Vendor</div>{selectedQuotation ? <Link href={`/vendors/${selectedQuotation.vendor_id}`} style={{ color: 'var(--blu-tx)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>{selectedQuotation.vendor_name}</Link> : <div style={{ fontSize: 13, color: 'var(--tx3)' }}>No quotation on PR</div>}</div>
+                                <div className="info-cell"><div className="info-lbl">Vendor</div>{prDetail?.selected_vendor_detail?.id ? <Link href={`/vendors/${prDetail?.selected_vendor_detail.id}`} style={{ color: 'var(--blu-tx)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>{prDetail?.selected_vendor_detail?.company_name
+                                }</Link> : <div style={{ fontSize: 13, color: 'var(--tx3)' }}>No quotation on PR</div>}</div>
                                 <div className="info-cell"><div className="info-lbl">Quotation</div>{selectedQuotation ? <Link href={`/quotation/${selectedQuotation.id}`} style={{ color: 'var(--pur-tx)', fontFamily: 'monospace', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>{selectedQuotation.quotation_no || selectedQuotation.ref_no}</Link> : <div style={{ fontSize: 13, color: 'var(--tx3)' }}>—</div>}</div>
                                 <div className="info-cell"><div className="info-lbl">QT Total</div><div className="info-val" style={{ color: 'var(--tel-tx)', fontWeight: 700 }}>{selectedQuotation ? formatCurrency(selectedQuotation.total_amount) : '—'}</div></div>
                               </div>
