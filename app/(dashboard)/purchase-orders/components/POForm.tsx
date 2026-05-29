@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useDebounce } from 'use-debounce'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -281,10 +282,8 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
   const [manualVendorName, setManualVendorName] = useState('')
   const [selectedManualVendor, setSelectedManualVendor] = useState<any | null>(null)
   const [manualItems, setManualItems] = useState<ManualLineItem[]>([])
-  const [itemSearch, setItemSearch] = useState('')
-  const [pendingItem, setPendingItem] = useState<{ id: number; code: string; description: string; hsn_code: string; unit_of_measure: string; unit_rate: number } | null>(null)
-  const [pendingQty, setPendingQty] = useState('1')
-  const [addRowOpen, setAddRowOpen] = useState(false)
+  const [itemSearchMap, setItemSearchMap] = useState<Record<string, string>>({})
+  const [openDropdownKey, setOpenDropdownKey] = useState<string | null>(null)
 
   // ── Edit mode state ───────────────────────────────────────────────────────
   const [vendorSearch, setVendorSearch] = useState('')
@@ -428,13 +427,23 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
     if (p === 'low' || p === 'medium' || p === 'high') setPriority(p)
   }, [prDetail, mode])
 
-  // Quotation flow: submitted quotations list
+  // Debounced search values — 400 ms delay to avoid firing on every keystroke
+  const [debouncedQtSearch] = useDebounce(qtSearch.trim(), 400)
+  const [debouncedVendorSearch] = useDebounce(manualVendorSearch.trim(), 400)
+  const activeItemSearch = openDropdownKey ? (itemSearchMap[openDropdownKey] || '').trim() : ''
+  const [debouncedItemSearch] = useDebounce(activeItemSearch, 400)
+
+  // Non-debounced aliases for UI checks
   const normalizedQtSearch = qtSearch.trim()
+  const normalizedManualVendorSearch = manualVendorSearch.trim()
+  const normalizedItemSearch = activeItemSearch
+
+  // Quotation flow: submitted quotations list
   const { data: submittedQuotations } = useQuery<QuotationSummary[]>({
-    queryKey: ['quotations-submitted', normalizedQtSearch],
+    queryKey: ['quotations-submitted', debouncedQtSearch],
     queryFn: async () => {
       const params = new URLSearchParams({ status: 'submitted' })
-      if (normalizedQtSearch) params.set('search', normalizedQtSearch)
+      if (debouncedQtSearch) params.set('search', debouncedQtSearch)
       const r = await apiClient.get(`/quotations/?${params}`)
       return r.data.results ?? r.data
     },
@@ -449,29 +458,27 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
   })
 
   // Vendor manual flow: approved vendor search
-  const normalizedManualVendorSearch = manualVendorSearch.trim()
   const { data: manualVendors } = useQuery({
-    queryKey: ['vendors-approved-manual', normalizedManualVendorSearch],
+    queryKey: ['vendors-approved-manual', debouncedVendorSearch],
     queryFn: async () => {
       const params = new URLSearchParams({ status: 'approved' })
-      if (normalizedManualVendorSearch) params.set('search', normalizedManualVendorSearch)
+      if (debouncedVendorSearch) params.set('search', debouncedVendorSearch)
       const r = await apiClient.get(`/vendors/?${params}`)
       return r.data.results ?? r.data
     },
-    enabled: mode === 'create' && createMethod === 'vendor' && normalizedManualVendorSearch.length >= 2,
+    enabled: mode === 'create' && createMethod === 'vendor' && debouncedVendorSearch.length >= 2,
   })
 
   // Vendor manual flow: master item search
-  const normalizedItemSearch = itemSearch.trim()
   const { data: masterItems } = useQuery({
-    queryKey: ['master-items-search', normalizedItemSearch],
+    queryKey: ['master-items-search', debouncedItemSearch],
     queryFn: async () => {
       const params = new URLSearchParams()
-      if (normalizedItemSearch) params.set('search', normalizedItemSearch)
+      if (debouncedItemSearch) params.set('search', debouncedItemSearch)
       const r = await apiClient.get(`/procurement/items/?${params}`)
       return r.data.results ?? r.data
     },
-    enabled: mode === 'create' && createMethod === 'vendor' && normalizedItemSearch.length >= 1,
+    enabled: mode === 'create' && createMethod === 'vendor' && debouncedItemSearch.length >= 1,
   })
 
   // Auto-fill from quotation detail (vendor address + payment terms)
@@ -518,7 +525,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
   // Unified helpers for step 3
   const createVendorName = createMethod === 'pr' ? (selectedQuotation?.vendor_name ?? '') : createMethod === 'quotation' ? qtVendorName : manualVendorName
   const step3GrandTotal = createMethod === 'pr' ? grandTotal : createMethod === 'quotation' ? qtGrandTotal : manualGrandTotal
-  const canIssue = createMethod === 'pr' ? !!selectedPrId : createMethod === 'quotation' ? !!directQtId : (!!manualVendorId && manualItems.length > 0)
+  const canIssue = createMethod === 'pr' ? !!selectedPrId : createMethod === 'quotation' ? !!directQtId : (!!manualVendorId && manualItems.length > 0 && manualItems.every(it => it.masterItemId > 0))
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const createMutation = useMutation({
@@ -639,6 +646,23 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
     )
   }
 
+  // ── Vendor manual flow helpers ──────────────────────────────────────────
+  const blankLine = (): ManualLineItem => ({
+    key: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    masterItemId: 0, code: '', description: '', hsn_code: '',
+    unit_of_measure: '', unit_rate: 0, quantity: 1,
+  })
+
+  const pickItem = (lineKey: string, item: any) => {
+    setManualItems(prev => prev.map(it =>
+      it.key === lineKey
+        ? { ...it, masterItemId: item.id, code: item.code, description: item.description, hsn_code: item.hsn_code || '', unit_of_measure: item.unit_of_measure, unit_rate: Number(item.unit_rate) || 0 }
+        : it
+    ))
+    setOpenDropdownKey(null)
+    setItemSearchMap(prev => { const n = { ...prev }; delete n[lineKey]; return n })
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
@@ -727,8 +751,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                             setSelectedPrId(null)
                             setDirectQtId(null); setQtSearch('')
                             setManualVendorId(null); setManualVendorName(''); setManualVendorSearch(''); setSelectedManualVendor(null)
-                            setManualItems([]); setItemSearch('')
-                            setPendingItem(null); setAddRowOpen(false)
+                            setManualItems([]); setItemSearchMap({}); setOpenDropdownKey(null)
                             setStep1Error('')
                           }
                         }}
@@ -773,7 +796,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                 <div className="form-sec">
                   <div className="form-sec-head">
                     <div className="fsh-ic" style={{ background: 'var(--pur-bg)', color: 'var(--pur-tx)' }}><i className="ti ti-git-fork" /></div>
-                    <div><div className="fsh-title">Select Purchase Request</div><div className="fsh-sub">Choose from approved PRs — vendor, quotation and budget load automatically</div></div>
+                    <div><div className="fsh-title">Select Purchase Request</div><div className="fsh-sub">Choose from approved PRs — budget and vendor info load automatically (quotation optional)</div></div>
                   </div>
                   <div className="form-body">
                     <div className="fgrp">
@@ -1038,10 +1061,15 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                   <div className="form-sec">
                     <div className="form-sec-head">
                       <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}><i className="ti ti-package" /></div>
-                      <div>
-                        <div className="fsh-title">Line Items <span style={{ fontWeight: 400, color: 'var(--tx3)' }}>({manualItems.length})</span></div>
+                      <div style={{ flex: 1 }}>
+                        <div className="fsh-title">Line Items <span style={{ fontWeight: 400, color: 'var(--tx3)' }}>({manualItems.filter(it => it.masterItemId > 0).length})</span></div>
                         <div className="fsh-sub">Select from master catalog — all fields auto-populate on selection</div>
                       </div>
+                      <button type="button"
+                        onClick={() => setManualItems(prev => [...prev, blankLine()])}
+                        style={{ marginLeft: 'auto', padding: '6px 14px', fontSize: 12, fontWeight: 600, borderRadius: 7, border: '0.5px solid var(--grn-bd)', background: 'var(--grn-bg)', color: 'var(--grn-tx)', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+                        <i className="ti ti-plus" style={{ fontSize: 13 }} /> Add Item
+                      </button>
                     </div>
                     <div style={{ overflowX: 'auto' }}>
                       <table className="po-tbl">
@@ -1058,105 +1086,99 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                           </tr>
                         </thead>
                         <tbody>
-                          {/* Existing items */}
-                          {manualItems.map((it, i) => (
-                            <tr key={it.key}>
-                              <td style={{ fontFamily: 'monospace', color: 'var(--tx3)', fontSize: 12 }}>{String(i + 1).padStart(2, '0')}</td>
-                              <td>
-                                <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 12 }}>{it.code}</div>
-                                <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 1 }}>{it.description}</div>
-                              </td>
-                              <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)', whiteSpace: 'nowrap' }}>{it.hsn_code || '—'}</td>
-                              <td style={{ textAlign: 'right' }}>
-                                <input type="number" min="1" value={it.quantity}
-                                  onChange={e => setManualItems(prev => prev.map(x => x.key === it.key ? { ...x, quantity: Math.max(1, Number(e.target.value) || 1) } : x))}
-                                  style={{ width: 60, padding: '4px 6px', border: '0.5px solid var(--bdm)', borderRadius: 6, fontFamily: "'DM Sans',sans-serif", fontSize: 13, textAlign: 'right' }} />
-                              </td>
-                              <td style={{ color: 'var(--tx3)' }}>{it.unit_of_measure}</td>
-                              <td style={{ textAlign: 'right' }}>{formatCurrency(it.unit_rate)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(it.unit_rate * it.quantity)}</td>
-                              <td>
-                                <button type="button" onClick={() => setManualItems(p => p.filter(x => x.key !== it.key))}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red-tx)', padding: '2px 4px', fontSize: 16, lineHeight: 1 }}>×</button>
+                          {manualItems.length === 0 && (
+                            <tr>
+                              <td colSpan={8} style={{ padding: '28px 14px', textAlign: 'center', color: 'var(--tx3)', fontSize: 13 }}>
+                                No items yet — click <strong>Add Item</strong> to start
                               </td>
                             </tr>
-                          ))}
-
-                          {/* Inline add row — shown when no items yet or addRowOpen */}
-                          {(manualItems.length === 0 || addRowOpen) && (
-                            <tr style={{ background: 'var(--pur-bg)', borderTop: manualItems.length > 0 ? '1px dashed var(--bdm)' : undefined }}>
-                              <td style={{ color: 'var(--tx3)', fontSize: 13, textAlign: 'center' }}>+</td>
-                              <td style={{ position: 'relative', minWidth: 220 }}>
-                                <div style={{ position: 'relative' }}>
-                                  <Search style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: 'var(--tx3)', pointerEvents: 'none' }} />
-                                  <input className="inp" style={{ paddingLeft: 28, fontSize: 12 }}
-                                    placeholder="Search item by code or name…"
-                                    value={itemSearch}
-                                    onChange={e => { setItemSearch(e.target.value); setPendingItem(null) }}
-                                    autoFocus={addRowOpen} />
-                                </div>
-                                {masterItems && masterItems.length > 0 && !pendingItem && normalizedItemSearch && (
-                                  <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 30, background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 8, maxHeight: 220, overflowY: 'auto', boxShadow: '0 -4px 16px rgba(0,0,0,.12)', marginBottom: 4 }}>
-                                    {masterItems.map((item: any) => {
-                                      const alreadyAdded = manualItems.some(x => x.masterItemId === item.id)
-                                      return (
-                                        <button key={item.id} type="button" disabled={alreadyAdded}
-                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: alreadyAdded ? 'var(--bg-s)' : 'none', border: 'none', borderBottom: '0.5px solid var(--bd)', cursor: alreadyAdded ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 13, opacity: alreadyAdded ? 0.5 : 1 }}
-                                          onClick={() => { if (alreadyAdded) return; setPendingItem({ id: item.id, code: item.code, description: item.description, hsn_code: item.hsn_code || '', unit_of_measure: item.unit_of_measure, unit_rate: Number(item.unit_rate) || 0 }); setPendingQty('1'); setItemSearch(item.code + ' — ' + item.description) }}>
-                                          <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, color: 'var(--blu-tx)' }}>{item.code}</span>
-                                          <span style={{ marginLeft: 8, color: 'var(--tx2)' }}>{item.description}</span>
-                                          {alreadyAdded
-                                            ? <span style={{ float: 'right', fontSize: 11, color: 'var(--grn-tx)', fontWeight: 600 }}>Added</span>
-                                            : <span style={{ float: 'right', fontSize: 12, color: 'var(--tx3)' }}>{item.unit_of_measure}</span>}
-                                        </button>
-                                      )
-                                    })}
-                                  </div>
-                                )}
-                                {masterItems && masterItems.length === 0 && normalizedItemSearch.length >= 1 && !pendingItem && (
-                                  <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 30, background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: 'var(--tx3)', marginBottom: 4 }}>
-                                    No items found for "{normalizedItemSearch}"
-                                  </div>
-                                )}
-                              </td>
-                              <td><input className="inp" style={{ fontSize: 12, color: 'var(--tx3)', fontFamily: 'monospace' }} value={pendingItem?.hsn_code ?? ''} readOnly placeholder="HSN" /></td>
-                              <td><input type="number" min="1" className="inp" style={{ fontSize: 12, textAlign: 'right' }} value={pendingItem ? pendingQty : ''} readOnly={!pendingItem} onChange={e => setPendingQty(e.target.value)} placeholder="Qty" /></td>
-                              <td><input className="inp" style={{ fontSize: 12, color: 'var(--tx3)' }} value={pendingItem?.unit_of_measure ?? ''} readOnly placeholder="UOM" /></td>
-                              <td><input className="inp" style={{ fontSize: 12, textAlign: 'right', color: 'var(--tx2)' }} value={pendingItem ? formatCurrency(pendingItem.unit_rate) : ''} readOnly placeholder="Rate" /></td>
-                              <td><input className="inp" style={{ fontSize: 12, textAlign: 'right', fontWeight: pendingItem ? 600 : 400 }} value={pendingItem ? formatCurrency(pendingItem.unit_rate * Math.max(1, Number(pendingQty) || 1)) : ''} readOnly placeholder="Total" /></td>
-                              {/* Action: Add / Cancel */}
-                              <td style={{ whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-                                <button type="button"
-                                  style={{ padding: '4px 12px', fontSize: 12, borderRadius: 6, border: 'none', cursor: pendingItem ? 'pointer' : 'not-allowed', background: pendingItem ? 'hsl(var(--primary))' : 'var(--bg-t)', color: pendingItem ? 'hsl(var(--primary-foreground))' : 'var(--tx3)', fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}
-                                  disabled={!pendingItem}
-                                  onClick={() => {
-                                    if (!pendingItem) return
-                                    if (manualItems.some(x => x.masterItemId === pendingItem.id)) {
-                                      toast({ title: 'Item already added', description: `${pendingItem.code} is already in the list. Adjust the quantity instead.`, variant: 'destructive' })
-                                      return
-                                    }
-                                    const qty = Math.max(1, Number(pendingQty) || 1)
-                                    setManualItems(prev => [...prev, { key: Date.now().toString(), masterItemId: pendingItem.id, code: pendingItem.code, description: pendingItem.description, hsn_code: pendingItem.hsn_code, unit_of_measure: pendingItem.unit_of_measure, unit_rate: pendingItem.unit_rate, quantity: qty }])
-                                    setPendingItem(null); setPendingQty('1'); setItemSearch(''); setAddRowOpen(false)
-                                  }}>Add</button>
-                                {manualItems.length > 0 && (
+                          )}
+                          {manualItems.map((it, i) => {
+                            const isBlank = it.masterItemId === 0
+                            const rowSearch = itemSearchMap[it.key] || ''
+                            const isOpen = openDropdownKey === it.key
+                            const pickedIds = new Set(manualItems.filter(x => x.masterItemId > 0 && x.key !== it.key).map(x => x.masterItemId))
+                            return (
+                              <tr key={it.key} style={{ background: isBlank ? 'var(--pur-bg)' : undefined }}>
+                                <td style={{ fontFamily: 'monospace', color: 'var(--tx3)', fontSize: 12 }}>{isBlank ? '+' : String(i + 1).padStart(2, '0')}</td>
+                                <td style={{ position: 'relative', minWidth: 220 }}>
+                                  {isBlank ? (
+                                    <div style={{ position: 'relative' }}>
+                                      <Search style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: 'var(--tx3)', pointerEvents: 'none' }} />
+                                      <input className="inp" style={{ paddingLeft: 28, fontSize: 12 }}
+                                        placeholder="Search item by code or name…"
+                                        value={rowSearch}
+                                        autoFocus
+                                        onChange={e => { setItemSearchMap(prev => ({ ...prev, [it.key]: e.target.value })); setOpenDropdownKey(it.key) }}
+                                        onFocus={() => setOpenDropdownKey(it.key)} />
+                                      {isOpen && masterItems && masterItems.length > 0 && (
+                                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 30, background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 8, maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,.12)', marginTop: 4 }}>
+                                          {masterItems.map((item: any) => {
+                                            const alreadyAdded = pickedIds.has(item.id)
+                                            return (
+                                              <button key={item.id} type="button" disabled={alreadyAdded}
+                                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: alreadyAdded ? 'var(--bg-s)' : 'none', border: 'none', borderBottom: '0.5px solid var(--bd)', cursor: alreadyAdded ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 13, opacity: alreadyAdded ? 0.5 : 1 }}
+                                                onClick={() => { if (!alreadyAdded) pickItem(it.key, item) }}>
+                                                <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, color: 'var(--blu-tx)' }}>{item.code}</span>
+                                                <span style={{ marginLeft: 8, color: 'var(--tx2)' }}>{item.description}</span>
+                                                {alreadyAdded
+                                                  ? <span style={{ float: 'right', fontSize: 11, color: 'var(--grn-tx)', fontWeight: 600 }}>Added</span>
+                                                  : <span style={{ float: 'right', fontSize: 12, color: 'var(--tx3)' }}>{item.unit_of_measure}</span>}
+                                              </button>
+                                            )
+                                          })}
+                                        </div>
+                                      )}
+                                      {isOpen && masterItems && masterItems.length === 0 && rowSearch.length >= 1 && (
+                                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 30, background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: 'var(--tx3)', marginTop: 4 }}>
+                                          No items found for &ldquo;{rowSearch}&rdquo;
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 12 }}>{it.code}</div>
+                                      <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 1 }}>{it.description}</div>
+                                    </div>
+                                  )}
+                                </td>
+                                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)', whiteSpace: 'nowrap' }}>
+                                  {isBlank ? <span style={{ color: 'var(--tx3)', fontSize: 12 }}>—</span> : (it.hsn_code || '—')}
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <input type="number" min="1" value={isBlank ? '' : it.quantity}
+                                    readOnly={isBlank}
+                                    onChange={e => setManualItems(prev => prev.map(x => x.key === it.key ? { ...x, quantity: Math.max(1, Number(e.target.value) || 1) } : x))}
+                                    style={{ width: 60, padding: '4px 6px', border: '0.5px solid var(--bdm)', borderRadius: 6, fontFamily: "'DM Sans',sans-serif", fontSize: 13, textAlign: 'right', background: isBlank ? 'transparent' : undefined }}
+                                    placeholder="Qty" />
+                                </td>
+                                <td>
+                                  {isBlank
+                                    ? <span style={{ color: 'var(--tx3)', fontSize: 12 }}>—</span>
+                                    : <input className="inp" style={{ fontSize: 12, width: 70 }} value={it.unit_of_measure}
+                                        onChange={e => setManualItems(prev => prev.map(x => x.key === it.key ? { ...x, unit_of_measure: e.target.value } : x))} />}
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  {isBlank
+                                    ? <span style={{ color: 'var(--tx3)', fontSize: 12 }}>—</span>
+                                    : <input type="number" min="0" className="inp" style={{ fontSize: 12, textAlign: 'right', width: 90 }} value={it.unit_rate}
+                                        onChange={e => setManualItems(prev => prev.map(x => x.key === it.key ? { ...x, unit_rate: Number(e.target.value) || 0 } : x))} />}
+                                </td>
+                                <td style={{ textAlign: 'right', fontWeight: isBlank ? 400 : 600 }}>
+                                  {isBlank ? '—' : formatCurrency(it.unit_rate * it.quantity)}
+                                </td>
+                                <td>
                                   <button type="button"
-                                    style={{ marginLeft: 4, padding: '4px 8px', fontSize: 12, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'none', color: 'var(--tx3)', fontFamily: "'DM Sans',sans-serif" }}
-                                    onClick={() => { setPendingItem(null); setItemSearch(''); setPendingQty('1'); setAddRowOpen(false) }}>✕</button>
-                                )}
-                              </td>
-                            </tr>
-                          )}
-
-                          {/* "+ Add Item" full-width row — shown when items exist and row is closed */}
-                          {manualItems.length > 0 && !addRowOpen && (
-                            <tr style={{ cursor: 'pointer', borderTop: '0.5px solid var(--bd)' }}
-                              onClick={() => { setAddRowOpen(true); setPendingItem(null); setItemSearch(''); setPendingQty('1') }}>
-                              <td colSpan={8} style={{ padding: '9px 14px', color: 'hsl(var(--primary))', fontSize: 13, fontWeight: 500 }}>
-                                <i className="ti ti-plus" style={{ fontSize: 13, marginRight: 6 }} />Add Item
-                              </td>
-                            </tr>
-                          )}
+                                    onClick={() => {
+                                      setManualItems(p => p.filter(x => x.key !== it.key))
+                                      setItemSearchMap(prev => { const n = { ...prev }; delete n[it.key]; return n })
+                                      if (openDropdownKey === it.key) setOpenDropdownKey(null)
+                                    }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red-tx)', padding: '2px 4px', fontSize: 16, lineHeight: 1 }}>×</button>
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                         {manualItems.length > 0 && (
                           <tfoot>
@@ -1225,8 +1247,18 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                       </div>
                     ) : (
                       <div className="form-sec">
-                        <div className="form-body" style={{ textAlign: 'center', color: 'var(--tx3)', padding: 32 }}>
-                          {createMethod === 'pr' ? 'No quotation linked — PO will be created from PR estimates.' : 'No line items found.'}
+                        <div className="form-body" style={{ padding: 24 }}>
+                          {createMethod === 'pr' ? (
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.25)', borderRadius: 8, padding: '12px 16px', fontSize: 13 }}>
+                              <i className="ti ti-info-circle" style={{ fontSize: 16, color: 'var(--pur-tx)', flexShrink: 0, marginTop: 1 }} />
+                              <div>
+                                <div style={{ fontWeight: 600, color: 'var(--pur-tx)', marginBottom: 3 }}>No quotation linked to this PR</div>
+                                <div style={{ color: 'var(--tx2)', lineHeight: 1.5 }}>The PO will be created directly from the PR <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{prDetail?.pr_number}</span>. You can attach a quotation or add vendor details after the PO is created.</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ textAlign: 'center', color: 'var(--tx3)' }}>No line items found.</div>
+                          )}
                         </div>
                       </div>
                     )}
