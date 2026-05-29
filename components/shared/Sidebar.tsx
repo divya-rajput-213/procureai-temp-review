@@ -34,15 +34,15 @@ const NAV_ITEMS = [
   { href: '/procurement', label: 'Procurement', icon: ShoppingCart, indent: false },
   { href: '/quotation', label: 'Quotation', icon: FileText, indent: false },
 
-  {
-    label: 'Contracts',
-    icon: FileSignature,
-    children: [
-      { href: '/contracts', label: 'All Contracts' },
-      { href: '/contracts/templates', label: 'Templates' },
-      { href: '/contracts/clauses', label: 'Clause Library' },
-    ],
-  },
+  // {
+  //   label: 'Contracts',
+  //   icon: FileSignature,
+  //   children: [
+  //     { href: '/contracts', label: 'All Contracts' },
+  //     { href: '/contracts/templates', label: 'Templates' },
+  //     { href: '/contracts/clauses', label: 'Clause Library' },
+  //   ],
+  // },
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ClipboardList, indent: false },
   { href: '/grns', label: 'GRN / Delivery', icon: Package, indent: false },
   { href: '/invoices', label: 'Invoices', icon: Receipt, indent: false },
