@@ -279,11 +279,12 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
   const [manualVendorSearch, setManualVendorSearch] = useState('')
   const [manualVendorId, setManualVendorId] = useState<number | null>(null)
   const [manualVendorName, setManualVendorName] = useState('')
+  const [selectedManualVendor, setSelectedManualVendor] = useState<any | null>(null)
   const [manualItems, setManualItems] = useState<ManualLineItem[]>([])
   const [itemSearch, setItemSearch] = useState('')
-  const [addingItem, setAddingItem] = useState(false)
   const [pendingItem, setPendingItem] = useState<{ id: number; code: string; description: string; hsn_code: string; unit_of_measure: string; unit_rate: number } | null>(null)
   const [pendingQty, setPendingQty] = useState('1')
+  const [addRowOpen, setAddRowOpen] = useState(false)
 
   // ── Edit mode state ───────────────────────────────────────────────────────
   const [vendorSearch, setVendorSearch] = useState('')
@@ -470,7 +471,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
       const r = await apiClient.get(`/procurement/items/?${params}`)
       return r.data.results ?? r.data
     },
-    enabled: mode === 'create' && createMethod === 'vendor' && addingItem,
+    enabled: mode === 'create' && createMethod === 'vendor' && normalizedItemSearch.length >= 1,
   })
 
   // Auto-fill from quotation detail (vendor address + payment terms)
@@ -593,10 +594,9 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
       setStep1Error('')
       setStep(s => s + 1)
     } else if (step === 2) {
-      const errs: { poDate?: string; deliveryDate?: string; items?: string } = {}
+      const errs: { poDate?: string; deliveryDate?: string } = {}
       if (!poDate) errs.poDate = 'PO date is required.'
       if (!deliveryDate) errs.deliveryDate = 'Delivery date is required.'
-      if (createMethod === 'vendor' && manualItems.length === 0) errs.items = 'Add at least one line item.'
       if (Object.keys(errs).length) { setStep2Errors(errs); return }
       setStep2Errors({})
       setStep(s => s + 1)
@@ -726,9 +726,9 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                             setCreateMethod(m)
                             setSelectedPrId(null)
                             setDirectQtId(null); setQtSearch('')
-                            setManualVendorId(null); setManualVendorName(''); setManualVendorSearch('')
-                            setManualItems([]); setAddingItem(false); setItemSearch('')
-                            setPendingItem(null)
+                            setManualVendorId(null); setManualVendorName(''); setManualVendorSearch(''); setSelectedManualVendor(null)
+                            setManualItems([]); setItemSearch('')
+                            setPendingItem(null); setAddRowOpen(false)
                             setStep1Error('')
                           }
                         }}
@@ -747,6 +747,24 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                     ))}
                   </div>
                   {step1Error && !createMethod && <div className="err" style={{ marginTop: 6 }}>{step1Error}</div>}
+
+                  {/* Source info summary — shown once a method + source is selected */}
+                  {createMethod === 'pr' && selectedQuotation && (
+                    <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.25)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
+                      <span style={{ color: 'var(--tx3)' }}>PR:</span><span style={{ fontWeight: 600, color: 'var(--pur-tx)', fontFamily: 'monospace' }}>{prDetail?.pr_number}</span>
+                      <span style={{ color: 'var(--bd)' }}>·</span>
+                      <span style={{ color: 'var(--tx3)' }}>Vendor:</span><span style={{ fontWeight: 600 }}>{selectedQuotation.vendor_name}</span>
+                      <span style={{ color: 'var(--bd)' }}>·</span>
+                      <span style={{ color: 'var(--tx3)' }}>Total:</span><span style={{ fontWeight: 700, color: 'var(--tel-tx)' }}>{formatCurrency(grandTotal)}</span>
+                      {budgetAfterPO !== null && <><span style={{ color: 'var(--bd)' }}>·</span><span style={{ color: budgetAfterPO < 0 ? 'var(--red-tx)' : 'var(--grn-tx)', fontWeight: 600 }}>Budget after: {formatCurrency(budgetAfterPO)}</span></>}
+                    </div>
+                  )}
+                  {createMethod === 'pr' && selectedPrId && !selectedQuotation && (
+                    <div style={{ marginTop: 12, background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.25)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--tx3)' }}>
+                      PR <span style={{ fontFamily: 'monospace', color: 'var(--pur-tx)', fontWeight: 600 }}>{prDetail?.pr_number}</span> — no eligible quotation, PO will be created from PR estimates.
+                    </div>
+                  )}
+ 
                 </div>
               </div>
 
@@ -835,17 +853,42 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                         )}
                       </div>
                     )}
-                    {/* Quotation detail preview */}
+                    {/* Quotation detail — full view */}
                     {directQtId && directQtDetail && (
-                      <div style={{ background: 'var(--blu-bg)', border: '0.5px solid rgba(24,95,165,.3)', borderRadius: 10, padding: 14 }}>
-                        <div className="info-grid">
-                          <div className="info-cell"><div className="info-lbl">Ref No</div><div className="info-val" style={{ fontFamily: 'monospace', color: 'var(--blu-tx)', fontWeight: 700 }}>{directQtDetail.ref_no}</div></div>
-                          <div className="info-cell"><div className="info-lbl">Vendor</div><div className="info-val">{qtVendorName || '—'}</div></div>
-                          <div className="info-cell"><div className="info-lbl">Grand Total</div><div className="info-val" style={{ color: 'var(--tel-tx)', fontWeight: 700 }}>{formatCurrency(qtGrandTotal)}</div></div>
-                          <div className="info-cell"><div className="info-lbl">Items</div><div className="info-val">{qtItems.length} line items</div></div>
-                          <div className="info-cell"><div className="info-lbl">Plant</div><div className="info-val">{directQtDetail.plant_name || '—'}</div></div>
-                          <div className="info-cell"><div className="info-lbl">Dept</div><div className="info-val">{directQtDetail.department_name || '—'}</div></div>
+                      <div style={{ background: 'var(--blu-bg)', border: '0.5px solid rgba(24,95,165,.25)', borderRadius: 10, padding: 14, marginTop: 10 }}>
+                        {/* QT meta */}
+                        <div className="info-grid" style={{ marginBottom: 12 }}>
+                          {directQtDetail.quotation_no && <div className="info-cell"><div className="info-lbl">QT Number</div><div className="info-val" style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--blu-tx)' }}>{directQtDetail.quotation_no}</div></div>}
+                          {directQtDetail.quotation_date && <div className="info-cell"><div className="info-lbl">QT Date</div><div className="info-val">{directQtDetail.quotation_date}</div></div>}
+                          {directQtDetail.valid_until && <div className="info-cell"><div className="info-lbl">Valid Until</div><div className="info-val">{directQtDetail.valid_until}</div></div>}
+                          {directQtDetail.pr_no && <div className="info-cell"><div className="info-lbl">Linked PR</div><div className="info-val" style={{ fontFamily: 'monospace', color: 'var(--pur-tx)', fontWeight: 600 }}>{directQtDetail.pr_no}</div></div>}
+                          {directQtDetail.plant_name && <div className="info-cell"><div className="info-lbl">Plant</div><div className="info-val">{directQtDetail.plant_name}</div></div>}
+                          {directQtDetail.department_name && <div className="info-cell"><div className="info-lbl">Department</div><div className="info-val">{directQtDetail.department_name}</div></div>}
+                          {(directQtDetail.cgst_rate || directQtDetail.sgst_rate) && (
+                            <div className="info-cell">
+                              <div className="info-lbl">Tax Rates</div>
+                              <div className="info-val" style={{ fontSize: 12 }}>
+                                {directQtDetail.cgst_rate && <>CGST {directQtDetail.cgst_rate}%</>}
+                                {directQtDetail.cgst_rate && directQtDetail.sgst_rate && ' + '}
+                                {directQtDetail.sgst_rate && <>SGST {directQtDetail.sgst_rate}%</>}
+                                {directQtDetail.igst_rate && <>IGST {directQtDetail.igst_rate}%</>}
+                              </div>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Vendor info from quotation — don't repeat company name shown in chip */}
+                        {directQtDetail.vendor && (
+                          <div style={{ borderTop: '0.5px solid rgba(24,95,165,.2)', paddingTop: 10, marginBottom: 12 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Vendor</div>
+                            <div className="info-grid">
+                              {directQtDetail.vendor.gst_number && <div className="info-cell"><div className="info-lbl">GST</div><div className="info-val" style={{ fontFamily: 'monospace', fontSize: 12 }}>{directQtDetail.vendor.gst_number}</div></div>}
+                              {directQtDetail.vendor.contact_name && <div className="info-cell"><div className="info-lbl">Contact</div><div className="info-val">{directQtDetail.vendor.contact_name}</div></div>}
+                              {directQtDetail.vendor.contact_email && <div className="info-cell"><div className="info-lbl">Email</div><div className="info-val" style={{ fontSize: 12 }}>{directQtDetail.vendor.contact_email}</div></div>}
+                              {directQtDetail.vendor.contact_phone && <div className="info-cell"><div className="info-lbl">Phone</div><div className="info-val">{directQtDetail.vendor.contact_phone}</div></div>}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -861,13 +904,38 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                   </div>
                   <div className="form-body">
                     {manualVendorId ? (
-                      <div className="vendor-chip">
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 14 }}>{manualVendorName}</div>
-                          <div style={{ fontSize: 12, color: 'var(--tx3)' }}>Approved vendor</div>
+                      <>
+                        <div className="vendor-chip">
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 14 }}>{manualVendorName}</div>
+                            <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{selectedManualVendor?.vendor_code ?? ''}{selectedManualVendor?.city ? ` · ${selectedManualVendor.city}` : ''}</div>
+                          </div>
+                          <button type="button" onClick={() => { setManualVendorId(null); setManualVendorName(''); setManualVendorSearch(''); setSelectedManualVendor(null) }} style={{ background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", color: 'var(--tx2)' }}>Change</button>
                         </div>
-                        <button type="button" onClick={() => { setManualVendorId(null); setManualVendorName(''); setManualVendorSearch('') }} style={{ background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", color: 'var(--tx2)' }}>Change</button>
-                      </div>
+                        {selectedManualVendor && (
+                          <div style={{ background: 'var(--grn-bg)', border: '0.5px solid rgba(99,153,34,.25)', borderRadius: 10, padding: 14, marginTop: 10 }}>
+                            <div className="info-grid">
+                              {selectedManualVendor.gst_number && <div className="info-cell"><div className="info-lbl">GST Number</div><div className="info-val" style={{ fontFamily: 'monospace', fontSize: 12 }}>{selectedManualVendor.gst_number}</div></div>}
+                              {selectedManualVendor.category_name && <div className="info-cell"><div className="info-lbl">Category</div><div className="info-val">{selectedManualVendor.category_name}</div></div>}
+                              {selectedManualVendor.plant_name && <div className="info-cell"><div className="info-lbl">Plant</div><div className="info-val">{selectedManualVendor.plant_name}</div></div>}
+                              {selectedManualVendor.contact_name && <div className="info-cell"><div className="info-lbl">Contact</div><div className="info-val">{selectedManualVendor.contact_name}</div></div>}
+                              {selectedManualVendor.contact_email && <div className="info-cell"><div className="info-lbl">Email</div><div className="info-val" style={{ fontSize: 12 }}>{selectedManualVendor.contact_email}</div></div>}
+                              {selectedManualVendor.contact_phone && <div className="info-cell"><div className="info-lbl">Phone</div><div className="info-val">{selectedManualVendor.contact_phone}</div></div>}
+                            </div>
+                            {(selectedManualVendor.address || selectedManualVendor.city) && (
+                              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--tx3)', lineHeight: 1.5 }}>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Address</span><br />
+                                {[selectedManualVendor.address, selectedManualVendor.city, selectedManualVendor.state !== 'N/A' ? selectedManualVendor.state : null, selectedManualVendor.pincode !== '000000' ? selectedManualVendor.pincode : null, selectedManualVendor.country].filter(Boolean).join(', ')}
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap' }}>
+                              {selectedManualVendor.payment_terms && <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Payment: <strong style={{ color: 'var(--tx2)' }}>{selectedManualVendor.payment_terms}</strong></span>}
+                              <span style={{ fontSize: 12, color: 'var(--tx3)' }}>Currency: <strong style={{ color: 'var(--tx2)' }}>{selectedManualVendor.currency || 'INR'}</strong></span>
+                              {selectedManualVendor.is_msme && <span style={{ fontSize: 11, background: 'var(--grn-bg)', color: 'var(--grn-tx)', border: '0.5px solid rgba(99,153,34,.3)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>MSME</span>}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="fgrp">
                         <label className="lbl">Vendor <span className="req">*</span></label>
@@ -882,7 +950,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                             {manualVendors.map((v: any) => (
                               <button key={v.id} type="button"
                                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', borderBottom: '0.5px solid var(--bd)', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}
-                                onClick={() => { setManualVendorId(v.id); setManualVendorName(v.company_name); setManualVendorSearch(''); setStep1Error('') }}>
+                                onClick={() => { setManualVendorId(v.id); setManualVendorName(v.company_name); setSelectedManualVendor(v); setManualVendorSearch(''); setStep1Error('') }}>
                                 <div style={{ fontWeight: 600 }}>{v.company_name}</div>
                                 <div style={{ fontSize: 12, color: 'var(--tx3)' }}>{v.vendor_code} · {v.city}</div>
                               </button>
@@ -900,143 +968,6 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
           {/* ════════ CREATE STEP 2 — PO Details ════════ */}
           {mode === 'create' && step === 2 && (
             <>
-              {/* Vendor flow: item management */}
-              {createMethod === 'vendor' && (
-                <div className="form-sec">
-                  <div className="form-sec-head">
-                    <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}><i className="ti ti-package" /></div>
-                    <div>
-                      <div className="fsh-title">Line Items <span style={{ fontWeight: 400, color: 'var(--tx3)' }}>({manualItems.length})</span></div>
-                      <div className="fsh-sub">Select from master catalog only — fields auto-populate on selection</div>
-                    </div>
-                  </div>
-                  <div className="form-body">
-                    {/* Existing items table */}
-                    {manualItems.length > 0 && (
-                      <div style={{ overflowX: 'auto', marginBottom: 12 }}>
-                        <table className="po-tbl">
-                          <thead>
-                            <tr>
-                              <th style={{ width: 36 }}>#</th>
-                              <th>Item</th>
-                              <th>HSN</th>
-                              <th style={{ textAlign: 'right', width: 70 }}>Qty</th>
-                              <th style={{ width: 60 }}>UOM</th>
-                              <th style={{ textAlign: 'right', width: 110 }}>Unit Rate</th>
-                              <th style={{ textAlign: 'right', width: 110 }}>Total</th>
-                              <th style={{ width: 36 }} />
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {manualItems.map((it, i) => (
-                              <tr key={it.key}>
-                                <td style={{ fontFamily: 'monospace', color: 'var(--tx3)', fontSize: 12 }}>{String(i + 1).padStart(2, '0')}</td>
-                                <td>
-                                  <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 12 }}>{it.code}</div>
-                                  <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 1 }}>{it.description}</div>
-                                </td>
-                                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)' }}>{it.hsn_code || '—'}</td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <input type="number" min="1" value={it.quantity}
-                                    onChange={e => setManualItems(prev => prev.map(x => x.key === it.key ? { ...x, quantity: Math.max(1, Number(e.target.value) || 1) } : x))}
-                                    style={{ width: 60, padding: '4px 6px', border: '0.5px solid var(--bdm)', borderRadius: 6, fontFamily: "'DM Sans',sans-serif", fontSize: 13, textAlign: 'right' }} />
-                                </td>
-                                <td style={{ color: 'var(--tx3)' }}>{it.unit_of_measure}</td>
-                                <td style={{ textAlign: 'right' }}>{formatCurrency(it.unit_rate)}</td>
-                                <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(it.unit_rate * it.quantity)}</td>
-                                <td>
-                                  <button type="button" onClick={() => setManualItems(p => p.filter(x => x.key !== it.key))}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red-tx)', padding: '2px 4px', fontSize: 16, lineHeight: 1 }}>×</button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr><td colSpan={6} style={{ textAlign: 'right', fontWeight: 600, color: 'var(--tx2)' }}>Sub Total</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(manualSubtotal)}</td><td /></tr>
-                            <tr><td colSpan={6} style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST @ {GST_RATE}%</td><td style={{ textAlign: 'right', color: 'var(--tx3)' }}>{formatCurrency(manualGstAmount)}</td><td /></tr>
-                            <tr style={{ background: 'var(--bg-t)' }}>
-                              <td colSpan={6} style={{ textAlign: 'right', fontWeight: 700, fontSize: 14, borderTop: '0.5px solid var(--bdm)' }}>Grand Total</td>
-                              <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{formatCurrency(manualGrandTotal)}</td>
-                              <td style={{ borderTop: '0.5px solid var(--bdm)' }} />
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    )}
-                    {(step2Errors as any).items && <div className="err" style={{ marginBottom: 8 }}>{(step2Errors as any).items}</div>}
-
-                    {/* Item search / add panel */}
-                    {addingItem ? (
-                      <div style={{ background: 'var(--bg-s)', border: '0.5px solid var(--bdm)', borderRadius: 10, padding: 14 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--tx2)' }}>Search master catalog</div>
-                        <div style={{ position: 'relative', marginBottom: 8 }}>
-                          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--tx3)' }} />
-                          <input className="inp" style={{ paddingLeft: 32 }} placeholder="Search by code or description…"
-                            value={itemSearch} onChange={e => { setItemSearch(e.target.value); setPendingItem(null) }} autoFocus />
-                        </div>
-                        {masterItems && masterItems.length > 0 && !pendingItem && (
-                          <div style={{ border: '0.5px solid var(--bdm)', borderRadius: 8, overflow: 'hidden', maxHeight: 200, overflowY: 'auto', marginBottom: 8 }}>
-                            {masterItems.map((item: any) => (
-                              <button key={item.id} type="button"
-                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', borderBottom: '0.5px solid var(--bd)', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}
-                                onClick={() => setPendingItem({ id: item.id, code: item.code, description: item.description, hsn_code: item.hsn_code || '', unit_of_measure: item.unit_of_measure, unit_rate: Number(item.unit_rate) || 0 })}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <div>
-                                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, color: 'var(--blu-tx)' }}>{item.code}</span>
-                                    <span style={{ marginLeft: 8, color: 'var(--tx2)' }}>{item.description}</span>
-                                  </div>
-                                  <span style={{ fontSize: 12, color: 'var(--tx3)', whiteSpace: 'nowrap', marginLeft: 12 }}>{item.unit_of_measure} · {formatCurrency(item.unit_rate)}</span>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {masterItems && masterItems.length === 0 && normalizedItemSearch.length >= 1 && (
-                          <p style={{ fontSize: 12, color: 'var(--tx3)', marginBottom: 8 }}>No items found for "{normalizedItemSearch}".</p>
-                        )}
-
-                        {/* Quantity input for selected item */}
-                        {pendingItem && (
-                          <div style={{ background: 'var(--pur-bg)', border: '0.5px solid rgba(127,119,221,.3)', borderRadius: 8, padding: 12, marginBottom: 8 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--pur-tx)', marginBottom: 6 }}>
-                              <span style={{ fontFamily: 'monospace' }}>{pendingItem.code}</span> — {pendingItem.description}
-                            </div>
-                            <div style={{ fontSize: 12, color: 'var(--tx3)', marginBottom: 10 }}>
-                              HSN: {pendingItem.hsn_code || '—'} · UOM: {pendingItem.unit_of_measure} · Rate: {formatCurrency(pendingItem.unit_rate)}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <label className="lbl" style={{ margin: 0, whiteSpace: 'nowrap' }}>Quantity</label>
-                              <input type="number" min="1" value={pendingQty}
-                                onChange={e => setPendingQty(e.target.value)}
-                                style={{ width: 80, padding: '6px 10px', border: '0.5px solid var(--bdm)', borderRadius: 6, fontFamily: "'DM Sans',sans-serif", fontSize: 13 }} />
-                              <span style={{ fontSize: 13, color: 'var(--tx3)' }}>{pendingItem.unit_of_measure}</span>
-                              <button type="button" className="btn-primary" style={{ padding: '7px 16px', fontSize: 13 }}
-                                onClick={() => {
-                                  const qty = Math.max(1, Number(pendingQty) || 1)
-                                  setManualItems(prev => [...prev, { key: Date.now().toString(), masterItemId: pendingItem.id, code: pendingItem.code, description: pendingItem.description, hsn_code: pendingItem.hsn_code, unit_of_measure: pendingItem.unit_of_measure, unit_rate: pendingItem.unit_rate, quantity: qty }])
-                                  setPendingItem(null); setPendingQty('1'); setItemSearch(''); setAddingItem(false)
-                                  setStep2Errors(p => ({ ...p, items: undefined } as any))
-                                }}>
-                                Add to PO
-                              </button>
-                              <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--tx3)' }} onClick={() => setPendingItem(null)}>Cancel</button>
-                            </div>
-                          </div>
-                        )}
-                        <button type="button" className="btn-ghost" style={{ fontSize: 12 }}
-                          onClick={() => { setAddingItem(false); setItemSearch(''); setPendingItem(null) }}>
-                          Cancel search
-                        </button>
-                      </div>
-                    ) : (
-                      <button type="button" className="btn-ghost" onClick={() => { setAddingItem(true); setPendingQty('1') }}>
-                        <i className="ti ti-plus" style={{ fontSize: 14 }} /> Add Item from Catalog
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
               {/* PO dates / terms — common to all methods */}
               <div className="form-sec">
                 <div className="form-sec-head">
@@ -1085,74 +1016,221 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
 
           {/* ════════ CREATE STEP 3 — Review & Issue ════════ */}
           {mode === 'create' && step === 3 && (() => {
-            // Normalise items for all 3 methods
-            const items3 = createMethod === 'pr'
-              ? (selectedQuotation?.items || []).map(it => ({ id: it.id, name: it.item_name, code: it.item_code, hsn: it.hsn_code || '—', qty: it.quantity, uom: it.unit_of_measure, price: it.item_price, total: it.line_total }))
-              : createMethod === 'quotation'
-              ? qtItems?.map((it:any) => ({ id: it?.id, name: it?.item_name, code: it?.item_code, hsn: it?.hsn_code, qty: it?.quantity, uom: it?.unit_of_measure, price: it?.item_price, total: it?.line_total }))
-              : manualItems.map(it => ({ id: it.key, name: it?.code, code: it?.description, hsn: it?.hsn_code, qty: it?.quantity, uom: it?.unit_of_measure, price: it?.unit_rate, total: it?.unit_rate * it?.quantity }))
             const s3sub = createMethod === 'pr' ? subTotal : createMethod === 'quotation' ? qtSubtotal : manualSubtotal
             const s3gst = createMethod === 'pr' ? gstAmount : createMethod === 'quotation' ? (qtGrandTotal - qtSubtotal) : manualGstAmount
             const s3total = step3GrandTotal
             const s3label = createMethod === 'pr' ? `PR ${prDetail?.pr_number ?? ''}` : createMethod === 'quotation' ? (directQtDetail?.ref_no ?? '') : manualVendorName
+
+            // Normalise items for PR / Quotation flow (vendor manages its own table below)
+            const items3 = createMethod === 'pr'
+              ? (selectedQuotation?.items || []).map(it => ({ id: it.id, name: it.item_name, code: it.item_code, hsn: it.hsn_code || '—', qty: it.quantity, uom: it.unit_of_measure, price: it.item_price, total: it.line_total }))
+              : qtItems?.map((it: any) => ({ id: it?.id, name: it?.item_name, code: it?.item_code, hsn: it?.hsn_code, qty: it?.quantity, uom: it?.unit_of_measure, price: it?.item_price, total: it?.line_total }))
+
             return (
               <>
                 <div style={{ background: 'var(--grn-bg)', border: '0.5px solid rgba(99,153,34,.3)', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, fontSize: 13, color: 'var(--grn-tx)' }}>
                   <i className="ti ti-sparkles" style={{ fontSize: 16, flexShrink: 0 }} />
-                  <span><strong>Ready to issue.</strong> Review the line items below and click "Issue Purchase Order".</span>
+                  <span><strong>Ready to issue.</strong> {createMethod === 'vendor' ? 'Add line items below, then click "Issue Purchase Order".' : 'Review the line items below and click "Issue Purchase Order".'}</span>
                 </div>
-                {items3.length > 0 ? (
+
+                {/* ── Vendor flow: inline item add table ── */}
+                {createMethod === 'vendor' && (
                   <div className="form-sec">
                     <div className="form-sec-head">
                       <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}><i className="ti ti-package" /></div>
-                      <div><div className="fsh-title">Line Items</div><div className="fsh-sub">{s3label}{createVendorName && ` · ${createVendorName}`}</div></div>
+                      <div>
+                        <div className="fsh-title">Line Items <span style={{ fontWeight: 400, color: 'var(--tx3)' }}>({manualItems.length})</span></div>
+                        <div className="fsh-sub">Select from master catalog — all fields auto-populate on selection</div>
+                      </div>
                     </div>
                     <div style={{ overflowX: 'auto' }}>
                       <table className="po-tbl">
                         <thead>
                           <tr>
-                            <th style={{ width: 40 }}>#</th>
+                            <th style={{ width: 36 }}>#</th>
                             <th>Item</th>
-                            <th>HSN</th>
-                            <th style={{ textAlign: 'right' }}>Qty</th>
-                            <th>UOM</th>
-                            <th style={{ textAlign: 'right' }}>Unit Price</th>
-                            <th style={{ textAlign: 'right' }}>Total</th>
+                            <th style={{ width: 110, whiteSpace: 'nowrap' }}>HSN</th>
+                            <th style={{ textAlign: 'right', width: 80 }}>Qty</th>
+                            <th style={{ width: 70 }}>UOM</th>
+                            <th style={{ textAlign: 'right', width: 110 }}>Unit Rate</th>
+                            <th style={{ textAlign: 'right', width: 110 }}>Total</th>
+                            <th style={{ width: 36 }} />
                           </tr>
                         </thead>
                         <tbody>
-                          {items3?.map((it:any, i:any) => (
-                            <tr key={it?.id}>
+                          {/* Existing items */}
+                          {manualItems.map((it, i) => (
+                            <tr key={it.key}>
                               <td style={{ fontFamily: 'monospace', color: 'var(--tx3)', fontSize: 12 }}>{String(i + 1).padStart(2, '0')}</td>
                               <td>
-                                <div style={{ fontWeight: 600 }}>{it.name}</div>
-                                {it.code && <div style={{ fontSize: 11, color: 'var(--tx3)', fontFamily: 'monospace' }}>{it?.code}</div>}
+                                <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 12 }}>{it.code}</div>
+                                <div style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 1 }}>{it.description}</div>
                               </td>
-                              <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)' }}>{it?.hsn}</td>
-                              <td style={{ textAlign: 'right' }}>{it?.qty}</td>
-                              <td style={{ color: 'var(--tx3)' }}>{it?.uom}</td>
-                              <td style={{ textAlign: 'right' }}>{formatCurrency(it?.price)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(it?.total)}</td>
+                              <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)', whiteSpace: 'nowrap' }}>{it.hsn_code || '—'}</td>
+                              <td style={{ textAlign: 'right' }}>
+                                <input type="number" min="1" value={it.quantity}
+                                  onChange={e => setManualItems(prev => prev.map(x => x.key === it.key ? { ...x, quantity: Math.max(1, Number(e.target.value) || 1) } : x))}
+                                  style={{ width: 60, padding: '4px 6px', border: '0.5px solid var(--bdm)', borderRadius: 6, fontFamily: "'DM Sans',sans-serif", fontSize: 13, textAlign: 'right' }} />
+                              </td>
+                              <td style={{ color: 'var(--tx3)' }}>{it.unit_of_measure}</td>
+                              <td style={{ textAlign: 'right' }}>{formatCurrency(it.unit_rate)}</td>
+                              <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(it.unit_rate * it.quantity)}</td>
+                              <td>
+                                <button type="button" onClick={() => setManualItems(p => p.filter(x => x.key !== it.key))}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red-tx)', padding: '2px 4px', fontSize: 16, lineHeight: 1 }}>×</button>
+                              </td>
                             </tr>
                           ))}
+
+                          {/* Inline add row — shown when no items yet or addRowOpen */}
+                          {(manualItems.length === 0 || addRowOpen) && (
+                            <tr style={{ background: 'var(--pur-bg)', borderTop: manualItems.length > 0 ? '1px dashed var(--bdm)' : undefined }}>
+                              <td style={{ color: 'var(--tx3)', fontSize: 13, textAlign: 'center' }}>+</td>
+                              <td style={{ position: 'relative', minWidth: 220 }}>
+                                <div style={{ position: 'relative' }}>
+                                  <Search style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: 'var(--tx3)', pointerEvents: 'none' }} />
+                                  <input className="inp" style={{ paddingLeft: 28, fontSize: 12 }}
+                                    placeholder="Search item by code or name…"
+                                    value={itemSearch}
+                                    onChange={e => { setItemSearch(e.target.value); setPendingItem(null) }}
+                                    autoFocus={addRowOpen} />
+                                </div>
+                                {masterItems && masterItems.length > 0 && !pendingItem && normalizedItemSearch && (
+                                  <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 30, background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 8, maxHeight: 220, overflowY: 'auto', boxShadow: '0 -4px 16px rgba(0,0,0,.12)', marginBottom: 4 }}>
+                                    {masterItems.map((item: any) => {
+                                      const alreadyAdded = manualItems.some(x => x.masterItemId === item.id)
+                                      return (
+                                        <button key={item.id} type="button" disabled={alreadyAdded}
+                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: alreadyAdded ? 'var(--bg-s)' : 'none', border: 'none', borderBottom: '0.5px solid var(--bd)', cursor: alreadyAdded ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans',sans-serif", fontSize: 13, opacity: alreadyAdded ? 0.5 : 1 }}
+                                          onClick={() => { if (alreadyAdded) return; setPendingItem({ id: item.id, code: item.code, description: item.description, hsn_code: item.hsn_code || '', unit_of_measure: item.unit_of_measure, unit_rate: Number(item.unit_rate) || 0 }); setPendingQty('1'); setItemSearch(item.code + ' — ' + item.description) }}>
+                                          <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, color: 'var(--blu-tx)' }}>{item.code}</span>
+                                          <span style={{ marginLeft: 8, color: 'var(--tx2)' }}>{item.description}</span>
+                                          {alreadyAdded
+                                            ? <span style={{ float: 'right', fontSize: 11, color: 'var(--grn-tx)', fontWeight: 600 }}>Added</span>
+                                            : <span style={{ float: 'right', fontSize: 12, color: 'var(--tx3)' }}>{item.unit_of_measure}</span>}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                                {masterItems && masterItems.length === 0 && normalizedItemSearch.length >= 1 && !pendingItem && (
+                                  <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 30, background: 'var(--bg)', border: '0.5px solid var(--bdm)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: 'var(--tx3)', marginBottom: 4 }}>
+                                    No items found for "{normalizedItemSearch}"
+                                  </div>
+                                )}
+                              </td>
+                              <td><input className="inp" style={{ fontSize: 12, color: 'var(--tx3)', fontFamily: 'monospace' }} value={pendingItem?.hsn_code ?? ''} readOnly placeholder="HSN" /></td>
+                              <td><input type="number" min="1" className="inp" style={{ fontSize: 12, textAlign: 'right' }} value={pendingItem ? pendingQty : ''} readOnly={!pendingItem} onChange={e => setPendingQty(e.target.value)} placeholder="Qty" /></td>
+                              <td><input className="inp" style={{ fontSize: 12, color: 'var(--tx3)' }} value={pendingItem?.unit_of_measure ?? ''} readOnly placeholder="UOM" /></td>
+                              <td><input className="inp" style={{ fontSize: 12, textAlign: 'right', color: 'var(--tx2)' }} value={pendingItem ? formatCurrency(pendingItem.unit_rate) : ''} readOnly placeholder="Rate" /></td>
+                              <td><input className="inp" style={{ fontSize: 12, textAlign: 'right', fontWeight: pendingItem ? 600 : 400 }} value={pendingItem ? formatCurrency(pendingItem.unit_rate * Math.max(1, Number(pendingQty) || 1)) : ''} readOnly placeholder="Total" /></td>
+                              {/* Action: Add / Cancel */}
+                              <td style={{ whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                                <button type="button"
+                                  style={{ padding: '4px 12px', fontSize: 12, borderRadius: 6, border: 'none', cursor: pendingItem ? 'pointer' : 'not-allowed', background: pendingItem ? 'hsl(var(--primary))' : 'var(--bg-t)', color: pendingItem ? 'hsl(var(--primary-foreground))' : 'var(--tx3)', fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}
+                                  disabled={!pendingItem}
+                                  onClick={() => {
+                                    if (!pendingItem) return
+                                    if (manualItems.some(x => x.masterItemId === pendingItem.id)) {
+                                      toast({ title: 'Item already added', description: `${pendingItem.code} is already in the list. Adjust the quantity instead.`, variant: 'destructive' })
+                                      return
+                                    }
+                                    const qty = Math.max(1, Number(pendingQty) || 1)
+                                    setManualItems(prev => [...prev, { key: Date.now().toString(), masterItemId: pendingItem.id, code: pendingItem.code, description: pendingItem.description, hsn_code: pendingItem.hsn_code, unit_of_measure: pendingItem.unit_of_measure, unit_rate: pendingItem.unit_rate, quantity: qty }])
+                                    setPendingItem(null); setPendingQty('1'); setItemSearch(''); setAddRowOpen(false)
+                                  }}>Add</button>
+                                {manualItems.length > 0 && (
+                                  <button type="button"
+                                    style={{ marginLeft: 4, padding: '4px 8px', fontSize: 12, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'none', color: 'var(--tx3)', fontFamily: "'DM Sans',sans-serif" }}
+                                    onClick={() => { setPendingItem(null); setItemSearch(''); setPendingQty('1'); setAddRowOpen(false) }}>✕</button>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+
+                          {/* "+ Add Item" full-width row — shown when items exist and row is closed */}
+                          {manualItems.length > 0 && !addRowOpen && (
+                            <tr style={{ cursor: 'pointer', borderTop: '0.5px solid var(--bd)' }}
+                              onClick={() => { setAddRowOpen(true); setPendingItem(null); setItemSearch(''); setPendingQty('1') }}>
+                              <td colSpan={8} style={{ padding: '9px 14px', color: 'hsl(var(--primary))', fontSize: 13, fontWeight: 500 }}>
+                                <i className="ti ti-plus" style={{ fontSize: 13, marginRight: 6 }} />Add Item
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
-                        <tfoot>
-                          <tr><td colSpan={6} style={{ textAlign: 'right', fontWeight: 600, color: 'var(--tx2)' }}>Sub Total</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(s3sub)}</td></tr>
-                          <tr><td colSpan={6} style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST @ {GST_RATE}%</td><td style={{ textAlign: 'right', color: 'var(--tx3)' }}>{formatCurrency(s3gst)}</td></tr>
-                          <tr style={{ background: 'var(--bg-t)' }}>
-                            <td colSpan={6} style={{ textAlign: 'right', fontWeight: 700, fontSize: 14, borderTop: '0.5px solid var(--bdm)' }}>Grand Total</td>
-                            <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{formatCurrency(s3total)}</td>
-                          </tr>
-                        </tfoot>
+                        {manualItems.length > 0 && (
+                          <tfoot>
+                            <tr><td colSpan={6} style={{ textAlign: 'right', fontWeight: 600, color: 'var(--tx2)' }}>Sub Total</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(manualSubtotal)}</td><td /></tr>
+                            <tr><td colSpan={6} style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST @ {GST_RATE}%</td><td style={{ textAlign: 'right', color: 'var(--tx3)' }}>{formatCurrency(manualGstAmount)}</td><td /></tr>
+                            <tr style={{ background: 'var(--bg-t)' }}>
+                              <td colSpan={6} style={{ textAlign: 'right', fontWeight: 700, fontSize: 14, borderTop: '0.5px solid var(--bdm)' }}>Grand Total</td>
+                              <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{formatCurrency(manualGrandTotal)}</td>
+                              <td style={{ borderTop: '0.5px solid var(--bdm)' }} />
+                            </tr>
+                          </tfoot>
+                        )}
                       </table>
                     </div>
                   </div>
-                ) : (
-                  <div className="form-sec">
-                    <div className="form-body" style={{ textAlign: 'center', color: 'var(--tx3)', padding: 32 }}>
-                      {createMethod === 'pr' ? 'No quotation linked — PO will be created from PR estimates.' : 'No line items.'}
-                    </div>
-                  </div>
+                )}
+
+                {/* ── PR / Quotation flow: read-only review table ── */}
+                {createMethod !== 'vendor' && (
+                  <>
+                    {items3 && items3.length > 0 ? (
+                      <div className="form-sec">
+                        <div className="form-sec-head">
+                          <div className="fsh-ic" style={{ background: 'var(--grn-bg)', color: 'var(--grn-tx)' }}><i className="ti ti-package" /></div>
+                          <div><div className="fsh-title">Line Items</div><div className="fsh-sub">{s3label}{createVendorName && ` · ${createVendorName}`}</div></div>
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                          <table className="po-tbl">
+                            <thead>
+                              <tr>
+                                <th style={{ width: 40 }}>#</th>
+                                <th>Item</th>
+                                <th>HSN</th>
+                                <th style={{ textAlign: 'right' }}>Qty</th>
+                                <th>UOM</th>
+                                <th style={{ textAlign: 'right' }}>Unit Price</th>
+                                <th style={{ textAlign: 'right' }}>Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {items3?.map((it: any, i: any) => (
+                                <tr key={it?.id}>
+                                  <td style={{ fontFamily: 'monospace', color: 'var(--tx3)', fontSize: 12 }}>{String(i + 1).padStart(2, '0')}</td>
+                                  <td>
+                                    <div style={{ fontWeight: 600 }}>{it.name}</div>
+                                    {it.code && <div style={{ fontSize: 11, color: 'var(--tx3)', fontFamily: 'monospace' }}>{it?.code}</div>}
+                                  </td>
+                                  <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--tx3)' }}>{it?.hsn}</td>
+                                  <td style={{ textAlign: 'right' }}>{it?.qty}</td>
+                                  <td style={{ color: 'var(--tx3)' }}>{it?.uom}</td>
+                                  <td style={{ textAlign: 'right' }}>{formatCurrency(it?.price)}</td>
+                                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(it?.total)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr><td colSpan={6} style={{ textAlign: 'right', fontWeight: 600, color: 'var(--tx2)' }}>Sub Total</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(s3sub)}</td></tr>
+                              <tr><td colSpan={6} style={{ textAlign: 'right', color: 'var(--tx3)' }}>IGST @ {GST_RATE}%</td><td style={{ textAlign: 'right', color: 'var(--tx3)' }}>{formatCurrency(s3gst)}</td></tr>
+                              <tr style={{ background: 'var(--bg-t)' }}>
+                                <td colSpan={6} style={{ textAlign: 'right', fontWeight: 700, fontSize: 14, borderTop: '0.5px solid var(--bdm)' }}>Grand Total</td>
+                                <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--tel-tx)', borderTop: '0.5px solid var(--bdm)' }}>{formatCurrency(s3total)}</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="form-sec">
+                        <div className="form-body" style={{ textAlign: 'center', color: 'var(--tx3)', padding: 32 }}>
+                          {createMethod === 'pr' ? 'No quotation linked — PO will be created from PR estimates.' : 'No line items found.'}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )
@@ -1442,114 +1520,23 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
         {/* ── Sidebar ── */}
         <div>
 
-          {/* ── PO Summary — step + method aware ── */}
-          <div className="card">
-            <div className="card-head">
-              <div className="card-title">
-                <i className="ti ti-eye" style={{ fontSize: 14 }} />
-                {mode === 'create' ? (step === 2 ? 'Cost Preview' : 'PO Summary') : 'PO Summary'}
+          {/* ── PO Summary — edit mode only ── */}
+          {mode === 'edit' && (
+            <div className="card">
+              <div className="card-head">
+                <div className="card-title"><i className="ti ti-eye" style={{ fontSize: 14 }} />PO Summary</div>
+              </div>
+              <div className="card-body">
+                <div className="stat-box"><div className="stat-lbl">Grand Total</div><div className="stat-val" style={{ color: 'var(--tel-tx)' }}>{formatCurrency(editGrandTotal)}</div></div>
+                {budgetRemainingEdit !== null && (
+                  <div className="stat-box" style={{ background: budgetExceededEdit ? 'var(--red-bg)' : 'var(--bg-s)', borderColor: budgetExceededEdit ? 'var(--red-bd)' : 'var(--bd)' }}>
+                    <div className="stat-lbl">Budget Remaining</div>
+                    <div className="stat-val" style={{ fontSize: 16, color: budgetExceededEdit ? 'var(--red-tx)' : 'var(--grn-tx)' }}>{formatCurrency(budgetRemainingEdit)}</div>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="card-body">
-
-              {/* CREATE — no method chosen yet */}
-              {mode === 'create' && !createMethod && (
-                <p style={{ fontSize: 13, color: 'var(--tx3)' }}>Choose a creation method to see the cost summary.</p>
-              )}
-
-              {/* CREATE — PR flow */}
-              {mode === 'create' && createMethod === 'pr' && step === 1 && !selectedQuotation && (
-                <p style={{ fontSize: 13, color: 'var(--tx3)' }}>{selectedPrId ? 'No quotation on this PR — PO from estimates.' : 'Select a PR to see the total.'}</p>
-              )}
-              {mode === 'create' && createMethod === 'pr' && (step === 1 ? !!selectedQuotation : true) && selectedQuotation && (
-                <>
-                  {step >= 2 && <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 10 }}>{selectedQuotation.vendor_name}</p>}
-                  {step === 2 && [
-                    { lbl: 'Sub Total', val: formatCurrency(subTotal) },
-                    { lbl: `GST @ ${GST_RATE}%`, val: formatCurrency(gstAmount) },
-                  ].map(({ lbl, val }) => (
-                    <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
-                      <span style={{ color: 'var(--tx3)' }}>{lbl}</span><span style={{ fontWeight: 600 }}>{val}</span>
-                    </div>
-                  ))}
-                  <div className="stat-box" style={{ marginTop: step === 2 ? 4 : 0 }}>
-                    <div className="stat-lbl">Grand Total (incl. GST {GST_RATE}%)</div>
-                    <div className="stat-val" style={{ color: 'var(--tel-tx)' }}>{formatCurrency(grandTotal)}</div>
-                  </div>
-                  {budgetAfterPO !== null && (
-                    <div className="stat-box" style={{ background: budgetAfterPO < 0 ? 'var(--red-bg)' : 'var(--bg-s)', borderColor: budgetAfterPO < 0 ? 'var(--red-bd)' : 'var(--bd)' }}>
-                      <div className="stat-lbl">Budget After PO</div>
-                      <div className="stat-val" style={{ fontSize: 16, color: budgetAfterPO < 0 ? 'var(--red-tx)' : 'var(--grn-tx)' }}>{formatCurrency(budgetAfterPO)}</div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* CREATE — Quotation flow */}
-              {mode === 'create' && createMethod === 'quotation' && !directQtId && (
-                <p style={{ fontSize: 13, color: 'var(--tx3)' }}>Select a quotation to see the cost.</p>
-              )}
-              {mode === 'create' && createMethod === 'quotation' && !!directQtId && (
-                <>
-                  {qtVendorName && <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 10 }}>{qtVendorName}</p>}
-                  {step >= 2 && [
-                    { lbl: 'Sub Total', val: formatCurrency(qtSubtotal) },
-                    { lbl: 'Tax', val: formatCurrency(qtGrandTotal - qtSubtotal) },
-                  ].map(({ lbl, val }) => (
-                    <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
-                      <span style={{ color: 'var(--tx3)' }}>{lbl}</span><span style={{ fontWeight: 600 }}>{val}</span>
-                    </div>
-                  ))}
-                  <div className="stat-box">
-                    <div className="stat-lbl">Grand Total</div>
-                    <div className="stat-val" style={{ color: 'var(--tel-tx)' }}>{formatCurrency(qtGrandTotal)}</div>
-                  </div>
-                </>
-              )}
-
-              {/* CREATE — Vendor manual flow */}
-              {mode === 'create' && createMethod === 'vendor' && !manualVendorId && (
-                <p style={{ fontSize: 13, color: 'var(--tx3)' }}>Select a vendor to get started.</p>
-              )}
-              {mode === 'create' && createMethod === 'vendor' && !!manualVendorId && (
-                <>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', marginBottom: 10 }}>{manualVendorName}</p>
-                  {manualItems.length === 0
-                    ? <p style={{ fontSize: 13, color: 'var(--tx3)' }}>Add items in step 2 to see the total.</p>
-                    : (
-                      <>
-                        {[
-                          { lbl: 'Sub Total', val: formatCurrency(manualSubtotal) },
-                          { lbl: `GST @ ${GST_RATE}%`, val: formatCurrency(manualGstAmount) },
-                        ].map(({ lbl, val }) => (
-                          <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
-                            <span style={{ color: 'var(--tx3)' }}>{lbl}</span><span style={{ fontWeight: 600 }}>{val}</span>
-                          </div>
-                        ))}
-                        <div className="stat-box">
-                          <div className="stat-lbl">Grand Total (incl. GST {GST_RATE}%)</div>
-                          <div className="stat-val" style={{ color: 'var(--tel-tx)' }}>{formatCurrency(manualGrandTotal)}</div>
-                        </div>
-                        <p style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 6 }}>{manualItems.length} item{manualItems.length !== 1 ? 's' : ''} added</p>
-                      </>
-                    )}
-                </>
-              )}
-
-              {/* EDIT mode */}
-              {mode === 'edit' && (
-                <>
-                  <div className="stat-box"><div className="stat-lbl">Grand Total</div><div className="stat-val" style={{ color: 'var(--tel-tx)' }}>{formatCurrency(editGrandTotal)}</div></div>
-                  {budgetRemainingEdit !== null && (
-                    <div className="stat-box" style={{ background: budgetExceededEdit ? 'var(--red-bg)' : 'var(--bg-s)', borderColor: budgetExceededEdit ? 'var(--red-bd)' : 'var(--bd)' }}>
-                      <div className="stat-lbl">Budget Remaining</div>
-                      <div className="stat-val" style={{ fontSize: 16, color: budgetExceededEdit ? 'var(--red-tx)' : 'var(--grn-tx)' }}>{formatCurrency(budgetRemainingEdit)}</div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+          )}
 
           {/* ── Checklist — step-aware (create only) ── */}
           {mode === 'create' && (
@@ -1557,21 +1544,37 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
               <div className="card-head">
                 <div className="card-title">
                   <i className="ti ti-list-check" style={{ fontSize: 14 }} />
-                  {step === 1 ? 'Step 1 — Select PR' : step === 2 ? 'Step 2 — PO Details' : 'Step 3 — Final Check'}
+                  {step === 1 ? 'Step 1 — Select Source' : step === 2 ? 'Step 2 — PO Details' : 'Step 3 — Line Items & Issue'}
                 </div>
               </div>
               <div>
-                {step === 1 && [
-                  { done: !!selectedPrId, label: 'PR selected', req: true },
-                  { done: !!selectedQuotation, label: 'Quotation linked', req: false },
-                  { done: !!selectedQuotation && !budgetWillExceed, label: 'Within budget', req: false },
-                ].map(({ done, label, req }) => (
-                  <div key={label} className="ci" style={{ color: done ? 'var(--grn-tx)' : req ? 'var(--red-tx)' : 'var(--tx3)' }}>
-                    {done ? <CheckCircle2 style={{ width: 14, height: 14, flexShrink: 0 }} /> : <Circle style={{ width: 14, height: 14, flexShrink: 0 }} />}
-                    <span style={{ fontSize: 13 }}>{label}</span>
-                    {req && !done && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)', marginLeft: 'auto' }}>Required</span>}
-                  </div>
-                ))}
+                {step === 1 && (() => {
+                  const items =
+                    !createMethod
+                      ? [{ done: false, label: 'Choose a creation method', req: true }]
+                      : createMethod === 'pr'
+                      ? [
+                          { done: true, label: 'Method: Purchase Request', req: false },
+                          { done: !!selectedPrId, label: 'PR selected', req: true },
+                          { done: !!selectedQuotation, label: 'Quotation linked', req: false },
+                        ]
+                      : createMethod === 'quotation'
+                      ? [
+                          { done: true, label: 'Method: Quotation', req: false },
+                          { done: !!directQtId, label: 'Quotation selected', req: true },
+                        ]
+                      : [
+                          { done: true, label: 'Method: Vendor (Manual)', req: false },
+                          { done: !!manualVendorId, label: 'Vendor selected', req: true },
+                        ]
+                  return items.map(({ done, label, req }) => (
+                    <div key={label} className="ci" style={{ color: done ? 'var(--grn-tx)' : req ? 'var(--red-tx)' : 'var(--tx3)' }}>
+                      {done ? <CheckCircle2 style={{ width: 14, height: 14, flexShrink: 0 }} /> : <Circle style={{ width: 14, height: 14, flexShrink: 0 }} />}
+                      <span style={{ fontSize: 13 }}>{label}</span>
+                      {req && !done && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red-tx)', marginLeft: 'auto' }}>Required</span>}
+                    </div>
+                  ))
+                })()}
 
                 {step === 2 && [
                   { done: !!poDate, label: 'PO date set', req: true },
@@ -1586,18 +1589,35 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
                   </div>
                 ))}
 
-                {step === 3 && [
-                  { done: !!selectedPrId, label: 'PR selected' },
-                  { done: !!selectedQuotation, label: 'Quotation linked' },
-                  { done: !!poDate, label: 'PO date set' },
-                  { done: !!deliveryDate, label: 'Delivery date set' },
-                  { done: !!selectedQuotation && !budgetWillExceed, label: 'Within budget' },
-                ].map(({ done, label }) => (
-                  <div key={label} className="ci" style={{ color: done ? 'var(--grn-tx)' : 'var(--tx3)' }}>
-                    {done ? <CheckCircle2 style={{ width: 14, height: 14, flexShrink: 0 }} /> : <Circle style={{ width: 14, height: 14, flexShrink: 0 }} />}
-                    <span style={{ fontSize: 13 }}>{label}</span>
-                  </div>
-                ))}
+                {step === 3 && (() => {
+                  const items =
+                    createMethod === 'pr'
+                      ? [
+                          { done: !!selectedPrId, label: 'PR selected' },
+                          { done: !!selectedQuotation, label: 'Quotation linked' },
+                          { done: !!poDate, label: 'PO date set' },
+                          { done: !!deliveryDate, label: 'Delivery date set' },
+                          { done: !budgetWillExceed, label: 'Within budget' },
+                        ]
+                      : createMethod === 'quotation'
+                      ? [
+                          { done: !!directQtId, label: 'Quotation selected' },
+                          { done: !!poDate, label: 'PO date set' },
+                          { done: !!deliveryDate, label: 'Delivery date set' },
+                        ]
+                      : [
+                          { done: !!manualVendorId, label: 'Vendor selected' },
+                          { done: !!poDate, label: 'PO date set' },
+                          { done: !!deliveryDate, label: 'Delivery date set' },
+                          { done: manualItems.length > 0, label: `Line items (${manualItems.length})` },
+                        ]
+                  return items.map(({ done, label }) => (
+                    <div key={label} className="ci" style={{ color: done ? 'var(--grn-tx)' : 'var(--tx3)' }}>
+                      {done ? <CheckCircle2 style={{ width: 14, height: 14, flexShrink: 0 }} /> : <Circle style={{ width: 14, height: 14, flexShrink: 0 }} />}
+                      <span style={{ fontSize: 13 }}>{label}</span>
+                    </div>
+                  ))
+                })()}
               </div>
             </div>
           )}
@@ -1737,7 +1757,7 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
             </button>
           )}
           {mode === 'create' && step === 3 && (
-            <button type="button" disabled={isPending} onClick={() => setShowIssueConfirm(true)} className="btn-primary">
+            <button type="button" disabled={isPending || !canIssue} onClick={() => setShowIssueConfirm(true)} className="btn-primary" style={{ opacity: !canIssue ? 0.5 : 1 }}>
               {isPending ? <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" /> : <Send style={{ width: 14, height: 14 }} />}
               Issue Purchase Order
             </button>
@@ -1763,10 +1783,10 @@ export default function POForm({ mode, poId, initialPrId = null }: POFormProps) 
       title="Issue Purchase Order?"
       description={
         <>
-          You are about to issue this Purchase Order to{' '}
-          <strong>{selectedQuotation?.vendor_name || 'the vendor'}</strong>
-          {selectedQuotation && (
-            <> for <strong>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(grandTotal)}</strong></>
+          You are about to issue this Purchase Order
+          {createVendorName && <> to <strong>{createVendorName}</strong></>}
+          {step3GrandTotal > 0 && (
+            <> for <strong>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(step3GrandTotal)}</strong></>
           )}
           .<br /><br />
           Once issued, the vendor will be notified and the order will be locked for changes. Are you sure you want to proceed?
