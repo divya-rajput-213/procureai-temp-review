@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import {
-  ArrowLeft, Loader2, Search, X,
+  ArrowLeft, Loader2, Search, X, Trash2,
   Check, ChevronDown, ChevronRight, ChevronLeft, ChevronUp, ChevronsUpDown, Plus, Lock, Calendar,
 } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -356,9 +356,10 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: {
 function QuotesStep({
   trackingDetail, selectedTracking, onSelectTracking,
   setValue, watchedTrackingId, errors, register,
-  selectedQuotationIds, toggleQuotation,
+  selectedQuotationIds, selectedQuotations, toggleQuotation,
+  removeQuotation, isRemovingQuotation,
   budgetRemaining,
-  setSelectedQuotationIds, isEditMode, currentPrId,
+  setSelectedQuotationIds, setSelectedQuotations, isEditMode, currentPrId,
 }: any) {
   const vendorColors: Record<string, string> = {}
   const colorPalette = ['#042348', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#3b82f6']
@@ -483,6 +484,7 @@ function QuotesStep({
                     setValue('title', undefined as any)
                     setValue('description', '')
                     setSelectedQuotationIds([])
+                    setSelectedQuotations([])
                     return
                   }
                   onSelectTracking(t)
@@ -553,6 +555,95 @@ function QuotesStep({
           )}
         </div>
       </div>
+
+      {watchedTrackingId && selectedQuotations.length > 0 && (() => {
+        const fmtD = (raw: string | null | undefined) => {
+          if (!raw) return '—'
+          const d = new Date(raw)
+          return Number.isNaN(d.getTime()) ? raw : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(d)
+        }
+        return (
+          <div className="form-sec" style={{ overflow: 'hidden' }}>
+            <div className="form-sec-head">
+              <div className="fsh-title">Selected Quotations</div>
+              <span style={{ fontSize: 12, color: '#9a9a96' }}>{selectedQuotations.length} / 5 selected</span>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>
+                <thead>
+                  <tr style={{ background: 'hsl(var(--muted) / 0.7)', borderBottom: '1px solid hsl(var(--border))' }}>
+                    {['Quote', 'Vendor', 'Items', 'Date', 'Status', 'Total', ''].map(h => (
+                      <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedQuotations.map((q: any, idx: number) => (
+                    <tr key={q.id} style={{ borderBottom: idx < selectedQuotations.length - 1 ? '0.5px solid rgba(0,0,0,0.06)' : 'none', transition: 'background .1s' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = '#fafaf8'}
+                      onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = ''}
+                    >
+                      <td style={{ padding: '11px 12px', verticalAlign: 'top' }}>
+                        <Link href={`/quotation/detail/${q.id}`} target="_blank" style={{ fontWeight: 600, fontSize: 12, color: '#0C447C', textDecoration: 'none' }}
+                          onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline'}
+                          onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none'}
+                        >{q.ref_no}</Link>
+                        {q.quotation_no && <div style={{ fontSize: 11, color: '#9a9a96', marginTop: 1 }}>{q.quotation_no}</div>}
+                      </td>
+                      <td style={{ padding: '11px 12px', verticalAlign: 'top' }}>
+                        <Link href={`/vendors/${q.vendor_id}`} target="_blank" style={{ fontWeight: 500, color: '#1a1a18', textDecoration: 'none' }}
+                          onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline'}
+                          onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none'}
+                        >{q.vendor_name || '—'}</Link>
+                        {q.vendor_gstin && <div style={{ fontSize: 11, color: '#9a9a96', marginTop: 1 }}>{q.vendor_gstin}</div>}
+                      </td>
+                      <td style={{ padding: '11px 12px', verticalAlign: 'top', color: '#5a5a57' }}>{q.items_count ?? '—'}</td>
+                      <td style={{ padding: '11px 12px', verticalAlign: 'top', color: '#5a5a57', whiteSpace: 'nowrap' }}>{fmtD(q.quotation_date)}</td>
+                      <td style={{ padding: '11px 12px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                        {(() => {
+                          const sm: Record<string, { bg: string; tx: string; dot: string; label: string }> = {
+                            draft: { bg: '#F1EFE8', tx: '#5F5E5A', dot: '#888780', label: 'Draft' },
+                            submitted: { bg: '#FFEDD5', tx: '#C2410C', dot: '#F97316', label: 'Submitted' },
+                            approved: { bg: '#EAF3DE', tx: '#3B6D11', dot: '#639922', label: 'Approved' },
+                            under_evaluation: { bg: '#EFF6FF', tx: '#1D4ED8', dot: '#3B82F6', label: 'Under Evaluation' },
+                            shortlisted: { bg: '#E1F5EE', tx: '#0F6E56', dot: '#1D9E75', label: 'Shortlisted' },
+                            not_selected: { bg: '#FCEBEB', tx: '#A32D2D', dot: '#E24B4A', label: 'Not Selected' },
+                          }
+                          const st = sm[q.status?.toLowerCase()] ?? sm.draft
+                          return (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: st.bg, color: st.tx }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: st.dot, flexShrink: 0 }} />
+                              {st.label}
+                            </span>
+                          )
+                        })()}
+                      </td>
+                      <td style={{ padding: '11px 12px', verticalAlign: 'top', textAlign: 'left', fontWeight: 700, color: '#0F6E56', whiteSpace: 'nowrap' }}>
+                        {formatCurrency(q.total_amount ?? q.grand_total ?? 0)}
+                      </td>
+                      <td style={{ padding: '11px 10px', verticalAlign: 'top', textAlign: 'left' }}>
+                        <button
+                          type="button"
+                          disabled={isRemovingQuotation}
+                          onClick={() => removeQuotation(q.id)}
+                          title="Remove"
+                          style={{ background: 'none', border: 'none', cursor: isRemovingQuotation ? 'not-allowed' : 'pointer', padding: '3px 5px', borderRadius: 6, color: '#9a9a96', display: 'inline-flex', alignItems: 'center' }}
+                          onMouseEnter={e => { if (!isRemovingQuotation) { (e.currentTarget as HTMLButtonElement).style.color = '#A32D2D'; (e.currentTarget as HTMLButtonElement).style.background = '#FCEBEB' } }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#9a9a96'; (e.currentTarget as HTMLButtonElement).style.background = 'none' }}
+                        >
+                          {isRemovingQuotation
+                            ? <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />
+                            : <Trash2 style={{ width: 14, height: 14 }} />}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })()}
 
       {watchedTrackingId && (
         <div className="form-sec">
@@ -665,7 +756,7 @@ function QuotesStep({
                   {hasDate && <Th col="quotation_date" label="Date" />}
                   {hasValidity && <Th col="valid_until" label="Validity" />}
                   {hasUploadedBy && <th style={thStyle}>Uploaded by</th>}
-                  <Th col="total_amount" label="Total" style={{ textAlign: 'right' }} />
+                  <Th col="total_amount" label="Total" />
                 </tr>
               </thead>
               <tbody>
@@ -689,7 +780,7 @@ function QuotesStep({
                   return (
                     <tr
                       key={q.id}
-                      onClick={() => toggleQuotation(q.id)}
+                      onClick={() => toggleQuotation(q.id, q)}
                       style={{
                         background: isSelected ? 'hsl(var(--primary) / 0.05)' : 'transparent',
                         borderBottom: '1px solid hsl(var(--border))',
@@ -752,7 +843,7 @@ function QuotesStep({
                           {q.uploaded_by || '—'}
                         </td>
                       )}
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: 13 }}>
+                      <td style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, fontSize: 13 }}>
                         {formatCurrency(q.total_amount)}
                         {exceedsBudget && (
                           <div className="text-[11px] text-destructive font-medium">Exceeds budget</div>
@@ -816,7 +907,9 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
   const [step, setStep] = useState(initialStep)
   const [selectedTracking, setSelectedTracking] = useState<any>(null)
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<number[]>([])
+  const [selectedQuotations, setSelectedQuotations] = useState<any[]>([])
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null)
+  const [isRemovingQuotation, setIsRemovingQuotation] = useState(false)
   const [showApprovalModal, setShowApprovalModal] = useState(false)
   // Use a ref so mutationFn always reads the latest ID without stale-closure issues
   const savedPrIdRef = useRef<string | null>(isEditMode ? (procurementId ?? null) : null)
@@ -850,6 +943,7 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
     setValue('title', existingPR.title || '')
     setValue('description', existingPR.description || '')
     setSelectedQuotationIds((existingPR.linked_quotations ?? []).map((q: any) => q.id))
+    setSelectedQuotations(existingPR.linked_quotations ?? [])
     setSavedPrId(procurementId ?? null)
     setPrId(existingPR.id ? String(existingPR.id) : null)
     setSelectedTracking({
@@ -940,18 +1034,29 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
     }
   }
 
-  const toggleQuotation = (id: number) => {
+  const toggleQuotation = (id: number, quotation?: any) => {
     if (!selectedQuotationIds.includes(id) && selectedQuotationIds.length >= 5) {
-      toast({
-        title: 'Maximum limit reached',
-        description: 'You can compare up to 5 quotations at a time.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Maximum limit reached', description: 'You can compare up to 5 quotations at a time.', variant: 'destructive' })
       return
     }
-    setSelectedQuotationIds(prev =>
-      prev.includes(id) ? prev.filter(q => q !== id) : [...prev, id]
-    )
+    setSelectedQuotationIds(prev => prev.includes(id) ? prev.filter(q => q !== id) : [...prev, id])
+    setSelectedQuotations(prev => prev.some(q => q.id === id) ? prev.filter(q => q.id !== id) : quotation ? [...prev, quotation] : prev)
+  }
+
+  const removeQuotation = async (id: number) => {
+    const remaining = selectedQuotationIds.filter(q => q !== id)
+    setSelectedQuotationIds(remaining)
+    setSelectedQuotations(prev => prev.filter(q => q.id !== id))
+    const currentId = savedPrIdRef.current
+    if (!currentId) return
+    setIsRemovingQuotation(true)
+    try {
+      await apiClient.patch(`/procurement/${currentId}/`, { quotation_ids: remaining, status: 'draft' })
+    } catch (err: any) {
+      toast({ title: 'Failed to unlink quotation', description: flattenDrfError(err?.response?.data), variant: 'destructive' })
+    } finally {
+      setIsRemovingQuotation(false)
+    }
   }
 
   // ─── Loading state for edit mode ──────────────────────────────────────
@@ -1060,9 +1165,13 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
               errors={errors}
               register={register}
               selectedQuotationIds={selectedQuotationIds}
+              selectedQuotations={selectedQuotations}
               toggleQuotation={toggleQuotation}
+              removeQuotation={removeQuotation}
+              isRemovingQuotation={isRemovingQuotation}
               budgetRemaining={budgetRemaining}
               setSelectedQuotationIds={setSelectedQuotationIds}
+              setSelectedQuotations={setSelectedQuotations}
               isEditMode={isEditMode}
               currentPrId={savedPrId}
             />
@@ -1104,7 +1213,17 @@ export default function ProcurementForm({ mode, procurementId, initialStep = 1 }
           <div className="pr-sticky rounded-b-xl">
             <div>
               {step > 1 && (
-                <Button variant="outline" size="sm" onClick={() => setStep(step - 1)} className="gap-1">
+                <Button variant="outline" size="sm" className="gap-1" onClick={async () => {
+                  if (step === 2 && savedPrIdRef.current) {
+                    try {
+                      const { data: pr } = await apiClient.get(`/procurement/${savedPrIdRef.current}/`)
+                      const linked = pr.linked_quotations ?? []
+                      setSelectedQuotationIds(linked.map((q: any) => q.id))
+                      setSelectedQuotations(linked)
+                    } catch { /* ignore, just go back */ }
+                  }
+                  setStep(step - 1)
+                }}>
                   <ArrowLeft className="w-3.5 h-3.5" /> Back
                 </Button>
               )}
