@@ -713,7 +713,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
         )}
 
         {/* Bid Win Rate + Delivery Performance */}
-        <Card className="rounded-xl border shadow-none">
+        {/* <Card className="rounded-xl border shadow-none">
           <CardHeader className="py-3 px-4 border-b">
             <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
               <Trophy className="h-3.5 w-3.5" />
@@ -760,7 +760,7 @@ function VendorDashboard({ vendor, dash, isLoading }: { vendor: any, dash: any, 
               </>
             )}
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* <Card className="rounded-xl border shadow-none">
           <CardHeader className="py-3 px-4 border-b">
